@@ -2,12 +2,19 @@ import { Request, Response } from "express";
 import userService from "../services/user.service";
 
 export const createUser = async (req: Request, res: Response) => {
+  console.log("Received request body:", req.body);
+
+  // Example authorization check
+  if (!req.headers.authorization || req.headers.authorization !== "Bearer mysecrettoken") {
+    console.log("Authorization failed");
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
   try {
     const newUser = await userService.createUser(req.body);
-    // Exclude password from response for security
-    const { password, ...userWithoutPassword } = newUser;
-    res.status(201).json(userWithoutPassword);
-  } catch (error: any) {
-    res.status(400).json({ error: error.message || "Failed to create user" });
+    res.status(201).json(newUser);
+  } catch (err) {
+    console.error("Error creating user:", err);
+    res.status(500).json({ error: "Server error" });
   }
 };
