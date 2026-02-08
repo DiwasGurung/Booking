@@ -1,7 +1,11 @@
 import { Router } from "express";
-import {createUser} from "../controllers/user.controller";
+import {createUser, loginUser, updateUserRole} from "../controllers/user.controller";
 
 const userRoutes = Router();
-userRoutes.post("/", createUser); // POST /api/users
+userRoutes.post("/", createUser); 
+
+userRoutes.post("/login", loginUser); 
+
+userRoutes.put("/update-role", updateUserRole);
 
 export default userRoutes;

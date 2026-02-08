@@ -5,14 +5,21 @@ class BusinessController {
   /**
    * Create business
    */
-  async create(req: Request, res: Response) {
-    try {
-      const business = await BusinessService.createBusiness(req.body)
-      res.status(201).json(business)
-    } catch (error) {
-      res.status(500).json({ message: "Failed to create business", error })
+async create(req: Request, res: Response) {
+  try {
+    const business = await BusinessService.createBusiness(req.body)
+    res.status(201).json(business)
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    if (errorMessage === "This user already has a business") {
+      return res.status(409).json({ message: errorMessage })
     }
+    if (errorMessage === "userId is required to create a business") {
+      return res.status(400).json({ message: errorMessage })
+    }
+    res.status(500).json({ message: "Failed to create business", error })
   }
+}
 
   /**
    * Get business by ID

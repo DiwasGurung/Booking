@@ -7,24 +7,50 @@ export class BusinessService {
    * Create a new business
    */
   async createBusiness(data: {
-    userId: string
-    name: string
-    email: string
-    phone: string
-    category: string
-    address: string
-    city: string
-    state: string
-    zipCode: string
-    country: string
-    description?: string
-    website?: string
-    logo?: string
-  }): Promise<Business> {
-    return prisma.business.create({
-      data,
-    })
+  userId: string
+  name: string
+  email: string
+  phone: string
+  category: string
+  address: string
+  city: string
+  state: string
+  zipCode: string
+  country: string
+  description?: string
+  website?: string
+  logo?: string
+}): Promise<Business> {
+  if (!data.userId) throw new Error("userId is required to create a business")
+
+    // Check if user already has a business
+  const existingBusiness = await prisma.business.findUnique({ where: { userId: data.userId } });
+  if (existingBusiness) {
+    throw new Error("This user already has a business");
   }
+
+  return prisma.business.create({
+    data: {
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      category: data.category,
+      address: data.address,
+      city: data.city,
+      state: data.state,
+      zipCode: data.zipCode,
+      country: data.country,
+      description: data.description,
+      website: data.website,
+      logo: data.logo,
+      user: {
+        connect: { id: data.userId }, 
+      },
+    },
+  })
+}
+
+
 
   /**
    * Get business by ID

@@ -8,6 +8,6 @@
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src"],
+  "include": ["src", "../booking/app/constants"],
   "exclude": ["node_modules", "dist"]
 }

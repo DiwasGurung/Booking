@@ -59,6 +59,15 @@ export class UserService {
       data,
     })
   }
+  async updateUserRole(userId: string, role: "CUSTOMER" | "BUSINESS_OWNER"): Promise<User> {
+    return prisma.user.update({
+      where: { id: userId },
+      data: { role },
+    })
+  }
+
+  
+
 
   /**
    * Delete user
