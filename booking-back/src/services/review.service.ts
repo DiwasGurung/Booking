@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma"
-import type { Review, Prisma } from "../generated/prisma/client"
+import type { Review, Prisma } from "../../prisma/src/generated/prisma/client"
 
 export class ReviewService {
   /**

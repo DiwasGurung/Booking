@@ -163,6 +163,7 @@ exports.Prisma.ServiceScalarFieldEnum = {
   name: 'name',
   description: 'description',
   price: 'price',
+  offerPrice: 'offerPrice',
   duration: 'duration',
   image: 'image',
   isActive: 'isActive',

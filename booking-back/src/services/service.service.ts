@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma"
-import type { Service, Prisma } from "../generated/prisma/client"
+import type { Service, Prisma } from "../../prisma/src/generated/prisma/client"
 
 export class ServiceService {
   /**
@@ -9,10 +9,12 @@ export class ServiceService {
     businessId: string
     name: string
     price: number
+    offerPrice?: number
     duration: number
     description?: string
     image?: string
     capacity?: number
+     isActive?: boolean
   }): Promise<Service> {
     return prisma.service.create({
       data,

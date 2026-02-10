@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma"
-import type { User, Prisma } from "../generated/prisma/client"
+import type { User, Prisma } from "../../prisma/src/generated/prisma/client"
 import bcrypt from "bcrypt"
 
 export class UserService {

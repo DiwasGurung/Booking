@@ -1,6 +1,6 @@
 import { Request, Response } from "express"
 import PaymentService from "../services/payment.service"
-import { PaymentStatus } from "../generated/prisma/client"
+import { PaymentStatus } from "../../prisma/src/generated/prisma/client"
 
 class PaymentController {
   /**

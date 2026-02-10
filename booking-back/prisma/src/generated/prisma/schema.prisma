@@ -100,6 +100,7 @@ model Service {
   name        String
   description String?
   price       Float
+  offerPrice  Float?
   duration    Int
   image       String?
   isActive    Boolean @default(true)

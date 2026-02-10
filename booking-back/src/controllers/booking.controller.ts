@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import BookingService from "../services/booking.service"; // Adjust path as needed
-import type { BookingStatus } from "../generated/prisma/client";
+import type { BookingStatus } from "../../prisma/src/generated/prisma/client";
 
 class BookingController {
   /**

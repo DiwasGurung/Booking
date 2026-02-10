@@ -1,5 +1,5 @@
 import  prisma  from "../lib/prisma"
-import type { Booking, Prisma, BookingStatus } from "../generated/prisma/client"
+import type { Booking, Prisma, BookingStatus } from "../../prisma/src/generated/prisma/client"
 
 export class BookingService {
   /**

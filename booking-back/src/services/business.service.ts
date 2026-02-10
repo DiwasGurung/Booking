@@ -1,5 +1,5 @@
 import  {prisma}  from "../lib/prisma"
-import type  {Business, Prisma} from "../generated/prisma/client"
+import type  {Business, Prisma} from "../../prisma/src/generated/prisma/client"
 
 
 export class BusinessService {

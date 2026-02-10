@@ -59,6 +59,7 @@ CREATE TABLE "Service" (
     "name" TEXT NOT NULL,
     "description" TEXT,
     "price" DOUBLE PRECISION NOT NULL,
+    "offerPrice" DOUBLE PRECISION,
     "duration" INTEGER NOT NULL,
     "image" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
