@@ -15,6 +15,14 @@ enum UserRole {
   ADMIN
 }
 
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  TRIAL
+}
+
 enum BookingStatus {
   PENDING
   CONFIRMED
@@ -82,6 +90,8 @@ model Business {
   isVerified Boolean @default(false)
   isActive   Boolean @default(true)
   rating     Float   @default(0)
+
+  subscription Subscription?
 
   services  Service[]
   bookings  Booking[]
@@ -242,4 +252,36 @@ model Notification {
   isRead  Boolean @default(false)
 
   createdAt DateTime @default(now())
+}
+
+
+model SubscriptionPlan {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  price       Float
+  currency    String   @default("USD")
+  durationInDays Int
+  description String?
+
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Subscription {
+  id         String   @id @default(cuid())
+
+  businessId String   @unique
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  planId String
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  status    SubscriptionStatus @default(TRIAL)
+  startDate DateTime
+  endDate   DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

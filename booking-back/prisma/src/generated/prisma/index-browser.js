@@ -250,6 +250,28 @@ exports.Prisma.NotificationScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.SubscriptionPlanScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  price: 'price',
+  currency: 'currency',
+  durationInDays: 'durationInDays',
+  description: 'description',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.SubscriptionScalarFieldEnum = {
+  id: 'id',
+  businessId: 'businessId',
+  planId: 'planId',
+  status: 'status',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -294,6 +316,13 @@ exports.NotificationType = exports.$Enums.NotificationType = {
   APPOINTMENT_APPROACHING: 'APPOINTMENT_APPROACHING'
 };
 
+exports.SubscriptionStatus = exports.$Enums.SubscriptionStatus = {
+  ACTIVE: 'ACTIVE',
+  EXPIRED: 'EXPIRED',
+  CANCELLED: 'CANCELLED',
+  TRIAL: 'TRIAL'
+};
+
 exports.Prisma.ModelName = {
   User: 'User',
   Business: 'Business',
@@ -303,7 +332,9 @@ exports.Prisma.ModelName = {
   Payment: 'Payment',
   Review: 'Review',
   BusinessHours: 'BusinessHours',
-  Notification: 'Notification'
+  Notification: 'Notification',
+  SubscriptionPlan: 'SubscriptionPlan',
+  Subscription: 'Subscription'
 };
 
 /**
