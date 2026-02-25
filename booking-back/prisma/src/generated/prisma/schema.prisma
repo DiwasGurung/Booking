@@ -174,23 +174,44 @@ model Booking {
 }
 
 model Payment {
-  id        String  @id @default(cuid())
-  bookingId String  @unique
-  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  id String @id @default(cuid())
 
   businessId String
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  amount   Float
-  currency String        @default("USD")
-  status   PaymentStatus @default(PENDING)
-  method   String?
+  // Booking payment (optional)
+  bookingId String?  @unique
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-  transactionId String? @unique
-  receiptUrl    String?
+  // Subscription payment (optional)
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  gateway       String
+  transactionId String @unique
+  amount        Int
+  status        String @default("pending")
+
+  esewaRefId       String? @unique
+  esewaProductCode String?
+
+  khaltiPidx  String?
+  khaltiToken String?
+
+  reference     String?
+  customerEmail String?
+  customerPhone String?
+  payload       Json?
+  errorMessage  String?
+  currency      String  @default("NPR")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([status])
+  @@index([gateway])
+  @@map("payments")
 }
 
 model Review {
@@ -244,17 +265,20 @@ model Notification {
 }
 
 model SubscriptionPlan {
-  id             String  @id @default(cuid())
-  name           String  @unique
-  price          Float
-  currency       String  @default("USD")
-  durationInDays Int
-  description    String?
+  id           String   @id @default(cuid())
+  name         String   @unique
+  priceNPR     Int
+  displayName  String
+  features     String[] @default([])
+  description  String?
+  durationDays Int      @default(30)
+  currency     String   @default("NPR")
+  active       Boolean  @default(true)
 
   subscriptions Subscription[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  @@index([active])
+  @@map("subscription_plans")
 }
 
 model Subscription {
@@ -266,10 +290,24 @@ model Subscription {
   planId String
   plan   SubscriptionPlan @relation(fields: [planId], references: [id])
 
-  status    SubscriptionStatus @default(TRIAL)
-  startDate DateTime
-  endDate   DateTime
+  status SubscriptionStatus @default(TRIAL)
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  autoRenew       Boolean   @default(true)
+  lastPaymentId   String?
+  nextRenewalDate DateTime?
+
+  trialEndsAt DateTime?
+  isTrialUsed Boolean   @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  payments Payment[]
+
+  @@index([status])
+  @@index([endDate])
+  @@map("subscriptions")
 }

@@ -10,11 +10,15 @@ export class PaymentService {
     amount: number
     method?: string
     currency?: string
+    gateway?: string
+    transactionId?: string
   }): Promise<Payment> {
     return prisma.payment.create({
       data: {
         ...data,
-        currency: data.currency || "USD",
+        currency: data.currency || "NPR",
+        gateway: data.gateway || "STRIPE",
+        transactionId: data.transactionId || "",
       },
     })
   }

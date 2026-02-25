@@ -205,14 +205,23 @@ exports.Prisma.BookingScalarFieldEnum = {
 
 exports.Prisma.PaymentScalarFieldEnum = {
   id: 'id',
-  bookingId: 'bookingId',
   businessId: 'businessId',
-  amount: 'amount',
-  currency: 'currency',
-  status: 'status',
-  method: 'method',
+  bookingId: 'bookingId',
+  subscriptionId: 'subscriptionId',
+  gateway: 'gateway',
   transactionId: 'transactionId',
-  receiptUrl: 'receiptUrl',
+  amount: 'amount',
+  status: 'status',
+  esewaRefId: 'esewaRefId',
+  esewaProductCode: 'esewaProductCode',
+  khaltiPidx: 'khaltiPidx',
+  khaltiToken: 'khaltiToken',
+  reference: 'reference',
+  customerEmail: 'customerEmail',
+  customerPhone: 'customerPhone',
+  payload: 'payload',
+  errorMessage: 'errorMessage',
+  currency: 'currency',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -253,12 +262,13 @@ exports.Prisma.NotificationScalarFieldEnum = {
 exports.Prisma.SubscriptionPlanScalarFieldEnum = {
   id: 'id',
   name: 'name',
-  price: 'price',
-  currency: 'currency',
-  durationInDays: 'durationInDays',
+  priceNPR: 'priceNPR',
+  displayName: 'displayName',
+  features: 'features',
   description: 'description',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  durationDays: 'durationDays',
+  currency: 'currency',
+  active: 'active'
 };
 
 exports.Prisma.SubscriptionScalarFieldEnum = {
@@ -268,6 +278,11 @@ exports.Prisma.SubscriptionScalarFieldEnum = {
   status: 'status',
   startDate: 'startDate',
   endDate: 'endDate',
+  autoRenew: 'autoRenew',
+  lastPaymentId: 'lastPaymentId',
+  nextRenewalDate: 'nextRenewalDate',
+  trialEndsAt: 'trialEndsAt',
+  isTrialUsed: 'isTrialUsed',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -275,6 +290,11 @@ exports.Prisma.SubscriptionScalarFieldEnum = {
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
+};
+
+exports.Prisma.NullableJsonNullValueInput = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull
 };
 
 exports.Prisma.QueryMode = {
@@ -285,6 +305,12 @@ exports.Prisma.QueryMode = {
 exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
+};
+
+exports.Prisma.JsonNullValueFilter = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull,
+  AnyNull: Prisma.AnyNull
 };
 exports.UserRole = exports.$Enums.UserRole = {
   CUSTOMER: 'CUSTOMER',
@@ -298,13 +324,6 @@ exports.BookingStatus = exports.$Enums.BookingStatus = {
   COMPLETED: 'COMPLETED',
   CANCELLED: 'CANCELLED',
   NO_SHOW: 'NO_SHOW'
-};
-
-exports.PaymentStatus = exports.$Enums.PaymentStatus = {
-  PENDING: 'PENDING',
-  COMPLETED: 'COMPLETED',
-  FAILED: 'FAILED',
-  REFUNDED: 'REFUNDED'
 };
 
 exports.NotificationType = exports.$Enums.NotificationType = {

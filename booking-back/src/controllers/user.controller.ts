@@ -3,7 +3,6 @@ import { Request, Response } from "express";
 import userService from "../services/user.service";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-
 export const loginUser = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
@@ -12,36 +11,52 @@ export const loginUser = async (req: Request, res: Response) => {
   }
 
   try {
-    // find the user by email
     const user = await userService.getUserByEmail(email);
 
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    // compare passwords
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    // generate JWT token
     const token = jwt.sign(
       { userId: user.id, role: user.role },
       process.env.JWT_SECRET || "supersecret",
       { expiresIn: "7d" }
     );
 
-    // remove password from response
+    // ✅ Store token in HTTP-only cookie
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // HTTPS only in prod
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     const { password: _, ...userWithoutPassword } = user;
 
-    return res.status(200).json({ user: userWithoutPassword, token });
+  
+    return res.status(200).json({ user: userWithoutPassword });
+
   } catch (err) {
     console.error("Error logging in user:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
+export const logoutUser = (req: Request, res: Response) => {
+  // Overwrite the token cookie to log the user out
+  res.cookie("token", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 0, // expires immediately
+  });
 
+  return res.status(200).json({ message: "Logged out successfully" });
+};
 
 
 export const createUser = async (req: Request, res: Response) => {

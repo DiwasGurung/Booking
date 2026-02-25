@@ -2093,6 +2093,37 @@ export namespace Prisma {
 
 
   /**
+   * Count Type SubscriptionCountOutputType
+   */
+
+  export type SubscriptionCountOutputType = {
+    payments: number
+  }
+
+  export type SubscriptionCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    payments?: boolean | SubscriptionCountOutputTypeCountPaymentsArgs
+  }
+
+  // Custom InputTypes
+  /**
+   * SubscriptionCountOutputType without action
+   */
+  export type SubscriptionCountOutputTypeDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SubscriptionCountOutputType
+     */
+    select?: SubscriptionCountOutputTypeSelect<ExtArgs> | null
+  }
+
+  /**
+   * SubscriptionCountOutputType without action
+   */
+  export type SubscriptionCountOutputTypeCountPaymentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: PaymentWhereInput
+  }
+
+
+  /**
    * Models
    */
 
@@ -8512,42 +8543,67 @@ export namespace Prisma {
 
   export type PaymentMinAggregateOutputType = {
     id: string | null
-    bookingId: string | null
     businessId: string | null
-    amount: number | null
-    currency: string | null
-    status: $Enums.PaymentStatus | null
-    method: string | null
+    bookingId: string | null
+    subscriptionId: string | null
+    gateway: string | null
     transactionId: string | null
-    receiptUrl: string | null
+    amount: number | null
+    status: string | null
+    esewaRefId: string | null
+    esewaProductCode: string | null
+    khaltiPidx: string | null
+    khaltiToken: string | null
+    reference: string | null
+    customerEmail: string | null
+    customerPhone: string | null
+    errorMessage: string | null
+    currency: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
 
   export type PaymentMaxAggregateOutputType = {
     id: string | null
-    bookingId: string | null
     businessId: string | null
-    amount: number | null
-    currency: string | null
-    status: $Enums.PaymentStatus | null
-    method: string | null
+    bookingId: string | null
+    subscriptionId: string | null
+    gateway: string | null
     transactionId: string | null
-    receiptUrl: string | null
+    amount: number | null
+    status: string | null
+    esewaRefId: string | null
+    esewaProductCode: string | null
+    khaltiPidx: string | null
+    khaltiToken: string | null
+    reference: string | null
+    customerEmail: string | null
+    customerPhone: string | null
+    errorMessage: string | null
+    currency: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
 
   export type PaymentCountAggregateOutputType = {
     id: number
-    bookingId: number
     businessId: number
-    amount: number
-    currency: number
-    status: number
-    method: number
+    bookingId: number
+    subscriptionId: number
+    gateway: number
     transactionId: number
-    receiptUrl: number
+    amount: number
+    status: number
+    esewaRefId: number
+    esewaProductCode: number
+    khaltiPidx: number
+    khaltiToken: number
+    reference: number
+    customerEmail: number
+    customerPhone: number
+    payload: number
+    errorMessage: number
+    currency: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -8564,42 +8620,67 @@ export namespace Prisma {
 
   export type PaymentMinAggregateInputType = {
     id?: true
-    bookingId?: true
     businessId?: true
-    amount?: true
-    currency?: true
-    status?: true
-    method?: true
+    bookingId?: true
+    subscriptionId?: true
+    gateway?: true
     transactionId?: true
-    receiptUrl?: true
+    amount?: true
+    status?: true
+    esewaRefId?: true
+    esewaProductCode?: true
+    khaltiPidx?: true
+    khaltiToken?: true
+    reference?: true
+    customerEmail?: true
+    customerPhone?: true
+    errorMessage?: true
+    currency?: true
     createdAt?: true
     updatedAt?: true
   }
 
   export type PaymentMaxAggregateInputType = {
     id?: true
-    bookingId?: true
     businessId?: true
-    amount?: true
-    currency?: true
-    status?: true
-    method?: true
+    bookingId?: true
+    subscriptionId?: true
+    gateway?: true
     transactionId?: true
-    receiptUrl?: true
+    amount?: true
+    status?: true
+    esewaRefId?: true
+    esewaProductCode?: true
+    khaltiPidx?: true
+    khaltiToken?: true
+    reference?: true
+    customerEmail?: true
+    customerPhone?: true
+    errorMessage?: true
+    currency?: true
     createdAt?: true
     updatedAt?: true
   }
 
   export type PaymentCountAggregateInputType = {
     id?: true
-    bookingId?: true
     businessId?: true
-    amount?: true
-    currency?: true
-    status?: true
-    method?: true
+    bookingId?: true
+    subscriptionId?: true
+    gateway?: true
     transactionId?: true
-    receiptUrl?: true
+    amount?: true
+    status?: true
+    esewaRefId?: true
+    esewaProductCode?: true
+    khaltiPidx?: true
+    khaltiToken?: true
+    reference?: true
+    customerEmail?: true
+    customerPhone?: true
+    payload?: true
+    errorMessage?: true
+    currency?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -8693,14 +8774,23 @@ export namespace Prisma {
 
   export type PaymentGroupByOutputType = {
     id: string
-    bookingId: string
     businessId: string
+    bookingId: string | null
+    subscriptionId: string | null
+    gateway: string
+    transactionId: string
     amount: number
+    status: string
+    esewaRefId: string | null
+    esewaProductCode: string | null
+    khaltiPidx: string | null
+    khaltiToken: string | null
+    reference: string | null
+    customerEmail: string | null
+    customerPhone: string | null
+    payload: JsonValue | null
+    errorMessage: string | null
     currency: string
-    status: $Enums.PaymentStatus
-    method: string | null
-    transactionId: string | null
-    receiptUrl: string | null
     createdAt: Date
     updatedAt: Date
     _count: PaymentCountAggregateOutputType | null
@@ -8726,96 +8816,148 @@ export namespace Prisma {
 
   export type PaymentSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
-    bookingId?: boolean
     businessId?: boolean
-    amount?: boolean
-    currency?: boolean
-    status?: boolean
-    method?: boolean
+    bookingId?: boolean
+    subscriptionId?: boolean
+    gateway?: boolean
     transactionId?: boolean
-    receiptUrl?: boolean
+    amount?: boolean
+    status?: boolean
+    esewaRefId?: boolean
+    esewaProductCode?: boolean
+    khaltiPidx?: boolean
+    khaltiToken?: boolean
+    reference?: boolean
+    customerEmail?: boolean
+    customerPhone?: boolean
+    payload?: boolean
+    errorMessage?: boolean
+    currency?: boolean
     createdAt?: boolean
     updatedAt?: boolean
-    booking?: boolean | BookingDefaultArgs<ExtArgs>
     business?: boolean | BusinessDefaultArgs<ExtArgs>
+    booking?: boolean | Payment$bookingArgs<ExtArgs>
+    subscription?: boolean | Payment$subscriptionArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
 
   export type PaymentSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
-    bookingId?: boolean
     businessId?: boolean
-    amount?: boolean
-    currency?: boolean
-    status?: boolean
-    method?: boolean
+    bookingId?: boolean
+    subscriptionId?: boolean
+    gateway?: boolean
     transactionId?: boolean
-    receiptUrl?: boolean
+    amount?: boolean
+    status?: boolean
+    esewaRefId?: boolean
+    esewaProductCode?: boolean
+    khaltiPidx?: boolean
+    khaltiToken?: boolean
+    reference?: boolean
+    customerEmail?: boolean
+    customerPhone?: boolean
+    payload?: boolean
+    errorMessage?: boolean
+    currency?: boolean
     createdAt?: boolean
     updatedAt?: boolean
-    booking?: boolean | BookingDefaultArgs<ExtArgs>
     business?: boolean | BusinessDefaultArgs<ExtArgs>
+    booking?: boolean | Payment$bookingArgs<ExtArgs>
+    subscription?: boolean | Payment$subscriptionArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
 
   export type PaymentSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
-    bookingId?: boolean
     businessId?: boolean
-    amount?: boolean
-    currency?: boolean
-    status?: boolean
-    method?: boolean
+    bookingId?: boolean
+    subscriptionId?: boolean
+    gateway?: boolean
     transactionId?: boolean
-    receiptUrl?: boolean
+    amount?: boolean
+    status?: boolean
+    esewaRefId?: boolean
+    esewaProductCode?: boolean
+    khaltiPidx?: boolean
+    khaltiToken?: boolean
+    reference?: boolean
+    customerEmail?: boolean
+    customerPhone?: boolean
+    payload?: boolean
+    errorMessage?: boolean
+    currency?: boolean
     createdAt?: boolean
     updatedAt?: boolean
-    booking?: boolean | BookingDefaultArgs<ExtArgs>
     business?: boolean | BusinessDefaultArgs<ExtArgs>
+    booking?: boolean | Payment$bookingArgs<ExtArgs>
+    subscription?: boolean | Payment$subscriptionArgs<ExtArgs>
   }, ExtArgs["result"]["payment"]>
 
   export type PaymentSelectScalar = {
     id?: boolean
-    bookingId?: boolean
     businessId?: boolean
-    amount?: boolean
-    currency?: boolean
-    status?: boolean
-    method?: boolean
+    bookingId?: boolean
+    subscriptionId?: boolean
+    gateway?: boolean
     transactionId?: boolean
-    receiptUrl?: boolean
+    amount?: boolean
+    status?: boolean
+    esewaRefId?: boolean
+    esewaProductCode?: boolean
+    khaltiPidx?: boolean
+    khaltiToken?: boolean
+    reference?: boolean
+    customerEmail?: boolean
+    customerPhone?: boolean
+    payload?: boolean
+    errorMessage?: boolean
+    currency?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "bookingId" | "businessId" | "amount" | "currency" | "status" | "method" | "transactionId" | "receiptUrl" | "createdAt" | "updatedAt", ExtArgs["result"]["payment"]>
+  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "businessId" | "bookingId" | "subscriptionId" | "gateway" | "transactionId" | "amount" | "status" | "esewaRefId" | "esewaProductCode" | "khaltiPidx" | "khaltiToken" | "reference" | "customerEmail" | "customerPhone" | "payload" | "errorMessage" | "currency" | "createdAt" | "updatedAt", ExtArgs["result"]["payment"]>
   export type PaymentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    booking?: boolean | BookingDefaultArgs<ExtArgs>
     business?: boolean | BusinessDefaultArgs<ExtArgs>
+    booking?: boolean | Payment$bookingArgs<ExtArgs>
+    subscription?: boolean | Payment$subscriptionArgs<ExtArgs>
   }
   export type PaymentIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    booking?: boolean | BookingDefaultArgs<ExtArgs>
     business?: boolean | BusinessDefaultArgs<ExtArgs>
+    booking?: boolean | Payment$bookingArgs<ExtArgs>
+    subscription?: boolean | Payment$subscriptionArgs<ExtArgs>
   }
   export type PaymentIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
-    booking?: boolean | BookingDefaultArgs<ExtArgs>
     business?: boolean | BusinessDefaultArgs<ExtArgs>
+    booking?: boolean | Payment$bookingArgs<ExtArgs>
+    subscription?: boolean | Payment$subscriptionArgs<ExtArgs>
   }
 
   export type $PaymentPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Payment"
     objects: {
-      booking: Prisma.$BookingPayload<ExtArgs>
       business: Prisma.$BusinessPayload<ExtArgs>
+      booking: Prisma.$BookingPayload<ExtArgs> | null
+      subscription: Prisma.$SubscriptionPayload<ExtArgs> | null
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
-      bookingId: string
       businessId: string
+      bookingId: string | null
+      subscriptionId: string | null
+      gateway: string
+      transactionId: string
       amount: number
+      status: string
+      esewaRefId: string | null
+      esewaProductCode: string | null
+      khaltiPidx: string | null
+      khaltiToken: string | null
+      reference: string | null
+      customerEmail: string | null
+      customerPhone: string | null
+      payload: Prisma.JsonValue | null
+      errorMessage: string | null
       currency: string
-      status: $Enums.PaymentStatus
-      method: string | null
-      transactionId: string | null
-      receiptUrl: string | null
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["payment"]>
@@ -9212,8 +9354,9 @@ export namespace Prisma {
    */
   export interface Prisma__PaymentClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
-    booking<T extends BookingDefaultArgs<ExtArgs> = {}>(args?: Subset<T, BookingDefaultArgs<ExtArgs>>): Prisma__BookingClient<$Result.GetResult<Prisma.$BookingPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     business<T extends BusinessDefaultArgs<ExtArgs> = {}>(args?: Subset<T, BusinessDefaultArgs<ExtArgs>>): Prisma__BusinessClient<$Result.GetResult<Prisma.$BusinessPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    booking<T extends Payment$bookingArgs<ExtArgs> = {}>(args?: Subset<T, Payment$bookingArgs<ExtArgs>>): Prisma__BookingClient<$Result.GetResult<Prisma.$BookingPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    subscription<T extends Payment$subscriptionArgs<ExtArgs> = {}>(args?: Subset<T, Payment$subscriptionArgs<ExtArgs>>): Prisma__SubscriptionClient<$Result.GetResult<Prisma.$SubscriptionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -9244,14 +9387,23 @@ export namespace Prisma {
    */
   interface PaymentFieldRefs {
     readonly id: FieldRef<"Payment", 'String'>
-    readonly bookingId: FieldRef<"Payment", 'String'>
     readonly businessId: FieldRef<"Payment", 'String'>
-    readonly amount: FieldRef<"Payment", 'Float'>
-    readonly currency: FieldRef<"Payment", 'String'>
-    readonly status: FieldRef<"Payment", 'PaymentStatus'>
-    readonly method: FieldRef<"Payment", 'String'>
+    readonly bookingId: FieldRef<"Payment", 'String'>
+    readonly subscriptionId: FieldRef<"Payment", 'String'>
+    readonly gateway: FieldRef<"Payment", 'String'>
     readonly transactionId: FieldRef<"Payment", 'String'>
-    readonly receiptUrl: FieldRef<"Payment", 'String'>
+    readonly amount: FieldRef<"Payment", 'Int'>
+    readonly status: FieldRef<"Payment", 'String'>
+    readonly esewaRefId: FieldRef<"Payment", 'String'>
+    readonly esewaProductCode: FieldRef<"Payment", 'String'>
+    readonly khaltiPidx: FieldRef<"Payment", 'String'>
+    readonly khaltiToken: FieldRef<"Payment", 'String'>
+    readonly reference: FieldRef<"Payment", 'String'>
+    readonly customerEmail: FieldRef<"Payment", 'String'>
+    readonly customerPhone: FieldRef<"Payment", 'String'>
+    readonly payload: FieldRef<"Payment", 'Json'>
+    readonly errorMessage: FieldRef<"Payment", 'String'>
+    readonly currency: FieldRef<"Payment", 'String'>
     readonly createdAt: FieldRef<"Payment", 'DateTime'>
     readonly updatedAt: FieldRef<"Payment", 'DateTime'>
   }
@@ -9647,6 +9799,44 @@ export namespace Prisma {
      * Limit how many Payments to delete.
      */
     limit?: number
+  }
+
+  /**
+   * Payment.booking
+   */
+  export type Payment$bookingArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Booking
+     */
+    select?: BookingSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Booking
+     */
+    omit?: BookingOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: BookingInclude<ExtArgs> | null
+    where?: BookingWhereInput
+  }
+
+  /**
+   * Payment.subscription
+   */
+  export type Payment$subscriptionArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Subscription
+     */
+    select?: SubscriptionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Subscription
+     */
+    omit?: SubscriptionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SubscriptionInclude<ExtArgs> | null
+    where?: SubscriptionWhereInput
   }
 
   /**
@@ -13075,91 +13265,93 @@ export namespace Prisma {
   }
 
   export type SubscriptionPlanAvgAggregateOutputType = {
-    price: number | null
-    durationInDays: number | null
+    priceNPR: number | null
+    durationDays: number | null
   }
 
   export type SubscriptionPlanSumAggregateOutputType = {
-    price: number | null
-    durationInDays: number | null
+    priceNPR: number | null
+    durationDays: number | null
   }
 
   export type SubscriptionPlanMinAggregateOutputType = {
     id: string | null
     name: string | null
-    price: number | null
-    currency: string | null
-    durationInDays: number | null
+    priceNPR: number | null
+    displayName: string | null
     description: string | null
-    createdAt: Date | null
-    updatedAt: Date | null
+    durationDays: number | null
+    currency: string | null
+    active: boolean | null
   }
 
   export type SubscriptionPlanMaxAggregateOutputType = {
     id: string | null
     name: string | null
-    price: number | null
-    currency: string | null
-    durationInDays: number | null
+    priceNPR: number | null
+    displayName: string | null
     description: string | null
-    createdAt: Date | null
-    updatedAt: Date | null
+    durationDays: number | null
+    currency: string | null
+    active: boolean | null
   }
 
   export type SubscriptionPlanCountAggregateOutputType = {
     id: number
     name: number
-    price: number
-    currency: number
-    durationInDays: number
+    priceNPR: number
+    displayName: number
+    features: number
     description: number
-    createdAt: number
-    updatedAt: number
+    durationDays: number
+    currency: number
+    active: number
     _all: number
   }
 
 
   export type SubscriptionPlanAvgAggregateInputType = {
-    price?: true
-    durationInDays?: true
+    priceNPR?: true
+    durationDays?: true
   }
 
   export type SubscriptionPlanSumAggregateInputType = {
-    price?: true
-    durationInDays?: true
+    priceNPR?: true
+    durationDays?: true
   }
 
   export type SubscriptionPlanMinAggregateInputType = {
     id?: true
     name?: true
-    price?: true
-    currency?: true
-    durationInDays?: true
+    priceNPR?: true
+    displayName?: true
     description?: true
-    createdAt?: true
-    updatedAt?: true
+    durationDays?: true
+    currency?: true
+    active?: true
   }
 
   export type SubscriptionPlanMaxAggregateInputType = {
     id?: true
     name?: true
-    price?: true
-    currency?: true
-    durationInDays?: true
+    priceNPR?: true
+    displayName?: true
     description?: true
-    createdAt?: true
-    updatedAt?: true
+    durationDays?: true
+    currency?: true
+    active?: true
   }
 
   export type SubscriptionPlanCountAggregateInputType = {
     id?: true
     name?: true
-    price?: true
-    currency?: true
-    durationInDays?: true
+    priceNPR?: true
+    displayName?: true
+    features?: true
     description?: true
-    createdAt?: true
-    updatedAt?: true
+    durationDays?: true
+    currency?: true
+    active?: true
     _all?: true
   }
 
@@ -13252,12 +13444,13 @@ export namespace Prisma {
   export type SubscriptionPlanGroupByOutputType = {
     id: string
     name: string
-    price: number
-    currency: string
-    durationInDays: number
+    priceNPR: number
+    displayName: string
+    features: string[]
     description: string | null
-    createdAt: Date
-    updatedAt: Date
+    durationDays: number
+    currency: string
+    active: boolean
     _count: SubscriptionPlanCountAggregateOutputType | null
     _avg: SubscriptionPlanAvgAggregateOutputType | null
     _sum: SubscriptionPlanSumAggregateOutputType | null
@@ -13282,12 +13475,13 @@ export namespace Prisma {
   export type SubscriptionPlanSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     name?: boolean
-    price?: boolean
-    currency?: boolean
-    durationInDays?: boolean
+    priceNPR?: boolean
+    displayName?: boolean
+    features?: boolean
     description?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
+    durationDays?: boolean
+    currency?: boolean
+    active?: boolean
     subscriptions?: boolean | SubscriptionPlan$subscriptionsArgs<ExtArgs>
     _count?: boolean | SubscriptionPlanCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["subscriptionPlan"]>
@@ -13295,37 +13489,40 @@ export namespace Prisma {
   export type SubscriptionPlanSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     name?: boolean
-    price?: boolean
-    currency?: boolean
-    durationInDays?: boolean
+    priceNPR?: boolean
+    displayName?: boolean
+    features?: boolean
     description?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
+    durationDays?: boolean
+    currency?: boolean
+    active?: boolean
   }, ExtArgs["result"]["subscriptionPlan"]>
 
   export type SubscriptionPlanSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     name?: boolean
-    price?: boolean
-    currency?: boolean
-    durationInDays?: boolean
+    priceNPR?: boolean
+    displayName?: boolean
+    features?: boolean
     description?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
+    durationDays?: boolean
+    currency?: boolean
+    active?: boolean
   }, ExtArgs["result"]["subscriptionPlan"]>
 
   export type SubscriptionPlanSelectScalar = {
     id?: boolean
     name?: boolean
-    price?: boolean
-    currency?: boolean
-    durationInDays?: boolean
+    priceNPR?: boolean
+    displayName?: boolean
+    features?: boolean
     description?: boolean
-    createdAt?: boolean
-    updatedAt?: boolean
+    durationDays?: boolean
+    currency?: boolean
+    active?: boolean
   }
 
-  export type SubscriptionPlanOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "price" | "currency" | "durationInDays" | "description" | "createdAt" | "updatedAt", ExtArgs["result"]["subscriptionPlan"]>
+  export type SubscriptionPlanOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "priceNPR" | "displayName" | "features" | "description" | "durationDays" | "currency" | "active", ExtArgs["result"]["subscriptionPlan"]>
   export type SubscriptionPlanInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     subscriptions?: boolean | SubscriptionPlan$subscriptionsArgs<ExtArgs>
     _count?: boolean | SubscriptionPlanCountOutputTypeDefaultArgs<ExtArgs>
@@ -13341,12 +13538,13 @@ export namespace Prisma {
     scalars: $Extensions.GetPayloadResult<{
       id: string
       name: string
-      price: number
-      currency: string
-      durationInDays: number
+      priceNPR: number
+      displayName: string
+      features: string[]
       description: string | null
-      createdAt: Date
-      updatedAt: Date
+      durationDays: number
+      currency: string
+      active: boolean
     }, ExtArgs["result"]["subscriptionPlan"]>
     composites: {}
   }
@@ -13773,12 +13971,13 @@ export namespace Prisma {
   interface SubscriptionPlanFieldRefs {
     readonly id: FieldRef<"SubscriptionPlan", 'String'>
     readonly name: FieldRef<"SubscriptionPlan", 'String'>
-    readonly price: FieldRef<"SubscriptionPlan", 'Float'>
-    readonly currency: FieldRef<"SubscriptionPlan", 'String'>
-    readonly durationInDays: FieldRef<"SubscriptionPlan", 'Int'>
+    readonly priceNPR: FieldRef<"SubscriptionPlan", 'Int'>
+    readonly displayName: FieldRef<"SubscriptionPlan", 'String'>
+    readonly features: FieldRef<"SubscriptionPlan", 'String[]'>
     readonly description: FieldRef<"SubscriptionPlan", 'String'>
-    readonly createdAt: FieldRef<"SubscriptionPlan", 'DateTime'>
-    readonly updatedAt: FieldRef<"SubscriptionPlan", 'DateTime'>
+    readonly durationDays: FieldRef<"SubscriptionPlan", 'Int'>
+    readonly currency: FieldRef<"SubscriptionPlan", 'String'>
+    readonly active: FieldRef<"SubscriptionPlan", 'Boolean'>
   }
     
 
@@ -14226,6 +14425,11 @@ export namespace Prisma {
     status: $Enums.SubscriptionStatus | null
     startDate: Date | null
     endDate: Date | null
+    autoRenew: boolean | null
+    lastPaymentId: string | null
+    nextRenewalDate: Date | null
+    trialEndsAt: Date | null
+    isTrialUsed: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -14237,6 +14441,11 @@ export namespace Prisma {
     status: $Enums.SubscriptionStatus | null
     startDate: Date | null
     endDate: Date | null
+    autoRenew: boolean | null
+    lastPaymentId: string | null
+    nextRenewalDate: Date | null
+    trialEndsAt: Date | null
+    isTrialUsed: boolean | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -14248,6 +14457,11 @@ export namespace Prisma {
     status: number
     startDate: number
     endDate: number
+    autoRenew: number
+    lastPaymentId: number
+    nextRenewalDate: number
+    trialEndsAt: number
+    isTrialUsed: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -14261,6 +14475,11 @@ export namespace Prisma {
     status?: true
     startDate?: true
     endDate?: true
+    autoRenew?: true
+    lastPaymentId?: true
+    nextRenewalDate?: true
+    trialEndsAt?: true
+    isTrialUsed?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -14272,6 +14491,11 @@ export namespace Prisma {
     status?: true
     startDate?: true
     endDate?: true
+    autoRenew?: true
+    lastPaymentId?: true
+    nextRenewalDate?: true
+    trialEndsAt?: true
+    isTrialUsed?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -14283,6 +14507,11 @@ export namespace Prisma {
     status?: true
     startDate?: true
     endDate?: true
+    autoRenew?: true
+    lastPaymentId?: true
+    nextRenewalDate?: true
+    trialEndsAt?: true
+    isTrialUsed?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -14365,8 +14594,13 @@ export namespace Prisma {
     businessId: string
     planId: string
     status: $Enums.SubscriptionStatus
-    startDate: Date
-    endDate: Date
+    startDate: Date | null
+    endDate: Date | null
+    autoRenew: boolean
+    lastPaymentId: string | null
+    nextRenewalDate: Date | null
+    trialEndsAt: Date | null
+    isTrialUsed: boolean
     createdAt: Date
     updatedAt: Date
     _count: SubscriptionCountAggregateOutputType | null
@@ -14395,10 +14629,17 @@ export namespace Prisma {
     status?: boolean
     startDate?: boolean
     endDate?: boolean
+    autoRenew?: boolean
+    lastPaymentId?: boolean
+    nextRenewalDate?: boolean
+    trialEndsAt?: boolean
+    isTrialUsed?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     business?: boolean | BusinessDefaultArgs<ExtArgs>
     plan?: boolean | SubscriptionPlanDefaultArgs<ExtArgs>
+    payments?: boolean | Subscription$paymentsArgs<ExtArgs>
+    _count?: boolean | SubscriptionCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["subscription"]>
 
   export type SubscriptionSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -14408,6 +14649,11 @@ export namespace Prisma {
     status?: boolean
     startDate?: boolean
     endDate?: boolean
+    autoRenew?: boolean
+    lastPaymentId?: boolean
+    nextRenewalDate?: boolean
+    trialEndsAt?: boolean
+    isTrialUsed?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     business?: boolean | BusinessDefaultArgs<ExtArgs>
@@ -14421,6 +14667,11 @@ export namespace Prisma {
     status?: boolean
     startDate?: boolean
     endDate?: boolean
+    autoRenew?: boolean
+    lastPaymentId?: boolean
+    nextRenewalDate?: boolean
+    trialEndsAt?: boolean
+    isTrialUsed?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     business?: boolean | BusinessDefaultArgs<ExtArgs>
@@ -14434,14 +14685,21 @@ export namespace Prisma {
     status?: boolean
     startDate?: boolean
     endDate?: boolean
+    autoRenew?: boolean
+    lastPaymentId?: boolean
+    nextRenewalDate?: boolean
+    trialEndsAt?: boolean
+    isTrialUsed?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type SubscriptionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "businessId" | "planId" | "status" | "startDate" | "endDate" | "createdAt" | "updatedAt", ExtArgs["result"]["subscription"]>
+  export type SubscriptionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "businessId" | "planId" | "status" | "startDate" | "endDate" | "autoRenew" | "lastPaymentId" | "nextRenewalDate" | "trialEndsAt" | "isTrialUsed" | "createdAt" | "updatedAt", ExtArgs["result"]["subscription"]>
   export type SubscriptionInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     business?: boolean | BusinessDefaultArgs<ExtArgs>
     plan?: boolean | SubscriptionPlanDefaultArgs<ExtArgs>
+    payments?: boolean | Subscription$paymentsArgs<ExtArgs>
+    _count?: boolean | SubscriptionCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type SubscriptionIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     business?: boolean | BusinessDefaultArgs<ExtArgs>
@@ -14457,14 +14715,20 @@ export namespace Prisma {
     objects: {
       business: Prisma.$BusinessPayload<ExtArgs>
       plan: Prisma.$SubscriptionPlanPayload<ExtArgs>
+      payments: Prisma.$PaymentPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
       businessId: string
       planId: string
       status: $Enums.SubscriptionStatus
-      startDate: Date
-      endDate: Date
+      startDate: Date | null
+      endDate: Date | null
+      autoRenew: boolean
+      lastPaymentId: string | null
+      nextRenewalDate: Date | null
+      trialEndsAt: Date | null
+      isTrialUsed: boolean
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["subscription"]>
@@ -14863,6 +15127,7 @@ export namespace Prisma {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     business<T extends BusinessDefaultArgs<ExtArgs> = {}>(args?: Subset<T, BusinessDefaultArgs<ExtArgs>>): Prisma__BusinessClient<$Result.GetResult<Prisma.$BusinessPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     plan<T extends SubscriptionPlanDefaultArgs<ExtArgs> = {}>(args?: Subset<T, SubscriptionPlanDefaultArgs<ExtArgs>>): Prisma__SubscriptionPlanClient<$Result.GetResult<Prisma.$SubscriptionPlanPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    payments<T extends Subscription$paymentsArgs<ExtArgs> = {}>(args?: Subset<T, Subscription$paymentsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PaymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -14898,6 +15163,11 @@ export namespace Prisma {
     readonly status: FieldRef<"Subscription", 'SubscriptionStatus'>
     readonly startDate: FieldRef<"Subscription", 'DateTime'>
     readonly endDate: FieldRef<"Subscription", 'DateTime'>
+    readonly autoRenew: FieldRef<"Subscription", 'Boolean'>
+    readonly lastPaymentId: FieldRef<"Subscription", 'String'>
+    readonly nextRenewalDate: FieldRef<"Subscription", 'DateTime'>
+    readonly trialEndsAt: FieldRef<"Subscription", 'DateTime'>
+    readonly isTrialUsed: FieldRef<"Subscription", 'Boolean'>
     readonly createdAt: FieldRef<"Subscription", 'DateTime'>
     readonly updatedAt: FieldRef<"Subscription", 'DateTime'>
   }
@@ -15296,6 +15566,30 @@ export namespace Prisma {
   }
 
   /**
+   * Subscription.payments
+   */
+  export type Subscription$paymentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Payment
+     */
+    select?: PaymentSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Payment
+     */
+    omit?: PaymentOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PaymentInclude<ExtArgs> | null
+    where?: PaymentWhereInput
+    orderBy?: PaymentOrderByWithRelationInput | PaymentOrderByWithRelationInput[]
+    cursor?: PaymentWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: PaymentScalarFieldEnum | PaymentScalarFieldEnum[]
+  }
+
+  /**
    * Subscription without action
    */
   export type SubscriptionDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -15427,14 +15721,23 @@ export namespace Prisma {
 
   export const PaymentScalarFieldEnum: {
     id: 'id',
-    bookingId: 'bookingId',
     businessId: 'businessId',
-    amount: 'amount',
-    currency: 'currency',
-    status: 'status',
-    method: 'method',
+    bookingId: 'bookingId',
+    subscriptionId: 'subscriptionId',
+    gateway: 'gateway',
     transactionId: 'transactionId',
-    receiptUrl: 'receiptUrl',
+    amount: 'amount',
+    status: 'status',
+    esewaRefId: 'esewaRefId',
+    esewaProductCode: 'esewaProductCode',
+    khaltiPidx: 'khaltiPidx',
+    khaltiToken: 'khaltiToken',
+    reference: 'reference',
+    customerEmail: 'customerEmail',
+    customerPhone: 'customerPhone',
+    payload: 'payload',
+    errorMessage: 'errorMessage',
+    currency: 'currency',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -15487,12 +15790,13 @@ export namespace Prisma {
   export const SubscriptionPlanScalarFieldEnum: {
     id: 'id',
     name: 'name',
-    price: 'price',
-    currency: 'currency',
-    durationInDays: 'durationInDays',
+    priceNPR: 'priceNPR',
+    displayName: 'displayName',
+    features: 'features',
     description: 'description',
-    createdAt: 'createdAt',
-    updatedAt: 'updatedAt'
+    durationDays: 'durationDays',
+    currency: 'currency',
+    active: 'active'
   };
 
   export type SubscriptionPlanScalarFieldEnum = (typeof SubscriptionPlanScalarFieldEnum)[keyof typeof SubscriptionPlanScalarFieldEnum]
@@ -15505,6 +15809,11 @@ export namespace Prisma {
     status: 'status',
     startDate: 'startDate',
     endDate: 'endDate',
+    autoRenew: 'autoRenew',
+    lastPaymentId: 'lastPaymentId',
+    nextRenewalDate: 'nextRenewalDate',
+    trialEndsAt: 'trialEndsAt',
+    isTrialUsed: 'isTrialUsed',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -15518,6 +15827,14 @@ export namespace Prisma {
   };
 
   export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+  export const NullableJsonNullValueInput: {
+    DbNull: typeof DbNull,
+    JsonNull: typeof JsonNull
+  };
+
+  export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
   export const QueryMode: {
@@ -15534,6 +15851,15 @@ export namespace Prisma {
   };
 
   export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+  export const JsonNullValueFilter: {
+    DbNull: typeof DbNull,
+    JsonNull: typeof JsonNull,
+    AnyNull: typeof AnyNull
+  };
+
+  export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 
 
   /**
@@ -15633,16 +15959,16 @@ export namespace Prisma {
 
 
   /**
-   * Reference to a field of type 'PaymentStatus'
+   * Reference to a field of type 'Json'
    */
-  export type EnumPaymentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PaymentStatus'>
+  export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
     
 
 
   /**
-   * Reference to a field of type 'PaymentStatus[]'
+   * Reference to a field of type 'QueryMode'
    */
-  export type ListEnumPaymentStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PaymentStatus[]'>
+  export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
     
 
 
@@ -16225,65 +16551,104 @@ export namespace Prisma {
     OR?: PaymentWhereInput[]
     NOT?: PaymentWhereInput | PaymentWhereInput[]
     id?: StringFilter<"Payment"> | string
-    bookingId?: StringFilter<"Payment"> | string
     businessId?: StringFilter<"Payment"> | string
-    amount?: FloatFilter<"Payment"> | number
+    bookingId?: StringNullableFilter<"Payment"> | string | null
+    subscriptionId?: StringNullableFilter<"Payment"> | string | null
+    gateway?: StringFilter<"Payment"> | string
+    transactionId?: StringFilter<"Payment"> | string
+    amount?: IntFilter<"Payment"> | number
+    status?: StringFilter<"Payment"> | string
+    esewaRefId?: StringNullableFilter<"Payment"> | string | null
+    esewaProductCode?: StringNullableFilter<"Payment"> | string | null
+    khaltiPidx?: StringNullableFilter<"Payment"> | string | null
+    khaltiToken?: StringNullableFilter<"Payment"> | string | null
+    reference?: StringNullableFilter<"Payment"> | string | null
+    customerEmail?: StringNullableFilter<"Payment"> | string | null
+    customerPhone?: StringNullableFilter<"Payment"> | string | null
+    payload?: JsonNullableFilter<"Payment">
+    errorMessage?: StringNullableFilter<"Payment"> | string | null
     currency?: StringFilter<"Payment"> | string
-    status?: EnumPaymentStatusFilter<"Payment"> | $Enums.PaymentStatus
-    method?: StringNullableFilter<"Payment"> | string | null
-    transactionId?: StringNullableFilter<"Payment"> | string | null
-    receiptUrl?: StringNullableFilter<"Payment"> | string | null
     createdAt?: DateTimeFilter<"Payment"> | Date | string
     updatedAt?: DateTimeFilter<"Payment"> | Date | string
-    booking?: XOR<BookingScalarRelationFilter, BookingWhereInput>
     business?: XOR<BusinessScalarRelationFilter, BusinessWhereInput>
+    booking?: XOR<BookingNullableScalarRelationFilter, BookingWhereInput> | null
+    subscription?: XOR<SubscriptionNullableScalarRelationFilter, SubscriptionWhereInput> | null
   }
 
   export type PaymentOrderByWithRelationInput = {
     id?: SortOrder
-    bookingId?: SortOrder
     businessId?: SortOrder
+    bookingId?: SortOrderInput | SortOrder
+    subscriptionId?: SortOrderInput | SortOrder
+    gateway?: SortOrder
+    transactionId?: SortOrder
     amount?: SortOrder
-    currency?: SortOrder
     status?: SortOrder
-    method?: SortOrderInput | SortOrder
-    transactionId?: SortOrderInput | SortOrder
-    receiptUrl?: SortOrderInput | SortOrder
+    esewaRefId?: SortOrderInput | SortOrder
+    esewaProductCode?: SortOrderInput | SortOrder
+    khaltiPidx?: SortOrderInput | SortOrder
+    khaltiToken?: SortOrderInput | SortOrder
+    reference?: SortOrderInput | SortOrder
+    customerEmail?: SortOrderInput | SortOrder
+    customerPhone?: SortOrderInput | SortOrder
+    payload?: SortOrderInput | SortOrder
+    errorMessage?: SortOrderInput | SortOrder
+    currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
-    booking?: BookingOrderByWithRelationInput
     business?: BusinessOrderByWithRelationInput
+    booking?: BookingOrderByWithRelationInput
+    subscription?: SubscriptionOrderByWithRelationInput
   }
 
   export type PaymentWhereUniqueInput = Prisma.AtLeast<{
     id?: string
     bookingId?: string
     transactionId?: string
+    esewaRefId?: string
     AND?: PaymentWhereInput | PaymentWhereInput[]
     OR?: PaymentWhereInput[]
     NOT?: PaymentWhereInput | PaymentWhereInput[]
     businessId?: StringFilter<"Payment"> | string
-    amount?: FloatFilter<"Payment"> | number
+    subscriptionId?: StringNullableFilter<"Payment"> | string | null
+    gateway?: StringFilter<"Payment"> | string
+    amount?: IntFilter<"Payment"> | number
+    status?: StringFilter<"Payment"> | string
+    esewaProductCode?: StringNullableFilter<"Payment"> | string | null
+    khaltiPidx?: StringNullableFilter<"Payment"> | string | null
+    khaltiToken?: StringNullableFilter<"Payment"> | string | null
+    reference?: StringNullableFilter<"Payment"> | string | null
+    customerEmail?: StringNullableFilter<"Payment"> | string | null
+    customerPhone?: StringNullableFilter<"Payment"> | string | null
+    payload?: JsonNullableFilter<"Payment">
+    errorMessage?: StringNullableFilter<"Payment"> | string | null
     currency?: StringFilter<"Payment"> | string
-    status?: EnumPaymentStatusFilter<"Payment"> | $Enums.PaymentStatus
-    method?: StringNullableFilter<"Payment"> | string | null
-    receiptUrl?: StringNullableFilter<"Payment"> | string | null
     createdAt?: DateTimeFilter<"Payment"> | Date | string
     updatedAt?: DateTimeFilter<"Payment"> | Date | string
-    booking?: XOR<BookingScalarRelationFilter, BookingWhereInput>
     business?: XOR<BusinessScalarRelationFilter, BusinessWhereInput>
-  }, "id" | "bookingId" | "transactionId">
+    booking?: XOR<BookingNullableScalarRelationFilter, BookingWhereInput> | null
+    subscription?: XOR<SubscriptionNullableScalarRelationFilter, SubscriptionWhereInput> | null
+  }, "id" | "bookingId" | "transactionId" | "esewaRefId">
 
   export type PaymentOrderByWithAggregationInput = {
     id?: SortOrder
-    bookingId?: SortOrder
     businessId?: SortOrder
+    bookingId?: SortOrderInput | SortOrder
+    subscriptionId?: SortOrderInput | SortOrder
+    gateway?: SortOrder
+    transactionId?: SortOrder
     amount?: SortOrder
-    currency?: SortOrder
     status?: SortOrder
-    method?: SortOrderInput | SortOrder
-    transactionId?: SortOrderInput | SortOrder
-    receiptUrl?: SortOrderInput | SortOrder
+    esewaRefId?: SortOrderInput | SortOrder
+    esewaProductCode?: SortOrderInput | SortOrder
+    khaltiPidx?: SortOrderInput | SortOrder
+    khaltiToken?: SortOrderInput | SortOrder
+    reference?: SortOrderInput | SortOrder
+    customerEmail?: SortOrderInput | SortOrder
+    customerPhone?: SortOrderInput | SortOrder
+    payload?: SortOrderInput | SortOrder
+    errorMessage?: SortOrderInput | SortOrder
+    currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: PaymentCountOrderByAggregateInput
@@ -16298,14 +16663,23 @@ export namespace Prisma {
     OR?: PaymentScalarWhereWithAggregatesInput[]
     NOT?: PaymentScalarWhereWithAggregatesInput | PaymentScalarWhereWithAggregatesInput[]
     id?: StringWithAggregatesFilter<"Payment"> | string
-    bookingId?: StringWithAggregatesFilter<"Payment"> | string
     businessId?: StringWithAggregatesFilter<"Payment"> | string
-    amount?: FloatWithAggregatesFilter<"Payment"> | number
+    bookingId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    subscriptionId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    gateway?: StringWithAggregatesFilter<"Payment"> | string
+    transactionId?: StringWithAggregatesFilter<"Payment"> | string
+    amount?: IntWithAggregatesFilter<"Payment"> | number
+    status?: StringWithAggregatesFilter<"Payment"> | string
+    esewaRefId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    esewaProductCode?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    khaltiPidx?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    khaltiToken?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    reference?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    customerEmail?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    customerPhone?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    payload?: JsonNullableWithAggregatesFilter<"Payment">
+    errorMessage?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     currency?: StringWithAggregatesFilter<"Payment"> | string
-    status?: EnumPaymentStatusWithAggregatesFilter<"Payment"> | $Enums.PaymentStatus
-    method?: StringNullableWithAggregatesFilter<"Payment"> | string | null
-    transactionId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
-    receiptUrl?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Payment"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Payment"> | Date | string
   }
@@ -16538,24 +16912,26 @@ export namespace Prisma {
     NOT?: SubscriptionPlanWhereInput | SubscriptionPlanWhereInput[]
     id?: StringFilter<"SubscriptionPlan"> | string
     name?: StringFilter<"SubscriptionPlan"> | string
-    price?: FloatFilter<"SubscriptionPlan"> | number
-    currency?: StringFilter<"SubscriptionPlan"> | string
-    durationInDays?: IntFilter<"SubscriptionPlan"> | number
+    priceNPR?: IntFilter<"SubscriptionPlan"> | number
+    displayName?: StringFilter<"SubscriptionPlan"> | string
+    features?: StringNullableListFilter<"SubscriptionPlan">
     description?: StringNullableFilter<"SubscriptionPlan"> | string | null
-    createdAt?: DateTimeFilter<"SubscriptionPlan"> | Date | string
-    updatedAt?: DateTimeFilter<"SubscriptionPlan"> | Date | string
+    durationDays?: IntFilter<"SubscriptionPlan"> | number
+    currency?: StringFilter<"SubscriptionPlan"> | string
+    active?: BoolFilter<"SubscriptionPlan"> | boolean
     subscriptions?: SubscriptionListRelationFilter
   }
 
   export type SubscriptionPlanOrderByWithRelationInput = {
     id?: SortOrder
     name?: SortOrder
-    price?: SortOrder
-    currency?: SortOrder
-    durationInDays?: SortOrder
+    priceNPR?: SortOrder
+    displayName?: SortOrder
+    features?: SortOrder
     description?: SortOrderInput | SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
+    durationDays?: SortOrder
+    currency?: SortOrder
+    active?: SortOrder
     subscriptions?: SubscriptionOrderByRelationAggregateInput
   }
 
@@ -16565,24 +16941,26 @@ export namespace Prisma {
     AND?: SubscriptionPlanWhereInput | SubscriptionPlanWhereInput[]
     OR?: SubscriptionPlanWhereInput[]
     NOT?: SubscriptionPlanWhereInput | SubscriptionPlanWhereInput[]
-    price?: FloatFilter<"SubscriptionPlan"> | number
-    currency?: StringFilter<"SubscriptionPlan"> | string
-    durationInDays?: IntFilter<"SubscriptionPlan"> | number
+    priceNPR?: IntFilter<"SubscriptionPlan"> | number
+    displayName?: StringFilter<"SubscriptionPlan"> | string
+    features?: StringNullableListFilter<"SubscriptionPlan">
     description?: StringNullableFilter<"SubscriptionPlan"> | string | null
-    createdAt?: DateTimeFilter<"SubscriptionPlan"> | Date | string
-    updatedAt?: DateTimeFilter<"SubscriptionPlan"> | Date | string
+    durationDays?: IntFilter<"SubscriptionPlan"> | number
+    currency?: StringFilter<"SubscriptionPlan"> | string
+    active?: BoolFilter<"SubscriptionPlan"> | boolean
     subscriptions?: SubscriptionListRelationFilter
   }, "id" | "name">
 
   export type SubscriptionPlanOrderByWithAggregationInput = {
     id?: SortOrder
     name?: SortOrder
-    price?: SortOrder
-    currency?: SortOrder
-    durationInDays?: SortOrder
+    priceNPR?: SortOrder
+    displayName?: SortOrder
+    features?: SortOrder
     description?: SortOrderInput | SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
+    durationDays?: SortOrder
+    currency?: SortOrder
+    active?: SortOrder
     _count?: SubscriptionPlanCountOrderByAggregateInput
     _avg?: SubscriptionPlanAvgOrderByAggregateInput
     _max?: SubscriptionPlanMaxOrderByAggregateInput
@@ -16596,12 +16974,13 @@ export namespace Prisma {
     NOT?: SubscriptionPlanScalarWhereWithAggregatesInput | SubscriptionPlanScalarWhereWithAggregatesInput[]
     id?: StringWithAggregatesFilter<"SubscriptionPlan"> | string
     name?: StringWithAggregatesFilter<"SubscriptionPlan"> | string
-    price?: FloatWithAggregatesFilter<"SubscriptionPlan"> | number
-    currency?: StringWithAggregatesFilter<"SubscriptionPlan"> | string
-    durationInDays?: IntWithAggregatesFilter<"SubscriptionPlan"> | number
+    priceNPR?: IntWithAggregatesFilter<"SubscriptionPlan"> | number
+    displayName?: StringWithAggregatesFilter<"SubscriptionPlan"> | string
+    features?: StringNullableListFilter<"SubscriptionPlan">
     description?: StringNullableWithAggregatesFilter<"SubscriptionPlan"> | string | null
-    createdAt?: DateTimeWithAggregatesFilter<"SubscriptionPlan"> | Date | string
-    updatedAt?: DateTimeWithAggregatesFilter<"SubscriptionPlan"> | Date | string
+    durationDays?: IntWithAggregatesFilter<"SubscriptionPlan"> | number
+    currency?: StringWithAggregatesFilter<"SubscriptionPlan"> | string
+    active?: BoolWithAggregatesFilter<"SubscriptionPlan"> | boolean
   }
 
   export type SubscriptionWhereInput = {
@@ -16612,12 +16991,18 @@ export namespace Prisma {
     businessId?: StringFilter<"Subscription"> | string
     planId?: StringFilter<"Subscription"> | string
     status?: EnumSubscriptionStatusFilter<"Subscription"> | $Enums.SubscriptionStatus
-    startDate?: DateTimeFilter<"Subscription"> | Date | string
-    endDate?: DateTimeFilter<"Subscription"> | Date | string
+    startDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    endDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    autoRenew?: BoolFilter<"Subscription"> | boolean
+    lastPaymentId?: StringNullableFilter<"Subscription"> | string | null
+    nextRenewalDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    trialEndsAt?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    isTrialUsed?: BoolFilter<"Subscription"> | boolean
     createdAt?: DateTimeFilter<"Subscription"> | Date | string
     updatedAt?: DateTimeFilter<"Subscription"> | Date | string
     business?: XOR<BusinessScalarRelationFilter, BusinessWhereInput>
     plan?: XOR<SubscriptionPlanScalarRelationFilter, SubscriptionPlanWhereInput>
+    payments?: PaymentListRelationFilter
   }
 
   export type SubscriptionOrderByWithRelationInput = {
@@ -16625,12 +17010,18 @@ export namespace Prisma {
     businessId?: SortOrder
     planId?: SortOrder
     status?: SortOrder
-    startDate?: SortOrder
-    endDate?: SortOrder
+    startDate?: SortOrderInput | SortOrder
+    endDate?: SortOrderInput | SortOrder
+    autoRenew?: SortOrder
+    lastPaymentId?: SortOrderInput | SortOrder
+    nextRenewalDate?: SortOrderInput | SortOrder
+    trialEndsAt?: SortOrderInput | SortOrder
+    isTrialUsed?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     business?: BusinessOrderByWithRelationInput
     plan?: SubscriptionPlanOrderByWithRelationInput
+    payments?: PaymentOrderByRelationAggregateInput
   }
 
   export type SubscriptionWhereUniqueInput = Prisma.AtLeast<{
@@ -16641,12 +17032,18 @@ export namespace Prisma {
     NOT?: SubscriptionWhereInput | SubscriptionWhereInput[]
     planId?: StringFilter<"Subscription"> | string
     status?: EnumSubscriptionStatusFilter<"Subscription"> | $Enums.SubscriptionStatus
-    startDate?: DateTimeFilter<"Subscription"> | Date | string
-    endDate?: DateTimeFilter<"Subscription"> | Date | string
+    startDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    endDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    autoRenew?: BoolFilter<"Subscription"> | boolean
+    lastPaymentId?: StringNullableFilter<"Subscription"> | string | null
+    nextRenewalDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    trialEndsAt?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    isTrialUsed?: BoolFilter<"Subscription"> | boolean
     createdAt?: DateTimeFilter<"Subscription"> | Date | string
     updatedAt?: DateTimeFilter<"Subscription"> | Date | string
     business?: XOR<BusinessScalarRelationFilter, BusinessWhereInput>
     plan?: XOR<SubscriptionPlanScalarRelationFilter, SubscriptionPlanWhereInput>
+    payments?: PaymentListRelationFilter
   }, "id" | "businessId">
 
   export type SubscriptionOrderByWithAggregationInput = {
@@ -16654,8 +17051,13 @@ export namespace Prisma {
     businessId?: SortOrder
     planId?: SortOrder
     status?: SortOrder
-    startDate?: SortOrder
-    endDate?: SortOrder
+    startDate?: SortOrderInput | SortOrder
+    endDate?: SortOrderInput | SortOrder
+    autoRenew?: SortOrder
+    lastPaymentId?: SortOrderInput | SortOrder
+    nextRenewalDate?: SortOrderInput | SortOrder
+    trialEndsAt?: SortOrderInput | SortOrder
+    isTrialUsed?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: SubscriptionCountOrderByAggregateInput
@@ -16671,8 +17073,13 @@ export namespace Prisma {
     businessId?: StringWithAggregatesFilter<"Subscription"> | string
     planId?: StringWithAggregatesFilter<"Subscription"> | string
     status?: EnumSubscriptionStatusWithAggregatesFilter<"Subscription"> | $Enums.SubscriptionStatus
-    startDate?: DateTimeWithAggregatesFilter<"Subscription"> | Date | string
-    endDate?: DateTimeWithAggregatesFilter<"Subscription"> | Date | string
+    startDate?: DateTimeNullableWithAggregatesFilter<"Subscription"> | Date | string | null
+    endDate?: DateTimeNullableWithAggregatesFilter<"Subscription"> | Date | string | null
+    autoRenew?: BoolWithAggregatesFilter<"Subscription"> | boolean
+    lastPaymentId?: StringNullableWithAggregatesFilter<"Subscription"> | string | null
+    nextRenewalDate?: DateTimeNullableWithAggregatesFilter<"Subscription"> | Date | string | null
+    trialEndsAt?: DateTimeNullableWithAggregatesFilter<"Subscription"> | Date | string | null
+    isTrialUsed?: BoolWithAggregatesFilter<"Subscription"> | boolean
     createdAt?: DateTimeWithAggregatesFilter<"Subscription"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Subscription"> | Date | string
   }
@@ -17306,96 +17713,158 @@ export namespace Prisma {
 
   export type PaymentCreateInput = {
     id?: string
+    gateway: string
+    transactionId: string
     amount: number
+    status?: string
+    esewaRefId?: string | null
+    esewaProductCode?: string | null
+    khaltiPidx?: string | null
+    khaltiToken?: string | null
+    reference?: string | null
+    customerEmail?: string | null
+    customerPhone?: string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: string | null
     currency?: string
-    status?: $Enums.PaymentStatus
-    method?: string | null
-    transactionId?: string | null
-    receiptUrl?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    booking: BookingCreateNestedOneWithoutPaymentInput
     business: BusinessCreateNestedOneWithoutPaymentsInput
+    booking?: BookingCreateNestedOneWithoutPaymentInput
+    subscription?: SubscriptionCreateNestedOneWithoutPaymentsInput
   }
 
   export type PaymentUncheckedCreateInput = {
     id?: string
-    bookingId: string
     businessId: string
+    bookingId?: string | null
+    subscriptionId?: string | null
+    gateway: string
+    transactionId: string
     amount: number
+    status?: string
+    esewaRefId?: string | null
+    esewaProductCode?: string | null
+    khaltiPidx?: string | null
+    khaltiToken?: string | null
+    reference?: string | null
+    customerEmail?: string | null
+    customerPhone?: string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: string | null
     currency?: string
-    status?: $Enums.PaymentStatus
-    method?: string | null
-    transactionId?: string | null
-    receiptUrl?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
 
   export type PaymentUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    gateway?: StringFieldUpdateOperationsInput | string
+    transactionId?: StringFieldUpdateOperationsInput | string
+    amount?: IntFieldUpdateOperationsInput | number
+    status?: StringFieldUpdateOperationsInput | string
+    esewaRefId?: NullableStringFieldUpdateOperationsInput | string | null
+    esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumPaymentStatusFieldUpdateOperationsInput | $Enums.PaymentStatus
-    method?: NullableStringFieldUpdateOperationsInput | string | null
-    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
-    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    booking?: BookingUpdateOneRequiredWithoutPaymentNestedInput
     business?: BusinessUpdateOneRequiredWithoutPaymentsNestedInput
+    booking?: BookingUpdateOneWithoutPaymentNestedInput
+    subscription?: SubscriptionUpdateOneWithoutPaymentsNestedInput
   }
 
   export type PaymentUncheckedUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
-    bookingId?: StringFieldUpdateOperationsInput | string
     businessId?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    bookingId?: NullableStringFieldUpdateOperationsInput | string | null
+    subscriptionId?: NullableStringFieldUpdateOperationsInput | string | null
+    gateway?: StringFieldUpdateOperationsInput | string
+    transactionId?: StringFieldUpdateOperationsInput | string
+    amount?: IntFieldUpdateOperationsInput | number
+    status?: StringFieldUpdateOperationsInput | string
+    esewaRefId?: NullableStringFieldUpdateOperationsInput | string | null
+    esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumPaymentStatusFieldUpdateOperationsInput | $Enums.PaymentStatus
-    method?: NullableStringFieldUpdateOperationsInput | string | null
-    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
-    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type PaymentCreateManyInput = {
     id?: string
-    bookingId: string
     businessId: string
+    bookingId?: string | null
+    subscriptionId?: string | null
+    gateway: string
+    transactionId: string
     amount: number
+    status?: string
+    esewaRefId?: string | null
+    esewaProductCode?: string | null
+    khaltiPidx?: string | null
+    khaltiToken?: string | null
+    reference?: string | null
+    customerEmail?: string | null
+    customerPhone?: string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: string | null
     currency?: string
-    status?: $Enums.PaymentStatus
-    method?: string | null
-    transactionId?: string | null
-    receiptUrl?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
 
   export type PaymentUpdateManyMutationInput = {
     id?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    gateway?: StringFieldUpdateOperationsInput | string
+    transactionId?: StringFieldUpdateOperationsInput | string
+    amount?: IntFieldUpdateOperationsInput | number
+    status?: StringFieldUpdateOperationsInput | string
+    esewaRefId?: NullableStringFieldUpdateOperationsInput | string | null
+    esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumPaymentStatusFieldUpdateOperationsInput | $Enums.PaymentStatus
-    method?: NullableStringFieldUpdateOperationsInput | string | null
-    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
-    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type PaymentUncheckedUpdateManyInput = {
     id?: StringFieldUpdateOperationsInput | string
-    bookingId?: StringFieldUpdateOperationsInput | string
     businessId?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    bookingId?: NullableStringFieldUpdateOperationsInput | string | null
+    subscriptionId?: NullableStringFieldUpdateOperationsInput | string | null
+    gateway?: StringFieldUpdateOperationsInput | string
+    transactionId?: StringFieldUpdateOperationsInput | string
+    amount?: IntFieldUpdateOperationsInput | number
+    status?: StringFieldUpdateOperationsInput | string
+    esewaRefId?: NullableStringFieldUpdateOperationsInput | string | null
+    esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumPaymentStatusFieldUpdateOperationsInput | $Enums.PaymentStatus
-    method?: NullableStringFieldUpdateOperationsInput | string | null
-    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
-    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -17629,93 +18098,106 @@ export namespace Prisma {
   export type SubscriptionPlanCreateInput = {
     id?: string
     name: string
-    price: number
-    currency?: string
-    durationInDays: number
+    priceNPR: number
+    displayName: string
+    features?: SubscriptionPlanCreatefeaturesInput | string[]
     description?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
+    durationDays?: number
+    currency?: string
+    active?: boolean
     subscriptions?: SubscriptionCreateNestedManyWithoutPlanInput
   }
 
   export type SubscriptionPlanUncheckedCreateInput = {
     id?: string
     name: string
-    price: number
-    currency?: string
-    durationInDays: number
+    priceNPR: number
+    displayName: string
+    features?: SubscriptionPlanCreatefeaturesInput | string[]
     description?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
+    durationDays?: number
+    currency?: string
+    active?: boolean
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutPlanInput
   }
 
   export type SubscriptionPlanUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
-    price?: FloatFieldUpdateOperationsInput | number
-    currency?: StringFieldUpdateOperationsInput | string
-    durationInDays?: IntFieldUpdateOperationsInput | number
+    priceNPR?: IntFieldUpdateOperationsInput | number
+    displayName?: StringFieldUpdateOperationsInput | string
+    features?: SubscriptionPlanUpdatefeaturesInput | string[]
     description?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    durationDays?: IntFieldUpdateOperationsInput | number
+    currency?: StringFieldUpdateOperationsInput | string
+    active?: BoolFieldUpdateOperationsInput | boolean
     subscriptions?: SubscriptionUpdateManyWithoutPlanNestedInput
   }
 
   export type SubscriptionPlanUncheckedUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
-    price?: FloatFieldUpdateOperationsInput | number
-    currency?: StringFieldUpdateOperationsInput | string
-    durationInDays?: IntFieldUpdateOperationsInput | number
+    priceNPR?: IntFieldUpdateOperationsInput | number
+    displayName?: StringFieldUpdateOperationsInput | string
+    features?: SubscriptionPlanUpdatefeaturesInput | string[]
     description?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    durationDays?: IntFieldUpdateOperationsInput | number
+    currency?: StringFieldUpdateOperationsInput | string
+    active?: BoolFieldUpdateOperationsInput | boolean
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutPlanNestedInput
   }
 
   export type SubscriptionPlanCreateManyInput = {
     id?: string
     name: string
-    price: number
-    currency?: string
-    durationInDays: number
+    priceNPR: number
+    displayName: string
+    features?: SubscriptionPlanCreatefeaturesInput | string[]
     description?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
+    durationDays?: number
+    currency?: string
+    active?: boolean
   }
 
   export type SubscriptionPlanUpdateManyMutationInput = {
     id?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
-    price?: FloatFieldUpdateOperationsInput | number
-    currency?: StringFieldUpdateOperationsInput | string
-    durationInDays?: IntFieldUpdateOperationsInput | number
+    priceNPR?: IntFieldUpdateOperationsInput | number
+    displayName?: StringFieldUpdateOperationsInput | string
+    features?: SubscriptionPlanUpdatefeaturesInput | string[]
     description?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    durationDays?: IntFieldUpdateOperationsInput | number
+    currency?: StringFieldUpdateOperationsInput | string
+    active?: BoolFieldUpdateOperationsInput | boolean
   }
 
   export type SubscriptionPlanUncheckedUpdateManyInput = {
     id?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
-    price?: FloatFieldUpdateOperationsInput | number
-    currency?: StringFieldUpdateOperationsInput | string
-    durationInDays?: IntFieldUpdateOperationsInput | number
+    priceNPR?: IntFieldUpdateOperationsInput | number
+    displayName?: StringFieldUpdateOperationsInput | string
+    features?: SubscriptionPlanUpdatefeaturesInput | string[]
     description?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    durationDays?: IntFieldUpdateOperationsInput | number
+    currency?: StringFieldUpdateOperationsInput | string
+    active?: BoolFieldUpdateOperationsInput | boolean
   }
 
   export type SubscriptionCreateInput = {
     id?: string
     status?: $Enums.SubscriptionStatus
-    startDate: Date | string
-    endDate: Date | string
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    autoRenew?: boolean
+    lastPaymentId?: string | null
+    nextRenewalDate?: Date | string | null
+    trialEndsAt?: Date | string | null
+    isTrialUsed?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     business: BusinessCreateNestedOneWithoutSubscriptionInput
     plan: SubscriptionPlanCreateNestedOneWithoutSubscriptionsInput
+    payments?: PaymentCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionUncheckedCreateInput = {
@@ -17723,21 +18205,33 @@ export namespace Prisma {
     businessId: string
     planId: string
     status?: $Enums.SubscriptionStatus
-    startDate: Date | string
-    endDate: Date | string
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    autoRenew?: boolean
+    lastPaymentId?: string | null
+    nextRenewalDate?: Date | string | null
+    trialEndsAt?: Date | string | null
+    isTrialUsed?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    payments?: PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     status?: EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
-    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    autoRenew?: BoolFieldUpdateOperationsInput | boolean
+    lastPaymentId?: NullableStringFieldUpdateOperationsInput | string | null
+    nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     business?: BusinessUpdateOneRequiredWithoutSubscriptionNestedInput
     plan?: SubscriptionPlanUpdateOneRequiredWithoutSubscriptionsNestedInput
+    payments?: PaymentUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type SubscriptionUncheckedUpdateInput = {
@@ -17745,10 +18239,16 @@ export namespace Prisma {
     businessId?: StringFieldUpdateOperationsInput | string
     planId?: StringFieldUpdateOperationsInput | string
     status?: EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
-    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    autoRenew?: BoolFieldUpdateOperationsInput | boolean
+    lastPaymentId?: NullableStringFieldUpdateOperationsInput | string | null
+    nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    payments?: PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type SubscriptionCreateManyInput = {
@@ -17756,8 +18256,13 @@ export namespace Prisma {
     businessId: string
     planId: string
     status?: $Enums.SubscriptionStatus
-    startDate: Date | string
-    endDate: Date | string
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    autoRenew?: boolean
+    lastPaymentId?: string | null
+    nextRenewalDate?: Date | string | null
+    trialEndsAt?: Date | string | null
+    isTrialUsed?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -17765,8 +18270,13 @@ export namespace Prisma {
   export type SubscriptionUpdateManyMutationInput = {
     id?: StringFieldUpdateOperationsInput | string
     status?: EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
-    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    autoRenew?: BoolFieldUpdateOperationsInput | boolean
+    lastPaymentId?: NullableStringFieldUpdateOperationsInput | string | null
+    nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -17776,8 +18286,13 @@ export namespace Prisma {
     businessId?: StringFieldUpdateOperationsInput | string
     planId?: StringFieldUpdateOperationsInput | string
     status?: EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
-    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    autoRenew?: BoolFieldUpdateOperationsInput | boolean
+    lastPaymentId?: NullableStringFieldUpdateOperationsInput | string | null
+    nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -18418,29 +18933,54 @@ export namespace Prisma {
     _min?: NestedEnumBookingStatusFilter<$PrismaModel>
     _max?: NestedEnumBookingStatusFilter<$PrismaModel>
   }
+  export type JsonNullableFilter<$PrismaModel = never> =
+    | PatchUndefined<
+        Either<Required<JsonNullableFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonNullableFilterBase<$PrismaModel>>, 'path'>>,
+        Required<JsonNullableFilterBase<$PrismaModel>>
+      >
+    | OptionalFlat<Omit<Required<JsonNullableFilterBase<$PrismaModel>>, 'path'>>
 
-  export type EnumPaymentStatusFilter<$PrismaModel = never> = {
-    equals?: $Enums.PaymentStatus | EnumPaymentStatusFieldRefInput<$PrismaModel>
-    in?: $Enums.PaymentStatus[] | ListEnumPaymentStatusFieldRefInput<$PrismaModel>
-    notIn?: $Enums.PaymentStatus[] | ListEnumPaymentStatusFieldRefInput<$PrismaModel>
-    not?: NestedEnumPaymentStatusFilter<$PrismaModel> | $Enums.PaymentStatus
+  export type JsonNullableFilterBase<$PrismaModel = never> = {
+    equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    path?: string[]
+    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>
+    string_contains?: string | StringFieldRefInput<$PrismaModel>
+    string_starts_with?: string | StringFieldRefInput<$PrismaModel>
+    string_ends_with?: string | StringFieldRefInput<$PrismaModel>
+    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
   }
 
-  export type BookingScalarRelationFilter = {
-    is?: BookingWhereInput
-    isNot?: BookingWhereInput
+  export type BookingNullableScalarRelationFilter = {
+    is?: BookingWhereInput | null
+    isNot?: BookingWhereInput | null
   }
 
   export type PaymentCountOrderByAggregateInput = {
     id?: SortOrder
-    bookingId?: SortOrder
     businessId?: SortOrder
-    amount?: SortOrder
-    currency?: SortOrder
-    status?: SortOrder
-    method?: SortOrder
+    bookingId?: SortOrder
+    subscriptionId?: SortOrder
+    gateway?: SortOrder
     transactionId?: SortOrder
-    receiptUrl?: SortOrder
+    amount?: SortOrder
+    status?: SortOrder
+    esewaRefId?: SortOrder
+    esewaProductCode?: SortOrder
+    khaltiPidx?: SortOrder
+    khaltiToken?: SortOrder
+    reference?: SortOrder
+    customerEmail?: SortOrder
+    customerPhone?: SortOrder
+    payload?: SortOrder
+    errorMessage?: SortOrder
+    currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -18451,28 +18991,44 @@ export namespace Prisma {
 
   export type PaymentMaxOrderByAggregateInput = {
     id?: SortOrder
-    bookingId?: SortOrder
     businessId?: SortOrder
-    amount?: SortOrder
-    currency?: SortOrder
-    status?: SortOrder
-    method?: SortOrder
+    bookingId?: SortOrder
+    subscriptionId?: SortOrder
+    gateway?: SortOrder
     transactionId?: SortOrder
-    receiptUrl?: SortOrder
+    amount?: SortOrder
+    status?: SortOrder
+    esewaRefId?: SortOrder
+    esewaProductCode?: SortOrder
+    khaltiPidx?: SortOrder
+    khaltiToken?: SortOrder
+    reference?: SortOrder
+    customerEmail?: SortOrder
+    customerPhone?: SortOrder
+    errorMessage?: SortOrder
+    currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
 
   export type PaymentMinOrderByAggregateInput = {
     id?: SortOrder
-    bookingId?: SortOrder
     businessId?: SortOrder
-    amount?: SortOrder
-    currency?: SortOrder
-    status?: SortOrder
-    method?: SortOrder
+    bookingId?: SortOrder
+    subscriptionId?: SortOrder
+    gateway?: SortOrder
     transactionId?: SortOrder
-    receiptUrl?: SortOrder
+    amount?: SortOrder
+    status?: SortOrder
+    esewaRefId?: SortOrder
+    esewaProductCode?: SortOrder
+    khaltiPidx?: SortOrder
+    khaltiToken?: SortOrder
+    reference?: SortOrder
+    customerEmail?: SortOrder
+    customerPhone?: SortOrder
+    errorMessage?: SortOrder
+    currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -18480,15 +19036,31 @@ export namespace Prisma {
   export type PaymentSumOrderByAggregateInput = {
     amount?: SortOrder
   }
+  export type JsonNullableWithAggregatesFilter<$PrismaModel = never> =
+    | PatchUndefined<
+        Either<Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, 'path'>>,
+        Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>
+      >
+    | OptionalFlat<Omit<Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, 'path'>>
 
-  export type EnumPaymentStatusWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: $Enums.PaymentStatus | EnumPaymentStatusFieldRefInput<$PrismaModel>
-    in?: $Enums.PaymentStatus[] | ListEnumPaymentStatusFieldRefInput<$PrismaModel>
-    notIn?: $Enums.PaymentStatus[] | ListEnumPaymentStatusFieldRefInput<$PrismaModel>
-    not?: NestedEnumPaymentStatusWithAggregatesFilter<$PrismaModel> | $Enums.PaymentStatus
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedEnumPaymentStatusFilter<$PrismaModel>
-    _max?: NestedEnumPaymentStatusFilter<$PrismaModel>
+  export type JsonNullableWithAggregatesFilterBase<$PrismaModel = never> = {
+    equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    path?: string[]
+    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>
+    string_contains?: string | StringFieldRefInput<$PrismaModel>
+    string_starts_with?: string | StringFieldRefInput<$PrismaModel>
+    string_ends_with?: string | StringFieldRefInput<$PrismaModel>
+    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedJsonNullableFilter<$PrismaModel>
+    _max?: NestedJsonNullableFilter<$PrismaModel>
   }
 
   export type ReviewBusinessIdUserIdCompoundUniqueInput = {
@@ -18590,11 +19162,6 @@ export namespace Prisma {
     not?: NestedEnumNotificationTypeFilter<$PrismaModel> | $Enums.NotificationType
   }
 
-  export type BookingNullableScalarRelationFilter = {
-    is?: BookingWhereInput | null
-    isNot?: BookingWhereInput | null
-  }
-
   export type NotificationCountOrderByAggregateInput = {
     id?: SortOrder
     userId?: SortOrder
@@ -18638,6 +19205,14 @@ export namespace Prisma {
     _max?: NestedEnumNotificationTypeFilter<$PrismaModel>
   }
 
+  export type StringNullableListFilter<$PrismaModel = never> = {
+    equals?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    has?: string | StringFieldRefInput<$PrismaModel> | null
+    hasEvery?: string[] | ListStringFieldRefInput<$PrismaModel>
+    hasSome?: string[] | ListStringFieldRefInput<$PrismaModel>
+    isEmpty?: boolean
+  }
+
   export type SubscriptionListRelationFilter = {
     every?: SubscriptionWhereInput
     some?: SubscriptionWhereInput
@@ -18651,44 +19226,45 @@ export namespace Prisma {
   export type SubscriptionPlanCountOrderByAggregateInput = {
     id?: SortOrder
     name?: SortOrder
-    price?: SortOrder
-    currency?: SortOrder
-    durationInDays?: SortOrder
+    priceNPR?: SortOrder
+    displayName?: SortOrder
+    features?: SortOrder
     description?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
+    durationDays?: SortOrder
+    currency?: SortOrder
+    active?: SortOrder
   }
 
   export type SubscriptionPlanAvgOrderByAggregateInput = {
-    price?: SortOrder
-    durationInDays?: SortOrder
+    priceNPR?: SortOrder
+    durationDays?: SortOrder
   }
 
   export type SubscriptionPlanMaxOrderByAggregateInput = {
     id?: SortOrder
     name?: SortOrder
-    price?: SortOrder
-    currency?: SortOrder
-    durationInDays?: SortOrder
+    priceNPR?: SortOrder
+    displayName?: SortOrder
     description?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
+    durationDays?: SortOrder
+    currency?: SortOrder
+    active?: SortOrder
   }
 
   export type SubscriptionPlanMinOrderByAggregateInput = {
     id?: SortOrder
     name?: SortOrder
-    price?: SortOrder
-    currency?: SortOrder
-    durationInDays?: SortOrder
+    priceNPR?: SortOrder
+    displayName?: SortOrder
     description?: SortOrder
-    createdAt?: SortOrder
-    updatedAt?: SortOrder
+    durationDays?: SortOrder
+    currency?: SortOrder
+    active?: SortOrder
   }
 
   export type SubscriptionPlanSumOrderByAggregateInput = {
-    price?: SortOrder
-    durationInDays?: SortOrder
+    priceNPR?: SortOrder
+    durationDays?: SortOrder
   }
 
   export type EnumSubscriptionStatusFilter<$PrismaModel = never> = {
@@ -18710,6 +19286,11 @@ export namespace Prisma {
     status?: SortOrder
     startDate?: SortOrder
     endDate?: SortOrder
+    autoRenew?: SortOrder
+    lastPaymentId?: SortOrder
+    nextRenewalDate?: SortOrder
+    trialEndsAt?: SortOrder
+    isTrialUsed?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -18721,6 +19302,11 @@ export namespace Prisma {
     status?: SortOrder
     startDate?: SortOrder
     endDate?: SortOrder
+    autoRenew?: SortOrder
+    lastPaymentId?: SortOrder
+    nextRenewalDate?: SortOrder
+    trialEndsAt?: SortOrder
+    isTrialUsed?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -18732,6 +19318,11 @@ export namespace Prisma {
     status?: SortOrder
     startDate?: SortOrder
     endDate?: SortOrder
+    autoRenew?: SortOrder
+    lastPaymentId?: SortOrder
+    nextRenewalDate?: SortOrder
+    trialEndsAt?: SortOrder
+    isTrialUsed?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -19498,28 +20089,22 @@ export namespace Prisma {
     deleteMany?: NotificationScalarWhereInput | NotificationScalarWhereInput[]
   }
 
-  export type BookingCreateNestedOneWithoutPaymentInput = {
-    create?: XOR<BookingCreateWithoutPaymentInput, BookingUncheckedCreateWithoutPaymentInput>
-    connectOrCreate?: BookingCreateOrConnectWithoutPaymentInput
-    connect?: BookingWhereUniqueInput
-  }
-
   export type BusinessCreateNestedOneWithoutPaymentsInput = {
     create?: XOR<BusinessCreateWithoutPaymentsInput, BusinessUncheckedCreateWithoutPaymentsInput>
     connectOrCreate?: BusinessCreateOrConnectWithoutPaymentsInput
     connect?: BusinessWhereUniqueInput
   }
 
-  export type EnumPaymentStatusFieldUpdateOperationsInput = {
-    set?: $Enums.PaymentStatus
-  }
-
-  export type BookingUpdateOneRequiredWithoutPaymentNestedInput = {
+  export type BookingCreateNestedOneWithoutPaymentInput = {
     create?: XOR<BookingCreateWithoutPaymentInput, BookingUncheckedCreateWithoutPaymentInput>
     connectOrCreate?: BookingCreateOrConnectWithoutPaymentInput
-    upsert?: BookingUpsertWithoutPaymentInput
     connect?: BookingWhereUniqueInput
-    update?: XOR<XOR<BookingUpdateToOneWithWhereWithoutPaymentInput, BookingUpdateWithoutPaymentInput>, BookingUncheckedUpdateWithoutPaymentInput>
+  }
+
+  export type SubscriptionCreateNestedOneWithoutPaymentsInput = {
+    create?: XOR<SubscriptionCreateWithoutPaymentsInput, SubscriptionUncheckedCreateWithoutPaymentsInput>
+    connectOrCreate?: SubscriptionCreateOrConnectWithoutPaymentsInput
+    connect?: SubscriptionWhereUniqueInput
   }
 
   export type BusinessUpdateOneRequiredWithoutPaymentsNestedInput = {
@@ -19528,6 +20113,26 @@ export namespace Prisma {
     upsert?: BusinessUpsertWithoutPaymentsInput
     connect?: BusinessWhereUniqueInput
     update?: XOR<XOR<BusinessUpdateToOneWithWhereWithoutPaymentsInput, BusinessUpdateWithoutPaymentsInput>, BusinessUncheckedUpdateWithoutPaymentsInput>
+  }
+
+  export type BookingUpdateOneWithoutPaymentNestedInput = {
+    create?: XOR<BookingCreateWithoutPaymentInput, BookingUncheckedCreateWithoutPaymentInput>
+    connectOrCreate?: BookingCreateOrConnectWithoutPaymentInput
+    upsert?: BookingUpsertWithoutPaymentInput
+    disconnect?: BookingWhereInput | boolean
+    delete?: BookingWhereInput | boolean
+    connect?: BookingWhereUniqueInput
+    update?: XOR<XOR<BookingUpdateToOneWithWhereWithoutPaymentInput, BookingUpdateWithoutPaymentInput>, BookingUncheckedUpdateWithoutPaymentInput>
+  }
+
+  export type SubscriptionUpdateOneWithoutPaymentsNestedInput = {
+    create?: XOR<SubscriptionCreateWithoutPaymentsInput, SubscriptionUncheckedCreateWithoutPaymentsInput>
+    connectOrCreate?: SubscriptionCreateOrConnectWithoutPaymentsInput
+    upsert?: SubscriptionUpsertWithoutPaymentsInput
+    disconnect?: SubscriptionWhereInput | boolean
+    delete?: SubscriptionWhereInput | boolean
+    connect?: SubscriptionWhereUniqueInput
+    update?: XOR<XOR<SubscriptionUpdateToOneWithWhereWithoutPaymentsInput, SubscriptionUpdateWithoutPaymentsInput>, SubscriptionUncheckedUpdateWithoutPaymentsInput>
   }
 
   export type BusinessCreateNestedOneWithoutReviewsInput = {
@@ -19606,6 +20211,10 @@ export namespace Prisma {
     update?: XOR<XOR<BookingUpdateToOneWithWhereWithoutNotificationsInput, BookingUpdateWithoutNotificationsInput>, BookingUncheckedUpdateWithoutNotificationsInput>
   }
 
+  export type SubscriptionPlanCreatefeaturesInput = {
+    set: string[]
+  }
+
   export type SubscriptionCreateNestedManyWithoutPlanInput = {
     create?: XOR<SubscriptionCreateWithoutPlanInput, SubscriptionUncheckedCreateWithoutPlanInput> | SubscriptionCreateWithoutPlanInput[] | SubscriptionUncheckedCreateWithoutPlanInput[]
     connectOrCreate?: SubscriptionCreateOrConnectWithoutPlanInput | SubscriptionCreateOrConnectWithoutPlanInput[]
@@ -19618,6 +20227,11 @@ export namespace Prisma {
     connectOrCreate?: SubscriptionCreateOrConnectWithoutPlanInput | SubscriptionCreateOrConnectWithoutPlanInput[]
     createMany?: SubscriptionCreateManyPlanInputEnvelope
     connect?: SubscriptionWhereUniqueInput | SubscriptionWhereUniqueInput[]
+  }
+
+  export type SubscriptionPlanUpdatefeaturesInput = {
+    set?: string[]
+    push?: string | string[]
   }
 
   export type SubscriptionUpdateManyWithoutPlanNestedInput = {
@@ -19660,6 +20274,20 @@ export namespace Prisma {
     connect?: SubscriptionPlanWhereUniqueInput
   }
 
+  export type PaymentCreateNestedManyWithoutSubscriptionInput = {
+    create?: XOR<PaymentCreateWithoutSubscriptionInput, PaymentUncheckedCreateWithoutSubscriptionInput> | PaymentCreateWithoutSubscriptionInput[] | PaymentUncheckedCreateWithoutSubscriptionInput[]
+    connectOrCreate?: PaymentCreateOrConnectWithoutSubscriptionInput | PaymentCreateOrConnectWithoutSubscriptionInput[]
+    createMany?: PaymentCreateManySubscriptionInputEnvelope
+    connect?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[]
+  }
+
+  export type PaymentUncheckedCreateNestedManyWithoutSubscriptionInput = {
+    create?: XOR<PaymentCreateWithoutSubscriptionInput, PaymentUncheckedCreateWithoutSubscriptionInput> | PaymentCreateWithoutSubscriptionInput[] | PaymentUncheckedCreateWithoutSubscriptionInput[]
+    connectOrCreate?: PaymentCreateOrConnectWithoutSubscriptionInput | PaymentCreateOrConnectWithoutSubscriptionInput[]
+    createMany?: PaymentCreateManySubscriptionInputEnvelope
+    connect?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[]
+  }
+
   export type EnumSubscriptionStatusFieldUpdateOperationsInput = {
     set?: $Enums.SubscriptionStatus
   }
@@ -19678,6 +20306,34 @@ export namespace Prisma {
     upsert?: SubscriptionPlanUpsertWithoutSubscriptionsInput
     connect?: SubscriptionPlanWhereUniqueInput
     update?: XOR<XOR<SubscriptionPlanUpdateToOneWithWhereWithoutSubscriptionsInput, SubscriptionPlanUpdateWithoutSubscriptionsInput>, SubscriptionPlanUncheckedUpdateWithoutSubscriptionsInput>
+  }
+
+  export type PaymentUpdateManyWithoutSubscriptionNestedInput = {
+    create?: XOR<PaymentCreateWithoutSubscriptionInput, PaymentUncheckedCreateWithoutSubscriptionInput> | PaymentCreateWithoutSubscriptionInput[] | PaymentUncheckedCreateWithoutSubscriptionInput[]
+    connectOrCreate?: PaymentCreateOrConnectWithoutSubscriptionInput | PaymentCreateOrConnectWithoutSubscriptionInput[]
+    upsert?: PaymentUpsertWithWhereUniqueWithoutSubscriptionInput | PaymentUpsertWithWhereUniqueWithoutSubscriptionInput[]
+    createMany?: PaymentCreateManySubscriptionInputEnvelope
+    set?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[]
+    disconnect?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[]
+    delete?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[]
+    connect?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[]
+    update?: PaymentUpdateWithWhereUniqueWithoutSubscriptionInput | PaymentUpdateWithWhereUniqueWithoutSubscriptionInput[]
+    updateMany?: PaymentUpdateManyWithWhereWithoutSubscriptionInput | PaymentUpdateManyWithWhereWithoutSubscriptionInput[]
+    deleteMany?: PaymentScalarWhereInput | PaymentScalarWhereInput[]
+  }
+
+  export type PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput = {
+    create?: XOR<PaymentCreateWithoutSubscriptionInput, PaymentUncheckedCreateWithoutSubscriptionInput> | PaymentCreateWithoutSubscriptionInput[] | PaymentUncheckedCreateWithoutSubscriptionInput[]
+    connectOrCreate?: PaymentCreateOrConnectWithoutSubscriptionInput | PaymentCreateOrConnectWithoutSubscriptionInput[]
+    upsert?: PaymentUpsertWithWhereUniqueWithoutSubscriptionInput | PaymentUpsertWithWhereUniqueWithoutSubscriptionInput[]
+    createMany?: PaymentCreateManySubscriptionInputEnvelope
+    set?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[]
+    disconnect?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[]
+    delete?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[]
+    connect?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[]
+    update?: PaymentUpdateWithWhereUniqueWithoutSubscriptionInput | PaymentUpdateWithWhereUniqueWithoutSubscriptionInput[]
+    updateMany?: PaymentUpdateManyWithWhereWithoutSubscriptionInput | PaymentUpdateManyWithWhereWithoutSubscriptionInput[]
+    deleteMany?: PaymentScalarWhereInput | PaymentScalarWhereInput[]
   }
 
   export type NestedStringFilter<$PrismaModel = never> = {
@@ -19930,22 +20586,28 @@ export namespace Prisma {
     _min?: NestedEnumBookingStatusFilter<$PrismaModel>
     _max?: NestedEnumBookingStatusFilter<$PrismaModel>
   }
+  export type NestedJsonNullableFilter<$PrismaModel = never> =
+    | PatchUndefined<
+        Either<Required<NestedJsonNullableFilterBase<$PrismaModel>>, Exclude<keyof Required<NestedJsonNullableFilterBase<$PrismaModel>>, 'path'>>,
+        Required<NestedJsonNullableFilterBase<$PrismaModel>>
+      >
+    | OptionalFlat<Omit<Required<NestedJsonNullableFilterBase<$PrismaModel>>, 'path'>>
 
-  export type NestedEnumPaymentStatusFilter<$PrismaModel = never> = {
-    equals?: $Enums.PaymentStatus | EnumPaymentStatusFieldRefInput<$PrismaModel>
-    in?: $Enums.PaymentStatus[] | ListEnumPaymentStatusFieldRefInput<$PrismaModel>
-    notIn?: $Enums.PaymentStatus[] | ListEnumPaymentStatusFieldRefInput<$PrismaModel>
-    not?: NestedEnumPaymentStatusFilter<$PrismaModel> | $Enums.PaymentStatus
-  }
-
-  export type NestedEnumPaymentStatusWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: $Enums.PaymentStatus | EnumPaymentStatusFieldRefInput<$PrismaModel>
-    in?: $Enums.PaymentStatus[] | ListEnumPaymentStatusFieldRefInput<$PrismaModel>
-    notIn?: $Enums.PaymentStatus[] | ListEnumPaymentStatusFieldRefInput<$PrismaModel>
-    not?: NestedEnumPaymentStatusWithAggregatesFilter<$PrismaModel> | $Enums.PaymentStatus
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedEnumPaymentStatusFilter<$PrismaModel>
-    _max?: NestedEnumPaymentStatusFilter<$PrismaModel>
+  export type NestedJsonNullableFilterBase<$PrismaModel = never> = {
+    equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    path?: string[]
+    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>
+    string_contains?: string | StringFieldRefInput<$PrismaModel>
+    string_starts_with?: string | StringFieldRefInput<$PrismaModel>
+    string_ends_with?: string | StringFieldRefInput<$PrismaModel>
+    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
   }
 
   export type NestedEnumNotificationTypeFilter<$PrismaModel = never> = {
@@ -20356,21 +21018,33 @@ export namespace Prisma {
   export type SubscriptionCreateWithoutBusinessInput = {
     id?: string
     status?: $Enums.SubscriptionStatus
-    startDate: Date | string
-    endDate: Date | string
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    autoRenew?: boolean
+    lastPaymentId?: string | null
+    nextRenewalDate?: Date | string | null
+    trialEndsAt?: Date | string | null
+    isTrialUsed?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     plan: SubscriptionPlanCreateNestedOneWithoutSubscriptionsInput
+    payments?: PaymentCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionUncheckedCreateWithoutBusinessInput = {
     id?: string
     planId: string
     status?: $Enums.SubscriptionStatus
-    startDate: Date | string
-    endDate: Date | string
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    autoRenew?: boolean
+    lastPaymentId?: string | null
+    nextRenewalDate?: Date | string | null
+    trialEndsAt?: Date | string | null
+    isTrialUsed?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    payments?: PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionCreateOrConnectWithoutBusinessInput = {
@@ -20466,26 +21140,44 @@ export namespace Prisma {
 
   export type PaymentCreateWithoutBusinessInput = {
     id?: string
+    gateway: string
+    transactionId: string
     amount: number
+    status?: string
+    esewaRefId?: string | null
+    esewaProductCode?: string | null
+    khaltiPidx?: string | null
+    khaltiToken?: string | null
+    reference?: string | null
+    customerEmail?: string | null
+    customerPhone?: string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: string | null
     currency?: string
-    status?: $Enums.PaymentStatus
-    method?: string | null
-    transactionId?: string | null
-    receiptUrl?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
-    booking: BookingCreateNestedOneWithoutPaymentInput
+    booking?: BookingCreateNestedOneWithoutPaymentInput
+    subscription?: SubscriptionCreateNestedOneWithoutPaymentsInput
   }
 
   export type PaymentUncheckedCreateWithoutBusinessInput = {
     id?: string
-    bookingId: string
+    bookingId?: string | null
+    subscriptionId?: string | null
+    gateway: string
+    transactionId: string
     amount: number
+    status?: string
+    esewaRefId?: string | null
+    esewaProductCode?: string | null
+    khaltiPidx?: string | null
+    khaltiToken?: string | null
+    reference?: string | null
+    customerEmail?: string | null
+    customerPhone?: string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: string | null
     currency?: string
-    status?: $Enums.PaymentStatus
-    method?: string | null
-    transactionId?: string | null
-    receiptUrl?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -20655,21 +21347,33 @@ export namespace Prisma {
   export type SubscriptionUpdateWithoutBusinessInput = {
     id?: StringFieldUpdateOperationsInput | string
     status?: EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
-    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    autoRenew?: BoolFieldUpdateOperationsInput | boolean
+    lastPaymentId?: NullableStringFieldUpdateOperationsInput | string | null
+    nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     plan?: SubscriptionPlanUpdateOneRequiredWithoutSubscriptionsNestedInput
+    payments?: PaymentUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type SubscriptionUncheckedUpdateWithoutBusinessInput = {
     id?: StringFieldUpdateOperationsInput | string
     planId?: StringFieldUpdateOperationsInput | string
     status?: EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
-    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    autoRenew?: BoolFieldUpdateOperationsInput | boolean
+    lastPaymentId?: NullableStringFieldUpdateOperationsInput | string | null
+    nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    payments?: PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type ServiceUpsertWithWhereUniqueWithoutBusinessInput = {
@@ -20743,14 +21447,23 @@ export namespace Prisma {
     OR?: PaymentScalarWhereInput[]
     NOT?: PaymentScalarWhereInput | PaymentScalarWhereInput[]
     id?: StringFilter<"Payment"> | string
-    bookingId?: StringFilter<"Payment"> | string
     businessId?: StringFilter<"Payment"> | string
-    amount?: FloatFilter<"Payment"> | number
+    bookingId?: StringNullableFilter<"Payment"> | string | null
+    subscriptionId?: StringNullableFilter<"Payment"> | string | null
+    gateway?: StringFilter<"Payment"> | string
+    transactionId?: StringFilter<"Payment"> | string
+    amount?: IntFilter<"Payment"> | number
+    status?: StringFilter<"Payment"> | string
+    esewaRefId?: StringNullableFilter<"Payment"> | string | null
+    esewaProductCode?: StringNullableFilter<"Payment"> | string | null
+    khaltiPidx?: StringNullableFilter<"Payment"> | string | null
+    khaltiToken?: StringNullableFilter<"Payment"> | string | null
+    reference?: StringNullableFilter<"Payment"> | string | null
+    customerEmail?: StringNullableFilter<"Payment"> | string | null
+    customerPhone?: StringNullableFilter<"Payment"> | string | null
+    payload?: JsonNullableFilter<"Payment">
+    errorMessage?: StringNullableFilter<"Payment"> | string | null
     currency?: StringFilter<"Payment"> | string
-    status?: EnumPaymentStatusFilter<"Payment"> | $Enums.PaymentStatus
-    method?: StringNullableFilter<"Payment"> | string | null
-    transactionId?: StringNullableFilter<"Payment"> | string | null
-    receiptUrl?: StringNullableFilter<"Payment"> | string | null
     createdAt?: DateTimeFilter<"Payment"> | Date | string
     updatedAt?: DateTimeFilter<"Payment"> | Date | string
   }
@@ -21392,26 +22105,44 @@ export namespace Prisma {
 
   export type PaymentCreateWithoutBookingInput = {
     id?: string
+    gateway: string
+    transactionId: string
     amount: number
+    status?: string
+    esewaRefId?: string | null
+    esewaProductCode?: string | null
+    khaltiPidx?: string | null
+    khaltiToken?: string | null
+    reference?: string | null
+    customerEmail?: string | null
+    customerPhone?: string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: string | null
     currency?: string
-    status?: $Enums.PaymentStatus
-    method?: string | null
-    transactionId?: string | null
-    receiptUrl?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     business: BusinessCreateNestedOneWithoutPaymentsInput
+    subscription?: SubscriptionCreateNestedOneWithoutPaymentsInput
   }
 
   export type PaymentUncheckedCreateWithoutBookingInput = {
     id?: string
     businessId: string
+    subscriptionId?: string | null
+    gateway: string
+    transactionId: string
     amount: number
+    status?: string
+    esewaRefId?: string | null
+    esewaProductCode?: string | null
+    khaltiPidx?: string | null
+    khaltiToken?: string | null
+    reference?: string | null
+    customerEmail?: string | null
+    customerPhone?: string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: string | null
     currency?: string
-    status?: $Enums.PaymentStatus
-    method?: string | null
-    transactionId?: string | null
-    receiptUrl?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -21656,26 +22387,44 @@ export namespace Prisma {
 
   export type PaymentUpdateWithoutBookingInput = {
     id?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    gateway?: StringFieldUpdateOperationsInput | string
+    transactionId?: StringFieldUpdateOperationsInput | string
+    amount?: IntFieldUpdateOperationsInput | number
+    status?: StringFieldUpdateOperationsInput | string
+    esewaRefId?: NullableStringFieldUpdateOperationsInput | string | null
+    esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumPaymentStatusFieldUpdateOperationsInput | $Enums.PaymentStatus
-    method?: NullableStringFieldUpdateOperationsInput | string | null
-    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
-    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     business?: BusinessUpdateOneRequiredWithoutPaymentsNestedInput
+    subscription?: SubscriptionUpdateOneWithoutPaymentsNestedInput
   }
 
   export type PaymentUncheckedUpdateWithoutBookingInput = {
     id?: StringFieldUpdateOperationsInput | string
     businessId?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    subscriptionId?: NullableStringFieldUpdateOperationsInput | string | null
+    gateway?: StringFieldUpdateOperationsInput | string
+    transactionId?: StringFieldUpdateOperationsInput | string
+    amount?: IntFieldUpdateOperationsInput | number
+    status?: StringFieldUpdateOperationsInput | string
+    esewaRefId?: NullableStringFieldUpdateOperationsInput | string | null
+    esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumPaymentStatusFieldUpdateOperationsInput | $Enums.PaymentStatus
-    method?: NullableStringFieldUpdateOperationsInput | string | null
-    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
-    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -21694,47 +22443,6 @@ export namespace Prisma {
   export type NotificationUpdateManyWithWhereWithoutBookingInput = {
     where: NotificationScalarWhereInput
     data: XOR<NotificationUpdateManyMutationInput, NotificationUncheckedUpdateManyWithoutBookingInput>
-  }
-
-  export type BookingCreateWithoutPaymentInput = {
-    id?: string
-    startTime: Date | string
-    endTime: Date | string
-    customerName: string
-    customerEmail: string
-    customerPhone: string
-    notes?: string | null
-    status?: $Enums.BookingStatus
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    service: ServiceCreateNestedOneWithoutBookingsInput
-    business: BusinessCreateNestedOneWithoutBookingsInput
-    customer?: CustomerCreateNestedOneWithoutBookingsInput
-    user: UserCreateNestedOneWithoutBookingsAsCustomerInput
-    notifications?: NotificationCreateNestedManyWithoutBookingInput
-  }
-
-  export type BookingUncheckedCreateWithoutPaymentInput = {
-    id?: string
-    serviceId: string
-    businessId: string
-    customerId?: string | null
-    userId: string
-    startTime: Date | string
-    endTime: Date | string
-    customerName: string
-    customerEmail: string
-    customerPhone: string
-    notes?: string | null
-    status?: $Enums.BookingStatus
-    createdAt?: Date | string
-    updatedAt?: Date | string
-    notifications?: NotificationUncheckedCreateNestedManyWithoutBookingInput
-  }
-
-  export type BookingCreateOrConnectWithoutPaymentInput = {
-    where: BookingWhereUniqueInput
-    create: XOR<BookingCreateWithoutPaymentInput, BookingUncheckedCreateWithoutPaymentInput>
   }
 
   export type BusinessCreateWithoutPaymentsInput = {
@@ -21800,51 +22508,82 @@ export namespace Prisma {
     create: XOR<BusinessCreateWithoutPaymentsInput, BusinessUncheckedCreateWithoutPaymentsInput>
   }
 
-  export type BookingUpsertWithoutPaymentInput = {
-    update: XOR<BookingUpdateWithoutPaymentInput, BookingUncheckedUpdateWithoutPaymentInput>
+  export type BookingCreateWithoutPaymentInput = {
+    id?: string
+    startTime: Date | string
+    endTime: Date | string
+    customerName: string
+    customerEmail: string
+    customerPhone: string
+    notes?: string | null
+    status?: $Enums.BookingStatus
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    service: ServiceCreateNestedOneWithoutBookingsInput
+    business: BusinessCreateNestedOneWithoutBookingsInput
+    customer?: CustomerCreateNestedOneWithoutBookingsInput
+    user: UserCreateNestedOneWithoutBookingsAsCustomerInput
+    notifications?: NotificationCreateNestedManyWithoutBookingInput
+  }
+
+  export type BookingUncheckedCreateWithoutPaymentInput = {
+    id?: string
+    serviceId: string
+    businessId: string
+    customerId?: string | null
+    userId: string
+    startTime: Date | string
+    endTime: Date | string
+    customerName: string
+    customerEmail: string
+    customerPhone: string
+    notes?: string | null
+    status?: $Enums.BookingStatus
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    notifications?: NotificationUncheckedCreateNestedManyWithoutBookingInput
+  }
+
+  export type BookingCreateOrConnectWithoutPaymentInput = {
+    where: BookingWhereUniqueInput
     create: XOR<BookingCreateWithoutPaymentInput, BookingUncheckedCreateWithoutPaymentInput>
-    where?: BookingWhereInput
   }
 
-  export type BookingUpdateToOneWithWhereWithoutPaymentInput = {
-    where?: BookingWhereInput
-    data: XOR<BookingUpdateWithoutPaymentInput, BookingUncheckedUpdateWithoutPaymentInput>
+  export type SubscriptionCreateWithoutPaymentsInput = {
+    id?: string
+    status?: $Enums.SubscriptionStatus
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    autoRenew?: boolean
+    lastPaymentId?: string | null
+    nextRenewalDate?: Date | string | null
+    trialEndsAt?: Date | string | null
+    isTrialUsed?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    business: BusinessCreateNestedOneWithoutSubscriptionInput
+    plan: SubscriptionPlanCreateNestedOneWithoutSubscriptionsInput
   }
 
-  export type BookingUpdateWithoutPaymentInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    customerName?: StringFieldUpdateOperationsInput | string
-    customerEmail?: StringFieldUpdateOperationsInput | string
-    customerPhone?: StringFieldUpdateOperationsInput | string
-    notes?: NullableStringFieldUpdateOperationsInput | string | null
-    status?: EnumBookingStatusFieldUpdateOperationsInput | $Enums.BookingStatus
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    service?: ServiceUpdateOneRequiredWithoutBookingsNestedInput
-    business?: BusinessUpdateOneRequiredWithoutBookingsNestedInput
-    customer?: CustomerUpdateOneWithoutBookingsNestedInput
-    user?: UserUpdateOneRequiredWithoutBookingsAsCustomerNestedInput
-    notifications?: NotificationUpdateManyWithoutBookingNestedInput
+  export type SubscriptionUncheckedCreateWithoutPaymentsInput = {
+    id?: string
+    businessId: string
+    planId: string
+    status?: $Enums.SubscriptionStatus
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    autoRenew?: boolean
+    lastPaymentId?: string | null
+    nextRenewalDate?: Date | string | null
+    trialEndsAt?: Date | string | null
+    isTrialUsed?: boolean
+    createdAt?: Date | string
+    updatedAt?: Date | string
   }
 
-  export type BookingUncheckedUpdateWithoutPaymentInput = {
-    id?: StringFieldUpdateOperationsInput | string
-    serviceId?: StringFieldUpdateOperationsInput | string
-    businessId?: StringFieldUpdateOperationsInput | string
-    customerId?: NullableStringFieldUpdateOperationsInput | string | null
-    userId?: StringFieldUpdateOperationsInput | string
-    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
-    customerName?: StringFieldUpdateOperationsInput | string
-    customerEmail?: StringFieldUpdateOperationsInput | string
-    customerPhone?: StringFieldUpdateOperationsInput | string
-    notes?: NullableStringFieldUpdateOperationsInput | string | null
-    status?: EnumBookingStatusFieldUpdateOperationsInput | $Enums.BookingStatus
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    notifications?: NotificationUncheckedUpdateManyWithoutBookingNestedInput
+  export type SubscriptionCreateOrConnectWithoutPaymentsInput = {
+    where: SubscriptionWhereUniqueInput
+    create: XOR<SubscriptionCreateWithoutPaymentsInput, SubscriptionUncheckedCreateWithoutPaymentsInput>
   }
 
   export type BusinessUpsertWithoutPaymentsInput = {
@@ -21914,6 +22653,96 @@ export namespace Prisma {
     reviews?: ReviewUncheckedUpdateManyWithoutBusinessNestedInput
     hours?: BusinessHoursUncheckedUpdateManyWithoutBusinessNestedInput
     customers?: CustomerUncheckedUpdateManyWithoutBusinessNestedInput
+  }
+
+  export type BookingUpsertWithoutPaymentInput = {
+    update: XOR<BookingUpdateWithoutPaymentInput, BookingUncheckedUpdateWithoutPaymentInput>
+    create: XOR<BookingCreateWithoutPaymentInput, BookingUncheckedCreateWithoutPaymentInput>
+    where?: BookingWhereInput
+  }
+
+  export type BookingUpdateToOneWithWhereWithoutPaymentInput = {
+    where?: BookingWhereInput
+    data: XOR<BookingUpdateWithoutPaymentInput, BookingUncheckedUpdateWithoutPaymentInput>
+  }
+
+  export type BookingUpdateWithoutPaymentInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    customerName?: StringFieldUpdateOperationsInput | string
+    customerEmail?: StringFieldUpdateOperationsInput | string
+    customerPhone?: StringFieldUpdateOperationsInput | string
+    notes?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumBookingStatusFieldUpdateOperationsInput | $Enums.BookingStatus
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    service?: ServiceUpdateOneRequiredWithoutBookingsNestedInput
+    business?: BusinessUpdateOneRequiredWithoutBookingsNestedInput
+    customer?: CustomerUpdateOneWithoutBookingsNestedInput
+    user?: UserUpdateOneRequiredWithoutBookingsAsCustomerNestedInput
+    notifications?: NotificationUpdateManyWithoutBookingNestedInput
+  }
+
+  export type BookingUncheckedUpdateWithoutPaymentInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    serviceId?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    userId?: StringFieldUpdateOperationsInput | string
+    startTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    endTime?: DateTimeFieldUpdateOperationsInput | Date | string
+    customerName?: StringFieldUpdateOperationsInput | string
+    customerEmail?: StringFieldUpdateOperationsInput | string
+    customerPhone?: StringFieldUpdateOperationsInput | string
+    notes?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumBookingStatusFieldUpdateOperationsInput | $Enums.BookingStatus
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    notifications?: NotificationUncheckedUpdateManyWithoutBookingNestedInput
+  }
+
+  export type SubscriptionUpsertWithoutPaymentsInput = {
+    update: XOR<SubscriptionUpdateWithoutPaymentsInput, SubscriptionUncheckedUpdateWithoutPaymentsInput>
+    create: XOR<SubscriptionCreateWithoutPaymentsInput, SubscriptionUncheckedCreateWithoutPaymentsInput>
+    where?: SubscriptionWhereInput
+  }
+
+  export type SubscriptionUpdateToOneWithWhereWithoutPaymentsInput = {
+    where?: SubscriptionWhereInput
+    data: XOR<SubscriptionUpdateWithoutPaymentsInput, SubscriptionUncheckedUpdateWithoutPaymentsInput>
+  }
+
+  export type SubscriptionUpdateWithoutPaymentsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    status?: EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    autoRenew?: BoolFieldUpdateOperationsInput | boolean
+    lastPaymentId?: NullableStringFieldUpdateOperationsInput | string | null
+    nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    business?: BusinessUpdateOneRequiredWithoutSubscriptionNestedInput
+    plan?: SubscriptionPlanUpdateOneRequiredWithoutSubscriptionsNestedInput
+  }
+
+  export type SubscriptionUncheckedUpdateWithoutPaymentsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    planId?: StringFieldUpdateOperationsInput | string
+    status?: EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    autoRenew?: BoolFieldUpdateOperationsInput | boolean
+    lastPaymentId?: NullableStringFieldUpdateOperationsInput | string | null
+    nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type BusinessCreateWithoutReviewsInput = {
@@ -22431,21 +23260,33 @@ export namespace Prisma {
   export type SubscriptionCreateWithoutPlanInput = {
     id?: string
     status?: $Enums.SubscriptionStatus
-    startDate: Date | string
-    endDate: Date | string
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    autoRenew?: boolean
+    lastPaymentId?: string | null
+    nextRenewalDate?: Date | string | null
+    trialEndsAt?: Date | string | null
+    isTrialUsed?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
     business: BusinessCreateNestedOneWithoutSubscriptionInput
+    payments?: PaymentCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionUncheckedCreateWithoutPlanInput = {
     id?: string
     businessId: string
     status?: $Enums.SubscriptionStatus
-    startDate: Date | string
-    endDate: Date | string
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    autoRenew?: boolean
+    lastPaymentId?: string | null
+    nextRenewalDate?: Date | string | null
+    trialEndsAt?: Date | string | null
+    isTrialUsed?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
+    payments?: PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionCreateOrConnectWithoutPlanInput = {
@@ -22482,8 +23323,13 @@ export namespace Prisma {
     businessId?: StringFilter<"Subscription"> | string
     planId?: StringFilter<"Subscription"> | string
     status?: EnumSubscriptionStatusFilter<"Subscription"> | $Enums.SubscriptionStatus
-    startDate?: DateTimeFilter<"Subscription"> | Date | string
-    endDate?: DateTimeFilter<"Subscription"> | Date | string
+    startDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    endDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    autoRenew?: BoolFilter<"Subscription"> | boolean
+    lastPaymentId?: StringNullableFilter<"Subscription"> | string | null
+    nextRenewalDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    trialEndsAt?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    isTrialUsed?: BoolFilter<"Subscription"> | boolean
     createdAt?: DateTimeFilter<"Subscription"> | Date | string
     updatedAt?: DateTimeFilter<"Subscription"> | Date | string
   }
@@ -22554,28 +23400,84 @@ export namespace Prisma {
   export type SubscriptionPlanCreateWithoutSubscriptionsInput = {
     id?: string
     name: string
-    price: number
-    currency?: string
-    durationInDays: number
+    priceNPR: number
+    displayName: string
+    features?: SubscriptionPlanCreatefeaturesInput | string[]
     description?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
+    durationDays?: number
+    currency?: string
+    active?: boolean
   }
 
   export type SubscriptionPlanUncheckedCreateWithoutSubscriptionsInput = {
     id?: string
     name: string
-    price: number
-    currency?: string
-    durationInDays: number
+    priceNPR: number
+    displayName: string
+    features?: SubscriptionPlanCreatefeaturesInput | string[]
     description?: string | null
-    createdAt?: Date | string
-    updatedAt?: Date | string
+    durationDays?: number
+    currency?: string
+    active?: boolean
   }
 
   export type SubscriptionPlanCreateOrConnectWithoutSubscriptionsInput = {
     where: SubscriptionPlanWhereUniqueInput
     create: XOR<SubscriptionPlanCreateWithoutSubscriptionsInput, SubscriptionPlanUncheckedCreateWithoutSubscriptionsInput>
+  }
+
+  export type PaymentCreateWithoutSubscriptionInput = {
+    id?: string
+    gateway: string
+    transactionId: string
+    amount: number
+    status?: string
+    esewaRefId?: string | null
+    esewaProductCode?: string | null
+    khaltiPidx?: string | null
+    khaltiToken?: string | null
+    reference?: string | null
+    customerEmail?: string | null
+    customerPhone?: string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: string | null
+    currency?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    business: BusinessCreateNestedOneWithoutPaymentsInput
+    booking?: BookingCreateNestedOneWithoutPaymentInput
+  }
+
+  export type PaymentUncheckedCreateWithoutSubscriptionInput = {
+    id?: string
+    businessId: string
+    bookingId?: string | null
+    gateway: string
+    transactionId: string
+    amount: number
+    status?: string
+    esewaRefId?: string | null
+    esewaProductCode?: string | null
+    khaltiPidx?: string | null
+    khaltiToken?: string | null
+    reference?: string | null
+    customerEmail?: string | null
+    customerPhone?: string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: string | null
+    currency?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type PaymentCreateOrConnectWithoutSubscriptionInput = {
+    where: PaymentWhereUniqueInput
+    create: XOR<PaymentCreateWithoutSubscriptionInput, PaymentUncheckedCreateWithoutSubscriptionInput>
+  }
+
+  export type PaymentCreateManySubscriptionInputEnvelope = {
+    data: PaymentCreateManySubscriptionInput | PaymentCreateManySubscriptionInput[]
+    skipDuplicates?: boolean
   }
 
   export type BusinessUpsertWithoutSubscriptionInput = {
@@ -22661,23 +23563,41 @@ export namespace Prisma {
   export type SubscriptionPlanUpdateWithoutSubscriptionsInput = {
     id?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
-    price?: FloatFieldUpdateOperationsInput | number
-    currency?: StringFieldUpdateOperationsInput | string
-    durationInDays?: IntFieldUpdateOperationsInput | number
+    priceNPR?: IntFieldUpdateOperationsInput | number
+    displayName?: StringFieldUpdateOperationsInput | string
+    features?: SubscriptionPlanUpdatefeaturesInput | string[]
     description?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    durationDays?: IntFieldUpdateOperationsInput | number
+    currency?: StringFieldUpdateOperationsInput | string
+    active?: BoolFieldUpdateOperationsInput | boolean
   }
 
   export type SubscriptionPlanUncheckedUpdateWithoutSubscriptionsInput = {
     id?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
-    price?: FloatFieldUpdateOperationsInput | number
-    currency?: StringFieldUpdateOperationsInput | string
-    durationInDays?: IntFieldUpdateOperationsInput | number
+    priceNPR?: IntFieldUpdateOperationsInput | number
+    displayName?: StringFieldUpdateOperationsInput | string
+    features?: SubscriptionPlanUpdatefeaturesInput | string[]
     description?: NullableStringFieldUpdateOperationsInput | string | null
-    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    durationDays?: IntFieldUpdateOperationsInput | number
+    currency?: StringFieldUpdateOperationsInput | string
+    active?: BoolFieldUpdateOperationsInput | boolean
+  }
+
+  export type PaymentUpsertWithWhereUniqueWithoutSubscriptionInput = {
+    where: PaymentWhereUniqueInput
+    update: XOR<PaymentUpdateWithoutSubscriptionInput, PaymentUncheckedUpdateWithoutSubscriptionInput>
+    create: XOR<PaymentCreateWithoutSubscriptionInput, PaymentUncheckedCreateWithoutSubscriptionInput>
+  }
+
+  export type PaymentUpdateWithWhereUniqueWithoutSubscriptionInput = {
+    where: PaymentWhereUniqueInput
+    data: XOR<PaymentUpdateWithoutSubscriptionInput, PaymentUncheckedUpdateWithoutSubscriptionInput>
+  }
+
+  export type PaymentUpdateManyWithWhereWithoutSubscriptionInput = {
+    where: PaymentScalarWhereInput
+    data: XOR<PaymentUpdateManyMutationInput, PaymentUncheckedUpdateManyWithoutSubscriptionInput>
   }
 
   export type BookingCreateManyUserInput = {
@@ -22860,13 +23780,22 @@ export namespace Prisma {
 
   export type PaymentCreateManyBusinessInput = {
     id?: string
-    bookingId: string
+    bookingId?: string | null
+    subscriptionId?: string | null
+    gateway: string
+    transactionId: string
     amount: number
+    status?: string
+    esewaRefId?: string | null
+    esewaProductCode?: string | null
+    khaltiPidx?: string | null
+    khaltiToken?: string | null
+    reference?: string | null
+    customerEmail?: string | null
+    customerPhone?: string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: string | null
     currency?: string
-    status?: $Enums.PaymentStatus
-    method?: string | null
-    transactionId?: string | null
-    receiptUrl?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -23002,39 +23931,66 @@ export namespace Prisma {
 
   export type PaymentUpdateWithoutBusinessInput = {
     id?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    gateway?: StringFieldUpdateOperationsInput | string
+    transactionId?: StringFieldUpdateOperationsInput | string
+    amount?: IntFieldUpdateOperationsInput | number
+    status?: StringFieldUpdateOperationsInput | string
+    esewaRefId?: NullableStringFieldUpdateOperationsInput | string | null
+    esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumPaymentStatusFieldUpdateOperationsInput | $Enums.PaymentStatus
-    method?: NullableStringFieldUpdateOperationsInput | string | null
-    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
-    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
-    booking?: BookingUpdateOneRequiredWithoutPaymentNestedInput
+    booking?: BookingUpdateOneWithoutPaymentNestedInput
+    subscription?: SubscriptionUpdateOneWithoutPaymentsNestedInput
   }
 
   export type PaymentUncheckedUpdateWithoutBusinessInput = {
     id?: StringFieldUpdateOperationsInput | string
-    bookingId?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    bookingId?: NullableStringFieldUpdateOperationsInput | string | null
+    subscriptionId?: NullableStringFieldUpdateOperationsInput | string | null
+    gateway?: StringFieldUpdateOperationsInput | string
+    transactionId?: StringFieldUpdateOperationsInput | string
+    amount?: IntFieldUpdateOperationsInput | number
+    status?: StringFieldUpdateOperationsInput | string
+    esewaRefId?: NullableStringFieldUpdateOperationsInput | string | null
+    esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumPaymentStatusFieldUpdateOperationsInput | $Enums.PaymentStatus
-    method?: NullableStringFieldUpdateOperationsInput | string | null
-    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
-    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type PaymentUncheckedUpdateManyWithoutBusinessInput = {
     id?: StringFieldUpdateOperationsInput | string
-    bookingId?: StringFieldUpdateOperationsInput | string
-    amount?: FloatFieldUpdateOperationsInput | number
+    bookingId?: NullableStringFieldUpdateOperationsInput | string | null
+    subscriptionId?: NullableStringFieldUpdateOperationsInput | string | null
+    gateway?: StringFieldUpdateOperationsInput | string
+    transactionId?: StringFieldUpdateOperationsInput | string
+    amount?: IntFieldUpdateOperationsInput | number
+    status?: StringFieldUpdateOperationsInput | string
+    esewaRefId?: NullableStringFieldUpdateOperationsInput | string | null
+    esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     currency?: StringFieldUpdateOperationsInput | string
-    status?: EnumPaymentStatusFieldUpdateOperationsInput | $Enums.PaymentStatus
-    method?: NullableStringFieldUpdateOperationsInput | string | null
-    transactionId?: NullableStringFieldUpdateOperationsInput | string | null
-    receiptUrl?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -23320,8 +24276,13 @@ export namespace Prisma {
     id?: string
     businessId: string
     status?: $Enums.SubscriptionStatus
-    startDate: Date | string
-    endDate: Date | string
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    autoRenew?: boolean
+    lastPaymentId?: string | null
+    nextRenewalDate?: Date | string | null
+    trialEndsAt?: Date | string | null
+    isTrialUsed?: boolean
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -23329,29 +24290,134 @@ export namespace Prisma {
   export type SubscriptionUpdateWithoutPlanInput = {
     id?: StringFieldUpdateOperationsInput | string
     status?: EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
-    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    autoRenew?: BoolFieldUpdateOperationsInput | boolean
+    lastPaymentId?: NullableStringFieldUpdateOperationsInput | string | null
+    nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     business?: BusinessUpdateOneRequiredWithoutSubscriptionNestedInput
+    payments?: PaymentUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type SubscriptionUncheckedUpdateWithoutPlanInput = {
     id?: StringFieldUpdateOperationsInput | string
     businessId?: StringFieldUpdateOperationsInput | string
     status?: EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
-    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    autoRenew?: BoolFieldUpdateOperationsInput | boolean
+    lastPaymentId?: NullableStringFieldUpdateOperationsInput | string | null
+    nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    payments?: PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type SubscriptionUncheckedUpdateManyWithoutPlanInput = {
     id?: StringFieldUpdateOperationsInput | string
     businessId?: StringFieldUpdateOperationsInput | string
     status?: EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
-    startDate?: DateTimeFieldUpdateOperationsInput | Date | string
-    endDate?: DateTimeFieldUpdateOperationsInput | Date | string
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    autoRenew?: BoolFieldUpdateOperationsInput | boolean
+    lastPaymentId?: NullableStringFieldUpdateOperationsInput | string | null
+    nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type PaymentCreateManySubscriptionInput = {
+    id?: string
+    businessId: string
+    bookingId?: string | null
+    gateway: string
+    transactionId: string
+    amount: number
+    status?: string
+    esewaRefId?: string | null
+    esewaProductCode?: string | null
+    khaltiPidx?: string | null
+    khaltiToken?: string | null
+    reference?: string | null
+    customerEmail?: string | null
+    customerPhone?: string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: string | null
+    currency?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type PaymentUpdateWithoutSubscriptionInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    gateway?: StringFieldUpdateOperationsInput | string
+    transactionId?: StringFieldUpdateOperationsInput | string
+    amount?: IntFieldUpdateOperationsInput | number
+    status?: StringFieldUpdateOperationsInput | string
+    esewaRefId?: NullableStringFieldUpdateOperationsInput | string | null
+    esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    business?: BusinessUpdateOneRequiredWithoutPaymentsNestedInput
+    booking?: BookingUpdateOneWithoutPaymentNestedInput
+  }
+
+  export type PaymentUncheckedUpdateWithoutSubscriptionInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    bookingId?: NullableStringFieldUpdateOperationsInput | string | null
+    gateway?: StringFieldUpdateOperationsInput | string
+    transactionId?: StringFieldUpdateOperationsInput | string
+    amount?: IntFieldUpdateOperationsInput | number
+    status?: StringFieldUpdateOperationsInput | string
+    esewaRefId?: NullableStringFieldUpdateOperationsInput | string | null
+    esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type PaymentUncheckedUpdateManyWithoutSubscriptionInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    bookingId?: NullableStringFieldUpdateOperationsInput | string | null
+    gateway?: StringFieldUpdateOperationsInput | string
+    transactionId?: StringFieldUpdateOperationsInput | string
+    amount?: IntFieldUpdateOperationsInput | number
+    status?: StringFieldUpdateOperationsInput | string
+    esewaRefId?: NullableStringFieldUpdateOperationsInput | string | null
+    esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
+    khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    reference?: NullableStringFieldUpdateOperationsInput | string | null
+    customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
+    customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
+    payload?: NullableJsonNullValueInput | InputJsonValue
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

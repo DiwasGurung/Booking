@@ -11,6 +11,7 @@ import notificationRoutes from "./routes/notification.routes";
 import paymentRoutes from "./routes/payment.routes";
 import reviewRoutes from "./routes/review.routes";
 import serviceRoutes from "./routes/service.routes";
+import cookieParser from "cookie-parser";
 
 dotenv.config();
 
@@ -22,9 +23,11 @@ app.use(
     origin: 'http://localhost:3000',
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true, 
   })
 );
 
+app.use(cookieParser());
 
 app.use(express.json());
 
