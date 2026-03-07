@@ -1,3 +1,6 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
   output   = "./src/generated/prisma" 
@@ -6,7 +9,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-
 }
 
 enum UserRole {
@@ -14,7 +16,6 @@ enum UserRole {
   BUSINESS_OWNER
   ADMIN
 }
-
 
 enum SubscriptionStatus {
   ACTIVE
@@ -66,7 +67,6 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
-
 model Business {
   id     String @id @default(cuid())
   userId String @unique
@@ -90,6 +90,10 @@ model Business {
   isVerified Boolean @default(false)
   isActive   Boolean @default(true)
   rating     Float   @default(0)
+
+  // Metadata - stored as JSON
+  socialMedia             Json? // { facebook: "", instagram: "", twitter: "" }
+  notificationSettings    Json? // { emailNotifications: bool, smsNotifications: bool, ... }
 
   subscription Subscription?
 
@@ -124,7 +128,6 @@ model Service {
   updatedAt DateTime @updatedAt
 }
 
-
 model Customer {
   id         String @id @default(cuid())
   businessId String
@@ -146,7 +149,6 @@ model Customer {
 
   @@unique([businessId, email])
 }
-
 
 model Booking {
   id         String @id @default(cuid())
@@ -219,7 +221,6 @@ model Payment {
   @@map("payments")
 }
 
-
 model Review {
   id         String @id @default(cuid())
   businessId String
@@ -238,8 +239,6 @@ model Review {
   @@unique([businessId, userId])
 }
 
-
-
 model BusinessHours {
   id         String @id @default(cuid())
   businessId String
@@ -256,8 +255,6 @@ model BusinessHours {
   @@unique([businessId, dayOfWeek])
 }
 
-
-
 model Notification {
   id     String @id @default(cuid())
   userId String
@@ -273,7 +270,6 @@ model Notification {
 
   createdAt DateTime @default(now())
 }
-
 
 model SubscriptionPlan {
   id          String   @id @default(cuid())
@@ -322,3 +318,5 @@ model Subscription {
   @@index([endDate])
   @@map("subscriptions")
 }
+
+

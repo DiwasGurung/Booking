@@ -200,6 +200,97 @@ export class BusinessService {
       include: { user: true },
     })
   }
+
+  static async getBusinessSettings(businessId: string) {
+  try {
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        city: true,
+        state: true,
+        zipCode: true,
+        country: true,
+        description: true,
+        website: true,
+       
+      }
+    })
+    
+    if (!business) {
+      throw new Error("Business not found")
+    }
+    
+    return {
+      businessName: business.name,
+      email: business.email,
+      phone: business.phone || '',
+      address: business.address || '',
+      city: business.city || '',
+      state: business.state || '',
+      zipCode: business.zipCode || '',
+      country: business.country || '',
+      description: business.description || '',
+      website: business.website || '',
+      socialMedia: business.socialMedia || {
+        facebook: '',
+        instagram: '',
+        twitter: ''
+      },
+      notificationSettings: business.notificationSettings || {
+        emailNotifications: true,
+        smsNotifications: false,
+        bookingReminders: true,
+        paymentAlerts: true,
+        marketingEmails: false
+      }
+    }
+  } catch (error) {
+    throw error
+  }
+}
+
+static async updateBusinessSettings(businessId: string, settings: any) {
+  try {
+    const business = await prisma.business.update({
+      where: { id: businessId },
+      data: {
+        name: settings.businessName,
+        email: settings.email,
+        phone: settings.phone,
+        address: settings.address,
+        city: settings.city,
+        state: settings.state,
+        zipCode: settings.zipCode,
+        country: settings.country,
+        description: settings.description,
+        website: settings.website,
+    
+      
+      }
+    })
+    
+    return {
+      businessName: business.name,
+      email: business.email,
+      phone: business.phone,
+      address: business.address,
+      city: business.city,
+      state: business.state,
+      zipCode: business.zipCode,
+      country: business.country,
+      description: business.description,
+      website: business.website,
+
+    }
+  } catch (error) {
+    throw error
+  }
+}
 }
 
 export default new BusinessService()

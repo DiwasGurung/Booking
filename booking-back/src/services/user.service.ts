@@ -31,6 +31,9 @@ export class UserService {
   async getUserById(id: string): Promise<User | null> {
     return prisma.user.findUnique({
       where: { id },
+      include: {
+      business: true,   // ✅ include business relation
+    },
     })
   }
 
