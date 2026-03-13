@@ -153,6 +153,8 @@ exports.Prisma.BusinessScalarFieldEnum = {
   isVerified: 'isVerified',
   isActive: 'isActive',
   rating: 'rating',
+  socialMedia: 'socialMedia',
+  notificationSettings: 'notificationSettings',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };

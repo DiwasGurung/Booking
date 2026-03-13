@@ -5,7 +5,7 @@ export interface AuthRequest extends Request {
   user?: { userId: string; role: string };
 }
 
-export const authMiddleware = (
+export const auth= (
   req: AuthRequest,
   res: Response,
   next: NextFunction

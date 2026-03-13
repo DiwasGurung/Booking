@@ -94,3 +94,40 @@ export const updateUserRole = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+  export const getCurrentUser= async (req: any, res: Response) => {
+    try {
+      // The userId should be set by the auth middleware
+      const userId = req.userId
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Not authenticated',
+        })
+      }
+
+      const user = await userService.getUserById(userId)
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        })
+      }
+
+      // Remove password from response
+      const { password: _, ...userWithoutPassword } = user
+
+      res.json({
+        success: true,
+        user: userWithoutPassword,
+      })
+    } catch (error: any) {
+      console.error('[v0] Error getting current user:', error)
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get user',
+        error: error.message,
+      })
+    }
+  }

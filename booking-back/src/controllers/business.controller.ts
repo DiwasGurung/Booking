@@ -158,36 +158,39 @@ async create(req: Request, res: Response) {
       res.status(500).json({ message: "Search failed", error })
     }
   }
+  /**
+   * Get business settings
+   */
   async getSettings(req: Request, res: Response) {
-  try {
-    const { businessId } = req.params
-    const settings = await BusinessService.getBusinessSettings(businessId as string)
-    
-    if (!settings) {
-      return res.status(404).json({ message: "Business settings not found" })
+    try {
+      const { businessId } = req.params
+      const settings = await (BusinessService as any).getBusinessSettings(businessId as string)
+      
+      if (!settings) {
+        return res.status(404).json({ message: "Business settings not found" })
+      }
+      
+      res.json(settings)
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch settings", error })
     }
-    
-    res.json(settings)
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch settings", error })
   }
-}
 
-/**
- * Update business settings
- */
-async updateSettings(req: Request, res: Response) {
-  try {
-    const { businessId } = req.params
-    const settings = await BusinessService.updateBusinessSettings(
-      businessId as string,
-      req.body
-    )
-    res.json(settings)
-  } catch (error) {
-    res.status(500).json({ message: "Failed to update settings", error })
+  /**
+   * Update business settings
+   */
+  async updateSettings(req: Request, res: Response) {
+    try {
+      const { businessId } = req.params
+      const settings = await (BusinessService as any).updateBusinessSettings(
+        businessId as string,
+        req.body
+      )
+      res.json(settings)
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update settings", error })
+    }
   }
-}
 }
 
 export default new BusinessController()

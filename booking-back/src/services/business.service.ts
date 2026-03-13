@@ -217,7 +217,11 @@ export class BusinessService {
         country: true,
         description: true,
         website: true,
-       
+        category: true,
+        logo: true,
+        coverImage: true,
+        socialMedia: true,
+        notificationSettings: true,
       }
     })
     
@@ -236,6 +240,9 @@ export class BusinessService {
       country: business.country || '',
       description: business.description || '',
       website: business.website || '',
+      category: business.category || '',
+      logo: business.logo || '',
+      coverImage: business.coverImage || '',
       socialMedia: business.socialMedia || {
         facebook: '',
         instagram: '',
@@ -269,8 +276,11 @@ static async updateBusinessSettings(businessId: string, settings: any) {
         country: settings.country,
         description: settings.description,
         website: settings.website,
-    
-      
+        category: settings.category,
+        ...(settings.logo && { logo: settings.logo }),
+        ...(settings.coverImage && { coverImage: settings.coverImage }),
+        ...(settings.socialMedia && { socialMedia: settings.socialMedia }),
+        ...(settings.notificationSettings && { notificationSettings: settings.notificationSettings }),
       }
     })
     
@@ -285,7 +295,11 @@ static async updateBusinessSettings(businessId: string, settings: any) {
       country: business.country,
       description: business.description,
       website: business.website,
-
+      category: business.category,
+      logo: business.logo,
+      coverImage: business.coverImage,
+      socialMedia: business.socialMedia,
+      notificationSettings: business.notificationSettings,
     }
   } catch (error) {
     throw error

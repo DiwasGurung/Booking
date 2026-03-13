@@ -1,3 +1,6 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
   output   = "./src/generated/prisma"
@@ -87,6 +90,10 @@ model Business {
   isVerified Boolean @default(false)
   isActive   Boolean @default(true)
   rating     Float   @default(0)
+
+  // Metadata - stored as JSON
+  socialMedia          Json? // { facebook: "", instagram: "", twitter: "" }
+  notificationSettings Json? // { emailNotifications: bool, smsNotifications: bool, ... }
 
   subscription Subscription?
 
