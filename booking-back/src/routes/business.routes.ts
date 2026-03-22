@@ -24,7 +24,7 @@ businessRoutes.get("/:businessId/stats", BusinessController.stats)
 businessRoutes.get("/:businessId/revenue", BusinessController.monthlyRevenue)
 
 // Get business settings (specific route before /:id)
-businessRoutes.get('/:businessId/settings', auth, BusinessController.getSettings)
+businessRoutes.get('/:businessId/settings', auth,BusinessController.getSettings)
 
 // Update business settings (specific route before /:id)
 businessRoutes.put('/:businessId/settings', auth, BusinessController.updateSettings)

@@ -3,8 +3,9 @@ import BookingController from "../controllers/booking.controller";
 
 const bookingRoutes = Router();
 
-// Create a new booking
+// Create a new booking - handle both /bookings and direct POST
 bookingRoutes.post("/bookings", BookingController.createBooking);
+bookingRoutes.post("/", BookingController.createBooking); // Alias for /api/booking/
 
 // Get a single booking by its ID
 bookingRoutes.get("/bookings/:id", BookingController.getBookingById);
@@ -14,6 +15,7 @@ bookingRoutes.put("/bookings/:id", BookingController.updateBooking);
 
 // Update a booking's status
 bookingRoutes.patch("/bookings/:id/status", BookingController.updateBookingStatus);
+
 // Cancel a booking
 bookingRoutes.patch("/bookings/:id/cancel", BookingController.cancelBooking);
 
@@ -25,6 +27,7 @@ bookingRoutes.get("/businesses/:businessId/bookings", BookingController.getBusin
 
 // Get booking trends for a business
 bookingRoutes.get("/businesses/:businessId/booking-trends", BookingController.getBookingTrends);
+
 // Get available slots for a service at a business
 bookingRoutes.get(
   "/businesses/:businessId/services/:serviceId/available-slots",

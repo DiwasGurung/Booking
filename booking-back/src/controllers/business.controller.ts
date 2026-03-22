@@ -164,7 +164,7 @@ async create(req: Request, res: Response) {
   async getSettings(req: Request, res: Response) {
     try {
       const { businessId } = req.params
-      const settings = await (BusinessService as any).getBusinessSettings(businessId as string)
+      const settings = await BusinessService.getBusinessSettings(businessId as string)
       
       if (!settings) {
         return res.status(404).json({ message: "Business settings not found" })
@@ -172,7 +172,9 @@ async create(req: Request, res: Response) {
       
       res.json(settings)
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch settings", error })
+      console.error('[v0] getSettings error:', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      res.status(500).json({ message: "Failed to fetch settings", error: errorMessage })
     }
   }
 
@@ -182,13 +184,15 @@ async create(req: Request, res: Response) {
   async updateSettings(req: Request, res: Response) {
     try {
       const { businessId } = req.params
-      const settings = await (BusinessService as any).updateBusinessSettings(
+      const settings = await BusinessService.updateBusinessSettings(
         businessId as string,
         req.body
       )
       res.json(settings)
     } catch (error) {
-      res.status(500).json({ message: "Failed to update settings", error })
+      console.error('[v0] updateSettings error:', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      res.status(500).json({ message: "Failed to update settings", error: errorMessage })
     }
   }
 }

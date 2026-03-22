@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import BookingService from "../services/booking.service"; // Adjust path as needed
+import BookingService from "../services/booking.service"; 
 import type { BookingStatus } from "../../prisma/src/generated/prisma/client";
 
 class BookingController {
@@ -8,10 +8,16 @@ class BookingController {
    */
   async createBooking(req: Request, res: Response): Promise<void> {
     try {
-      const booking = await BookingService.createBooking(req.body);
-      res.status(201).json(booking);
+      console.log('[v0] createBooking called with body:', req.body)
+      const booking = await BookingService.createBooking(req.body)
+      console.log('[v0] Booking created successfully:', booking)
+      res.status(201).json(booking)
     } catch (error) {
-      res.status(500).json({ message: "Error creating booking", error });
+      console.error('[v0] Error creating booking:', error instanceof Error ? error.message : String(error))
+      res.status(500).json({ 
+        message: "Error creating booking", 
+        error: error instanceof Error ? error.message : String(error)
+      })
     }
   }
 

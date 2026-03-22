@@ -22,7 +22,7 @@ export class BusinessService {
   logo?: string
 }): Promise<Business> {
   if (!data.userId) throw new Error("userId is required to create a business")
-
+ 
     // Check if user already has a business
   const existingBusiness = await prisma.business.findUnique({ where: { userId: data.userId } });
   if (existingBusiness) {
@@ -201,110 +201,116 @@ export class BusinessService {
     })
   }
 
-  static async getBusinessSettings(businessId: string) {
-  try {
-    const business = await prisma.business.findUnique({
-      where: { id: businessId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        address: true,
-        city: true,
-        state: true,
-        zipCode: true,
-        country: true,
-        description: true,
-        website: true,
-        category: true,
-        logo: true,
-        coverImage: true,
-        socialMedia: true,
-        notificationSettings: true,
+  /**
+   * Get business settings
+   */
+  async getBusinessSettings(businessId: string) {
+    try {
+      const business = await prisma.business.findUnique({
+        where: { id: businessId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          address: true,
+          city: true,
+          state: true,
+          zipCode: true,
+          country: true,
+          description: true,
+          website: true,
+          category: true,
+          logo: true,
+          coverImage: true,
+          socialMedia: true,
+          notificationSettings: true,
+        }
+      })
+      
+      if (!business) {
+        throw new Error("Business not found")
       }
-    })
-    
-    if (!business) {
-      throw new Error("Business not found")
-    }
-    
-    return {
-      businessName: business.name,
-      email: business.email,
-      phone: business.phone || '',
-      address: business.address || '',
-      city: business.city || '',
-      state: business.state || '',
-      zipCode: business.zipCode || '',
-      country: business.country || '',
-      description: business.description || '',
-      website: business.website || '',
-      category: business.category || '',
-      logo: business.logo || '',
-      coverImage: business.coverImage || '',
-      socialMedia: business.socialMedia || {
-        facebook: '',
-        instagram: '',
-        twitter: ''
-      },
-      notificationSettings: business.notificationSettings || {
-        emailNotifications: true,
-        smsNotifications: false,
-        bookingReminders: true,
-        paymentAlerts: true,
-        marketingEmails: false
+      
+      return {
+        businessName: business.name,
+        email: business.email,
+        phone: business.phone || '',
+        address: business.address || '',
+        city: business.city || '',
+        state: business.state || '',
+        zipCode: business.zipCode || '',
+        country: business.country || '',
+        description: business.description || '',
+        website: business.website || '',
+        category: business.category || '',
+        logo: business.logo || '',
+        coverImage: business.coverImage || '',
+        socialMedia: business.socialMedia || {
+          facebook: '',
+          instagram: '',
+          twitter: ''
+        },
+        notificationSettings: business.notificationSettings || {
+          emailNotifications: true,
+          smsNotifications: false,
+          bookingReminders: true,
+          paymentAlerts: true,
+          marketingEmails: false
+        }
       }
+    } catch (error) {
+      throw error
     }
-  } catch (error) {
-    throw error
   }
-}
 
-static async updateBusinessSettings(businessId: string, settings: any) {
-  try {
-    const business = await prisma.business.update({
-      where: { id: businessId },
-      data: {
-        name: settings.businessName,
-        email: settings.email,
-        phone: settings.phone,
-        address: settings.address,
-        city: settings.city,
-        state: settings.state,
-        zipCode: settings.zipCode,
-        country: settings.country,
-        description: settings.description,
-        website: settings.website,
-        category: settings.category,
-        ...(settings.logo && { logo: settings.logo }),
-        ...(settings.coverImage && { coverImage: settings.coverImage }),
-        ...(settings.socialMedia && { socialMedia: settings.socialMedia }),
-        ...(settings.notificationSettings && { notificationSettings: settings.notificationSettings }),
+  /**
+   * Update business settings
+   */
+  async updateBusinessSettings(businessId: string, settings: any) {
+    try {
+      const business = await prisma.business.update({
+        where: { id: businessId },
+        data: {
+          name: settings.businessName,
+          email: settings.email,
+          phone: settings.phone,
+          address: settings.address,
+          city: settings.city,
+          state: settings.state,
+          zipCode: settings.zipCode,
+          country: settings.country,
+          description: settings.description,
+          website: settings.website,
+          category: settings.category,
+          ...(settings.logo && { logo: settings.logo }),
+          ...(settings.coverImage && { coverImage: settings.coverImage }),
+          ...(settings.socialMedia && { socialMedia: settings.socialMedia }),
+          ...(settings.notificationSettings && { notificationSettings: settings.notificationSettings }),
+        }
+      })
+      
+      return {
+        businessName: business.name,
+        email: business.email,
+        phone: business.phone,
+        address: business.address,
+        city: business.city,
+        state: business.state,
+        zipCode: business.zipCode,
+        country: business.country,
+        description: business.description,
+        website: business.website,
+        category: business.category,
+        logo: business.logo,
+        coverImage: business.coverImage,
+        socialMedia: business.socialMedia,
+        notificationSettings: business.notificationSettings,
       }
-    })
-    
-    return {
-      businessName: business.name,
-      email: business.email,
-      phone: business.phone,
-      address: business.address,
-      city: business.city,
-      state: business.state,
-      zipCode: business.zipCode,
-      country: business.country,
-      description: business.description,
-      website: business.website,
-      category: business.category,
-      logo: business.logo,
-      coverImage: business.coverImage,
-      socialMedia: business.socialMedia,
-      notificationSettings: business.notificationSettings,
+    } catch (error) {
+      throw error
     }
-  } catch (error) {
-    throw error
   }
-}
 }
 
 export default new BusinessService()
