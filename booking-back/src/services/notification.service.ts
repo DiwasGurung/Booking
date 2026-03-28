@@ -1,6 +1,9 @@
 import { prisma } from "../lib/prisma"
 import type { Notification, NotificationType, Prisma } from"../../prisma/src/generated/prisma/client"
 
+
+
+
 export class NotificationService {
   /**
    * Create a new notification

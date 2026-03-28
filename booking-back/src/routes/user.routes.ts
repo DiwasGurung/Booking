@@ -1,5 +1,5 @@
 import { Router } from "express";
-import {createUser, loginUser, updateUserRole, logoutUser} from "../controllers/user.controller";
+import {createUser, loginUser, updateUserRole, logoutUser, changePassword, updateProfile} from "../controllers/user.controller";
 import userService from "../services/user.service";
 import { auth, AuthRequest } from "../middleware/auth.middleware";
 
@@ -38,5 +38,17 @@ userRoutes.get('/me', auth, async (req: AuthRequest, res) => {
 })
 
 userRoutes.put("/update-role", updateUserRole);
+
+/**
+ * Update user profile (firstName, lastName, phone, avatar)
+ * PUT /api/users/:id/profile
+ */
+userRoutes.put('/:id/profile', auth, updateProfile)
+
+/**
+ * Change user password
+ * POST /api/users/:id/change-password
+ */
+userRoutes.post('/:id/change-password', auth, changePassword)
 
 export default userRoutes;

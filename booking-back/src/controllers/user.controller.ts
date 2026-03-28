@@ -131,3 +131,107 @@ export const updateUserRole = async (req: Request, res: Response) => {
       })
     }
   }
+
+    /**
+   * Update user profile (firstName, lastName, phone, avatar)
+   */
+  export const updateProfile=async (req: Request, res: Response)=> {
+    try {
+      const userId = (req as any).userId || req.body.userId
+      const { firstName, lastName, phone, avatar } = req.body
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Not authenticated',
+        })
+      }
+
+      const updateData: any = {}
+      if (firstName) updateData.firstName = firstName
+      if (lastName) updateData.lastName = lastName
+      if (phone !== undefined) updateData.phone = phone
+      if (avatar !== undefined) updateData.avatar = avatar
+
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No fields to update',
+        })
+      }
+
+      const user = await userService.updateUser(userId, updateData)
+      const { password: _, ...userWithoutPassword } = user
+
+      res.json({
+        success: true,
+        message: 'Profile updated successfully',
+        data: userWithoutPassword,
+      })
+    } catch (error: any) {
+      console.error('[v0] Error updating profile:', error)
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update profile',
+        error: error.message,
+      })
+    }
+  }
+
+  /**
+   * Update user password
+   */
+  export const changePassword=async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId || req.body.userId
+      const { currentPassword, newPassword } = req.body
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Not authenticated',
+        })
+      }
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Current password and new password are required',
+        })
+      }
+
+      // Verify current password
+      const user = await userService.getUserById(userId)
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        })
+      }
+
+      const isPasswordValid = await userService.verifyPassword(currentPassword, user.password)
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: 'Current password is incorrect',
+        })
+      }
+
+      await userService.updatePassword(userId, newPassword)
+
+      res.json({
+        success: true,
+        message: 'Password updated successfully',
+      })
+    } catch (error: any) {
+      console.error('[v0] Error changing password:', error)
+      res.status(500).json({
+        success: false,
+        message: 'Failed to change password',
+        error: error.message,
+      })
+    }
+  }
+  
+
+  

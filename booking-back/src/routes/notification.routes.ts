@@ -17,6 +17,7 @@ notificationRoutes.put("/user/:userId/read-all", NotificationController.markAllA
 
 // Get notification by ID
 notificationRoutes.get("/:id", NotificationController.getById)
+
 // Mark notification as read
 notificationRoutes.put("/:id/read", NotificationController.markAsRead)
 
@@ -24,3 +25,4 @@ notificationRoutes.put("/:id/read", NotificationController.markAsRead)
 notificationRoutes.delete("/:id", NotificationController.delete)
 
 export default notificationRoutes
+
