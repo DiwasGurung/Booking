@@ -10,6 +10,7 @@ businessRoutes.post("/", BusinessController.create)
 // Get all businesses
 businessRoutes.get("/", BusinessController.getAll)
 
+businessRoutes.post("/setup/basic", auth, BusinessController.setupBasic)
 
 // Search businesses (specific route before /:id)
 businessRoutes.get("/search", BusinessController.search)

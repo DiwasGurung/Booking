@@ -130,6 +130,8 @@ exports.Prisma.UserScalarFieldEnum = {
   phone: 'phone',
   avatar: 'avatar',
   role: 'role',
+  googleId: 'googleId',
+  authProvider: 'authProvider',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -318,6 +320,11 @@ exports.UserRole = exports.$Enums.UserRole = {
   CUSTOMER: 'CUSTOMER',
   BUSINESS_OWNER: 'BUSINESS_OWNER',
   ADMIN: 'ADMIN'
+};
+
+exports.AuthProvider = exports.$Enums.AuthProvider = {
+  EMAIL: 'EMAIL',
+  GOOGLE: 'GOOGLE'
 };
 
 exports.BookingStatus = exports.$Enums.BookingStatus = {

@@ -1,237 +1,260 @@
-// controllers/auth.controller.ts
-import { Request, Response } from "express";
-import userService from "../services/user.service";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-export const loginUser = async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+import { Response } from 'express'
+import { AuthRequest } from '../middleware/auth.middleware'
+import { userService } from '../services/user.service'
+import { generateToken, generateCookie, hashPassword, comparePassword } from '../utils/auth'
 
-  if (!email || !password) {
-    return res.status(400).json({ message: "Email and password are required" });
-  }
-
+export const createUser = async (req: AuthRequest, res: Response) => {
   try {
-    const user = await userService.getUserByEmail(email);
+    const { email, password, firstName, lastName, phone, role } = req.body
 
+    if (!email || !password || !firstName || !lastName) {
+      return res.status(400).json({ error: 'Missing required fields' })
+    }
+
+    console.log('[Register] Creating user:', email)
+
+    // Check if user already exists
+    const existingUser = await userService.findByEmail(email)
+    if (existingUser) {
+      return res.status(400).json({ error: 'User already exists' })
+    }
+
+    // Hash password
+    const hashedPassword = await hashPassword(password)
+
+    // Create user
+    const user = await userService.createUser({
+      email,
+      password: hashedPassword,
+      firstName,
+      lastName,
+      phone,
+      role: role || 'CUSTOMER',
+      authProvider: 'EMAIL',
+    })
+
+    const token = generateToken(user.id)
+    res.cookie('authToken', token, generateCookie(token))
+
+    res.status(201).json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        name: `${user.firstName} ${user.lastName}`,
+      },
+    })
+  } catch (error: any) {
+    console.error('[Register Error]', error.message)
+    res.status(500).json({ error: 'Registration failed' })
+  }
+}
+
+export const loginUser = async (req: AuthRequest, res: Response) => {
+  try {
+    const { email, password } = req.body
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password required' })
+    }
+
+    console.log('[Login] Authenticating user:', email)
+
+    const user = await userService.findByEmail(email)
     if (!user) {
-      return res.status(401).json({ message: "Invalid email or password" });
+      console.log('[Login] User not found:', email)
+      return res.status(401).json({ error: 'Invalid email or password' })
     }
 
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
-      return res.status(401).json({ message: "Invalid email or password" });
+    console.log('[Login] User found:', user.id)
+
+    if (!user.password) {
+      console.log('[Login] User has no password (Google login)')
+      return res.status(401).json({ error: 'User registered with Google. Please use Google sign-in' })
     }
 
-    const token = jwt.sign(
-      { userId: user.id, role: user.role },
-      process.env.JWT_SECRET || "supersecret",
-      { expiresIn: "7d" }
-    );
+    console.log('[Login] Comparing password...')
+    const isPasswordValid = await comparePassword(password, user.password)
+    console.log('[Login] Password valid:', isPasswordValid)
+    
+    if (!isPasswordValid) {
+      console.log('[Login] Invalid password for user:', email)
+      return res.status(401).json({ error: 'Invalid email or password' })
+    }
 
-    // ✅ Store token in HTTP-only cookie
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // HTTPS only in prod
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    const token = generateToken(user.id)
+    res.cookie('authToken', token, generateCookie(token))
 
-    const { password: _, ...userWithoutPassword } = user;
-
-  
-    return res.status(200).json({ user: userWithoutPassword });
-
-  } catch (err) {
-    console.error("Error logging in user:", err);
-    return res.status(500).json({ message: "Server error" });
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        business: user.business,
+        name: `${user.firstName} ${user.lastName}`,
+      },
+    })
+  } catch (error: any) {
+    console.error('[Login Error]', error.message)
+    res.status(500).json({ error: 'Login failed' })
   }
-};
-export const logoutUser = (req: Request, res: Response) => {
-  // Overwrite the token cookie to log the user out
-  res.cookie("token", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 0, // expires immediately
-  });
+}
 
-  return res.status(200).json({ message: "Logged out successfully" });
-};
-
-
-export const createUser = async (req: Request, res: Response) => {
-  console.log("Received request body:", req.body);
-
+export const updateUserRole = async (req: AuthRequest, res: Response) => {
   try {
-    const newUser = await userService.createUser(req.body);
+    const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId
+    const { role } = req.body
 
-    // remove password from response
-    const { password, ...userWithoutPassword } = newUser;
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing userId' })
+    }
 
-    res.status(201).json(userWithoutPassword);
-  } catch (err) {
-    console.error("Error creating user:", err);
-    res.status(500).json({ error: "Server error" });
+    if (!role || !['CUSTOMER', 'BUSINESS_OWNER'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' })
+    }
+
+    const normalizedRole = role as 'CUSTOMER' | 'BUSINESS_OWNER'
+
+    console.log('[Update Role] Updating user:', userId, 'to role:', normalizedRole)
+
+    const user = await userService.updateUserRole(userId, normalizedRole)
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        role: user.role,
+      },
+    })
+  } catch (error: any) {
+    console.error('[Update Role Error]', error.message)
+    res.status(500).json({ error: 'Failed to update role' })
   }
-};
+}
 
-
-
-export const updateUserRole = async (req: Request, res: Response) => {
-  const { userId, role } = req.body;
-
-  if (!userId || !role) {
-    return res.status(400).json({ message: "userId and role are required" });
-  }
-
+export const logoutUser = async (req: AuthRequest, res: Response) => {
   try {
-    const updatedUser = await userService.updateUserRole(userId, role);
-    // Remove password before sending response
-    const { password, ...userWithoutPassword } = updatedUser;
-    res.status(200).json(userWithoutPassword);
-  } catch (err) {
-    console.error("Error updating user role:", err);
-    res.status(500).json({ message: "Server error" });
+    console.log('[Logout] User logged out:', req.userId)
+
+    res.clearCookie('authToken')
+    res.json({ success: true, message: 'Logged out successfully' })
+  } catch (error: any) {
+    console.error('[Logout Error]', error.message)
+    res.status(500).json({ error: 'Logout failed' })
   }
-};
-  export const getCurrentUser= async (req: any, res: Response) => {
-    try {
-      // The userId should be set by the auth middleware
-      const userId = req.userId
+}
 
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'Not authenticated',
-        })
-      }
+export const changePassword = async (req: AuthRequest, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = req.body
 
-      const user = await userService.getUserById(userId)
-
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-        })
-      }
-
-      // Remove password from response
-      const { password: _, ...userWithoutPassword } = user
-
-      res.json({
-        success: true,
-        user: userWithoutPassword,
-      })
-    } catch (error: any) {
-      console.error('[v0] Error getting current user:', error)
-      res.status(500).json({
-        success: false,
-        message: 'Failed to get user',
-        error: error.message,
-      })
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Not authenticated' })
     }
-  }
 
-    /**
-   * Update user profile (firstName, lastName, phone, avatar)
-   */
-  export const updateProfile=async (req: Request, res: Response)=> {
-    try {
-      const userId = (req as any).userId || req.body.userId
-      const { firstName, lastName, phone, avatar } = req.body
-
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'Not authenticated',
-        })
-      }
-
-      const updateData: any = {}
-      if (firstName) updateData.firstName = firstName
-      if (lastName) updateData.lastName = lastName
-      if (phone !== undefined) updateData.phone = phone
-      if (avatar !== undefined) updateData.avatar = avatar
-
-      if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'No fields to update',
-        })
-      }
-
-      const user = await userService.updateUser(userId, updateData)
-      const { password: _, ...userWithoutPassword } = user
-
-      res.json({
-        success: true,
-        message: 'Profile updated successfully',
-        data: userWithoutPassword,
-      })
-    } catch (error: any) {
-      console.error('[v0] Error updating profile:', error)
-      res.status(500).json({
-        success: false,
-        message: 'Failed to update profile',
-        error: error.message,
-      })
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current and new password required' })
     }
-  }
 
-  /**
-   * Update user password
-   */
-  export const changePassword=async (req: Request, res: Response) => {
-    try {
-      const userId = (req as any).userId || req.body.userId
-      const { currentPassword, newPassword } = req.body
+    console.log('[Change Password] User:', req.userId)
 
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: 'Not authenticated',
-        })
-      }
-
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({
-          success: false,
-          message: 'Current password and new password are required',
-        })
-      }
-
-      // Verify current password
-      const user = await userService.getUserById(userId)
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-        })
-      }
-
-      const isPasswordValid = await userService.verifyPassword(currentPassword, user.password)
-      if (!isPasswordValid) {
-        return res.status(401).json({
-          success: false,
-          message: 'Current password is incorrect',
-        })
-      }
-
-      await userService.updatePassword(userId, newPassword)
-
-      res.json({
-        success: true,
-        message: 'Password updated successfully',
-      })
-    } catch (error: any) {
-      console.error('[v0] Error changing password:', error)
-      res.status(500).json({
-        success: false,
-        message: 'Failed to change password',
-        error: error.message,
-      })
+    const user = await userService.findById(req.userId)
+    if (!user || !user.password) {
+      return res.status(400).json({ error: 'User not found or has no password' })
     }
-  }
-  
 
-  
+    const isPasswordValid = await comparePassword(currentPassword, user.password)
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Current password is incorrect' })
+    }
+
+    const hashedPassword = await hashPassword(newPassword)
+    const updatedUser = await userService.updatePassword(req.userId, hashedPassword)
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully',
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+      },
+    })
+  } catch (error: any) {
+    console.error('[Change Password Error]', error.message)
+    res.status(500).json({ error: 'Failed to change password' })
+  }
+}
+
+export const updateProfile = async (req: AuthRequest, res: Response) => {
+  try {
+    const { firstName, lastName, phone } = req.body
+
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Not authenticated' })
+    }
+
+    console.log('[Update Profile] User:', req.userId)
+
+    const user = await userService.updateUser(req.userId, {
+      firstName,
+      lastName,
+      phone,
+    })
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+      },
+    })
+  } catch (error: any) {
+    console.error('[Update Profile Error]', error.message)
+    res.status(500).json({ error: 'Failed to update profile' })
+  }
+}
+
+export const getCurrentUser = async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Not authenticated' })
+    }
+
+    console.log('[Get Current User] User:', req.userId)
+
+    const user = await userService.findById(req.userId)
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    res.json({
+      user: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        googleId: user.googleId,
+        authProvider: user.authProvider,
+        business: user.business,
+        name: `${user.firstName} ${user.lastName}`,
+      },
+    })
+  } catch (error: any) {
+    console.error('[Get Current User Error]', error.message)
+    res.status(500).json({ error: 'Failed to get user' })
+  }
+}

@@ -1,30 +1,58 @@
-import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import { Request, Response, NextFunction } from 'express'
+import jwt from 'jsonwebtoken'
 
 export interface AuthRequest extends Request {
-  user?: { userId: string; role: string };
+  userId?: string
+  user?: any
 }
 
-export const auth= (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  const token = req.cookies.token;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
-  if (!token) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
+// Middleware to verify JWT token (strict auth)
+export const auth = (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "supersecret"
-    ) as { userId: string; role: string };
+    const token = req.cookies.authToken || req.headers.authorization?.replace('Bearer ', '')
 
-    req.user = decoded;
-    next();
-  } catch {
-    return res.status(401).json({ message: "Invalid token" });
+    if (!token) {
+      console.warn('[Auth Middleware] No token provided')
+      return res.status(401).json({ error: 'No authentication token provided' })
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET) as any
+    req.userId = decoded.userId
+    req.user = decoded
+    console.log('[Auth Middleware] Token verified for user:', req.userId)
+    next()
+  } catch (error: any) {
+    console.error('[Auth Middleware] Token verification failed:', error.message)
+    res.status(401).json({ error: 'Invalid or expired token' })
   }
-};
+}
+
+// Middleware for optional auth (doesn't block if no token)
+export const optionalAuth = (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const token = req.cookies.authToken || req.headers.authorization?.replace('Bearer ', '')
+
+    if (token) {
+      const decoded = jwt.verify(token, JWT_SECRET) as any
+      req.userId = decoded.userId
+      req.user = decoded
+      console.log('[Optional Auth] Token verified for user:', req.userId)
+    }
+    next()
+  } catch (error: any) {
+    console.warn('[Optional Auth] Token verification failed, proceeding without auth')
+    next()
+  }
+}
+
+// Middleware to ensure user is authenticated
+export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.userId) {
+    return res.status(401).json({ error: 'Authentication required' })
+  }
+  next()
+}
+
+

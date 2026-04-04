@@ -1,9 +1,9 @@
-// routes/auth.routes.ts
-import { Router } from "express";
-import { loginUser } from "../controllers/user.controller";
+import express from 'express'
+import { authController } from '../controllers/auth.controller'
 
-const router = Router();
+const router = express.Router()
 
-router.post("/login", loginUser);
+// Google OAuth
+router.post('/google', authController.googleOAuth)
 
-export default router;
+export default router

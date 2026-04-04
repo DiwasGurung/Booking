@@ -1,54 +1,18 @@
-import { Router } from "express";
-import {createUser, loginUser, updateUserRole, logoutUser, changePassword, updateProfile} from "../controllers/user.controller";
-import userService from "../services/user.service";
-import { auth, AuthRequest } from "../middleware/auth.middleware";
+import express from 'express'
+import { createUser, loginUser, updateUserRole, logoutUser, changePassword, updateProfile, getCurrentUser } from '../controllers/user.controller'
+import { auth, AuthRequest } from '../middleware/auth.middleware'
 
-const userRoutes = Router();
-userRoutes.post("/", createUser); 
+const router = express.Router()
 
-userRoutes.post("/login", loginUser); 
+// Public routes
+router.post('/register', createUser)
+router.post('/login', loginUser)
 
-userRoutes.post("/logout", logoutUser);
+// Protected routes
+router.get('/me', auth, getCurrentUser)
+router.post('/logout', auth, logoutUser)
+router.put('/role/:userId', auth, updateUserRole)
+router.put('/password', auth, changePassword)
+router.put('/profile', auth, updateProfile)
 
-userRoutes.get('/me', auth, async (req: AuthRequest, res) => {
-  try {
-    const user = await userService.getUserById(req.user!.userId)
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      })
-    }
-
-    const { password, ...userWithoutPassword } = user
-
-    res.json({
-      success: true,
-      user: userWithoutPassword,
-    })
-  } catch (error: any) {
-    console.error('[v0] Error fetching user:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch user',
-      error: error.message,
-    })
-  }
-})
-
-userRoutes.put("/update-role", updateUserRole);
-
-/**
- * Update user profile (firstName, lastName, phone, avatar)
- * PUT /api/users/:id/profile
- */
-userRoutes.put('/:id/profile', auth, updateProfile)
-
-/**
- * Change user password
- * POST /api/users/:id/change-password
- */
-userRoutes.post('/:id/change-password', auth, changePassword)
-
-export default userRoutes;
+export default router

@@ -5,6 +5,38 @@ class BusinessController {
 
   constructor() {
   }
+
+  /**
+   * Setup basic business info (for registration flow)
+   */
+  async setupBasic(req: any, res: Response) {
+    try {
+      const userId = req.userId
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' })
+      }
+
+      console.log('[Business Setup] Creating business for user:', userId)
+      
+      const business = await BusinessService.createBusiness({
+        ...req.body,
+        userId
+      })
+      res.status(201).json(business)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      if (errorMessage === "This user already has a business") {
+        return res.status(409).json({ error: errorMessage })
+      }
+      if (errorMessage === "userId is required to create a business") {
+        return res.status(400).json({ error: errorMessage })
+      }
+      console.error('[Business Setup] Error:', errorMessage)
+      res.status(500).json({ error: "Failed to create business" })
+    }
+  }
+
   /**
    * Create business
    */

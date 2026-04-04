@@ -51,12 +51,16 @@ enum NotificationType {
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
-  password  String
+  password  String?
   firstName String
   lastName  String
   phone     String?
   avatar    String?
   role      UserRole @default(CUSTOMER)
+
+ 
+  googleId      String?   @unique  
+  authProvider  AuthProvider @default(EMAIL)
 
   business           Business?
   bookingsAsCustomer Booking[]
@@ -65,6 +69,11 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
 }
 
 model Business {

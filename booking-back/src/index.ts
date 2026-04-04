@@ -12,6 +12,7 @@ import paymentRoutes from "./routes/payment.routes";
 import reviewRoutes from "./routes/review.routes";
 import serviceRoutes from "./routes/service.routes";
 import cookieParser from "cookie-parser";
+import authRoutes from './routes/auth.routes'
 
 dotenv.config();
 
@@ -37,6 +38,9 @@ app.get("/", (req, res) => {
 
 
 app.use("/api/users", userRoutes);
+
+app.use('/api/auth', authRoutes)
+
 
 app.use("/api/booking", bookingRoutes);
 
