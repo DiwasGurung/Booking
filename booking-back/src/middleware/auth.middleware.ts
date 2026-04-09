@@ -11,20 +11,22 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 // Middleware to verify JWT token (strict auth)
 export const auth = (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    console.log('[Auth] Checking auth - Cookies:', Object.keys(req.cookies), 'Authorization header:', !!req.headers.authorization)
+    
     const token = req.cookies.authToken || req.headers.authorization?.replace('Bearer ', '')
 
     if (!token) {
-      console.warn('[Auth Middleware] No token provided')
+      console.warn('[Auth] No token found in cookies or headers')
       return res.status(401).json({ error: 'No authentication token provided' })
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as any
     req.userId = decoded.userId
     req.user = decoded
-    console.log('[Auth Middleware] Token verified for user:', req.userId)
+    console.log('[Auth] Token verified for user:', req.userId)
     next()
   } catch (error: any) {
-    console.error('[Auth Middleware] Token verification failed:', error.message)
+    console.error('[Auth] Token verification failed:', error.message)
     res.status(401).json({ error: 'Invalid or expired token' })
   }
 }

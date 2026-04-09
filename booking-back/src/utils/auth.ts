@@ -11,7 +11,7 @@ export function generateToken(userId: string): string {
 export function generateCookie(token: string): CookieOptions {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false,
     sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     path: '/',
