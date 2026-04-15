@@ -1,5 +1,7 @@
 import { Request, Response } from "express"
 import BusinessService from "../services/business.service"
+import  {userService}  from "../services/user.service"
+
 
 class BusinessController {
 
@@ -23,6 +25,9 @@ class BusinessController {
         ...req.body,
         userId
       })
+      await userService.updateUserRole(userId, 'BUSINESS_OWNER')
+      
+      
       res.status(201).json(business)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error)

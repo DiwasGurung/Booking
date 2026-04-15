@@ -1,98 +1,125 @@
 import { Request, Response } from "express"
-import { PrismaClient } from "@prisma/client"
+import NotificationSSEService from "../services/notification-sse.service"
 
-declare global {
-  namespace Express {
-    interface Request {
-      userId?: string
+class NotificationSSEController {
+  /**
+   * Subscribe to real-time notifications via SSE
+   */
+  async subscribe(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.userId || (req as any).userId || req.body.userId;
+
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" })
+      }
+
+      console.log(`[v0] User ${userId} subscribing to notifications`)
+
+      // Register connection with SSE service
+      const cleanup = NotificationSSEService.registerConnection(userId, res)
+
+      // Handle client disconnect
+      req.on("close", () => {
+        console.log(`[v0] User ${userId} disconnected from notifications`)
+        cleanup()
+        res.end()
+      })
+
+      // Handle errors
+      req.on("error", (error) => {
+        console.error(`[v0] SSE error for user ${userId}:`, error)
+        cleanup()
+      })
+    } catch (error) {
+      console.error(`[v0] Failed to subscribe:`, error)
+      res.status(500).json({ message: "Failed to subscribe to notifications", error })
     }
   }
-}
-
-const prisma = new PrismaClient()
-
-// Store active SSE connections
-const notificationClients: Map<string, Response> = new Map()
-
-export const NotificationSSEController = {
-  /**
-   * Subscribe to real-time notifications
-   */
-  subscribe: (req: Request, res: Response) => {
-    const userId = req.userId
-
-    if (!userId) {
-      return res.status(401).json({ success: false, message: "Not authenticated" })
-    }
-
-    console.log(`[v0] User ${userId} subscribed to notifications`)
-
-    // Set SSE headers
-    res.setHeader("Content-Type", "text/event-stream")
-    res.setHeader("Cache-Control", "no-cache")
-    res.setHeader("Connection", "keep-alive")
-    res.setHeader("Access-Control-Allow-Origin", process.env.FRONTEND_URL || "http://localhost:3000")
-
-    // Store the connection
-    notificationClients.set(userId, res)
-
-    // Send initial connection confirmation
-    res.write(`data: ${JSON.stringify({ type: "CONNECTED", message: "Connected to notifications" })}\n\n`)
-
-    // Keep connection alive with heartbeat every 30 seconds
-    const heartbeat = setInterval(() => {
-      try {
-        res.write(`: heartbeat\n\n`)
-      } catch (error) {
-        clearInterval(heartbeat)
-        notificationClients.delete(userId)
-      }
-    }, 30000)
-
-    // Handle client disconnect
-    req.on("close", () => {
-      clearInterval(heartbeat)
-      notificationClients.delete(userId)
-      console.log(`[v0] User ${userId} disconnected from notifications`)
-      res.end()
-    })
-
-    // Handle errors
-    req.on("error", (error) => {
-      clearInterval(heartbeat)
-      notificationClients.delete(userId)
-      console.error(`[v0] SSE error for user ${userId}:`, error)
-    })
-  },
-
-  /**
-   * Broadcast notification to specific user
-   */
-  broadcastToUser: (userId: string, notification: any) => {
-    const client = notificationClients.get(userId)
-    if (client) {
-      try {
-        client.write(`data: ${JSON.stringify({ type: "NOTIFICATION", data: notification })}\n\n`)
-        console.log(`[v0] Notification sent to user ${userId}:`, notification)
-      } catch (error) {
-        console.error(`[v0] Error sending notification to user ${userId}:`, error)
-        notificationClients.delete(userId)
-      }
-    } else {
-      console.log(`[v0] User ${userId} not connected, notification queued`)
-    }
-  },
 
   /**
    * Get all connected users (for debugging)
    */
-  getConnectedUsers: (req: Request, res: Response) => {
-    res.json({
-      success: true,
-      connectedUsers: Array.from(notificationClients.keys()),
-      count: notificationClients.size,
-    })
-  },
+  async getConnectedUsers(req: Request, res: Response) {
+    try {
+      const connectedUsers = NotificationSSEService.getConnectedUsers()
+      const count = NotificationSSEService.getConnectedUserCount()
+
+      res.json({
+        connectedUsers,
+        count,
+      })
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch connected users", error })
+    }
+  }
+
+  /**
+   * Broadcast a notification to a specific user
+   */
+  async broadcastToUser(req: Request, res: Response) {
+    try {
+      const { userId, notification } = req.body
+
+      if (!userId || !notification) {
+        return res.status(400).json({ message: "userId and notification are required" })
+      }
+
+      const sent = NotificationSSEService.broadcastToUser(userId, notification)
+
+      res.json({
+        message: sent ? "Notification sent via SSE" : "User not connected (will use polling fallback)",
+        sent,
+      })
+    } catch (error) {
+      res.status(500).json({ message: "Failed to broadcast notification", error })
+    }
+  }
+
+  /**
+   * Broadcast to multiple users
+   */
+  async broadcastToUsers(req: Request, res: Response) {
+    try {
+      const { userIds, notification } = req.body
+
+      if (!Array.isArray(userIds) || !notification) {
+        return res.status(400).json({ message: "userIds array and notification are required" })
+      }
+
+      const results = NotificationSSEService.broadcastToUsers(userIds, notification)
+
+      res.json({
+        message: "Notifications broadcasted",
+        delivered: results,
+        failed: userIds.length - results,
+      })
+    } catch (error) {
+      res.status(500).json({ message: "Failed to broadcast to users", error })
+    }
+  }
+
+  /**
+   * Check if user is connected
+   */
+  async isUserConnected(req: Request, res: Response) {
+    try {
+      const { userId } = req.params
+
+      if (!userId) {
+        return res.status(400).json({ message: "userId is required" })
+      }
+
+      const userIdString = Array.isArray(userId) ? userId[0] : userId
+      const connected = NotificationSSEService.isUserConnected(userIdString)
+
+      res.json({
+        userId,
+        connected,
+      })
+    } catch (error) {
+      res.status(500).json({ message: "Failed to check user connection", error })
+    }
+  }
 }
 
-export default NotificationSSEController
+export default new NotificationSSEController()
