@@ -211,7 +211,8 @@ export default function ProfilePage() {
               <div>
                 <p className="text-sm text-muted-foreground">Member Since</p>
                 <p className="text-2xl font-bold text-foreground mt-2">
-                  {user?.createdAt ? format(new Date(user.createdAt), 'MMM yyyy') : 'N/A'}
+                  { (user as any)?.createdAt ? format(new Date((user as any).createdAt), 'MMM yyyy') : 'N/A' }
+
                 </p>
               </div>
               <User className="w-8 h-8 text-primary/40" />
