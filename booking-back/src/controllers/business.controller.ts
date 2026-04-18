@@ -41,6 +41,28 @@ class BusinessController {
       res.status(500).json({ error: "Failed to create business" })
     }
   }
+  async getCurrentBusiness(req: any, res: Response) {
+    try {
+      const userId = req.userId
+
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" })
+      }
+
+      console.log('[v0] Getting current business for user:', userId)
+
+      const business = await BusinessService.getBusinessByUserId(userId)
+
+      if (!business) {
+        return res.status(404).json({ message: "No business found for this user" })
+      }
+
+      res.json(business)
+    } catch (error) {
+      console.error('[v0] Error getting current business:', error)
+      res.status(500).json({ message: "Failed to fetch current business", error })
+    }
+  }
 
   /**
    * Create business

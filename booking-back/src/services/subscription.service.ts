@@ -10,10 +10,21 @@ class SubscriptionService {
     planId: string
   }): Promise<Subscription> {
     try {
-      console.log(`[v0] Creating subscription with free trial for business: ${data.businessId}`)
+      console.log(`[v0] Creating subscription with free trial for business: ${data.businessId}, planId: ${data.planId}`)
 
       const now = new Date()
       const trialEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+
+      // Verify the plan exists using the UUID ID directly
+      const plan = await prisma.subscriptionPlan.findUnique({
+        where: { id: data.planId },
+      })
+
+      if (!plan) {
+        throw new Error(`Subscription plan not found: ${data.planId}`)
+      }
+
+      console.log(`[v0] Found plan: ${plan.displayName} with ID: ${plan.id}`)
 
       // Delete existing subscription if any
       await prisma.subscription.deleteMany({
@@ -23,7 +34,7 @@ class SubscriptionService {
       const subscription = await prisma.subscription.create({
         data: {
           businessId: data.businessId,
-          planId: data.planId,
+          planId: data.planId, // Use the plan ID directly as UUID
           status: 'TRIAL' as SubscriptionStatus,
           trialEndsAt,
           isTrialUsed: false,

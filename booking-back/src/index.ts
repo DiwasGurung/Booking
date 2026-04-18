@@ -14,6 +14,8 @@ import serviceRoutes from "./routes/service.routes";
 import cookieParser from "cookie-parser";
 import authRoutes from './routes/auth.routes'
 import sseRoutes from "./routes/sse.routes";
+import subscriptionRoutes from "./routes/subscription.routes";
+import seedRoutes from "./routes/seed.routes"
 
 dotenv.config();
 
@@ -48,6 +50,8 @@ app.use("/api/sse", sseRoutes);
 
 app.use("/api/booking", bookingRoutes);
 
+app.use("/api/subscriptions", subscriptionRoutes);
+
 app.use("/api/businesses", businessRoutes);
 
 app.use("/api/customers", customerRoutes);
@@ -55,6 +59,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/business-hours", businessHoursRoutes);
 
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/seed", seedRoutes);
 
 app.use("/api/payments", paymentRoutes);
 

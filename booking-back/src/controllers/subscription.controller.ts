@@ -37,7 +37,7 @@ class SubscriptionController {
     try {
       const { businessId } = req.params
 
-      if (!businessId) {
+      if (!businessId || Array.isArray(businessId)) {
         return res.status(400).json({ message: 'businessId is required' })
       }
 
@@ -59,7 +59,7 @@ class SubscriptionController {
     try {
       const { businessId } = req.params
 
-      if (!businessId) {
+      if (!businessId || Array.isArray(businessId)) {
         return res.status(400).json({ message: 'businessId is required' })
       }
 
@@ -85,7 +85,7 @@ class SubscriptionController {
       const { subscriptionId } = req.params
       const { paymentId, durationDays } = req.body
 
-      if (!subscriptionId || !paymentId) {
+      if (!subscriptionId || Array.isArray(subscriptionId) || !paymentId) {
         return res.status(400).json({ message: 'subscriptionId and paymentId are required' })
       }
 
@@ -113,7 +113,7 @@ class SubscriptionController {
     try {
       const { businessId } = req.params
 
-      if (!businessId) {
+      if (!businessId || Array.isArray(businessId)) {
         return res.status(400).json({ message: 'businessId is required' })
       }
 
@@ -138,7 +138,7 @@ class SubscriptionController {
     try {
       const { subscriptionId } = req.params
 
-      if (!subscriptionId) {
+      if (!subscriptionId || Array.isArray(subscriptionId)) {
         return res.status(400).json({ message: 'subscriptionId is required' })
       }
 

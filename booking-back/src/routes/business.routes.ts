@@ -30,8 +30,8 @@ businessRoutes.get('/:businessId/settings', auth,BusinessController.getSettings)
 // Update business settings (specific route before /:id)
 businessRoutes.put('/:businessId/settings', auth, BusinessController.updateSettings)
 
-// GENERIC PARAMETER ROUTES COME LAST
-// Get business by ID (MUST be after all /:businessId/* routes)
+businessRoutes.get("/current", auth, (req, res) => BusinessController.getCurrentBusiness(req, res))
+
 businessRoutes.get("/:id", BusinessController.getById)
 
 // Update business
