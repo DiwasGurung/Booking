@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '://svgrepo.com',
+        hostname: 'www.svgrepo.com',
         pathname: '/**',
       },
     ],
