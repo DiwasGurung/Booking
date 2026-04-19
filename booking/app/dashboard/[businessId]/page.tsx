@@ -200,7 +200,7 @@ export default function BusinessDashboardPage() {
       <Sidebar userRole="BUSINESS_OWNER" />
 
       {/* Main Content */}
-      <main className="md:ml-64 pt-12 md:pt-8 px-4 md:px-8 py-8">
+      <main className="md:ml-64 px-4 md:px-8 py-6">
         {/* Breadcrumbs */}
         <Breadcrumbs
           items={[

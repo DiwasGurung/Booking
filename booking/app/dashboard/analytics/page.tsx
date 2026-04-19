@@ -81,7 +81,7 @@ export default function AnalyticsPage() {
       <Header />
       <Sidebar userRole="BUSINESS_OWNER" />
 
-      <main className="md:ml-64 pt-24 md:pt-20 px-4 md:px-8 py-8">
+      <main className="md:ml-64 pt-24 md:pt-20 px-4">
         <Breadcrumbs items={[
           { label: 'Dashboard', href: '/dashboard' },
           { label: 'Analytics' },

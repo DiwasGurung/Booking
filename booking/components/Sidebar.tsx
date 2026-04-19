@@ -114,7 +114,7 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
       <aside
         className={`fixed top-0 left-0 h-full bg-card border-r border-border transition-transform duration-300 ease-in-out z-30 w-64
           transform ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-          md:translate-x-0 md:static md:w-64`}
+          md:translate-x-0 md:w-64`}
       >
         {/* Navigation */}
         <nav className="relative flex flex-col h-full pb-24 overflow-y-auto px-4 pt-20">
