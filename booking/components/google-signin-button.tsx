@@ -93,7 +93,7 @@ export const GoogleSignInButton = () => {
         size="lg"
       >
         <Image
-          src="https://www.svgrepo.com/show/475656/google-color.svg"
+          src="/google-svg.png"
           alt="Google logo"
           width={20}
           height={20}

@@ -1,17 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  images: {
-    dangerouslyAllowSVG: true, 
-    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'www.svgrepo.com',
-        pathname: '/**',
-      },
-    ],
-  },
   async headers() {
     return [
       {
@@ -19,7 +8,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin-allow-popups',
+            value: 'same-origin-allow-popups', // Allows the Google popup to communicate back
           },
         ],
       },
