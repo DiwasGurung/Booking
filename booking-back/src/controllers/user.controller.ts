@@ -144,7 +144,12 @@ export const logoutUser = async (req: AuthRequest, res: Response) => {
   try {
     console.log('[Logout] User logged out:', req.userId)
 
-    res.clearCookie('authToken')
+    res.clearCookie('authToken', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+    })
     res.json({ success: true, message: 'Logged out successfully' })
   } catch (error: any) {
     console.error('[Logout Error]', error.message)
