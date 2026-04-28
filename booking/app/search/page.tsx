@@ -26,7 +26,7 @@ export default function SearchPage() {
   
   // Get unique categories
   const categories = React.useMemo(() => {
-    const cats = new Set(businesses.map(b => b.category).filter(Boolean))
+    const cats = new Set(businesses.map(b => b.category).filter((c): c is string => Boolean(c)))
     return Array.from(cats).sort()
   }, [businesses])
 
@@ -44,7 +44,7 @@ export default function SearchPage() {
     try {
       setLoading(true)
       const response = await businessApi.getAll()
-      const data = Array.isArray(response.data) ? response.data : response.data?.businesses || []
+      const data = Array.isArray(response.data) ? response.data : (response.data as any)?.businesses || []
       setBusinesses(data)
       setSearched(false)
     } catch (error) {
@@ -63,9 +63,9 @@ export default function SearchPage() {
       const lowerQuery = query.toLowerCase()
       filtered = filtered.filter(b =>
         b.name.toLowerCase().includes(lowerQuery) ||
-        b.category?.toLowerCase().includes(lowerQuery) ||
-        b.description?.toLowerCase().includes(lowerQuery) ||
-        b.city?.toLowerCase().includes(lowerQuery)
+        (typeof b.category === 'string' && b.category.toLowerCase().includes(lowerQuery)) ||
+        (typeof b.description === 'string' && b.description.toLowerCase().includes(lowerQuery)) ||
+        (typeof b.city === 'string' && b.city.toLowerCase().includes(lowerQuery))
       )
     }
 

@@ -53,7 +53,7 @@ export const Header = () => {
     return "/"
   }
 
-  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+  const handleLogoClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
     const homeLink = getHomeLink()
     router.push(homeLink)
