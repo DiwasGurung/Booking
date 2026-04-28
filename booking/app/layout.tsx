@@ -7,7 +7,8 @@ import { Toaster } from 'sonner'
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { AuthProvider } from "@/context/authContext"
-import { GoogleOAuthProvider } from '@react-oauth/google'
+import LayoutClient from "@/components/LayoutClient"
+import { GoogleAuthProvider } from "@/components/GoogleAuthProvider"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
@@ -44,16 +45,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans antialiased pt-16 flex flex-col min-h-screen`}>
-        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}>
         <AuthProvider>
-          <Header />
-          <main className="flex-1">
-            <Toaster />
-            {children}
-          </main>
-          <Footer />
+          <GoogleAuthProvider>
+            <LayoutClient>
+              <Header />
+              <main className="flex-1">
+                <Toaster />
+                {children}
+              </main>
+              <Footer />
+            </LayoutClient>
+          </GoogleAuthProvider>
         </AuthProvider>
-        </GoogleOAuthProvider>
         <Analytics />
       </body>
     </html>

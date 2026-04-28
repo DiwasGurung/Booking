@@ -12,14 +12,15 @@ export const userService = {
     role?: "CUSTOMER" | "BUSINESS_OWNER"
     googleId?: string
     authProvider?: "EMAIL" | "GOOGLE"
+    emailVerificationCode?: string
+    emailVerificationCodeExpires?: Date
   }) {
-    
-
+    // Password is already hashed by the controller
+    // Do NOT hash it again here
     return prisma.user.create({
       data: {
         ...data,
         role: data.role || "CUSTOMER",
-        password: data.password,
         authProvider: data.authProvider || "EMAIL",
       },
       include: {
@@ -52,6 +53,16 @@ export const userService = {
   async findByGoogleId(googleId: string) {
     return prisma.user.findUnique({
       where: { googleId },
+      include: {
+        business: true,
+      },
+    })
+  },
+
+  // Find user by email verification token (kept for compatibility)
+  async findByVerificationToken(token: string) {
+    return prisma.user.findUnique({
+      where: { emailVerificationCode: token },
       include: {
         business: true,
       },

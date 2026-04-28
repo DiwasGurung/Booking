@@ -58,6 +58,11 @@ model User {
   avatar    String?
   role      UserRole @default(CUSTOMER)
 
+  isEmailVerified Boolean @default(false)
+  emailVerificationCode String? @unique
+  emailVerificationCodeExpires DateTime?
+  emailVerificationAttempts Int @default(0)
+
  
   googleId      String?   @unique  
   authProvider  AuthProvider @default(EMAIL)

@@ -3,11 +3,12 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { AlertCircle, Lock, Mail, Phone, User } from "lucide-react"
+import { AlertCircle, CheckCircle, Lock, Mail, Phone, User } from "lucide-react"
 import { GoogleSignInButton } from "@/components/google-signin-button"
 import { Separator } from "@/components/ui/separator"
 
@@ -24,6 +25,7 @@ export const UserRegisterForm = () => {
   const [phone, setPhone] = useState("")
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,10 +74,15 @@ export const UserRegisterForm = () => {
         throw new Error(data.error || "Registration failed")
       }
 
-      console.log("[v0] User registration successful, redirecting to login page")
+      console.log("[v0] User registration successful, redirecting to verification page")
       
-      // Redirect to login page so user can sign in
-      router.push("/login")
+      // Show success message
+      setSuccess(true)
+      
+      // Redirect to verification page after 2 seconds
+      setTimeout(() => {
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`)
+      }, 2000)
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -89,6 +96,12 @@ export const UserRegisterForm = () => {
         <h1 className="text-2xl font-bold text-foreground mb-2">Create an account</h1>
         <p className="text-muted-foreground text-sm">
           Sign up to start booking services instantly
+        </p>
+        <p className="text-xs text-muted-foreground mt-3">
+          Are you a business owner?{" "}
+          <Link href="/signup-business" className="text-primary hover:underline font-medium">
+            Register your business here
+          </Link>
         </p>
       </div>
 
@@ -105,6 +118,18 @@ export const UserRegisterForm = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {success && (
+          <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-green-900 text-sm font-semibold">Registration Successful!</p>
+              <p className="text-green-700 text-sm mt-1">
+                A verification email has been sent to <strong>{email}</strong>. Please check your inbox and click the verification link to activate your account.
+              </p>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="flex items-start gap-3 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
             <AlertCircle className="w-5 h-5 text-destructive mt-0.5" />
