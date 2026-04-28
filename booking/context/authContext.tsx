@@ -79,7 +79,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } else if (response.status === 401) {
         console.log("[v0] User not authenticated (401)")
         setUser(null)
-      } else {
+      } else if (response.status === 403) {
+        console.log("[v0] User email not verified (403) - this is expected during email verification flow")
+        setUser(null)}
+        else {
         console.log("[v0] Auth check returned status:", response.status)
         setUser(null)
       }

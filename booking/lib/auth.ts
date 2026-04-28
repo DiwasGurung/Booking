@@ -11,13 +11,20 @@ export interface BusinessUser {
   [key: string]: any
 }
 
+export interface LoginResponse {
+  success: boolean
+  message?: string
+  user?: BusinessUser
+  emailNotVerified?: boolean
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
 /**
  * Login using session-based authentication with HTTP-only cookies
  * All auth state is managed via secure backend cookies
  */
-export async function login(email: string, password: string): Promise<{ success: boolean; message?: string; user?: BusinessUser }> {
+export async function login(email: string, password: string): Promise<LoginResponse> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/users/login`, {
       method: 'POST',
@@ -26,12 +33,18 @@ export async function login(email: string, password: string): Promise<{ success:
       body: JSON.stringify({ email, password }),
     })
 
-    console.log('Login response status:', res.status)
-
     const data = await res.json()
-    console.log('Login response data:', data)
 
     if (!res.ok) {
+      // Check if email needs verification
+      if (res.status === 403 && data.emailNotVerified) {
+        return { 
+          success: false, 
+          message: data.error || 'Please verify your email first',
+          emailNotVerified: true,
+          user: { email } as any
+        }
+      }
       return { success: false, message: data.message || 'Login failed' }
     }
 

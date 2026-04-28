@@ -50,13 +50,9 @@ export const createUser = async (req: AuthRequest, res: Response) => {
       // Don't fail registration if email send fails, but log it
     }
 
-    // Still generate auth token so user can browse
-    const token = generateToken(user.id)
-    res.cookie('authToken', token, generateCookie(token))
-
+    // Do NOT generate auth token yet - user must verify email first
     res.status(201).json({
       success: true,
-      token,
       emailVerificationSent: true,
       message: 'Registration successful. Please check your email to verify your account.',
       user: {
@@ -308,21 +304,31 @@ export const verifyEmail = async (req: AuthRequest, res: Response) => {
     // Find user by email
     const user = await userService.findByEmail(email)
     if (!user) {
+      console.error('[Verify Email] User not found:', email)
       return res.status(400).json({ error: 'User not found' })
     }
 
+    console.log('[Verify Email] User found:', user.id)
+
     // Check if already verified
     if (user.isEmailVerified) {
+      console.log('[Verify Email] Email already verified:', email)
       return res.status(400).json({ error: 'Email is already verified' })
     }
 
     // Check if code matches
     if (user.emailVerificationCode !== code) {
+      console.log('[Verify Email] Code mismatch for user:', user.id)
       // Increment failed attempts
       const attempts = (user.emailVerificationAttempts || 0) + 1
-      await userService.updateUser(user.id, {
-        emailVerificationAttempts: attempts,
-      })
+      try {
+        await userService.updateUser(user.id, {
+          emailVerificationAttempts: attempts,
+        })
+      } catch (updateError) {
+        console.error('[Verify Email] Failed to update attempt count:', updateError)
+        // Continue even if update fails
+      }
 
       // Lock account after 5 failed attempts
       if (attempts >= 5) {
@@ -340,8 +346,11 @@ export const verifyEmail = async (req: AuthRequest, res: Response) => {
 
     // Check if code has expired
     if (user.emailVerificationCodeExpires && user.emailVerificationCodeExpires < new Date()) {
+      console.log('[Verify Email] Code expired for user:', user.id)
       return res.status(400).json({ error: 'Verification code has expired. Please request a new one.' })
     }
+
+    console.log('[Verify Email] Updating user as verified:', user.id)
 
     // Update user as verified
     const verifiedUser = await userService.updateUser(user.id, {
@@ -351,10 +360,14 @@ export const verifyEmail = async (req: AuthRequest, res: Response) => {
       emailVerificationAttempts: 0,
     })
 
-    console.log('[v0] Email verified for user:', email)
+    console.log('[v0] Email verified for user:', email, 'ID:', user.id)
+
+    // Generate auth token now that email is verified
+    const token = generateToken(verifiedUser.id)
 
     res.json({
       success: true,
+      token,
       message: 'Email verified successfully. You can now login.',
       user: {
         id: verifiedUser.id,
@@ -366,6 +379,7 @@ export const verifyEmail = async (req: AuthRequest, res: Response) => {
     })
   } catch (error: any) {
     console.error('[Verify Email Error]', error.message)
+    console.error('[Verify Email Error Stack]', error.stack)
     res.status(500).json({ error: 'Failed to verify email' })
   }
 }
@@ -385,11 +399,15 @@ export const resendVerificationEmail = async (req: AuthRequest, res: Response) =
 
     const user = await userService.findByEmail(email)
     if (!user) {
+      console.error('[Resend Verification] User not found:', email)
       return res.status(404).json({ error: 'User not found' })
     }
 
+    console.log('[Resend Verification] User found:', user.id)
+
     // If already verified, no need to resend
     if (user.isEmailVerified) {
+      console.log('[Resend Verification] Email already verified:', email)
       return res.status(400).json({ error: 'Email is already verified' })
     }
 
@@ -397,12 +415,20 @@ export const resendVerificationEmail = async (req: AuthRequest, res: Response) =
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
     const codeExpires = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
 
+    console.log('[Resend Verification] Generated new code for user:', user.id)
+
     // Update user with new code and reset attempts
-    await userService.updateUser(user.id, {
-      emailVerificationCode: verificationCode,
-      emailVerificationCodeExpires: codeExpires,
-      emailVerificationAttempts: 0,
-    })
+    try {
+      await userService.updateUser(user.id, {
+        emailVerificationCode: verificationCode,
+        emailVerificationCodeExpires: codeExpires,
+        emailVerificationAttempts: 0,
+      })
+      console.log('[Resend Verification] Updated user code in database')
+    } catch (dbError) {
+      console.error('[Resend Verification] Failed to update code in database:', dbError)
+      throw dbError
+    }
 
     // Send verification email with code
     try {
@@ -419,6 +445,7 @@ export const resendVerificationEmail = async (req: AuthRequest, res: Response) =
     })
   } catch (error: any) {
     console.error('[Resend Verification Code Error]', error.message)
+    console.error('[Resend Verification Code Error Stack]', error.stack)
     res.status(500).json({ error: 'Failed to resend verification code' })
   }
 }

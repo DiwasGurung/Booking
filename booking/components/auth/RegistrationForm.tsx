@@ -74,7 +74,9 @@ export const UserRegisterForm = () => {
         throw new Error(data.error || "Registration failed")
       }
 
-      console.log("[v0] User registration successful, redirecting to verification page")
+      const data = await response.json()
+
+      console.log("[v0] User registration successful, email verification required")
       
       // Show success message
       setSuccess(true)
@@ -124,7 +126,7 @@ export const UserRegisterForm = () => {
             <div>
               <p className="text-green-900 text-sm font-semibold">Registration Successful!</p>
               <p className="text-green-700 text-sm mt-1">
-                A verification email has been sent to <strong>{email}</strong>. Please check your inbox and click the verification link to activate your account.
+                A verification email has been sent to <strong>{email}</strong>. Please check your inbox and enter the 6-digit code to verify your account before you can login.
               </p>
             </div>
           </div>
