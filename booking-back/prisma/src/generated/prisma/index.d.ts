@@ -127,7 +127,8 @@ export type NotificationType = (typeof NotificationType)[keyof typeof Notificati
 
 export const AuthProvider: {
   EMAIL: 'EMAIL',
-  GOOGLE: 'GOOGLE'
+  GOOGLE: 'GOOGLE',
+  FIREBASE: 'FIREBASE'
 };
 
 export type AuthProvider = (typeof AuthProvider)[keyof typeof AuthProvider]
@@ -2153,10 +2154,12 @@ export namespace Prisma {
 
   export type UserAvgAggregateOutputType = {
     emailVerificationAttempts: number | null
+    phoneVerificationAttempts: number | null
   }
 
   export type UserSumAggregateOutputType = {
     emailVerificationAttempts: number | null
+    phoneVerificationAttempts: number | null
   }
 
   export type UserMinAggregateOutputType = {
@@ -2172,6 +2175,11 @@ export namespace Prisma {
     emailVerificationCode: string | null
     emailVerificationCodeExpires: Date | null
     emailVerificationAttempts: number | null
+    isPhoneVerified: boolean | null
+    phoneVerificationCode: string | null
+    phoneVerificationCodeExpires: Date | null
+    phoneVerificationAttempts: number | null
+    firebaseUid: string | null
     googleId: string | null
     authProvider: $Enums.AuthProvider | null
     createdAt: Date | null
@@ -2191,6 +2199,11 @@ export namespace Prisma {
     emailVerificationCode: string | null
     emailVerificationCodeExpires: Date | null
     emailVerificationAttempts: number | null
+    isPhoneVerified: boolean | null
+    phoneVerificationCode: string | null
+    phoneVerificationCodeExpires: Date | null
+    phoneVerificationAttempts: number | null
+    firebaseUid: string | null
     googleId: string | null
     authProvider: $Enums.AuthProvider | null
     createdAt: Date | null
@@ -2210,6 +2223,11 @@ export namespace Prisma {
     emailVerificationCode: number
     emailVerificationCodeExpires: number
     emailVerificationAttempts: number
+    isPhoneVerified: number
+    phoneVerificationCode: number
+    phoneVerificationCodeExpires: number
+    phoneVerificationAttempts: number
+    firebaseUid: number
     googleId: number
     authProvider: number
     createdAt: number
@@ -2220,10 +2238,12 @@ export namespace Prisma {
 
   export type UserAvgAggregateInputType = {
     emailVerificationAttempts?: true
+    phoneVerificationAttempts?: true
   }
 
   export type UserSumAggregateInputType = {
     emailVerificationAttempts?: true
+    phoneVerificationAttempts?: true
   }
 
   export type UserMinAggregateInputType = {
@@ -2239,6 +2259,11 @@ export namespace Prisma {
     emailVerificationCode?: true
     emailVerificationCodeExpires?: true
     emailVerificationAttempts?: true
+    isPhoneVerified?: true
+    phoneVerificationCode?: true
+    phoneVerificationCodeExpires?: true
+    phoneVerificationAttempts?: true
+    firebaseUid?: true
     googleId?: true
     authProvider?: true
     createdAt?: true
@@ -2258,6 +2283,11 @@ export namespace Prisma {
     emailVerificationCode?: true
     emailVerificationCodeExpires?: true
     emailVerificationAttempts?: true
+    isPhoneVerified?: true
+    phoneVerificationCode?: true
+    phoneVerificationCodeExpires?: true
+    phoneVerificationAttempts?: true
+    firebaseUid?: true
     googleId?: true
     authProvider?: true
     createdAt?: true
@@ -2277,6 +2307,11 @@ export namespace Prisma {
     emailVerificationCode?: true
     emailVerificationCodeExpires?: true
     emailVerificationAttempts?: true
+    isPhoneVerified?: true
+    phoneVerificationCode?: true
+    phoneVerificationCodeExpires?: true
+    phoneVerificationAttempts?: true
+    firebaseUid?: true
     googleId?: true
     authProvider?: true
     createdAt?: true
@@ -2383,6 +2418,11 @@ export namespace Prisma {
     emailVerificationCode: string | null
     emailVerificationCodeExpires: Date | null
     emailVerificationAttempts: number
+    isPhoneVerified: boolean
+    phoneVerificationCode: string | null
+    phoneVerificationCodeExpires: Date | null
+    phoneVerificationAttempts: number
+    firebaseUid: string | null
     googleId: string | null
     authProvider: $Enums.AuthProvider
     createdAt: Date
@@ -2421,6 +2461,11 @@ export namespace Prisma {
     emailVerificationCode?: boolean
     emailVerificationCodeExpires?: boolean
     emailVerificationAttempts?: boolean
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: boolean
+    phoneVerificationCodeExpires?: boolean
+    phoneVerificationAttempts?: boolean
+    firebaseUid?: boolean
     googleId?: boolean
     authProvider?: boolean
     createdAt?: boolean
@@ -2445,6 +2490,11 @@ export namespace Prisma {
     emailVerificationCode?: boolean
     emailVerificationCodeExpires?: boolean
     emailVerificationAttempts?: boolean
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: boolean
+    phoneVerificationCodeExpires?: boolean
+    phoneVerificationAttempts?: boolean
+    firebaseUid?: boolean
     googleId?: boolean
     authProvider?: boolean
     createdAt?: boolean
@@ -2464,6 +2514,11 @@ export namespace Prisma {
     emailVerificationCode?: boolean
     emailVerificationCodeExpires?: boolean
     emailVerificationAttempts?: boolean
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: boolean
+    phoneVerificationCodeExpires?: boolean
+    phoneVerificationAttempts?: boolean
+    firebaseUid?: boolean
     googleId?: boolean
     authProvider?: boolean
     createdAt?: boolean
@@ -2483,13 +2538,18 @@ export namespace Prisma {
     emailVerificationCode?: boolean
     emailVerificationCodeExpires?: boolean
     emailVerificationAttempts?: boolean
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: boolean
+    phoneVerificationCodeExpires?: boolean
+    phoneVerificationAttempts?: boolean
+    firebaseUid?: boolean
     googleId?: boolean
     authProvider?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "email" | "password" | "firstName" | "lastName" | "phone" | "avatar" | "role" | "isEmailVerified" | "emailVerificationCode" | "emailVerificationCodeExpires" | "emailVerificationAttempts" | "googleId" | "authProvider" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
+  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "email" | "password" | "firstName" | "lastName" | "phone" | "avatar" | "role" | "isEmailVerified" | "emailVerificationCode" | "emailVerificationCodeExpires" | "emailVerificationAttempts" | "isPhoneVerified" | "phoneVerificationCode" | "phoneVerificationCodeExpires" | "phoneVerificationAttempts" | "firebaseUid" | "googleId" | "authProvider" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
   export type UserInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     business?: boolean | User$businessArgs<ExtArgs>
     bookingsAsCustomer?: boolean | User$bookingsAsCustomerArgs<ExtArgs>
@@ -2521,6 +2581,11 @@ export namespace Prisma {
       emailVerificationCode: string | null
       emailVerificationCodeExpires: Date | null
       emailVerificationAttempts: number
+      isPhoneVerified: boolean
+      phoneVerificationCode: string | null
+      phoneVerificationCodeExpires: Date | null
+      phoneVerificationAttempts: number
+      firebaseUid: string | null
       googleId: string | null
       authProvider: $Enums.AuthProvider
       createdAt: Date
@@ -2964,6 +3029,11 @@ export namespace Prisma {
     readonly emailVerificationCode: FieldRef<"User", 'String'>
     readonly emailVerificationCodeExpires: FieldRef<"User", 'DateTime'>
     readonly emailVerificationAttempts: FieldRef<"User", 'Int'>
+    readonly isPhoneVerified: FieldRef<"User", 'Boolean'>
+    readonly phoneVerificationCode: FieldRef<"User", 'String'>
+    readonly phoneVerificationCodeExpires: FieldRef<"User", 'DateTime'>
+    readonly phoneVerificationAttempts: FieldRef<"User", 'Int'>
+    readonly firebaseUid: FieldRef<"User", 'String'>
     readonly googleId: FieldRef<"User", 'String'>
     readonly authProvider: FieldRef<"User", 'AuthProvider'>
     readonly createdAt: FieldRef<"User", 'DateTime'>
@@ -15777,6 +15847,11 @@ export namespace Prisma {
     emailVerificationCode: 'emailVerificationCode',
     emailVerificationCodeExpires: 'emailVerificationCodeExpires',
     emailVerificationAttempts: 'emailVerificationAttempts',
+    isPhoneVerified: 'isPhoneVerified',
+    phoneVerificationCode: 'phoneVerificationCode',
+    phoneVerificationCodeExpires: 'phoneVerificationCodeExpires',
+    phoneVerificationAttempts: 'phoneVerificationAttempts',
+    firebaseUid: 'firebaseUid',
     googleId: 'googleId',
     authProvider: 'authProvider',
     createdAt: 'createdAt',
@@ -16183,6 +16258,11 @@ export namespace Prisma {
     emailVerificationCode?: StringNullableFilter<"User"> | string | null
     emailVerificationCodeExpires?: DateTimeNullableFilter<"User"> | Date | string | null
     emailVerificationAttempts?: IntFilter<"User"> | number
+    isPhoneVerified?: BoolFilter<"User"> | boolean
+    phoneVerificationCode?: StringNullableFilter<"User"> | string | null
+    phoneVerificationCodeExpires?: DateTimeNullableFilter<"User"> | Date | string | null
+    phoneVerificationAttempts?: IntFilter<"User"> | number
+    firebaseUid?: StringNullableFilter<"User"> | string | null
     googleId?: StringNullableFilter<"User"> | string | null
     authProvider?: EnumAuthProviderFilter<"User"> | $Enums.AuthProvider
     createdAt?: DateTimeFilter<"User"> | Date | string
@@ -16206,6 +16286,11 @@ export namespace Prisma {
     emailVerificationCode?: SortOrderInput | SortOrder
     emailVerificationCodeExpires?: SortOrderInput | SortOrder
     emailVerificationAttempts?: SortOrder
+    isPhoneVerified?: SortOrder
+    phoneVerificationCode?: SortOrderInput | SortOrder
+    phoneVerificationCodeExpires?: SortOrderInput | SortOrder
+    phoneVerificationAttempts?: SortOrder
+    firebaseUid?: SortOrderInput | SortOrder
     googleId?: SortOrderInput | SortOrder
     authProvider?: SortOrder
     createdAt?: SortOrder
@@ -16220,6 +16305,8 @@ export namespace Prisma {
     id?: string
     email?: string
     emailVerificationCode?: string
+    phoneVerificationCode?: string
+    firebaseUid?: string
     googleId?: string
     AND?: UserWhereInput | UserWhereInput[]
     OR?: UserWhereInput[]
@@ -16233,6 +16320,9 @@ export namespace Prisma {
     isEmailVerified?: BoolFilter<"User"> | boolean
     emailVerificationCodeExpires?: DateTimeNullableFilter<"User"> | Date | string | null
     emailVerificationAttempts?: IntFilter<"User"> | number
+    isPhoneVerified?: BoolFilter<"User"> | boolean
+    phoneVerificationCodeExpires?: DateTimeNullableFilter<"User"> | Date | string | null
+    phoneVerificationAttempts?: IntFilter<"User"> | number
     authProvider?: EnumAuthProviderFilter<"User"> | $Enums.AuthProvider
     createdAt?: DateTimeFilter<"User"> | Date | string
     updatedAt?: DateTimeFilter<"User"> | Date | string
@@ -16240,7 +16330,7 @@ export namespace Prisma {
     bookingsAsCustomer?: BookingListRelationFilter
     reviews?: ReviewListRelationFilter
     notifications?: NotificationListRelationFilter
-  }, "id" | "email" | "emailVerificationCode" | "googleId">
+  }, "id" | "email" | "emailVerificationCode" | "phoneVerificationCode" | "firebaseUid" | "googleId">
 
   export type UserOrderByWithAggregationInput = {
     id?: SortOrder
@@ -16255,6 +16345,11 @@ export namespace Prisma {
     emailVerificationCode?: SortOrderInput | SortOrder
     emailVerificationCodeExpires?: SortOrderInput | SortOrder
     emailVerificationAttempts?: SortOrder
+    isPhoneVerified?: SortOrder
+    phoneVerificationCode?: SortOrderInput | SortOrder
+    phoneVerificationCodeExpires?: SortOrderInput | SortOrder
+    phoneVerificationAttempts?: SortOrder
+    firebaseUid?: SortOrderInput | SortOrder
     googleId?: SortOrderInput | SortOrder
     authProvider?: SortOrder
     createdAt?: SortOrder
@@ -16282,6 +16377,11 @@ export namespace Prisma {
     emailVerificationCode?: StringNullableWithAggregatesFilter<"User"> | string | null
     emailVerificationCodeExpires?: DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
     emailVerificationAttempts?: IntWithAggregatesFilter<"User"> | number
+    isPhoneVerified?: BoolWithAggregatesFilter<"User"> | boolean
+    phoneVerificationCode?: StringNullableWithAggregatesFilter<"User"> | string | null
+    phoneVerificationCodeExpires?: DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
+    phoneVerificationAttempts?: IntWithAggregatesFilter<"User"> | number
+    firebaseUid?: StringNullableWithAggregatesFilter<"User"> | string | null
     googleId?: StringNullableWithAggregatesFilter<"User"> | string | null
     authProvider?: EnumAuthProviderWithAggregatesFilter<"User"> | $Enums.AuthProvider
     createdAt?: DateTimeWithAggregatesFilter<"User"> | Date | string
@@ -17303,6 +17403,11 @@ export namespace Prisma {
     emailVerificationCode?: string | null
     emailVerificationCodeExpires?: Date | string | null
     emailVerificationAttempts?: number
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: string | null
+    phoneVerificationCodeExpires?: Date | string | null
+    phoneVerificationAttempts?: number
+    firebaseUid?: string | null
     googleId?: string | null
     authProvider?: $Enums.AuthProvider
     createdAt?: Date | string
@@ -17326,6 +17431,11 @@ export namespace Prisma {
     emailVerificationCode?: string | null
     emailVerificationCodeExpires?: Date | string | null
     emailVerificationAttempts?: number
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: string | null
+    phoneVerificationCodeExpires?: Date | string | null
+    phoneVerificationAttempts?: number
+    firebaseUid?: string | null
     googleId?: string | null
     authProvider?: $Enums.AuthProvider
     createdAt?: Date | string
@@ -17349,6 +17459,11 @@ export namespace Prisma {
     emailVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     emailVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    isPhoneVerified?: BoolFieldUpdateOperationsInput | boolean
+    phoneVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    phoneVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    firebaseUid?: NullableStringFieldUpdateOperationsInput | string | null
     googleId?: NullableStringFieldUpdateOperationsInput | string | null
     authProvider?: EnumAuthProviderFieldUpdateOperationsInput | $Enums.AuthProvider
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -17372,6 +17487,11 @@ export namespace Prisma {
     emailVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     emailVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    isPhoneVerified?: BoolFieldUpdateOperationsInput | boolean
+    phoneVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    phoneVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    firebaseUid?: NullableStringFieldUpdateOperationsInput | string | null
     googleId?: NullableStringFieldUpdateOperationsInput | string | null
     authProvider?: EnumAuthProviderFieldUpdateOperationsInput | $Enums.AuthProvider
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -17395,6 +17515,11 @@ export namespace Prisma {
     emailVerificationCode?: string | null
     emailVerificationCodeExpires?: Date | string | null
     emailVerificationAttempts?: number
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: string | null
+    phoneVerificationCodeExpires?: Date | string | null
+    phoneVerificationAttempts?: number
+    firebaseUid?: string | null
     googleId?: string | null
     authProvider?: $Enums.AuthProvider
     createdAt?: Date | string
@@ -17414,6 +17539,11 @@ export namespace Prisma {
     emailVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     emailVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    isPhoneVerified?: BoolFieldUpdateOperationsInput | boolean
+    phoneVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    phoneVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    firebaseUid?: NullableStringFieldUpdateOperationsInput | string | null
     googleId?: NullableStringFieldUpdateOperationsInput | string | null
     authProvider?: EnumAuthProviderFieldUpdateOperationsInput | $Enums.AuthProvider
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -17433,6 +17563,11 @@ export namespace Prisma {
     emailVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     emailVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    isPhoneVerified?: BoolFieldUpdateOperationsInput | boolean
+    phoneVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    phoneVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    firebaseUid?: NullableStringFieldUpdateOperationsInput | string | null
     googleId?: NullableStringFieldUpdateOperationsInput | string | null
     authProvider?: EnumAuthProviderFieldUpdateOperationsInput | $Enums.AuthProvider
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -18694,6 +18829,11 @@ export namespace Prisma {
     emailVerificationCode?: SortOrder
     emailVerificationCodeExpires?: SortOrder
     emailVerificationAttempts?: SortOrder
+    isPhoneVerified?: SortOrder
+    phoneVerificationCode?: SortOrder
+    phoneVerificationCodeExpires?: SortOrder
+    phoneVerificationAttempts?: SortOrder
+    firebaseUid?: SortOrder
     googleId?: SortOrder
     authProvider?: SortOrder
     createdAt?: SortOrder
@@ -18702,6 +18842,7 @@ export namespace Prisma {
 
   export type UserAvgOrderByAggregateInput = {
     emailVerificationAttempts?: SortOrder
+    phoneVerificationAttempts?: SortOrder
   }
 
   export type UserMaxOrderByAggregateInput = {
@@ -18717,6 +18858,11 @@ export namespace Prisma {
     emailVerificationCode?: SortOrder
     emailVerificationCodeExpires?: SortOrder
     emailVerificationAttempts?: SortOrder
+    isPhoneVerified?: SortOrder
+    phoneVerificationCode?: SortOrder
+    phoneVerificationCodeExpires?: SortOrder
+    phoneVerificationAttempts?: SortOrder
+    firebaseUid?: SortOrder
     googleId?: SortOrder
     authProvider?: SortOrder
     createdAt?: SortOrder
@@ -18736,6 +18882,11 @@ export namespace Prisma {
     emailVerificationCode?: SortOrder
     emailVerificationCodeExpires?: SortOrder
     emailVerificationAttempts?: SortOrder
+    isPhoneVerified?: SortOrder
+    phoneVerificationCode?: SortOrder
+    phoneVerificationCodeExpires?: SortOrder
+    phoneVerificationAttempts?: SortOrder
+    firebaseUid?: SortOrder
     googleId?: SortOrder
     authProvider?: SortOrder
     createdAt?: SortOrder
@@ -18744,6 +18895,7 @@ export namespace Prisma {
 
   export type UserSumOrderByAggregateInput = {
     emailVerificationAttempts?: SortOrder
+    phoneVerificationAttempts?: SortOrder
   }
 
   export type StringWithAggregatesFilter<$PrismaModel = never> = {
@@ -21327,6 +21479,11 @@ export namespace Prisma {
     emailVerificationCode?: string | null
     emailVerificationCodeExpires?: Date | string | null
     emailVerificationAttempts?: number
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: string | null
+    phoneVerificationCodeExpires?: Date | string | null
+    phoneVerificationAttempts?: number
+    firebaseUid?: string | null
     googleId?: string | null
     authProvider?: $Enums.AuthProvider
     createdAt?: Date | string
@@ -21349,6 +21506,11 @@ export namespace Prisma {
     emailVerificationCode?: string | null
     emailVerificationCodeExpires?: Date | string | null
     emailVerificationAttempts?: number
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: string | null
+    phoneVerificationCodeExpires?: Date | string | null
+    phoneVerificationAttempts?: number
+    firebaseUid?: string | null
     googleId?: string | null
     authProvider?: $Enums.AuthProvider
     createdAt?: Date | string
@@ -21662,6 +21824,11 @@ export namespace Prisma {
     emailVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     emailVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    isPhoneVerified?: BoolFieldUpdateOperationsInput | boolean
+    phoneVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    phoneVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    firebaseUid?: NullableStringFieldUpdateOperationsInput | string | null
     googleId?: NullableStringFieldUpdateOperationsInput | string | null
     authProvider?: EnumAuthProviderFieldUpdateOperationsInput | $Enums.AuthProvider
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -21684,6 +21851,11 @@ export namespace Prisma {
     emailVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     emailVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    isPhoneVerified?: BoolFieldUpdateOperationsInput | boolean
+    phoneVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    phoneVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    firebaseUid?: NullableStringFieldUpdateOperationsInput | string | null
     googleId?: NullableStringFieldUpdateOperationsInput | string | null
     authProvider?: EnumAuthProviderFieldUpdateOperationsInput | $Enums.AuthProvider
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -22459,6 +22631,11 @@ export namespace Prisma {
     emailVerificationCode?: string | null
     emailVerificationCodeExpires?: Date | string | null
     emailVerificationAttempts?: number
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: string | null
+    phoneVerificationCodeExpires?: Date | string | null
+    phoneVerificationAttempts?: number
+    firebaseUid?: string | null
     googleId?: string | null
     authProvider?: $Enums.AuthProvider
     createdAt?: Date | string
@@ -22481,6 +22658,11 @@ export namespace Prisma {
     emailVerificationCode?: string | null
     emailVerificationCodeExpires?: Date | string | null
     emailVerificationAttempts?: number
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: string | null
+    phoneVerificationCodeExpires?: Date | string | null
+    phoneVerificationAttempts?: number
+    firebaseUid?: string | null
     googleId?: string | null
     authProvider?: $Enums.AuthProvider
     createdAt?: Date | string
@@ -22751,6 +22933,11 @@ export namespace Prisma {
     emailVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     emailVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    isPhoneVerified?: BoolFieldUpdateOperationsInput | boolean
+    phoneVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    phoneVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    firebaseUid?: NullableStringFieldUpdateOperationsInput | string | null
     googleId?: NullableStringFieldUpdateOperationsInput | string | null
     authProvider?: EnumAuthProviderFieldUpdateOperationsInput | $Enums.AuthProvider
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -22773,6 +22960,11 @@ export namespace Prisma {
     emailVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     emailVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    isPhoneVerified?: BoolFieldUpdateOperationsInput | boolean
+    phoneVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    phoneVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    firebaseUid?: NullableStringFieldUpdateOperationsInput | string | null
     googleId?: NullableStringFieldUpdateOperationsInput | string | null
     authProvider?: EnumAuthProviderFieldUpdateOperationsInput | $Enums.AuthProvider
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -23241,6 +23433,11 @@ export namespace Prisma {
     emailVerificationCode?: string | null
     emailVerificationCodeExpires?: Date | string | null
     emailVerificationAttempts?: number
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: string | null
+    phoneVerificationCodeExpires?: Date | string | null
+    phoneVerificationAttempts?: number
+    firebaseUid?: string | null
     googleId?: string | null
     authProvider?: $Enums.AuthProvider
     createdAt?: Date | string
@@ -23263,6 +23460,11 @@ export namespace Prisma {
     emailVerificationCode?: string | null
     emailVerificationCodeExpires?: Date | string | null
     emailVerificationAttempts?: number
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: string | null
+    phoneVerificationCodeExpires?: Date | string | null
+    phoneVerificationAttempts?: number
+    firebaseUid?: string | null
     googleId?: string | null
     authProvider?: $Enums.AuthProvider
     createdAt?: Date | string
@@ -23374,6 +23576,11 @@ export namespace Prisma {
     emailVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     emailVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    isPhoneVerified?: BoolFieldUpdateOperationsInput | boolean
+    phoneVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    phoneVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    firebaseUid?: NullableStringFieldUpdateOperationsInput | string | null
     googleId?: NullableStringFieldUpdateOperationsInput | string | null
     authProvider?: EnumAuthProviderFieldUpdateOperationsInput | $Enums.AuthProvider
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -23396,6 +23603,11 @@ export namespace Prisma {
     emailVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     emailVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    isPhoneVerified?: BoolFieldUpdateOperationsInput | boolean
+    phoneVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    phoneVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    firebaseUid?: NullableStringFieldUpdateOperationsInput | string | null
     googleId?: NullableStringFieldUpdateOperationsInput | string | null
     authProvider?: EnumAuthProviderFieldUpdateOperationsInput | $Enums.AuthProvider
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -23558,6 +23770,11 @@ export namespace Prisma {
     emailVerificationCode?: string | null
     emailVerificationCodeExpires?: Date | string | null
     emailVerificationAttempts?: number
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: string | null
+    phoneVerificationCodeExpires?: Date | string | null
+    phoneVerificationAttempts?: number
+    firebaseUid?: string | null
     googleId?: string | null
     authProvider?: $Enums.AuthProvider
     createdAt?: Date | string
@@ -23580,6 +23797,11 @@ export namespace Prisma {
     emailVerificationCode?: string | null
     emailVerificationCodeExpires?: Date | string | null
     emailVerificationAttempts?: number
+    isPhoneVerified?: boolean
+    phoneVerificationCode?: string | null
+    phoneVerificationCodeExpires?: Date | string | null
+    phoneVerificationAttempts?: number
+    firebaseUid?: string | null
     googleId?: string | null
     authProvider?: $Enums.AuthProvider
     createdAt?: Date | string
@@ -23659,6 +23881,11 @@ export namespace Prisma {
     emailVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     emailVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    isPhoneVerified?: BoolFieldUpdateOperationsInput | boolean
+    phoneVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    phoneVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    firebaseUid?: NullableStringFieldUpdateOperationsInput | string | null
     googleId?: NullableStringFieldUpdateOperationsInput | string | null
     authProvider?: EnumAuthProviderFieldUpdateOperationsInput | $Enums.AuthProvider
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -23681,6 +23908,11 @@ export namespace Prisma {
     emailVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
     emailVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     emailVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    isPhoneVerified?: BoolFieldUpdateOperationsInput | boolean
+    phoneVerificationCode?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneVerificationCodeExpires?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    phoneVerificationAttempts?: IntFieldUpdateOperationsInput | number
+    firebaseUid?: NullableStringFieldUpdateOperationsInput | string | null
     googleId?: NullableStringFieldUpdateOperationsInput | string | null
     authProvider?: EnumAuthProviderFieldUpdateOperationsInput | $Enums.AuthProvider
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string

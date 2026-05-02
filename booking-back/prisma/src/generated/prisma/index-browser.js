@@ -134,6 +134,11 @@ exports.Prisma.UserScalarFieldEnum = {
   emailVerificationCode: 'emailVerificationCode',
   emailVerificationCodeExpires: 'emailVerificationCodeExpires',
   emailVerificationAttempts: 'emailVerificationAttempts',
+  isPhoneVerified: 'isPhoneVerified',
+  phoneVerificationCode: 'phoneVerificationCode',
+  phoneVerificationCodeExpires: 'phoneVerificationCodeExpires',
+  phoneVerificationAttempts: 'phoneVerificationAttempts',
+  firebaseUid: 'firebaseUid',
   googleId: 'googleId',
   authProvider: 'authProvider',
   createdAt: 'createdAt',
@@ -328,7 +333,8 @@ exports.UserRole = exports.$Enums.UserRole = {
 
 exports.AuthProvider = exports.$Enums.AuthProvider = {
   EMAIL: 'EMAIL',
-  GOOGLE: 'GOOGLE'
+  GOOGLE: 'GOOGLE',
+  FIREBASE: 'FIREBASE'
 };
 
 exports.BookingStatus = exports.$Enums.BookingStatus = {

@@ -11,10 +11,13 @@ import { usersApi, bookingsApi } from '@/lib/api'
 import { User, Lock, AlertCircle, CheckCircle2, Calendar, Clock, MapPin, DollarSign } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
+import { useRoleProtection } from '@/hooks/useRoleProtection'
+import { ProfilePhoneVerification } from '@/components/ProfilePhoneVerification'
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { user, loading, refreshUser } = useAuth()
+  const { user, loading: authLoading, refreshUser } = useAuth()
+  const { loading: roleCheckLoading } = useRoleProtection()
   const [activeTab, setActiveTab] = useState('personal')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -29,6 +32,7 @@ export default function ProfilePage() {
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false)
 
   // Password Form State
   const [currentPassword, setCurrentPassword] = useState('')
@@ -36,7 +40,7 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState('')
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!isLoading && !user) {
       router.push('/login')
       return
     }
@@ -46,11 +50,12 @@ export default function ProfilePage() {
       setLastName(user.lastName || '')
       setEmail(user.email || '')
       setPhone(user.phone || '')
+      setIsPhoneVerified(user.isPhoneVerified || false)
 
       // Fetch user bookings
       fetchUserBookings(user.id)
     }
-  }, [user, loading, router])
+  }, [user, isLoading, router])
 
   const fetchUserBookings = async (userId: string) => {
     try {
@@ -145,7 +150,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (loading) {
+  if (isLoading || authLoading || roleCheckLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -211,8 +216,7 @@ export default function ProfilePage() {
               <div>
                 <p className="text-sm text-muted-foreground">Member Since</p>
                 <p className="text-2xl font-bold text-foreground mt-2">
-                  { (user as any)?.createdAt ? format(new Date((user as any).createdAt), 'MMM yyyy') : 'N/A' }
-
+                  {user?.createdAt ? format(new Date(user.createdAt), 'MMM yyyy') : 'N/A'}
                 </p>
               </div>
               <User className="w-8 h-8 text-primary/40" />
@@ -326,6 +330,17 @@ export default function ProfilePage() {
 
           {/* Security Tab */}
           <TabsContent value="security" className="space-y-6">
+            {/* Phone Verification */}
+            <ProfilePhoneVerification
+              phone={phone}
+              isPhoneVerified={isPhoneVerified}
+              onVerified={() => {
+                setIsPhoneVerified(true)
+                refreshUser()
+              }}
+            />
+
+            {/* Change Password */}
             <Card className="p-6">
               <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
                 <Lock className="w-5 h-5" />
@@ -502,4 +517,3 @@ export default function ProfilePage() {
     </main>
   )
 }
- 

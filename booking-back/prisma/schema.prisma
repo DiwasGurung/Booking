@@ -63,7 +63,13 @@ model User {
   emailVerificationCodeExpires DateTime?
   emailVerificationAttempts Int @default(0)
 
+  isPhoneVerified Boolean @default(false)
+  phoneVerificationCode String? @unique
+  phoneVerificationCodeExpires DateTime?
+  phoneVerificationAttempts Int @default(0)
+
  
+  firebaseUid   String?   @unique
   googleId      String?   @unique  
   authProvider  AuthProvider @default(EMAIL)
 
@@ -79,6 +85,7 @@ model User {
 enum AuthProvider {
   EMAIL
   GOOGLE
+  FIREBASE
 }
 
 model Business {

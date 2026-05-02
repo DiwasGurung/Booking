@@ -16,6 +16,8 @@ import authRoutes from './routes/auth.routes'
 import sseRoutes from "./routes/sse.routes";
 import subscriptionRoutes from "./routes/subscription.routes";
 import seedRoutes from "./routes/seed.routes"
+import phoneVerificationRoutes from "./routes/phone-verification.routes"
+
 
 dotenv.config();
 
@@ -68,6 +70,10 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/reviews", reviewRoutes);
 
 app.use("/api/services", serviceRoutes);
+
+app.use("/api/phone-verification", phoneVerificationRoutes)
+
+
 
 
 // Catch-all route (should be last)
