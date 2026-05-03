@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Bell, Mail, MessageSquare, AlertCircle, Save } from 'lucide-react'
+import { PushNotificationSettings } from '@/components/PushNotificationSettings'
 
 interface NotificationSettings {
   emailNotifications: boolean
@@ -183,6 +184,9 @@ export default function NotificationPreferencesPage() {
                 </div>
               </div>
             </Card>
+
+            {/* Web Push Notifications Component */}
+            <PushNotificationSettings />
           </TabsContent>
 
           {/* Events Tab */}

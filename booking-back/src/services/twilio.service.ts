@@ -11,6 +11,21 @@ if (!accountSid || !authToken || !fromPhoneNumber) {
 const client = twilio(accountSid, authToken)
 
 export class TwilioService {
+  /**
+   * Format phone number to E.164 format (required by Twilio)
+   * Example: "98141950023" -> "+98141950023"
+   */
+  static formatPhoneNumber(phoneNumber: string): string {
+    // Remove all non-digit characters
+    const cleaned = phoneNumber.replace(/\D/g, '')
+    
+    // Add + prefix if not already present
+    if (!cleaned.startsWith('+')) {
+      return `+977=-${cleaned}`
+    }
+    return cleaned
+  }
+
   static async sendVerificationSMS(phoneNumber: string, code: string): Promise<boolean> {
     try {
       if (!accountSid || !authToken) {
@@ -18,10 +33,14 @@ export class TwilioService {
         return false
       }
 
+      // Format phone number to E.164 format
+      const formattedPhoneNumber = this.formatPhoneNumber(phoneNumber)
+      console.log('[v0] Sending SMS to formatted number:', formattedPhoneNumber)
+
       const message = await client.messages.create({
         body: `Your BookFlow verification code is: ${code}. Valid for 15 minutes.`,
         from: fromPhoneNumber,
-        to: phoneNumber,
+        to: formattedPhoneNumber,
       })
 
       console.log('[v0] Verification SMS sent:', message.sid)
@@ -48,6 +67,9 @@ export class TwilioService {
         return false
       }
 
+      // Format phone number to E.164 format
+      const formattedPhoneNumber = this.formatPhoneNumber(phoneNumber)
+
       let messageBody = ''
 
       switch (appointmentData.type) {
@@ -65,7 +87,7 @@ export class TwilioService {
       const message = await client.messages.create({
         body: messageBody,
         from: fromPhoneNumber,
-        to: phoneNumber,
+        to: formattedPhoneNumber,
       })
 
       console.log('[v0] Appointment update SMS sent:', message.sid)

@@ -82,8 +82,8 @@ export function ProfilePhoneVerification({
       const cleanedPhone = phone.replace(/\D/g, '')
       const response = await fetch(`${apiUrl}/api/phone-verification/send-code`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumber: cleanedPhone }),
       })
 

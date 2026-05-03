@@ -4,6 +4,7 @@ import { TwilioService } from '../services/twilio.service'
 
 interface AuthRequest extends Request {
   user?: { id: string }
+  userId?: string
 }
 
 /**
@@ -17,7 +18,9 @@ export const sendPhoneVerificationCode = async (req: AuthRequest, res: Response)
       return res.status(400).json({ error: 'Phone number required' })
     }
 
-    if (!req.user?.id) {
+    const userId = req.user?.id || req.userId
+    if (!userId) {
+      console.error('[Phone Verification] userId not found on request')
       return res.status(401).json({ error: 'Not authenticated' })
     }
 
@@ -33,10 +36,10 @@ export const sendPhoneVerificationCode = async (req: AuthRequest, res: Response)
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
     const codeExpires = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
 
-    console.log('[Phone Verification] Generated code for user:', req.user.id)
+    console.log('[Phone Verification] Generated code for user:', userId)
 
     // Update user with verification code
-    await userService.updateUser(req.user.id, {
+    await userService.updateUser(userId, {
       phone: phoneNumber,
       phoneVerificationCode: verificationCode,
       phoneVerificationCodeExpires: codeExpires,
@@ -72,13 +75,14 @@ export const verifyPhoneNumber = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Verification code required' })
     }
 
-    if (!req.user?.id) {
+    const userId = req.user?.id || req.userId
+    if (!userId) {
       return res.status(401).json({ error: 'Not authenticated' })
     }
 
-    console.log('[Phone Verification] Verifying code for user:', req.user.id)
+    console.log('[Phone Verification] Verifying code for user:', userId)
 
-    const user = await userService.findById(req.user.id)
+    const user = await userService.findById(userId)
     if (!user) {
       return res.status(404).json({ error: 'User not found' })
     }
@@ -90,12 +94,12 @@ export const verifyPhoneNumber = async (req: AuthRequest, res: Response) => {
 
     // Check if code matches
     if (user.phoneVerificationCode !== code) {
-      console.log('[Phone Verification] Code mismatch for user:', req.user.id)
+      console.log('[Phone Verification] Code mismatch for user:', userId)
       
       // Increment failed attempts
       const attempts = (user.phoneVerificationAttempts || 0) + 1
       try {
-        await userService.updateUser(req.user.id, {
+        await userService.updateUser(userId, {
           phoneVerificationAttempts: attempts,
         })
       } catch (updateError) {
@@ -118,19 +122,19 @@ export const verifyPhoneNumber = async (req: AuthRequest, res: Response) => {
 
     // Check if code has expired
     if (user.phoneVerificationCodeExpires && user.phoneVerificationCodeExpires < new Date()) {
-      console.log('[Phone Verification] Code expired for user:', req.user.id)
+      console.log('[Phone Verification] Code expired for user:', userId)
       return res.status(400).json({ error: 'Verification code has expired. Please request a new one.' })
     }
 
     // Mark phone as verified
-    const verifiedUser = await userService.updateUser(req.user.id, {
+    const verifiedUser = await userService.updateUser(userId, {
       isPhoneVerified: true,
       phoneVerificationCode: null,
       phoneVerificationCodeExpires: null,
       phoneVerificationAttempts: 0,
     })
 
-    console.log('[v0] Phone verified for user:', req.user.id, 'Phone:', verifiedUser.phone)
+    console.log('[v0] Phone verified for user:', userId, 'Phone:', verifiedUser.phone)
 
     res.json({
       success: true,
@@ -152,13 +156,14 @@ export const verifyPhoneNumber = async (req: AuthRequest, res: Response) => {
  */
 export const resendPhoneVerificationCode = async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.user?.id) {
+    const userId = req.user?.id || req.userId
+    if (!userId) {
       return res.status(401).json({ error: 'Not authenticated' })
     }
 
-    console.log('[Phone Verification] Resending code for user:', req.user.id)
+    console.log('[Phone Verification] Resending code for user:', userId)
 
-    const user = await userService.findById(req.user.id)
+    const user = await userService.findById(userId)
     if (!user) {
       return res.status(404).json({ error: 'User not found' })
     }
@@ -175,10 +180,10 @@ export const resendPhoneVerificationCode = async (req: AuthRequest, res: Respons
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
     const codeExpires = new Date(Date.now() + 15 * 60 * 1000)
 
-    console.log('[Phone Verification] Generated new code for user:', req.user.id)
+    console.log('[Phone Verification] Generated new code for user:', userId)
 
     // Update with new code
-    await userService.updateUser(req.user.id, {
+    await userService.updateUser(userId, {
       phoneVerificationCode: verificationCode,
       phoneVerificationCodeExpires: codeExpires,
       phoneVerificationAttempts: 0,
