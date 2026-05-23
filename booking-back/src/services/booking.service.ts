@@ -57,7 +57,7 @@ export class BookingService {
         where,
         skip,
         take: limit,
-        include: { service: true, customer: true, payment: true },
+        include: { service: true, customer: true, staff: true, payment: true },
         orderBy: { startTime: "desc" },
       }),
       prisma.booking.count({ where }),
@@ -72,7 +72,7 @@ export class BookingService {
   async getCustomerBookings(userId: string): Promise<Booking[]> {
     return prisma.booking.findMany({
       where: { userId },
-      include: { service: true, business: true, payment: true },
+      include: { service: true, business: true, staff: true, payment: true },
       orderBy: { startTime: "desc" },
     })
   }

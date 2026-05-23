@@ -18,6 +18,7 @@ import subscriptionRoutes from "./routes/subscription.routes";
 import seedRoutes from "./routes/seed.routes"
 import phoneVerificationRoutes from "./routes/phone-verification.routes"
 import pushSubscriptionRoutes from "./routes/push-subscription.route"
+import staffRoutes from "./routes/staff.routes" 
 
 
 dotenv.config();
@@ -75,6 +76,8 @@ app.use("/api/services", serviceRoutes);
 app.use("/api/phone-verification", phoneVerificationRoutes)
 
 app.use('/api/push-subscriptions', pushSubscriptionRoutes)
+
+app.use("/api/staff", staffRoutes)
 
 
 

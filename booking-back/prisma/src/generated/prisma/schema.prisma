@@ -118,6 +118,7 @@ model Business {
   subscription Subscription?
 
   services  Service[]
+  staff     Staff[]
   bookings  Booking[]
   payments  Payment[]
   reviews   Review[]
@@ -126,6 +127,51 @@ model Business {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Staff member who works at a business
+model Staff {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  firstName String
+  lastName  String
+  email     String?
+  phone     String?
+  avatar    String?
+  role      String  @default("Staff")
+  isActive  Boolean @default(true)
+
+  // Working hours per day (JSON): { "monday": { "start": "09:00", "end": "17:00", "isWorking": true }, ... }
+  workingHours Json?
+
+  // Break times (JSON): [{ "start": "12:00", "end": "13:00" }]
+  breakTimes Json?
+
+  services StaffService[]
+  bookings Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([isActive])
+}
+
+// Join table connecting staff to services they can perform
+model StaffService {
+  id        String  @id @default(cuid())
+  staffId   String
+  staff     Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([staffId, serviceId])
+  @@index([staffId])
+  @@index([serviceId])
 }
 
 model Service {
@@ -142,7 +188,8 @@ model Service {
   isActive    Boolean @default(true)
   capacity    Int     @default(1)
 
-  bookings Booking[]
+  staffServices StaffService[]
+  bookings      Booking[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -178,6 +225,10 @@ model Booking {
   businessId String
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
+  // Optional staff assignment
+  staffId String?
+  staff   Staff?  @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
@@ -198,6 +249,8 @@ model Booking {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([staffId])
 }
 
 model Payment {
@@ -337,4 +390,20 @@ model Subscription {
   @@index([status])
   @@index([endDate])
   @@map("subscriptions")
+}
+
+model PushSubscription {
+  id       String  @id @default(cuid())
+  userId   String
+  endpoint String  @unique
+  auth     String
+  p256dh   String
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("push_subscriptions")
 }

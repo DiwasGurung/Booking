@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { ChevronDown, Menu, X, LayoutDashboard, Calendar, Settings, BarChart3, CreditCard, Users, Home, LogOut } from 'lucide-react'
+import { ChevronDown, Menu, X, LayoutDashboard, Calendar, Settings, BarChart3, CreditCard, Users, Home, LogOut, UserCog } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/authContext'
 
@@ -20,7 +20,7 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
-  const [isOpen, setIsOpen] = useState(false) // Start closed
+  const [isOpen, setIsOpen] = useState(true)
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const pathname = usePathname()
   const router = useRouter()
@@ -42,6 +42,11 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
       label: 'Services',
       href: '/dashboard/services',
       icon: Users,
+    },
+    {
+      label: 'Staff',
+      href: '/dashboard/staff',
+      icon: UserCog,
     },
     {
       label: 'Payments',
@@ -100,11 +105,11 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
 
   return (
     <>
-      {/* Mobile Toggle Button */}
+      {/* Mobile Toggle */}
       <Button
         variant="ghost"
         size="sm"
-        className="md:hidden fixed top-4 left-4 z-40 p-2 rounded-full shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+        className="md:hidden fixed top-20 left-4 z-40"
         onClick={() => setIsOpen(!isOpen)}
       >
         {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -112,18 +117,17 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full bg-card border-r border-border transition-transform duration-300 ease-in-out z-30 w-64
-          transform ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-          md:translate-x-0 md:w-64`}
+        className={`fixed top-0 left-0 h-screen bg-card border-r border-border transition-all duration-300 z-30 ${
+          isOpen ? 'w-64' : 'w-0 -translate-x-full'
+        } md:w-64 md:translate-x-0 pt-20`}
       >
-        {/* Navigation */}
-        <nav className="relative flex flex-col h-full pb-24 overflow-y-auto px-4 pt-20">
+        <nav className="p-4 space-y-2 overflow-y-auto h-full pb-24">
           {navItems.map((item) => (
             <div key={item.label}>
               {item.children ? (
                 <button
                   onClick={() => toggleExpandItem(item.label)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     expandedItems.includes(item.label)
                       ? 'bg-primary/10 text-primary'
                       : 'text-foreground hover:bg-muted'
@@ -142,7 +146,7 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
               ) : (
                 <Link href={item.href}>
                   <span
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer block ${
                       isActive(item.href)
                         ? 'bg-primary/10 text-primary'
                         : 'text-foreground hover:bg-muted'
@@ -156,7 +160,7 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
 
               {/* Submenu */}
               {item.children && expandedItems.includes(item.label) && (
-                <div className="ml-4 mt-2 border-l border-slate-200 space-y-1">
+                <div className="ml-4 mt-2 space-y-1 border-l border-slate-200">
                   {item.children.map((subitem) => (
                     <Link key={subitem.href} href={subitem.href}>
                       <span
@@ -174,25 +178,25 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
               )}
             </div>
           ))}
-        </nav>
 
-        {/* Logout Button Fixed at Bottom */}
-        <div className="absolute bottom-4 left-4 right-4 px-4 w-full">
-          <Button
-            onClick={handleLogout}
-            className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground flex items-center justify-center gap-2"
-            size="sm"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </Button>
-        </div>
+          {/* Logout Button */}
+          <div className="absolute bottom-4 left-4 right-4">
+            <Button
+              onClick={handleLogout}
+              className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground flex items-center justify-center gap-2"
+              size="sm"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </Button>
+          </div>
+        </nav>
       </aside>
 
-      {/* Overlay for mobile */}
+      {/* Mobile Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden transition-opacity duration-300"
+          className="fixed inset-0 bg-black/50 z-20 md:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}

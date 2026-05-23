@@ -27,7 +27,8 @@ export class PushSubscriptionService {
         return await prisma.pushSubscription.update({
           where: { id: existing.id },
           data: {
-            keys: JSON.stringify(subscription.keys),
+            p256dh: subscription.keys.p256dh,
+            auth: subscription.keys.auth,
             isActive: true,
             updatedAt: new Date(),
           },
@@ -38,7 +39,8 @@ export class PushSubscriptionService {
           data: {
             userId,
             endpoint: subscription.endpoint,
-            keys: JSON.stringify(subscription.keys),
+            p256dh: subscription.keys.p256dh,
+            auth: subscription.keys.auth,
             isActive: true,
           },
         })
@@ -62,10 +64,13 @@ export class PushSubscriptionService {
       })
 
       // Convert back to subscription objects
-      return subscriptions.map((sub: { id: any; endpoint: any; keys: string }) => ({
+      return subscriptions.map((sub) => ({
         id: sub.id,
         endpoint: sub.endpoint,
-        keys: JSON.parse(sub.keys),
+        keys: {
+          p256dh: sub.p256dh,
+          auth: sub.auth,
+        },
       }))
     } catch (error) {
       console.error('[PushSubscription] Failed to get subscriptions:', error)

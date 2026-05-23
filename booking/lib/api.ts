@@ -43,6 +43,7 @@ export interface Booking {
   id: string
   serviceId: string
   businessId: string
+  staffId?: string
   startTime: string
   endTime: string
   customerName: string
@@ -50,8 +51,13 @@ export interface Booking {
   customerPhone: string
   status: string
   notes?: string
+  staff?: {
+    id: string
+    firstName: string
+    lastName: string
+    avatar?: string
+  }
 }
-
 // Payment types
 export interface Payment {
   id: string
@@ -244,11 +250,11 @@ export const businessHoursApi = {
 
 // Bookings API - /api/booking prefix
 export const bookingsApi = {
-  // Create a new booking
-  createBooking: (data: {
+   createBooking: (data: {
     serviceId: string
     businessId: string
     userId?: string
+    staffId?: string
     startTime: string
     endTime: string
     customerName: string
@@ -488,4 +494,107 @@ export const paymentApi = {
   // Check if subscription is already paid
   checkSubscriptionPaymentStatus: (subscriptionId: string) =>
     apiCall<{ paid: boolean; status: string; lastPayment?: Payment }>(`/api/payment/subscription/${subscriptionId}/status`),
+}
+
+
+
+// Staff types
+export interface Staff {
+  id: string
+  businessId: string
+  firstName: string
+  lastName: string
+  email?: string
+  phone?: string
+  avatar?: string
+  role: string
+  isActive: boolean
+  workingHours?: Record<string, { start: string; end: string; isWorking: boolean }>
+  breakTimes?: { start: string; end: string }[]
+  services?: { id: string; service: Service }[]
+  _count?: { bookings: number }
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateStaffData {
+  businessId: string
+  firstName: string
+  lastName: string
+  email?: string
+  phone?: string
+  avatar?: string
+  role?: string
+  workingHours?: Record<string, { start: string; end: string; isWorking: boolean }>
+  breakTimes?: { start: string; end: string }[]
+  serviceIds?: string[]
+}
+
+export interface UpdateStaffData {
+  firstName?: string
+  lastName?: string
+  email?: string
+  phone?: string
+  avatar?: string
+  role?: string
+  isActive?: boolean
+  workingHours?: Record<string, { start: string; end: string; isWorking: boolean }>
+  breakTimes?: { start: string; end: string }[]
+  serviceIds?: string[]
+}
+
+// Staff API - /api/staff prefix
+export const staffApi = {
+  // Create new staff member
+  create: (data: CreateStaffData) =>
+    apiCall<{ success: boolean; staff: Staff }>('/api/staff', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Get staff by ID
+  getById: (staffId: string) =>
+    apiCall<{ staff: Staff }>(`/api/staff/${staffId}`),
+
+  // Get all staff for a business
+  getBusinessStaff: (businessId: string, includeInactive = false) =>
+    apiCall<{ staff: Staff[] }>(`/api/staff/business/${businessId}?includeInactive=${includeInactive}`),
+
+  // Get staff who can perform a specific service
+  getStaffForService: (serviceId: string) =>
+    apiCall<{ staff: Staff[] }>(`/api/staff/service/${serviceId}`),
+
+  // Update staff member
+  update: (staffId: string, data: UpdateStaffData) =>
+    apiCall<{ success: boolean; staff: Staff }>(`/api/staff/${staffId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  // Delete staff member
+  delete: (staffId: string) =>
+    apiCall<{ success: boolean; message: string }>(`/api/staff/${staffId}`, {
+      method: 'DELETE',
+    }),
+
+  // Toggle staff active status
+  toggleStatus: (staffId: string) =>
+    apiCall<{ success: boolean; staff: Staff }>(`/api/staff/${staffId}/toggle-status`, {
+      method: 'PATCH',
+    }),
+
+  // Get staff availability for a specific date
+  getAvailability: (staffId: string, date: string, duration: number) =>
+    apiCall<{ slots: { start: string; end: string }[] }>(
+      `/api/staff/${staffId}/availability?date=${date}&duration=${duration}`
+    ),
+
+  // Get staff statistics
+  getStats: (staffId: string, startDate?: string, endDate?: string) => {
+    let url = `/api/staff/${staffId}/stats`
+    if (startDate && endDate) {
+      url += `?startDate=${startDate}&endDate=${endDate}`
+    }
+    return apiCall<{ stats: any }>(url)
+  },
 }

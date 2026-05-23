@@ -170,6 +170,29 @@ exports.Prisma.BusinessScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.StaffScalarFieldEnum = {
+  id: 'id',
+  businessId: 'businessId',
+  firstName: 'firstName',
+  lastName: 'lastName',
+  email: 'email',
+  phone: 'phone',
+  avatar: 'avatar',
+  role: 'role',
+  isActive: 'isActive',
+  workingHours: 'workingHours',
+  breakTimes: 'breakTimes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.StaffServiceScalarFieldEnum = {
+  id: 'id',
+  staffId: 'staffId',
+  serviceId: 'serviceId',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.ServiceScalarFieldEnum = {
   id: 'id',
   businessId: 'businessId',
@@ -203,6 +226,7 @@ exports.Prisma.BookingScalarFieldEnum = {
   id: 'id',
   serviceId: 'serviceId',
   businessId: 'businessId',
+  staffId: 'staffId',
   customerId: 'customerId',
   userId: 'userId',
   startTime: 'startTime',
@@ -300,6 +324,17 @@ exports.Prisma.SubscriptionScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.PushSubscriptionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  endpoint: 'endpoint',
+  auth: 'auth',
+  p256dh: 'p256dh',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -364,6 +399,8 @@ exports.SubscriptionStatus = exports.$Enums.SubscriptionStatus = {
 exports.Prisma.ModelName = {
   User: 'User',
   Business: 'Business',
+  Staff: 'Staff',
+  StaffService: 'StaffService',
   Service: 'Service',
   Customer: 'Customer',
   Booking: 'Booking',
@@ -372,7 +409,8 @@ exports.Prisma.ModelName = {
   BusinessHours: 'BusinessHours',
   Notification: 'Notification',
   SubscriptionPlan: 'SubscriptionPlan',
-  Subscription: 'Subscription'
+  Subscription: 'Subscription',
+  PushSubscription: 'PushSubscription'
 };
 
 /**
