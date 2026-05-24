@@ -237,9 +237,9 @@ export default function StaffPage() {
 
   if (fetchingBusinessId || loading) {
     return (
-      <div className="flex h-screen bg-background">
-        <Sidebar />
-        <main className="flex-1 flex items-center justify-center">
+      <div className="min-h-screen bg-background">
+        <Sidebar userRole="BUSINESS_OWNER" />
+        <main className="md:ml-64 pt-6 px-4 md:px-8 py-8 flex items-center justify-center">
           <Loader className="w-8 h-8 animate-spin text-primary" />
         </main>
       </div>
@@ -247,36 +247,37 @@ export default function StaffPage() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">
-          <Breadcrumbs
-            items={[
-              { label: 'Dashboard', href: '/dashboard' },
-              { label: 'Staff Management' },
-            ]}
-          />
+    <div className="min-h-screen bg-background">
+      <Sidebar userRole="BUSINESS_OWNER" />
+      <main className="md:ml-64 pt-6 px-4 md:px-8 py-8">
+        <Breadcrumbs
+          items={[
+            { label: 'Dashboard', href: '/dashboard' },
+            { label: 'Staff Management' },
+          ]}
+        />
 
-          <div className="flex items-center justify-between mb-6">
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Staff Management</h1>
+              <h1 className="text-3xl font-bold text-foreground">Staff Management</h1>
               <p className="text-muted-foreground">Manage your team members and their schedules</p>
             </div>
-            <Button onClick={openAddModal}>
+            <Button onClick={openAddModal} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               <Plus className="w-4 h-4 mr-2" />
               Add Staff
             </Button>
           </div>
+        </div>
 
-          {error && (
-            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive">
-              <AlertCircle className="w-5 h-5" />
-              {error}
-            </div>
-          )}
+        {error && (
+          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive">
+            <AlertCircle className="w-5 h-5" />
+            {error}
+          </div>
+        )}
 
-          {/* Staff Grid */}
+        {/* Staff Grid */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {staffMembers.map((staff) => (
               <Card key={staff.id} className={!staff.isActive ? 'opacity-60' : ''}>
@@ -377,7 +378,6 @@ export default function StaffPage() {
               </Card>
             )}
           </div>
-        </div>
 
         {/* Add/Edit Modal */}
         {isModalOpen && (

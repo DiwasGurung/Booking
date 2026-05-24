@@ -46,7 +46,7 @@ export const GoogleSignInButton = () => {
         }
 
         const data = await response.json()
-        console.log("[v0] Google sign-in successful for:", data.user?.email)
+        console.log("[v0] Google sign-in successful for:", data.user)
 
         // Dispatch custom event to notify auth context of state change
         // httpOnly cookie is automatically sent and stored by backend
