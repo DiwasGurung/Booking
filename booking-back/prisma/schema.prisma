@@ -346,15 +346,29 @@ model Notification {
 }
 
 model SubscriptionPlan {
-  id          String   @id @default(cuid())
-  name        String   @unique 
-  priceNPR    Int     
-  displayName String   
-  features    String[] @default([])
-  description String?
-  durationDays Int     @default(30)
-  currency    String   @default("NPR")
-  active      Boolean  @default(true)
+  id            String   @id @default(cuid())
+  name          String   @unique 
+  priceNPR      Int     
+  displayName   String   
+  features      String[] @default([])
+  description   String?
+  durationDays  Int      @default(30)
+  currency      String   @default("NPR")
+  active        Boolean  @default(true)
+  
+  // Plan Limits
+  maxAppointmentsPerMonth  Int  @default(-1)  // -1 means unlimited
+  maxStaff                 Int  @default(-1)  // -1 means unlimited
+  maxServices              Int  @default(-1)  // -1 means unlimited
+  maxCustomers             Int  @default(-1)  // -1 means unlimited
+  
+  // Features flags
+  allowSmsNotifications    Boolean @default(false)
+  allowEmailNotifications  Boolean @default(true)
+  allowOnlineBooking       Boolean @default(true)
+  allowReports             Boolean @default(false)
+  allowCustomBranding      Boolean @default(false)
+  prioritySupport          Boolean @default(false)
   
   subscriptions Subscription[]
 
@@ -382,6 +396,9 @@ model Subscription {
 
   trialEndsAt     DateTime?
   isTrialUsed     Boolean  @default(false)
+
+  appointmentsThisMonth    Int      @default(0)
+  usageResetDate           DateTime?
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

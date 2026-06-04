@@ -19,6 +19,7 @@ import seedRoutes from "./routes/seed.routes"
 import phoneVerificationRoutes from "./routes/phone-verification.routes"
 import pushSubscriptionRoutes from "./routes/push-subscription.route"
 import staffRoutes from "./routes/staff.routes" 
+import subscriptionPaymentRoutes from "./routes/subscription-payment.routes"
 
 
 dotenv.config();
@@ -79,7 +80,7 @@ app.use('/api/push-subscriptions', pushSubscriptionRoutes)
 
 app.use("/api/staff", staffRoutes)
 
-
+app.use("/api/subscription-payment", subscriptionPaymentRoutes)
 
 
 // Catch-all route (should be last)

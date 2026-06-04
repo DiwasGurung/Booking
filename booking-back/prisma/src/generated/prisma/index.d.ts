@@ -16171,11 +16171,19 @@ export namespace Prisma {
   export type SubscriptionPlanAvgAggregateOutputType = {
     priceNPR: number | null
     durationDays: number | null
+    maxAppointmentsPerMonth: number | null
+    maxStaff: number | null
+    maxServices: number | null
+    maxCustomers: number | null
   }
 
   export type SubscriptionPlanSumAggregateOutputType = {
     priceNPR: number | null
     durationDays: number | null
+    maxAppointmentsPerMonth: number | null
+    maxStaff: number | null
+    maxServices: number | null
+    maxCustomers: number | null
   }
 
   export type SubscriptionPlanMinAggregateOutputType = {
@@ -16187,6 +16195,16 @@ export namespace Prisma {
     durationDays: number | null
     currency: string | null
     active: boolean | null
+    maxAppointmentsPerMonth: number | null
+    maxStaff: number | null
+    maxServices: number | null
+    maxCustomers: number | null
+    allowSmsNotifications: boolean | null
+    allowEmailNotifications: boolean | null
+    allowOnlineBooking: boolean | null
+    allowReports: boolean | null
+    allowCustomBranding: boolean | null
+    prioritySupport: boolean | null
   }
 
   export type SubscriptionPlanMaxAggregateOutputType = {
@@ -16198,6 +16216,16 @@ export namespace Prisma {
     durationDays: number | null
     currency: string | null
     active: boolean | null
+    maxAppointmentsPerMonth: number | null
+    maxStaff: number | null
+    maxServices: number | null
+    maxCustomers: number | null
+    allowSmsNotifications: boolean | null
+    allowEmailNotifications: boolean | null
+    allowOnlineBooking: boolean | null
+    allowReports: boolean | null
+    allowCustomBranding: boolean | null
+    prioritySupport: boolean | null
   }
 
   export type SubscriptionPlanCountAggregateOutputType = {
@@ -16210,6 +16238,16 @@ export namespace Prisma {
     durationDays: number
     currency: number
     active: number
+    maxAppointmentsPerMonth: number
+    maxStaff: number
+    maxServices: number
+    maxCustomers: number
+    allowSmsNotifications: number
+    allowEmailNotifications: number
+    allowOnlineBooking: number
+    allowReports: number
+    allowCustomBranding: number
+    prioritySupport: number
     _all: number
   }
 
@@ -16217,11 +16255,19 @@ export namespace Prisma {
   export type SubscriptionPlanAvgAggregateInputType = {
     priceNPR?: true
     durationDays?: true
+    maxAppointmentsPerMonth?: true
+    maxStaff?: true
+    maxServices?: true
+    maxCustomers?: true
   }
 
   export type SubscriptionPlanSumAggregateInputType = {
     priceNPR?: true
     durationDays?: true
+    maxAppointmentsPerMonth?: true
+    maxStaff?: true
+    maxServices?: true
+    maxCustomers?: true
   }
 
   export type SubscriptionPlanMinAggregateInputType = {
@@ -16233,6 +16279,16 @@ export namespace Prisma {
     durationDays?: true
     currency?: true
     active?: true
+    maxAppointmentsPerMonth?: true
+    maxStaff?: true
+    maxServices?: true
+    maxCustomers?: true
+    allowSmsNotifications?: true
+    allowEmailNotifications?: true
+    allowOnlineBooking?: true
+    allowReports?: true
+    allowCustomBranding?: true
+    prioritySupport?: true
   }
 
   export type SubscriptionPlanMaxAggregateInputType = {
@@ -16244,6 +16300,16 @@ export namespace Prisma {
     durationDays?: true
     currency?: true
     active?: true
+    maxAppointmentsPerMonth?: true
+    maxStaff?: true
+    maxServices?: true
+    maxCustomers?: true
+    allowSmsNotifications?: true
+    allowEmailNotifications?: true
+    allowOnlineBooking?: true
+    allowReports?: true
+    allowCustomBranding?: true
+    prioritySupport?: true
   }
 
   export type SubscriptionPlanCountAggregateInputType = {
@@ -16256,6 +16322,16 @@ export namespace Prisma {
     durationDays?: true
     currency?: true
     active?: true
+    maxAppointmentsPerMonth?: true
+    maxStaff?: true
+    maxServices?: true
+    maxCustomers?: true
+    allowSmsNotifications?: true
+    allowEmailNotifications?: true
+    allowOnlineBooking?: true
+    allowReports?: true
+    allowCustomBranding?: true
+    prioritySupport?: true
     _all?: true
   }
 
@@ -16355,6 +16431,16 @@ export namespace Prisma {
     durationDays: number
     currency: string
     active: boolean
+    maxAppointmentsPerMonth: number
+    maxStaff: number
+    maxServices: number
+    maxCustomers: number
+    allowSmsNotifications: boolean
+    allowEmailNotifications: boolean
+    allowOnlineBooking: boolean
+    allowReports: boolean
+    allowCustomBranding: boolean
+    prioritySupport: boolean
     _count: SubscriptionPlanCountAggregateOutputType | null
     _avg: SubscriptionPlanAvgAggregateOutputType | null
     _sum: SubscriptionPlanSumAggregateOutputType | null
@@ -16386,6 +16472,16 @@ export namespace Prisma {
     durationDays?: boolean
     currency?: boolean
     active?: boolean
+    maxAppointmentsPerMonth?: boolean
+    maxStaff?: boolean
+    maxServices?: boolean
+    maxCustomers?: boolean
+    allowSmsNotifications?: boolean
+    allowEmailNotifications?: boolean
+    allowOnlineBooking?: boolean
+    allowReports?: boolean
+    allowCustomBranding?: boolean
+    prioritySupport?: boolean
     subscriptions?: boolean | SubscriptionPlan$subscriptionsArgs<ExtArgs>
     _count?: boolean | SubscriptionPlanCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["subscriptionPlan"]>
@@ -16400,6 +16496,16 @@ export namespace Prisma {
     durationDays?: boolean
     currency?: boolean
     active?: boolean
+    maxAppointmentsPerMonth?: boolean
+    maxStaff?: boolean
+    maxServices?: boolean
+    maxCustomers?: boolean
+    allowSmsNotifications?: boolean
+    allowEmailNotifications?: boolean
+    allowOnlineBooking?: boolean
+    allowReports?: boolean
+    allowCustomBranding?: boolean
+    prioritySupport?: boolean
   }, ExtArgs["result"]["subscriptionPlan"]>
 
   export type SubscriptionPlanSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
@@ -16412,6 +16518,16 @@ export namespace Prisma {
     durationDays?: boolean
     currency?: boolean
     active?: boolean
+    maxAppointmentsPerMonth?: boolean
+    maxStaff?: boolean
+    maxServices?: boolean
+    maxCustomers?: boolean
+    allowSmsNotifications?: boolean
+    allowEmailNotifications?: boolean
+    allowOnlineBooking?: boolean
+    allowReports?: boolean
+    allowCustomBranding?: boolean
+    prioritySupport?: boolean
   }, ExtArgs["result"]["subscriptionPlan"]>
 
   export type SubscriptionPlanSelectScalar = {
@@ -16424,9 +16540,19 @@ export namespace Prisma {
     durationDays?: boolean
     currency?: boolean
     active?: boolean
+    maxAppointmentsPerMonth?: boolean
+    maxStaff?: boolean
+    maxServices?: boolean
+    maxCustomers?: boolean
+    allowSmsNotifications?: boolean
+    allowEmailNotifications?: boolean
+    allowOnlineBooking?: boolean
+    allowReports?: boolean
+    allowCustomBranding?: boolean
+    prioritySupport?: boolean
   }
 
-  export type SubscriptionPlanOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "priceNPR" | "displayName" | "features" | "description" | "durationDays" | "currency" | "active", ExtArgs["result"]["subscriptionPlan"]>
+  export type SubscriptionPlanOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "priceNPR" | "displayName" | "features" | "description" | "durationDays" | "currency" | "active" | "maxAppointmentsPerMonth" | "maxStaff" | "maxServices" | "maxCustomers" | "allowSmsNotifications" | "allowEmailNotifications" | "allowOnlineBooking" | "allowReports" | "allowCustomBranding" | "prioritySupport", ExtArgs["result"]["subscriptionPlan"]>
   export type SubscriptionPlanInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     subscriptions?: boolean | SubscriptionPlan$subscriptionsArgs<ExtArgs>
     _count?: boolean | SubscriptionPlanCountOutputTypeDefaultArgs<ExtArgs>
@@ -16449,6 +16575,16 @@ export namespace Prisma {
       durationDays: number
       currency: string
       active: boolean
+      maxAppointmentsPerMonth: number
+      maxStaff: number
+      maxServices: number
+      maxCustomers: number
+      allowSmsNotifications: boolean
+      allowEmailNotifications: boolean
+      allowOnlineBooking: boolean
+      allowReports: boolean
+      allowCustomBranding: boolean
+      prioritySupport: boolean
     }, ExtArgs["result"]["subscriptionPlan"]>
     composites: {}
   }
@@ -16882,6 +17018,16 @@ export namespace Prisma {
     readonly durationDays: FieldRef<"SubscriptionPlan", 'Int'>
     readonly currency: FieldRef<"SubscriptionPlan", 'String'>
     readonly active: FieldRef<"SubscriptionPlan", 'Boolean'>
+    readonly maxAppointmentsPerMonth: FieldRef<"SubscriptionPlan", 'Int'>
+    readonly maxStaff: FieldRef<"SubscriptionPlan", 'Int'>
+    readonly maxServices: FieldRef<"SubscriptionPlan", 'Int'>
+    readonly maxCustomers: FieldRef<"SubscriptionPlan", 'Int'>
+    readonly allowSmsNotifications: FieldRef<"SubscriptionPlan", 'Boolean'>
+    readonly allowEmailNotifications: FieldRef<"SubscriptionPlan", 'Boolean'>
+    readonly allowOnlineBooking: FieldRef<"SubscriptionPlan", 'Boolean'>
+    readonly allowReports: FieldRef<"SubscriptionPlan", 'Boolean'>
+    readonly allowCustomBranding: FieldRef<"SubscriptionPlan", 'Boolean'>
+    readonly prioritySupport: FieldRef<"SubscriptionPlan", 'Boolean'>
   }
     
 
@@ -17318,8 +17464,18 @@ export namespace Prisma {
 
   export type AggregateSubscription = {
     _count: SubscriptionCountAggregateOutputType | null
+    _avg: SubscriptionAvgAggregateOutputType | null
+    _sum: SubscriptionSumAggregateOutputType | null
     _min: SubscriptionMinAggregateOutputType | null
     _max: SubscriptionMaxAggregateOutputType | null
+  }
+
+  export type SubscriptionAvgAggregateOutputType = {
+    appointmentsThisMonth: number | null
+  }
+
+  export type SubscriptionSumAggregateOutputType = {
+    appointmentsThisMonth: number | null
   }
 
   export type SubscriptionMinAggregateOutputType = {
@@ -17334,6 +17490,8 @@ export namespace Prisma {
     nextRenewalDate: Date | null
     trialEndsAt: Date | null
     isTrialUsed: boolean | null
+    appointmentsThisMonth: number | null
+    usageResetDate: Date | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -17350,6 +17508,8 @@ export namespace Prisma {
     nextRenewalDate: Date | null
     trialEndsAt: Date | null
     isTrialUsed: boolean | null
+    appointmentsThisMonth: number | null
+    usageResetDate: Date | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -17366,11 +17526,21 @@ export namespace Prisma {
     nextRenewalDate: number
     trialEndsAt: number
     isTrialUsed: number
+    appointmentsThisMonth: number
+    usageResetDate: number
     createdAt: number
     updatedAt: number
     _all: number
   }
 
+
+  export type SubscriptionAvgAggregateInputType = {
+    appointmentsThisMonth?: true
+  }
+
+  export type SubscriptionSumAggregateInputType = {
+    appointmentsThisMonth?: true
+  }
 
   export type SubscriptionMinAggregateInputType = {
     id?: true
@@ -17384,6 +17554,8 @@ export namespace Prisma {
     nextRenewalDate?: true
     trialEndsAt?: true
     isTrialUsed?: true
+    appointmentsThisMonth?: true
+    usageResetDate?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -17400,6 +17572,8 @@ export namespace Prisma {
     nextRenewalDate?: true
     trialEndsAt?: true
     isTrialUsed?: true
+    appointmentsThisMonth?: true
+    usageResetDate?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -17416,6 +17590,8 @@ export namespace Prisma {
     nextRenewalDate?: true
     trialEndsAt?: true
     isTrialUsed?: true
+    appointmentsThisMonth?: true
+    usageResetDate?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -17459,6 +17635,18 @@ export namespace Prisma {
     /**
      * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
      * 
+     * Select which fields to average
+    **/
+    _avg?: SubscriptionAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: SubscriptionSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
      * Select which fields to find the minimum value
     **/
     _min?: SubscriptionMinAggregateInputType
@@ -17489,6 +17677,8 @@ export namespace Prisma {
     take?: number
     skip?: number
     _count?: SubscriptionCountAggregateInputType | true
+    _avg?: SubscriptionAvgAggregateInputType
+    _sum?: SubscriptionSumAggregateInputType
     _min?: SubscriptionMinAggregateInputType
     _max?: SubscriptionMaxAggregateInputType
   }
@@ -17505,9 +17695,13 @@ export namespace Prisma {
     nextRenewalDate: Date | null
     trialEndsAt: Date | null
     isTrialUsed: boolean
+    appointmentsThisMonth: number
+    usageResetDate: Date | null
     createdAt: Date
     updatedAt: Date
     _count: SubscriptionCountAggregateOutputType | null
+    _avg: SubscriptionAvgAggregateOutputType | null
+    _sum: SubscriptionSumAggregateOutputType | null
     _min: SubscriptionMinAggregateOutputType | null
     _max: SubscriptionMaxAggregateOutputType | null
   }
@@ -17538,6 +17732,8 @@ export namespace Prisma {
     nextRenewalDate?: boolean
     trialEndsAt?: boolean
     isTrialUsed?: boolean
+    appointmentsThisMonth?: boolean
+    usageResetDate?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     business?: boolean | BusinessDefaultArgs<ExtArgs>
@@ -17558,6 +17754,8 @@ export namespace Prisma {
     nextRenewalDate?: boolean
     trialEndsAt?: boolean
     isTrialUsed?: boolean
+    appointmentsThisMonth?: boolean
+    usageResetDate?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     business?: boolean | BusinessDefaultArgs<ExtArgs>
@@ -17576,6 +17774,8 @@ export namespace Prisma {
     nextRenewalDate?: boolean
     trialEndsAt?: boolean
     isTrialUsed?: boolean
+    appointmentsThisMonth?: boolean
+    usageResetDate?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     business?: boolean | BusinessDefaultArgs<ExtArgs>
@@ -17594,11 +17794,13 @@ export namespace Prisma {
     nextRenewalDate?: boolean
     trialEndsAt?: boolean
     isTrialUsed?: boolean
+    appointmentsThisMonth?: boolean
+    usageResetDate?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type SubscriptionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "businessId" | "planId" | "status" | "startDate" | "endDate" | "autoRenew" | "lastPaymentId" | "nextRenewalDate" | "trialEndsAt" | "isTrialUsed" | "createdAt" | "updatedAt", ExtArgs["result"]["subscription"]>
+  export type SubscriptionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "businessId" | "planId" | "status" | "startDate" | "endDate" | "autoRenew" | "lastPaymentId" | "nextRenewalDate" | "trialEndsAt" | "isTrialUsed" | "appointmentsThisMonth" | "usageResetDate" | "createdAt" | "updatedAt", ExtArgs["result"]["subscription"]>
   export type SubscriptionInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     business?: boolean | BusinessDefaultArgs<ExtArgs>
     plan?: boolean | SubscriptionPlanDefaultArgs<ExtArgs>
@@ -17633,6 +17835,8 @@ export namespace Prisma {
       nextRenewalDate: Date | null
       trialEndsAt: Date | null
       isTrialUsed: boolean
+      appointmentsThisMonth: number
+      usageResetDate: Date | null
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["subscription"]>
@@ -18072,6 +18276,8 @@ export namespace Prisma {
     readonly nextRenewalDate: FieldRef<"Subscription", 'DateTime'>
     readonly trialEndsAt: FieldRef<"Subscription", 'DateTime'>
     readonly isTrialUsed: FieldRef<"Subscription", 'Boolean'>
+    readonly appointmentsThisMonth: FieldRef<"Subscription", 'Int'>
+    readonly usageResetDate: FieldRef<"Subscription", 'DateTime'>
     readonly createdAt: FieldRef<"Subscription", 'DateTime'>
     readonly updatedAt: FieldRef<"Subscription", 'DateTime'>
   }
@@ -19777,7 +19983,17 @@ export namespace Prisma {
     description: 'description',
     durationDays: 'durationDays',
     currency: 'currency',
-    active: 'active'
+    active: 'active',
+    maxAppointmentsPerMonth: 'maxAppointmentsPerMonth',
+    maxStaff: 'maxStaff',
+    maxServices: 'maxServices',
+    maxCustomers: 'maxCustomers',
+    allowSmsNotifications: 'allowSmsNotifications',
+    allowEmailNotifications: 'allowEmailNotifications',
+    allowOnlineBooking: 'allowOnlineBooking',
+    allowReports: 'allowReports',
+    allowCustomBranding: 'allowCustomBranding',
+    prioritySupport: 'prioritySupport'
   };
 
   export type SubscriptionPlanScalarFieldEnum = (typeof SubscriptionPlanScalarFieldEnum)[keyof typeof SubscriptionPlanScalarFieldEnum]
@@ -19795,6 +20011,8 @@ export namespace Prisma {
     nextRenewalDate: 'nextRenewalDate',
     trialEndsAt: 'trialEndsAt',
     isTrialUsed: 'isTrialUsed',
+    appointmentsThisMonth: 'appointmentsThisMonth',
+    usageResetDate: 'usageResetDate',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -21164,6 +21382,16 @@ export namespace Prisma {
     durationDays?: IntFilter<"SubscriptionPlan"> | number
     currency?: StringFilter<"SubscriptionPlan"> | string
     active?: BoolFilter<"SubscriptionPlan"> | boolean
+    maxAppointmentsPerMonth?: IntFilter<"SubscriptionPlan"> | number
+    maxStaff?: IntFilter<"SubscriptionPlan"> | number
+    maxServices?: IntFilter<"SubscriptionPlan"> | number
+    maxCustomers?: IntFilter<"SubscriptionPlan"> | number
+    allowSmsNotifications?: BoolFilter<"SubscriptionPlan"> | boolean
+    allowEmailNotifications?: BoolFilter<"SubscriptionPlan"> | boolean
+    allowOnlineBooking?: BoolFilter<"SubscriptionPlan"> | boolean
+    allowReports?: BoolFilter<"SubscriptionPlan"> | boolean
+    allowCustomBranding?: BoolFilter<"SubscriptionPlan"> | boolean
+    prioritySupport?: BoolFilter<"SubscriptionPlan"> | boolean
     subscriptions?: SubscriptionListRelationFilter
   }
 
@@ -21177,6 +21405,16 @@ export namespace Prisma {
     durationDays?: SortOrder
     currency?: SortOrder
     active?: SortOrder
+    maxAppointmentsPerMonth?: SortOrder
+    maxStaff?: SortOrder
+    maxServices?: SortOrder
+    maxCustomers?: SortOrder
+    allowSmsNotifications?: SortOrder
+    allowEmailNotifications?: SortOrder
+    allowOnlineBooking?: SortOrder
+    allowReports?: SortOrder
+    allowCustomBranding?: SortOrder
+    prioritySupport?: SortOrder
     subscriptions?: SubscriptionOrderByRelationAggregateInput
   }
 
@@ -21193,6 +21431,16 @@ export namespace Prisma {
     durationDays?: IntFilter<"SubscriptionPlan"> | number
     currency?: StringFilter<"SubscriptionPlan"> | string
     active?: BoolFilter<"SubscriptionPlan"> | boolean
+    maxAppointmentsPerMonth?: IntFilter<"SubscriptionPlan"> | number
+    maxStaff?: IntFilter<"SubscriptionPlan"> | number
+    maxServices?: IntFilter<"SubscriptionPlan"> | number
+    maxCustomers?: IntFilter<"SubscriptionPlan"> | number
+    allowSmsNotifications?: BoolFilter<"SubscriptionPlan"> | boolean
+    allowEmailNotifications?: BoolFilter<"SubscriptionPlan"> | boolean
+    allowOnlineBooking?: BoolFilter<"SubscriptionPlan"> | boolean
+    allowReports?: BoolFilter<"SubscriptionPlan"> | boolean
+    allowCustomBranding?: BoolFilter<"SubscriptionPlan"> | boolean
+    prioritySupport?: BoolFilter<"SubscriptionPlan"> | boolean
     subscriptions?: SubscriptionListRelationFilter
   }, "id" | "name">
 
@@ -21206,6 +21454,16 @@ export namespace Prisma {
     durationDays?: SortOrder
     currency?: SortOrder
     active?: SortOrder
+    maxAppointmentsPerMonth?: SortOrder
+    maxStaff?: SortOrder
+    maxServices?: SortOrder
+    maxCustomers?: SortOrder
+    allowSmsNotifications?: SortOrder
+    allowEmailNotifications?: SortOrder
+    allowOnlineBooking?: SortOrder
+    allowReports?: SortOrder
+    allowCustomBranding?: SortOrder
+    prioritySupport?: SortOrder
     _count?: SubscriptionPlanCountOrderByAggregateInput
     _avg?: SubscriptionPlanAvgOrderByAggregateInput
     _max?: SubscriptionPlanMaxOrderByAggregateInput
@@ -21226,6 +21484,16 @@ export namespace Prisma {
     durationDays?: IntWithAggregatesFilter<"SubscriptionPlan"> | number
     currency?: StringWithAggregatesFilter<"SubscriptionPlan"> | string
     active?: BoolWithAggregatesFilter<"SubscriptionPlan"> | boolean
+    maxAppointmentsPerMonth?: IntWithAggregatesFilter<"SubscriptionPlan"> | number
+    maxStaff?: IntWithAggregatesFilter<"SubscriptionPlan"> | number
+    maxServices?: IntWithAggregatesFilter<"SubscriptionPlan"> | number
+    maxCustomers?: IntWithAggregatesFilter<"SubscriptionPlan"> | number
+    allowSmsNotifications?: BoolWithAggregatesFilter<"SubscriptionPlan"> | boolean
+    allowEmailNotifications?: BoolWithAggregatesFilter<"SubscriptionPlan"> | boolean
+    allowOnlineBooking?: BoolWithAggregatesFilter<"SubscriptionPlan"> | boolean
+    allowReports?: BoolWithAggregatesFilter<"SubscriptionPlan"> | boolean
+    allowCustomBranding?: BoolWithAggregatesFilter<"SubscriptionPlan"> | boolean
+    prioritySupport?: BoolWithAggregatesFilter<"SubscriptionPlan"> | boolean
   }
 
   export type SubscriptionWhereInput = {
@@ -21243,6 +21511,8 @@ export namespace Prisma {
     nextRenewalDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
     trialEndsAt?: DateTimeNullableFilter<"Subscription"> | Date | string | null
     isTrialUsed?: BoolFilter<"Subscription"> | boolean
+    appointmentsThisMonth?: IntFilter<"Subscription"> | number
+    usageResetDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
     createdAt?: DateTimeFilter<"Subscription"> | Date | string
     updatedAt?: DateTimeFilter<"Subscription"> | Date | string
     business?: XOR<BusinessScalarRelationFilter, BusinessWhereInput>
@@ -21262,6 +21532,8 @@ export namespace Prisma {
     nextRenewalDate?: SortOrderInput | SortOrder
     trialEndsAt?: SortOrderInput | SortOrder
     isTrialUsed?: SortOrder
+    appointmentsThisMonth?: SortOrder
+    usageResetDate?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     business?: BusinessOrderByWithRelationInput
@@ -21284,6 +21556,8 @@ export namespace Prisma {
     nextRenewalDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
     trialEndsAt?: DateTimeNullableFilter<"Subscription"> | Date | string | null
     isTrialUsed?: BoolFilter<"Subscription"> | boolean
+    appointmentsThisMonth?: IntFilter<"Subscription"> | number
+    usageResetDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
     createdAt?: DateTimeFilter<"Subscription"> | Date | string
     updatedAt?: DateTimeFilter<"Subscription"> | Date | string
     business?: XOR<BusinessScalarRelationFilter, BusinessWhereInput>
@@ -21303,11 +21577,15 @@ export namespace Prisma {
     nextRenewalDate?: SortOrderInput | SortOrder
     trialEndsAt?: SortOrderInput | SortOrder
     isTrialUsed?: SortOrder
+    appointmentsThisMonth?: SortOrder
+    usageResetDate?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: SubscriptionCountOrderByAggregateInput
+    _avg?: SubscriptionAvgOrderByAggregateInput
     _max?: SubscriptionMaxOrderByAggregateInput
     _min?: SubscriptionMinOrderByAggregateInput
+    _sum?: SubscriptionSumOrderByAggregateInput
   }
 
   export type SubscriptionScalarWhereWithAggregatesInput = {
@@ -21325,6 +21603,8 @@ export namespace Prisma {
     nextRenewalDate?: DateTimeNullableWithAggregatesFilter<"Subscription"> | Date | string | null
     trialEndsAt?: DateTimeNullableWithAggregatesFilter<"Subscription"> | Date | string | null
     isTrialUsed?: BoolWithAggregatesFilter<"Subscription"> | boolean
+    appointmentsThisMonth?: IntWithAggregatesFilter<"Subscription"> | number
+    usageResetDate?: DateTimeNullableWithAggregatesFilter<"Subscription"> | Date | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Subscription"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Subscription"> | Date | string
   }
@@ -22688,6 +22968,16 @@ export namespace Prisma {
     durationDays?: number
     currency?: string
     active?: boolean
+    maxAppointmentsPerMonth?: number
+    maxStaff?: number
+    maxServices?: number
+    maxCustomers?: number
+    allowSmsNotifications?: boolean
+    allowEmailNotifications?: boolean
+    allowOnlineBooking?: boolean
+    allowReports?: boolean
+    allowCustomBranding?: boolean
+    prioritySupport?: boolean
     subscriptions?: SubscriptionCreateNestedManyWithoutPlanInput
   }
 
@@ -22701,6 +22991,16 @@ export namespace Prisma {
     durationDays?: number
     currency?: string
     active?: boolean
+    maxAppointmentsPerMonth?: number
+    maxStaff?: number
+    maxServices?: number
+    maxCustomers?: number
+    allowSmsNotifications?: boolean
+    allowEmailNotifications?: boolean
+    allowOnlineBooking?: boolean
+    allowReports?: boolean
+    allowCustomBranding?: boolean
+    prioritySupport?: boolean
     subscriptions?: SubscriptionUncheckedCreateNestedManyWithoutPlanInput
   }
 
@@ -22714,6 +23014,16 @@ export namespace Prisma {
     durationDays?: IntFieldUpdateOperationsInput | number
     currency?: StringFieldUpdateOperationsInput | string
     active?: BoolFieldUpdateOperationsInput | boolean
+    maxAppointmentsPerMonth?: IntFieldUpdateOperationsInput | number
+    maxStaff?: IntFieldUpdateOperationsInput | number
+    maxServices?: IntFieldUpdateOperationsInput | number
+    maxCustomers?: IntFieldUpdateOperationsInput | number
+    allowSmsNotifications?: BoolFieldUpdateOperationsInput | boolean
+    allowEmailNotifications?: BoolFieldUpdateOperationsInput | boolean
+    allowOnlineBooking?: BoolFieldUpdateOperationsInput | boolean
+    allowReports?: BoolFieldUpdateOperationsInput | boolean
+    allowCustomBranding?: BoolFieldUpdateOperationsInput | boolean
+    prioritySupport?: BoolFieldUpdateOperationsInput | boolean
     subscriptions?: SubscriptionUpdateManyWithoutPlanNestedInput
   }
 
@@ -22727,6 +23037,16 @@ export namespace Prisma {
     durationDays?: IntFieldUpdateOperationsInput | number
     currency?: StringFieldUpdateOperationsInput | string
     active?: BoolFieldUpdateOperationsInput | boolean
+    maxAppointmentsPerMonth?: IntFieldUpdateOperationsInput | number
+    maxStaff?: IntFieldUpdateOperationsInput | number
+    maxServices?: IntFieldUpdateOperationsInput | number
+    maxCustomers?: IntFieldUpdateOperationsInput | number
+    allowSmsNotifications?: BoolFieldUpdateOperationsInput | boolean
+    allowEmailNotifications?: BoolFieldUpdateOperationsInput | boolean
+    allowOnlineBooking?: BoolFieldUpdateOperationsInput | boolean
+    allowReports?: BoolFieldUpdateOperationsInput | boolean
+    allowCustomBranding?: BoolFieldUpdateOperationsInput | boolean
+    prioritySupport?: BoolFieldUpdateOperationsInput | boolean
     subscriptions?: SubscriptionUncheckedUpdateManyWithoutPlanNestedInput
   }
 
@@ -22740,6 +23060,16 @@ export namespace Prisma {
     durationDays?: number
     currency?: string
     active?: boolean
+    maxAppointmentsPerMonth?: number
+    maxStaff?: number
+    maxServices?: number
+    maxCustomers?: number
+    allowSmsNotifications?: boolean
+    allowEmailNotifications?: boolean
+    allowOnlineBooking?: boolean
+    allowReports?: boolean
+    allowCustomBranding?: boolean
+    prioritySupport?: boolean
   }
 
   export type SubscriptionPlanUpdateManyMutationInput = {
@@ -22752,6 +23082,16 @@ export namespace Prisma {
     durationDays?: IntFieldUpdateOperationsInput | number
     currency?: StringFieldUpdateOperationsInput | string
     active?: BoolFieldUpdateOperationsInput | boolean
+    maxAppointmentsPerMonth?: IntFieldUpdateOperationsInput | number
+    maxStaff?: IntFieldUpdateOperationsInput | number
+    maxServices?: IntFieldUpdateOperationsInput | number
+    maxCustomers?: IntFieldUpdateOperationsInput | number
+    allowSmsNotifications?: BoolFieldUpdateOperationsInput | boolean
+    allowEmailNotifications?: BoolFieldUpdateOperationsInput | boolean
+    allowOnlineBooking?: BoolFieldUpdateOperationsInput | boolean
+    allowReports?: BoolFieldUpdateOperationsInput | boolean
+    allowCustomBranding?: BoolFieldUpdateOperationsInput | boolean
+    prioritySupport?: BoolFieldUpdateOperationsInput | boolean
   }
 
   export type SubscriptionPlanUncheckedUpdateManyInput = {
@@ -22764,6 +23104,16 @@ export namespace Prisma {
     durationDays?: IntFieldUpdateOperationsInput | number
     currency?: StringFieldUpdateOperationsInput | string
     active?: BoolFieldUpdateOperationsInput | boolean
+    maxAppointmentsPerMonth?: IntFieldUpdateOperationsInput | number
+    maxStaff?: IntFieldUpdateOperationsInput | number
+    maxServices?: IntFieldUpdateOperationsInput | number
+    maxCustomers?: IntFieldUpdateOperationsInput | number
+    allowSmsNotifications?: BoolFieldUpdateOperationsInput | boolean
+    allowEmailNotifications?: BoolFieldUpdateOperationsInput | boolean
+    allowOnlineBooking?: BoolFieldUpdateOperationsInput | boolean
+    allowReports?: BoolFieldUpdateOperationsInput | boolean
+    allowCustomBranding?: BoolFieldUpdateOperationsInput | boolean
+    prioritySupport?: BoolFieldUpdateOperationsInput | boolean
   }
 
   export type SubscriptionCreateInput = {
@@ -22776,6 +23126,8 @@ export namespace Prisma {
     nextRenewalDate?: Date | string | null
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
+    appointmentsThisMonth?: number
+    usageResetDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     business: BusinessCreateNestedOneWithoutSubscriptionInput
@@ -22795,6 +23147,8 @@ export namespace Prisma {
     nextRenewalDate?: Date | string | null
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
+    appointmentsThisMonth?: number
+    usageResetDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     payments?: PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
@@ -22810,6 +23164,8 @@ export namespace Prisma {
     nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     business?: BusinessUpdateOneRequiredWithoutSubscriptionNestedInput
@@ -22829,6 +23185,8 @@ export namespace Prisma {
     nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     payments?: PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
@@ -22846,6 +23204,8 @@ export namespace Prisma {
     nextRenewalDate?: Date | string | null
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
+    appointmentsThisMonth?: number
+    usageResetDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -22860,6 +23220,8 @@ export namespace Prisma {
     nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -22876,6 +23238,8 @@ export namespace Prisma {
     nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -24058,11 +24422,25 @@ export namespace Prisma {
     durationDays?: SortOrder
     currency?: SortOrder
     active?: SortOrder
+    maxAppointmentsPerMonth?: SortOrder
+    maxStaff?: SortOrder
+    maxServices?: SortOrder
+    maxCustomers?: SortOrder
+    allowSmsNotifications?: SortOrder
+    allowEmailNotifications?: SortOrder
+    allowOnlineBooking?: SortOrder
+    allowReports?: SortOrder
+    allowCustomBranding?: SortOrder
+    prioritySupport?: SortOrder
   }
 
   export type SubscriptionPlanAvgOrderByAggregateInput = {
     priceNPR?: SortOrder
     durationDays?: SortOrder
+    maxAppointmentsPerMonth?: SortOrder
+    maxStaff?: SortOrder
+    maxServices?: SortOrder
+    maxCustomers?: SortOrder
   }
 
   export type SubscriptionPlanMaxOrderByAggregateInput = {
@@ -24074,6 +24452,16 @@ export namespace Prisma {
     durationDays?: SortOrder
     currency?: SortOrder
     active?: SortOrder
+    maxAppointmentsPerMonth?: SortOrder
+    maxStaff?: SortOrder
+    maxServices?: SortOrder
+    maxCustomers?: SortOrder
+    allowSmsNotifications?: SortOrder
+    allowEmailNotifications?: SortOrder
+    allowOnlineBooking?: SortOrder
+    allowReports?: SortOrder
+    allowCustomBranding?: SortOrder
+    prioritySupport?: SortOrder
   }
 
   export type SubscriptionPlanMinOrderByAggregateInput = {
@@ -24085,11 +24473,25 @@ export namespace Prisma {
     durationDays?: SortOrder
     currency?: SortOrder
     active?: SortOrder
+    maxAppointmentsPerMonth?: SortOrder
+    maxStaff?: SortOrder
+    maxServices?: SortOrder
+    maxCustomers?: SortOrder
+    allowSmsNotifications?: SortOrder
+    allowEmailNotifications?: SortOrder
+    allowOnlineBooking?: SortOrder
+    allowReports?: SortOrder
+    allowCustomBranding?: SortOrder
+    prioritySupport?: SortOrder
   }
 
   export type SubscriptionPlanSumOrderByAggregateInput = {
     priceNPR?: SortOrder
     durationDays?: SortOrder
+    maxAppointmentsPerMonth?: SortOrder
+    maxStaff?: SortOrder
+    maxServices?: SortOrder
+    maxCustomers?: SortOrder
   }
 
   export type EnumSubscriptionStatusFilter<$PrismaModel = never> = {
@@ -24116,8 +24518,14 @@ export namespace Prisma {
     nextRenewalDate?: SortOrder
     trialEndsAt?: SortOrder
     isTrialUsed?: SortOrder
+    appointmentsThisMonth?: SortOrder
+    usageResetDate?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+  }
+
+  export type SubscriptionAvgOrderByAggregateInput = {
+    appointmentsThisMonth?: SortOrder
   }
 
   export type SubscriptionMaxOrderByAggregateInput = {
@@ -24132,6 +24540,8 @@ export namespace Prisma {
     nextRenewalDate?: SortOrder
     trialEndsAt?: SortOrder
     isTrialUsed?: SortOrder
+    appointmentsThisMonth?: SortOrder
+    usageResetDate?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -24148,8 +24558,14 @@ export namespace Prisma {
     nextRenewalDate?: SortOrder
     trialEndsAt?: SortOrder
     isTrialUsed?: SortOrder
+    appointmentsThisMonth?: SortOrder
+    usageResetDate?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
+  }
+
+  export type SubscriptionSumOrderByAggregateInput = {
+    appointmentsThisMonth?: SortOrder
   }
 
   export type EnumSubscriptionStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -26167,6 +26583,8 @@ export namespace Prisma {
     nextRenewalDate?: Date | string | null
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
+    appointmentsThisMonth?: number
+    usageResetDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     plan: SubscriptionPlanCreateNestedOneWithoutSubscriptionsInput
@@ -26184,6 +26602,8 @@ export namespace Prisma {
     nextRenewalDate?: Date | string | null
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
+    appointmentsThisMonth?: number
+    usageResetDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     payments?: PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
@@ -26566,6 +26986,8 @@ export namespace Prisma {
     nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     plan?: SubscriptionPlanUpdateOneRequiredWithoutSubscriptionsNestedInput
@@ -26583,6 +27005,8 @@ export namespace Prisma {
     nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     payments?: PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
@@ -28444,6 +28868,8 @@ export namespace Prisma {
     nextRenewalDate?: Date | string | null
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
+    appointmentsThisMonth?: number
+    usageResetDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     business: BusinessCreateNestedOneWithoutSubscriptionInput
@@ -28462,6 +28888,8 @@ export namespace Prisma {
     nextRenewalDate?: Date | string | null
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
+    appointmentsThisMonth?: number
+    usageResetDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -28616,6 +29044,8 @@ export namespace Prisma {
     nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     business?: BusinessUpdateOneRequiredWithoutSubscriptionNestedInput
@@ -28634,6 +29064,8 @@ export namespace Prisma {
     nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -29276,6 +29708,8 @@ export namespace Prisma {
     nextRenewalDate?: Date | string | null
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
+    appointmentsThisMonth?: number
+    usageResetDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     business: BusinessCreateNestedOneWithoutSubscriptionInput
@@ -29293,6 +29727,8 @@ export namespace Prisma {
     nextRenewalDate?: Date | string | null
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
+    appointmentsThisMonth?: number
+    usageResetDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     payments?: PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
@@ -29339,6 +29775,8 @@ export namespace Prisma {
     nextRenewalDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
     trialEndsAt?: DateTimeNullableFilter<"Subscription"> | Date | string | null
     isTrialUsed?: BoolFilter<"Subscription"> | boolean
+    appointmentsThisMonth?: IntFilter<"Subscription"> | number
+    usageResetDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
     createdAt?: DateTimeFilter<"Subscription"> | Date | string
     updatedAt?: DateTimeFilter<"Subscription"> | Date | string
   }
@@ -29422,6 +29860,16 @@ export namespace Prisma {
     durationDays?: number
     currency?: string
     active?: boolean
+    maxAppointmentsPerMonth?: number
+    maxStaff?: number
+    maxServices?: number
+    maxCustomers?: number
+    allowSmsNotifications?: boolean
+    allowEmailNotifications?: boolean
+    allowOnlineBooking?: boolean
+    allowReports?: boolean
+    allowCustomBranding?: boolean
+    prioritySupport?: boolean
   }
 
   export type SubscriptionPlanUncheckedCreateWithoutSubscriptionsInput = {
@@ -29434,6 +29882,16 @@ export namespace Prisma {
     durationDays?: number
     currency?: string
     active?: boolean
+    maxAppointmentsPerMonth?: number
+    maxStaff?: number
+    maxServices?: number
+    maxCustomers?: number
+    allowSmsNotifications?: boolean
+    allowEmailNotifications?: boolean
+    allowOnlineBooking?: boolean
+    allowReports?: boolean
+    allowCustomBranding?: boolean
+    prioritySupport?: boolean
   }
 
   export type SubscriptionPlanCreateOrConnectWithoutSubscriptionsInput = {
@@ -29591,6 +30049,16 @@ export namespace Prisma {
     durationDays?: IntFieldUpdateOperationsInput | number
     currency?: StringFieldUpdateOperationsInput | string
     active?: BoolFieldUpdateOperationsInput | boolean
+    maxAppointmentsPerMonth?: IntFieldUpdateOperationsInput | number
+    maxStaff?: IntFieldUpdateOperationsInput | number
+    maxServices?: IntFieldUpdateOperationsInput | number
+    maxCustomers?: IntFieldUpdateOperationsInput | number
+    allowSmsNotifications?: BoolFieldUpdateOperationsInput | boolean
+    allowEmailNotifications?: BoolFieldUpdateOperationsInput | boolean
+    allowOnlineBooking?: BoolFieldUpdateOperationsInput | boolean
+    allowReports?: BoolFieldUpdateOperationsInput | boolean
+    allowCustomBranding?: BoolFieldUpdateOperationsInput | boolean
+    prioritySupport?: BoolFieldUpdateOperationsInput | boolean
   }
 
   export type SubscriptionPlanUncheckedUpdateWithoutSubscriptionsInput = {
@@ -29603,6 +30071,16 @@ export namespace Prisma {
     durationDays?: IntFieldUpdateOperationsInput | number
     currency?: StringFieldUpdateOperationsInput | string
     active?: BoolFieldUpdateOperationsInput | boolean
+    maxAppointmentsPerMonth?: IntFieldUpdateOperationsInput | number
+    maxStaff?: IntFieldUpdateOperationsInput | number
+    maxServices?: IntFieldUpdateOperationsInput | number
+    maxCustomers?: IntFieldUpdateOperationsInput | number
+    allowSmsNotifications?: BoolFieldUpdateOperationsInput | boolean
+    allowEmailNotifications?: BoolFieldUpdateOperationsInput | boolean
+    allowOnlineBooking?: BoolFieldUpdateOperationsInput | boolean
+    allowReports?: BoolFieldUpdateOperationsInput | boolean
+    allowCustomBranding?: BoolFieldUpdateOperationsInput | boolean
+    prioritySupport?: BoolFieldUpdateOperationsInput | boolean
   }
 
   export type PaymentUpsertWithWhereUniqueWithoutSubscriptionInput = {
@@ -30506,6 +30984,8 @@ export namespace Prisma {
     nextRenewalDate?: Date | string | null
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
+    appointmentsThisMonth?: number
+    usageResetDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -30520,6 +31000,8 @@ export namespace Prisma {
     nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     business?: BusinessUpdateOneRequiredWithoutSubscriptionNestedInput
@@ -30537,6 +31019,8 @@ export namespace Prisma {
     nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     payments?: PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
@@ -30553,6 +31037,8 @@ export namespace Prisma {
     nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

@@ -305,7 +305,17 @@ exports.Prisma.SubscriptionPlanScalarFieldEnum = {
   description: 'description',
   durationDays: 'durationDays',
   currency: 'currency',
-  active: 'active'
+  active: 'active',
+  maxAppointmentsPerMonth: 'maxAppointmentsPerMonth',
+  maxStaff: 'maxStaff',
+  maxServices: 'maxServices',
+  maxCustomers: 'maxCustomers',
+  allowSmsNotifications: 'allowSmsNotifications',
+  allowEmailNotifications: 'allowEmailNotifications',
+  allowOnlineBooking: 'allowOnlineBooking',
+  allowReports: 'allowReports',
+  allowCustomBranding: 'allowCustomBranding',
+  prioritySupport: 'prioritySupport'
 };
 
 exports.Prisma.SubscriptionScalarFieldEnum = {
@@ -320,6 +330,8 @@ exports.Prisma.SubscriptionScalarFieldEnum = {
   nextRenewalDate: 'nextRenewalDate',
   trialEndsAt: 'trialEndsAt',
   isTrialUsed: 'isTrialUsed',
+  appointmentsThisMonth: 'appointmentsThisMonth',
+  usageResetDate: 'usageResetDate',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };

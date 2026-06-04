@@ -1,6 +1,9 @@
 import { Request, Response } from "express";
 import BookingService from "../services/booking.service";
 import NotificationService from "../services/notification.service";
+import NotificationSSEService from "../services/notification-sse.service";
+import { emailService } from "../services/email.service";
+import prisma from "../lib/prisma";
 import type { BookingStatus } from "../../prisma/src/generated/prisma/client";
 
 class BookingController {
@@ -15,7 +18,7 @@ class BookingController {
       const userId = (req as any).user?.id || req.body.userId
       
       if (!userId) {
-        res.status(400).json({ 
+         res.status(400).json({ 
           message: "User ID is required. Please log in to create a booking."
         })
         return
@@ -28,6 +31,52 @@ class BookingController {
       
       const booking = await BookingService.createBooking(bookingData)
       console.log('[v0] Booking created successfully:', booking)
+
+      // Send email notification to business owner
+      try {
+        // Get business with owner user info
+        const business = await prisma.business.findUnique({
+          where: { id: booking.businessId },
+          include: {
+            user: true,
+          }
+        })
+
+        if (business?.user?.email) {
+          // Get service and staff details
+          const service = await prisma.service.findUnique({
+            where: { id: booking.serviceId }
+          })
+
+          let staffName: string | undefined
+          if (booking.staffId) {
+            const staff = await prisma.staff.findUnique({
+              where: { id: booking.staffId }
+            })
+            if (staff) {
+              staffName = `${staff.firstName} ${staff.lastName}`
+            }
+          }
+
+          await emailService.sendNewBookingNotification(business.user.email, {
+            customerName: booking.customerName,
+            customerEmail: booking.customerEmail,
+            customerPhone: booking.customerPhone,
+            serviceName: service?.name || 'Service',
+            staffName,
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            businessName: business.name,
+            notes: booking.notes || undefined,
+          })
+
+          console.log('[v0] Email notification sent to business owner:', business.user.email)
+        }
+      } catch (emailError) {
+        // Don't fail the booking if email fails
+        console.error('[v0] Failed to send email notification to owner:', emailError)
+      }
+
       res.status(201).json(booking)
     } catch (error) {
       console.error('[v0] Error creating booking:', error instanceof Error ? error.message : String(error))
@@ -103,7 +152,7 @@ class BookingController {
       const booking = await BookingService.getBookingById(Array.isArray(id) ? id[0] : id)
 
       if (!booking) {
-        res.status(404).json({
+      res.status(404).json({
           success: false,
           message: 'Booking not found',
         })
@@ -126,31 +175,65 @@ class BookingController {
           console.warn('[v0] Warning: booking.userId is null or undefined')
           return
         }
+
+        // Fetch business name for notification messages
+        const business = await prisma.business.findUnique({
+          where: { id: booking.businessId },
+          select: { name: true }
+        })
+        const businessName = business?.name || 'the business'
         
         if (status === 'CONFIRMED') {
           console.log('[v0] Sending confirmation notification for booking:', booking.id, 'userId:', booking.userId)
           const notification = await NotificationService.sendBookingConfirmation(booking.id, booking.userId)
           console.log('[v0] Confirmation notification created:', JSON.stringify(notification))
+          
+          // Broadcast real-time notification
+          NotificationSSEService.broadcastToUser(booking.userId, {
+            id: notification.id,
+            title: 'Booking Confirmed',
+            message: `Your booking has been confirmed!`,
+            type: 'BOOKING_CONFIRMATION',
+            createdAt: new Date(),
+          })
         } else if (status === 'COMPLETED') {
           console.log('[v0] Sending completion notification for booking:', booking.id, 'userId:', booking.userId)
           const notification = await NotificationService.createNotification({
             userId: booking.userId,
             type: 'BOOKING_CONFIRMATION',
             title: 'Booking Completed',
-            message: `Your booking with has been completed. Please leave a review!`,
+            message: `Your booking with ${businessName} has been completed. Please leave a review!`,
             bookingId: booking.id,
           })
           console.log('[v0] Completion notification created:', JSON.stringify(notification))
+          
+          // Broadcast real-time notification
+          NotificationSSEService.broadcastToUser(booking.userId, {
+            id: notification.id,
+            title: 'Booking Completed',
+            message: `Your booking with ${businessName} has been completed. Please leave a review!`,
+            type: 'BOOKING_CONFIRMATION',
+            createdAt: new Date(),
+          })
         } else if (status === 'CANCELLED') {
           console.log('[v0] Sending cancellation notification for booking:', booking.id, 'userId:', booking.userId)
           const notification = await NotificationService.createNotification({
             userId: booking.userId,
             type: 'BOOKING_CANCELLATION',
             title: 'Booking Cancelled',
-            message: `Your booking with has been cancelled.`,
+            message: `Your booking with ${businessName} has been cancelled.`,
             bookingId: booking.id,
           })
           console.log('[v0] Cancellation notification created:', JSON.stringify(notification))
+          
+          // Broadcast real-time notification
+         NotificationSSEService.broadcastToUser(booking.userId, {
+            id: notification.id,
+            title: 'Booking Cancelled',
+            message: `Your booking with ${businessName} has been cancelled.`,
+            type: 'BOOKING_CANCELLATION',
+            createdAt: new Date(),
+          })
         }
       } catch (notificationError) {
         console.error('[v0] Error sending notification:', notificationError instanceof Error ? notificationError.message : notificationError)
@@ -222,7 +305,7 @@ class BookingController {
 
       if (!date) {
         res.status(400).json({ message: "Date query parameter is required" });
-        return
+        return;
       }
 
       const slots = await BookingService.getAvailableSlots(
