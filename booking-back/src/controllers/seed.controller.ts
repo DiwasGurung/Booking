@@ -31,10 +31,11 @@ class SeedController {
             'Basic analytics',
           ],
           // Limits
-          maxAppointmentsPerMonth: 200,
+          maxAppointmentsPerMonth: 50,
           maxStaff: 2,
           maxServices: 5,
           maxCustomers: 100,
+          maxSmsPerMonth: 0,  // SMS disabled
           // Features
           allowSmsNotifications: false,
           allowEmailNotifications: true,
@@ -62,6 +63,7 @@ class SeedController {
           maxStaff: 10,
           maxServices: 20,
           maxCustomers: 500,
+          maxSmsPerMonth: 100,  // 100 SMS per month
           // Features
           allowSmsNotifications: true,
           allowEmailNotifications: true,
@@ -91,6 +93,7 @@ class SeedController {
           maxStaff: -1,
           maxServices: -1,
           maxCustomers: -1,
+          maxSmsPerMonth: -1,  // Unlimited SMS
           // Features
           allowSmsNotifications: true,
           allowEmailNotifications: true,

@@ -3,6 +3,8 @@ import { useAuth } from '@/context/authContext'
 import { useBusinessId } from './useBusinessId'
 
 interface SubscriptionStatus {
+  maxSmsPerMonth: number
+  smsUsedThisMonth: number
   hasSubscription: boolean
   status: string | null
   planName?: string
@@ -45,8 +47,8 @@ export const useSubscriptionStatus = () => {
       } catch (err) {
         console.error('[v0] Error fetching subscription status:', err)
         setError(err instanceof Error ? err.message : 'Unknown error')
-        setSubscriptionStatus({
-          hasSubscription: false,
+        setSubscriptionStatus({          maxSmsPerMonth: 0,
+          smsUsedThisMonth: 0,          hasSubscription: false,
           status: null,
           daysRemaining: null,
           expiresAt: null,

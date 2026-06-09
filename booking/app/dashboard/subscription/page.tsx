@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 import Link from 'next/link'
-import { Loader, AlertCircle, CreditCard, Calendar, CheckCircle, ArrowRight, Trash2, ArrowUpRight } from 'lucide-react'
+import { Loader, AlertCircle, CreditCard, Calendar, CheckCircle, ArrowRight, Trash2, ArrowUpRight, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface SubscriptionDetails {
@@ -25,6 +25,8 @@ interface SubscriptionDetails {
   autoRenew: boolean
   startDate: string
   createdAt: string
+  smsUsedThisMonth?: number
+  maxSmsPerMonth?: number
 }
 
 export default function SubscriptionPage() {
@@ -104,8 +106,8 @@ export default function SubscriptionPage() {
 
   if (loading || subscriptionLoading || fetchingBusinessId) {
     return (
-      <div className=" min-h-screen bg-background">
-        <Sidebar userRole="BUSINESS_OWNER" />
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
         <div className="flex-1">
           <div className="flex items-center justify-center min-h-screen">
             <div className="text-center">
@@ -155,7 +157,7 @@ export default function SubscriptionPage() {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
-      <div className="flex-1 md:ml-64 pt-6 px-4 md:px-8 py-8">
+      <div className="flex-1">
         <div className="p-8">
           <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Subscription' }]} />
 
@@ -275,6 +277,76 @@ export default function SubscriptionPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* SMS Usage Card - Show only if SMS is available */}
+            {subscriptionStatus?.maxSmsPerMonth !== undefined && subscriptionStatus?.maxSmsPerMonth > 0 && (
+              <Card className="mb-8 border-blue-200 bg-gradient-to-br from-blue-50 via-blue-5 to-transparent">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-blue-600" />
+                    SMS Usage
+                  </CardTitle>
+                  <CardDescription>Track your monthly SMS notifications</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* SMS Used */}
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">SMS Sent This Month</p>
+                      <p className="text-3xl font-bold text-blue-600">{subscriptionStatus?.smsUsedThisMonth || 0}</p>
+                    </div>
+
+                    {/* SMS Limit */}
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">Monthly Limit</p>
+                      <p className="text-3xl font-bold">
+                        {subscriptionStatus?.maxSmsPerMonth === -1 ? 'Unlimited' : subscriptionStatus?.maxSmsPerMonth}
+                      </p>
+                    </div>
+
+                    {/* Remaining */}
+                    {subscriptionStatus?.maxSmsPerMonth && subscriptionStatus?.maxSmsPerMonth > 0 && (
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-2">Remaining</p>
+                        <p className="text-3xl font-bold text-green-600">
+                          {Math.max(0, subscriptionStatus.maxSmsPerMonth - (subscriptionStatus?.smsUsedThisMonth || 0))}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Progress Bar */}
+                  {subscriptionStatus?.maxSmsPerMonth && subscriptionStatus?.maxSmsPerMonth > 0 && (
+                    <div className="mt-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium">Usage Progress</p>
+                        <p className="text-xs text-muted-foreground">
+                          {Math.round(((subscriptionStatus?.smsUsedThisMonth || 0) / subscriptionStatus.maxSmsPerMonth) * 100)}%
+                        </p>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${Math.min(100, ((subscriptionStatus?.smsUsedThisMonth || 0) / subscriptionStatus.maxSmsPerMonth) * 100)}%`
+                          }}
+                        />
+                      </div>
+                      {(subscriptionStatus?.smsUsedThisMonth || 0) >= (subscriptionStatus?.maxSmsPerMonth || 0) && (
+                        <p className="text-sm text-red-600 mt-2 flex items-center gap-1">
+                          <AlertCircle className="w-4 h-4" />
+                          You have reached your SMS limit for this month
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground mt-4">
+                    SMS notifications are automatically sent when bookings are created, cancelled, or status changes occur.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Subscription Details */}
             <Card>

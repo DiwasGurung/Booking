@@ -360,6 +360,7 @@ model SubscriptionPlan {
   maxAppointmentsPerMonth  Int  @default(-1)  // -1 means unlimited
   maxStaff                 Int  @default(-1)  // -1 means unlimited
   maxServices              Int  @default(-1)  // -1 means unlimited
+   maxSmsPerMonth           Int  @default(0) 
   maxCustomers             Int  @default(-1)  // -1 means unlimited
   
   // Features flags
@@ -398,12 +399,19 @@ model Subscription {
   isTrialUsed     Boolean  @default(false)
 
   appointmentsThisMonth    Int      @default(0)
+    smsUsedThisMonth         Int      @default(0)  // Track SMS sent this month
   usageResetDate           DateTime?
+
+  // SMS credit tracking
+  smsCreditBalance         Int      @default(0)  
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   payments        Payment[]
+
+  smsLogs         SMSLog[]
+
 
   @@index([status])
   @@index([endDate])
@@ -423,4 +431,27 @@ model PushSubscription {
   @@index([userId])
   @@index([isActive])
   @@map("push_subscriptions")
+}
+model SMSLog {
+  id              String   @id @default(cuid())
+  businessId      String?
+  subscriptionId  String?
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  phoneNumber     String
+  message         String
+  type            String   // 'verification', 'booking', 'reminder', 'status_change', 'owner_notification'
+  status          String   // 'SENT', 'FAILED'
+  messageId       String?  // External message ID from provider
+  provider        String   @default("SPARROW") // 'SPARROW', 'TWILIO', etc.
+  errorMessage    String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([phoneNumber])
+  @@index([status])
+  @@index([type])
+  @@index([subscriptionId])
+  @@index([createdAt])
+  @@map("sms_logs")
 }

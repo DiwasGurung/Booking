@@ -83,6 +83,11 @@ export type Subscription = $Result.DefaultSelection<Prisma.$SubscriptionPayload>
  * 
  */
 export type PushSubscription = $Result.DefaultSelection<Prisma.$PushSubscriptionPayload>
+/**
+ * Model SMSLog
+ * 
+ */
+export type SMSLog = $Result.DefaultSelection<Prisma.$SMSLogPayload>
 
 /**
  * Enums
@@ -431,6 +436,16 @@ export class PrismaClient<
     * ```
     */
   get pushSubscription(): Prisma.PushSubscriptionDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.sMSLog`: Exposes CRUD operations for the **SMSLog** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more SMSLogs
+    * const sMSLogs = await prisma.sMSLog.findMany()
+    * ```
+    */
+  get sMSLog(): Prisma.SMSLogDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -885,7 +900,8 @@ export namespace Prisma {
     Notification: 'Notification',
     SubscriptionPlan: 'SubscriptionPlan',
     Subscription: 'Subscription',
-    PushSubscription: 'PushSubscription'
+    PushSubscription: 'PushSubscription',
+    SMSLog: 'SMSLog'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -904,7 +920,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "user" | "business" | "staff" | "staffService" | "service" | "customer" | "booking" | "payment" | "review" | "businessHours" | "notification" | "subscriptionPlan" | "subscription" | "pushSubscription"
+      modelProps: "user" | "business" | "staff" | "staffService" | "service" | "customer" | "booking" | "payment" | "review" | "businessHours" | "notification" | "subscriptionPlan" | "subscription" | "pushSubscription" | "sMSLog"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1944,6 +1960,80 @@ export namespace Prisma {
           }
         }
       }
+      SMSLog: {
+        payload: Prisma.$SMSLogPayload<ExtArgs>
+        fields: Prisma.SMSLogFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.SMSLogFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SMSLogPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.SMSLogFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SMSLogPayload>
+          }
+          findFirst: {
+            args: Prisma.SMSLogFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SMSLogPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.SMSLogFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SMSLogPayload>
+          }
+          findMany: {
+            args: Prisma.SMSLogFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SMSLogPayload>[]
+          }
+          create: {
+            args: Prisma.SMSLogCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SMSLogPayload>
+          }
+          createMany: {
+            args: Prisma.SMSLogCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.SMSLogCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SMSLogPayload>[]
+          }
+          delete: {
+            args: Prisma.SMSLogDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SMSLogPayload>
+          }
+          update: {
+            args: Prisma.SMSLogUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SMSLogPayload>
+          }
+          deleteMany: {
+            args: Prisma.SMSLogDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.SMSLogUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.SMSLogUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SMSLogPayload>[]
+          }
+          upsert: {
+            args: Prisma.SMSLogUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$SMSLogPayload>
+          }
+          aggregate: {
+            args: Prisma.SMSLogAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateSMSLog>
+          }
+          groupBy: {
+            args: Prisma.SMSLogGroupByArgs<ExtArgs>
+            result: $Utils.Optional<SMSLogGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.SMSLogCountArgs<ExtArgs>
+            result: $Utils.Optional<SMSLogCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -2054,6 +2144,7 @@ export namespace Prisma {
     subscriptionPlan?: SubscriptionPlanOmit
     subscription?: SubscriptionOmit
     pushSubscription?: PushSubscriptionOmit
+    sMSLog?: SMSLogOmit
   }
 
   /* Types for Logging */
@@ -2442,10 +2533,12 @@ export namespace Prisma {
 
   export type SubscriptionCountOutputType = {
     payments: number
+    smsLogs: number
   }
 
   export type SubscriptionCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     payments?: boolean | SubscriptionCountOutputTypeCountPaymentsArgs
+    smsLogs?: boolean | SubscriptionCountOutputTypeCountSmsLogsArgs
   }
 
   // Custom InputTypes
@@ -2464,6 +2557,13 @@ export namespace Prisma {
    */
   export type SubscriptionCountOutputTypeCountPaymentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: PaymentWhereInput
+  }
+
+  /**
+   * SubscriptionCountOutputType without action
+   */
+  export type SubscriptionCountOutputTypeCountSmsLogsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: SMSLogWhereInput
   }
 
 
@@ -16174,6 +16274,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth: number | null
     maxStaff: number | null
     maxServices: number | null
+    maxSmsPerMonth: number | null
     maxCustomers: number | null
   }
 
@@ -16183,6 +16284,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth: number | null
     maxStaff: number | null
     maxServices: number | null
+    maxSmsPerMonth: number | null
     maxCustomers: number | null
   }
 
@@ -16198,6 +16300,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth: number | null
     maxStaff: number | null
     maxServices: number | null
+    maxSmsPerMonth: number | null
     maxCustomers: number | null
     allowSmsNotifications: boolean | null
     allowEmailNotifications: boolean | null
@@ -16219,6 +16322,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth: number | null
     maxStaff: number | null
     maxServices: number | null
+    maxSmsPerMonth: number | null
     maxCustomers: number | null
     allowSmsNotifications: boolean | null
     allowEmailNotifications: boolean | null
@@ -16241,6 +16345,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth: number
     maxStaff: number
     maxServices: number
+    maxSmsPerMonth: number
     maxCustomers: number
     allowSmsNotifications: number
     allowEmailNotifications: number
@@ -16258,6 +16363,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: true
     maxStaff?: true
     maxServices?: true
+    maxSmsPerMonth?: true
     maxCustomers?: true
   }
 
@@ -16267,6 +16373,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: true
     maxStaff?: true
     maxServices?: true
+    maxSmsPerMonth?: true
     maxCustomers?: true
   }
 
@@ -16282,6 +16389,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: true
     maxStaff?: true
     maxServices?: true
+    maxSmsPerMonth?: true
     maxCustomers?: true
     allowSmsNotifications?: true
     allowEmailNotifications?: true
@@ -16303,6 +16411,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: true
     maxStaff?: true
     maxServices?: true
+    maxSmsPerMonth?: true
     maxCustomers?: true
     allowSmsNotifications?: true
     allowEmailNotifications?: true
@@ -16325,6 +16434,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: true
     maxStaff?: true
     maxServices?: true
+    maxSmsPerMonth?: true
     maxCustomers?: true
     allowSmsNotifications?: true
     allowEmailNotifications?: true
@@ -16434,6 +16544,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth: number
     maxStaff: number
     maxServices: number
+    maxSmsPerMonth: number
     maxCustomers: number
     allowSmsNotifications: boolean
     allowEmailNotifications: boolean
@@ -16475,6 +16586,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: boolean
     maxStaff?: boolean
     maxServices?: boolean
+    maxSmsPerMonth?: boolean
     maxCustomers?: boolean
     allowSmsNotifications?: boolean
     allowEmailNotifications?: boolean
@@ -16499,6 +16611,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: boolean
     maxStaff?: boolean
     maxServices?: boolean
+    maxSmsPerMonth?: boolean
     maxCustomers?: boolean
     allowSmsNotifications?: boolean
     allowEmailNotifications?: boolean
@@ -16521,6 +16634,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: boolean
     maxStaff?: boolean
     maxServices?: boolean
+    maxSmsPerMonth?: boolean
     maxCustomers?: boolean
     allowSmsNotifications?: boolean
     allowEmailNotifications?: boolean
@@ -16543,6 +16657,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: boolean
     maxStaff?: boolean
     maxServices?: boolean
+    maxSmsPerMonth?: boolean
     maxCustomers?: boolean
     allowSmsNotifications?: boolean
     allowEmailNotifications?: boolean
@@ -16552,7 +16667,7 @@ export namespace Prisma {
     prioritySupport?: boolean
   }
 
-  export type SubscriptionPlanOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "priceNPR" | "displayName" | "features" | "description" | "durationDays" | "currency" | "active" | "maxAppointmentsPerMonth" | "maxStaff" | "maxServices" | "maxCustomers" | "allowSmsNotifications" | "allowEmailNotifications" | "allowOnlineBooking" | "allowReports" | "allowCustomBranding" | "prioritySupport", ExtArgs["result"]["subscriptionPlan"]>
+  export type SubscriptionPlanOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "priceNPR" | "displayName" | "features" | "description" | "durationDays" | "currency" | "active" | "maxAppointmentsPerMonth" | "maxStaff" | "maxServices" | "maxSmsPerMonth" | "maxCustomers" | "allowSmsNotifications" | "allowEmailNotifications" | "allowOnlineBooking" | "allowReports" | "allowCustomBranding" | "prioritySupport", ExtArgs["result"]["subscriptionPlan"]>
   export type SubscriptionPlanInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     subscriptions?: boolean | SubscriptionPlan$subscriptionsArgs<ExtArgs>
     _count?: boolean | SubscriptionPlanCountOutputTypeDefaultArgs<ExtArgs>
@@ -16578,6 +16693,7 @@ export namespace Prisma {
       maxAppointmentsPerMonth: number
       maxStaff: number
       maxServices: number
+      maxSmsPerMonth: number
       maxCustomers: number
       allowSmsNotifications: boolean
       allowEmailNotifications: boolean
@@ -17021,6 +17137,7 @@ export namespace Prisma {
     readonly maxAppointmentsPerMonth: FieldRef<"SubscriptionPlan", 'Int'>
     readonly maxStaff: FieldRef<"SubscriptionPlan", 'Int'>
     readonly maxServices: FieldRef<"SubscriptionPlan", 'Int'>
+    readonly maxSmsPerMonth: FieldRef<"SubscriptionPlan", 'Int'>
     readonly maxCustomers: FieldRef<"SubscriptionPlan", 'Int'>
     readonly allowSmsNotifications: FieldRef<"SubscriptionPlan", 'Boolean'>
     readonly allowEmailNotifications: FieldRef<"SubscriptionPlan", 'Boolean'>
@@ -17472,10 +17589,14 @@ export namespace Prisma {
 
   export type SubscriptionAvgAggregateOutputType = {
     appointmentsThisMonth: number | null
+    smsUsedThisMonth: number | null
+    smsCreditBalance: number | null
   }
 
   export type SubscriptionSumAggregateOutputType = {
     appointmentsThisMonth: number | null
+    smsUsedThisMonth: number | null
+    smsCreditBalance: number | null
   }
 
   export type SubscriptionMinAggregateOutputType = {
@@ -17491,7 +17612,9 @@ export namespace Prisma {
     trialEndsAt: Date | null
     isTrialUsed: boolean | null
     appointmentsThisMonth: number | null
+    smsUsedThisMonth: number | null
     usageResetDate: Date | null
+    smsCreditBalance: number | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -17509,7 +17632,9 @@ export namespace Prisma {
     trialEndsAt: Date | null
     isTrialUsed: boolean | null
     appointmentsThisMonth: number | null
+    smsUsedThisMonth: number | null
     usageResetDate: Date | null
+    smsCreditBalance: number | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -17527,7 +17652,9 @@ export namespace Prisma {
     trialEndsAt: number
     isTrialUsed: number
     appointmentsThisMonth: number
+    smsUsedThisMonth: number
     usageResetDate: number
+    smsCreditBalance: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -17536,10 +17663,14 @@ export namespace Prisma {
 
   export type SubscriptionAvgAggregateInputType = {
     appointmentsThisMonth?: true
+    smsUsedThisMonth?: true
+    smsCreditBalance?: true
   }
 
   export type SubscriptionSumAggregateInputType = {
     appointmentsThisMonth?: true
+    smsUsedThisMonth?: true
+    smsCreditBalance?: true
   }
 
   export type SubscriptionMinAggregateInputType = {
@@ -17555,7 +17686,9 @@ export namespace Prisma {
     trialEndsAt?: true
     isTrialUsed?: true
     appointmentsThisMonth?: true
+    smsUsedThisMonth?: true
     usageResetDate?: true
+    smsCreditBalance?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -17573,7 +17706,9 @@ export namespace Prisma {
     trialEndsAt?: true
     isTrialUsed?: true
     appointmentsThisMonth?: true
+    smsUsedThisMonth?: true
     usageResetDate?: true
+    smsCreditBalance?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -17591,7 +17726,9 @@ export namespace Prisma {
     trialEndsAt?: true
     isTrialUsed?: true
     appointmentsThisMonth?: true
+    smsUsedThisMonth?: true
     usageResetDate?: true
+    smsCreditBalance?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -17696,7 +17833,9 @@ export namespace Prisma {
     trialEndsAt: Date | null
     isTrialUsed: boolean
     appointmentsThisMonth: number
+    smsUsedThisMonth: number
     usageResetDate: Date | null
+    smsCreditBalance: number
     createdAt: Date
     updatedAt: Date
     _count: SubscriptionCountAggregateOutputType | null
@@ -17733,12 +17872,15 @@ export namespace Prisma {
     trialEndsAt?: boolean
     isTrialUsed?: boolean
     appointmentsThisMonth?: boolean
+    smsUsedThisMonth?: boolean
     usageResetDate?: boolean
+    smsCreditBalance?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     business?: boolean | BusinessDefaultArgs<ExtArgs>
     plan?: boolean | SubscriptionPlanDefaultArgs<ExtArgs>
     payments?: boolean | Subscription$paymentsArgs<ExtArgs>
+    smsLogs?: boolean | Subscription$smsLogsArgs<ExtArgs>
     _count?: boolean | SubscriptionCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["subscription"]>
 
@@ -17755,7 +17897,9 @@ export namespace Prisma {
     trialEndsAt?: boolean
     isTrialUsed?: boolean
     appointmentsThisMonth?: boolean
+    smsUsedThisMonth?: boolean
     usageResetDate?: boolean
+    smsCreditBalance?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     business?: boolean | BusinessDefaultArgs<ExtArgs>
@@ -17775,7 +17919,9 @@ export namespace Prisma {
     trialEndsAt?: boolean
     isTrialUsed?: boolean
     appointmentsThisMonth?: boolean
+    smsUsedThisMonth?: boolean
     usageResetDate?: boolean
+    smsCreditBalance?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     business?: boolean | BusinessDefaultArgs<ExtArgs>
@@ -17795,16 +17941,19 @@ export namespace Prisma {
     trialEndsAt?: boolean
     isTrialUsed?: boolean
     appointmentsThisMonth?: boolean
+    smsUsedThisMonth?: boolean
     usageResetDate?: boolean
+    smsCreditBalance?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type SubscriptionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "businessId" | "planId" | "status" | "startDate" | "endDate" | "autoRenew" | "lastPaymentId" | "nextRenewalDate" | "trialEndsAt" | "isTrialUsed" | "appointmentsThisMonth" | "usageResetDate" | "createdAt" | "updatedAt", ExtArgs["result"]["subscription"]>
+  export type SubscriptionOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "businessId" | "planId" | "status" | "startDate" | "endDate" | "autoRenew" | "lastPaymentId" | "nextRenewalDate" | "trialEndsAt" | "isTrialUsed" | "appointmentsThisMonth" | "smsUsedThisMonth" | "usageResetDate" | "smsCreditBalance" | "createdAt" | "updatedAt", ExtArgs["result"]["subscription"]>
   export type SubscriptionInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     business?: boolean | BusinessDefaultArgs<ExtArgs>
     plan?: boolean | SubscriptionPlanDefaultArgs<ExtArgs>
     payments?: boolean | Subscription$paymentsArgs<ExtArgs>
+    smsLogs?: boolean | Subscription$smsLogsArgs<ExtArgs>
     _count?: boolean | SubscriptionCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type SubscriptionIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -17822,6 +17971,7 @@ export namespace Prisma {
       business: Prisma.$BusinessPayload<ExtArgs>
       plan: Prisma.$SubscriptionPlanPayload<ExtArgs>
       payments: Prisma.$PaymentPayload<ExtArgs>[]
+      smsLogs: Prisma.$SMSLogPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -17836,7 +17986,9 @@ export namespace Prisma {
       trialEndsAt: Date | null
       isTrialUsed: boolean
       appointmentsThisMonth: number
+      smsUsedThisMonth: number
       usageResetDate: Date | null
+      smsCreditBalance: number
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["subscription"]>
@@ -18236,6 +18388,7 @@ export namespace Prisma {
     business<T extends BusinessDefaultArgs<ExtArgs> = {}>(args?: Subset<T, BusinessDefaultArgs<ExtArgs>>): Prisma__BusinessClient<$Result.GetResult<Prisma.$BusinessPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     plan<T extends SubscriptionPlanDefaultArgs<ExtArgs> = {}>(args?: Subset<T, SubscriptionPlanDefaultArgs<ExtArgs>>): Prisma__SubscriptionPlanClient<$Result.GetResult<Prisma.$SubscriptionPlanPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     payments<T extends Subscription$paymentsArgs<ExtArgs> = {}>(args?: Subset<T, Subscription$paymentsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PaymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    smsLogs<T extends Subscription$smsLogsArgs<ExtArgs> = {}>(args?: Subset<T, Subscription$smsLogsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SMSLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -18277,7 +18430,9 @@ export namespace Prisma {
     readonly trialEndsAt: FieldRef<"Subscription", 'DateTime'>
     readonly isTrialUsed: FieldRef<"Subscription", 'Boolean'>
     readonly appointmentsThisMonth: FieldRef<"Subscription", 'Int'>
+    readonly smsUsedThisMonth: FieldRef<"Subscription", 'Int'>
     readonly usageResetDate: FieldRef<"Subscription", 'DateTime'>
+    readonly smsCreditBalance: FieldRef<"Subscription", 'Int'>
     readonly createdAt: FieldRef<"Subscription", 'DateTime'>
     readonly updatedAt: FieldRef<"Subscription", 'DateTime'>
   }
@@ -18697,6 +18852,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: PaymentScalarFieldEnum | PaymentScalarFieldEnum[]
+  }
+
+  /**
+   * Subscription.smsLogs
+   */
+  export type Subscription$smsLogsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SMSLog
+     */
+    select?: SMSLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SMSLog
+     */
+    omit?: SMSLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SMSLogInclude<ExtArgs> | null
+    where?: SMSLogWhereInput
+    orderBy?: SMSLogOrderByWithRelationInput | SMSLogOrderByWithRelationInput[]
+    cursor?: SMSLogWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: SMSLogScalarFieldEnum | SMSLogScalarFieldEnum[]
   }
 
   /**
@@ -19753,6 +19932,1174 @@ export namespace Prisma {
 
 
   /**
+   * Model SMSLog
+   */
+
+  export type AggregateSMSLog = {
+    _count: SMSLogCountAggregateOutputType | null
+    _min: SMSLogMinAggregateOutputType | null
+    _max: SMSLogMaxAggregateOutputType | null
+  }
+
+  export type SMSLogMinAggregateOutputType = {
+    id: string | null
+    businessId: string | null
+    subscriptionId: string | null
+    phoneNumber: string | null
+    message: string | null
+    type: string | null
+    status: string | null
+    messageId: string | null
+    provider: string | null
+    errorMessage: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type SMSLogMaxAggregateOutputType = {
+    id: string | null
+    businessId: string | null
+    subscriptionId: string | null
+    phoneNumber: string | null
+    message: string | null
+    type: string | null
+    status: string | null
+    messageId: string | null
+    provider: string | null
+    errorMessage: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type SMSLogCountAggregateOutputType = {
+    id: number
+    businessId: number
+    subscriptionId: number
+    phoneNumber: number
+    message: number
+    type: number
+    status: number
+    messageId: number
+    provider: number
+    errorMessage: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type SMSLogMinAggregateInputType = {
+    id?: true
+    businessId?: true
+    subscriptionId?: true
+    phoneNumber?: true
+    message?: true
+    type?: true
+    status?: true
+    messageId?: true
+    provider?: true
+    errorMessage?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type SMSLogMaxAggregateInputType = {
+    id?: true
+    businessId?: true
+    subscriptionId?: true
+    phoneNumber?: true
+    message?: true
+    type?: true
+    status?: true
+    messageId?: true
+    provider?: true
+    errorMessage?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type SMSLogCountAggregateInputType = {
+    id?: true
+    businessId?: true
+    subscriptionId?: true
+    phoneNumber?: true
+    message?: true
+    type?: true
+    status?: true
+    messageId?: true
+    provider?: true
+    errorMessage?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type SMSLogAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which SMSLog to aggregate.
+     */
+    where?: SMSLogWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of SMSLogs to fetch.
+     */
+    orderBy?: SMSLogOrderByWithRelationInput | SMSLogOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: SMSLogWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` SMSLogs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` SMSLogs.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned SMSLogs
+    **/
+    _count?: true | SMSLogCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: SMSLogMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: SMSLogMaxAggregateInputType
+  }
+
+  export type GetSMSLogAggregateType<T extends SMSLogAggregateArgs> = {
+        [P in keyof T & keyof AggregateSMSLog]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateSMSLog[P]>
+      : GetScalarType<T[P], AggregateSMSLog[P]>
+  }
+
+
+
+
+  export type SMSLogGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: SMSLogWhereInput
+    orderBy?: SMSLogOrderByWithAggregationInput | SMSLogOrderByWithAggregationInput[]
+    by: SMSLogScalarFieldEnum[] | SMSLogScalarFieldEnum
+    having?: SMSLogScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: SMSLogCountAggregateInputType | true
+    _min?: SMSLogMinAggregateInputType
+    _max?: SMSLogMaxAggregateInputType
+  }
+
+  export type SMSLogGroupByOutputType = {
+    id: string
+    businessId: string | null
+    subscriptionId: string | null
+    phoneNumber: string
+    message: string
+    type: string
+    status: string
+    messageId: string | null
+    provider: string
+    errorMessage: string | null
+    createdAt: Date
+    updatedAt: Date
+    _count: SMSLogCountAggregateOutputType | null
+    _min: SMSLogMinAggregateOutputType | null
+    _max: SMSLogMaxAggregateOutputType | null
+  }
+
+  type GetSMSLogGroupByPayload<T extends SMSLogGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<SMSLogGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof SMSLogGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], SMSLogGroupByOutputType[P]>
+            : GetScalarType<T[P], SMSLogGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type SMSLogSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    businessId?: boolean
+    subscriptionId?: boolean
+    phoneNumber?: boolean
+    message?: boolean
+    type?: boolean
+    status?: boolean
+    messageId?: boolean
+    provider?: boolean
+    errorMessage?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    subscription?: boolean | SMSLog$subscriptionArgs<ExtArgs>
+  }, ExtArgs["result"]["sMSLog"]>
+
+  export type SMSLogSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    businessId?: boolean
+    subscriptionId?: boolean
+    phoneNumber?: boolean
+    message?: boolean
+    type?: boolean
+    status?: boolean
+    messageId?: boolean
+    provider?: boolean
+    errorMessage?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    subscription?: boolean | SMSLog$subscriptionArgs<ExtArgs>
+  }, ExtArgs["result"]["sMSLog"]>
+
+  export type SMSLogSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    businessId?: boolean
+    subscriptionId?: boolean
+    phoneNumber?: boolean
+    message?: boolean
+    type?: boolean
+    status?: boolean
+    messageId?: boolean
+    provider?: boolean
+    errorMessage?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    subscription?: boolean | SMSLog$subscriptionArgs<ExtArgs>
+  }, ExtArgs["result"]["sMSLog"]>
+
+  export type SMSLogSelectScalar = {
+    id?: boolean
+    businessId?: boolean
+    subscriptionId?: boolean
+    phoneNumber?: boolean
+    message?: boolean
+    type?: boolean
+    status?: boolean
+    messageId?: boolean
+    provider?: boolean
+    errorMessage?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type SMSLogOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "businessId" | "subscriptionId" | "phoneNumber" | "message" | "type" | "status" | "messageId" | "provider" | "errorMessage" | "createdAt" | "updatedAt", ExtArgs["result"]["sMSLog"]>
+  export type SMSLogInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    subscription?: boolean | SMSLog$subscriptionArgs<ExtArgs>
+  }
+  export type SMSLogIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    subscription?: boolean | SMSLog$subscriptionArgs<ExtArgs>
+  }
+  export type SMSLogIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    subscription?: boolean | SMSLog$subscriptionArgs<ExtArgs>
+  }
+
+  export type $SMSLogPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "SMSLog"
+    objects: {
+      subscription: Prisma.$SubscriptionPayload<ExtArgs> | null
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      businessId: string | null
+      subscriptionId: string | null
+      phoneNumber: string
+      message: string
+      type: string
+      status: string
+      messageId: string | null
+      provider: string
+      errorMessage: string | null
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["sMSLog"]>
+    composites: {}
+  }
+
+  type SMSLogGetPayload<S extends boolean | null | undefined | SMSLogDefaultArgs> = $Result.GetResult<Prisma.$SMSLogPayload, S>
+
+  type SMSLogCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<SMSLogFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: SMSLogCountAggregateInputType | true
+    }
+
+  export interface SMSLogDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['SMSLog'], meta: { name: 'SMSLog' } }
+    /**
+     * Find zero or one SMSLog that matches the filter.
+     * @param {SMSLogFindUniqueArgs} args - Arguments to find a SMSLog
+     * @example
+     * // Get one SMSLog
+     * const sMSLog = await prisma.sMSLog.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends SMSLogFindUniqueArgs>(args: SelectSubset<T, SMSLogFindUniqueArgs<ExtArgs>>): Prisma__SMSLogClient<$Result.GetResult<Prisma.$SMSLogPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one SMSLog that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {SMSLogFindUniqueOrThrowArgs} args - Arguments to find a SMSLog
+     * @example
+     * // Get one SMSLog
+     * const sMSLog = await prisma.sMSLog.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends SMSLogFindUniqueOrThrowArgs>(args: SelectSubset<T, SMSLogFindUniqueOrThrowArgs<ExtArgs>>): Prisma__SMSLogClient<$Result.GetResult<Prisma.$SMSLogPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first SMSLog that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SMSLogFindFirstArgs} args - Arguments to find a SMSLog
+     * @example
+     * // Get one SMSLog
+     * const sMSLog = await prisma.sMSLog.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends SMSLogFindFirstArgs>(args?: SelectSubset<T, SMSLogFindFirstArgs<ExtArgs>>): Prisma__SMSLogClient<$Result.GetResult<Prisma.$SMSLogPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first SMSLog that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SMSLogFindFirstOrThrowArgs} args - Arguments to find a SMSLog
+     * @example
+     * // Get one SMSLog
+     * const sMSLog = await prisma.sMSLog.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends SMSLogFindFirstOrThrowArgs>(args?: SelectSubset<T, SMSLogFindFirstOrThrowArgs<ExtArgs>>): Prisma__SMSLogClient<$Result.GetResult<Prisma.$SMSLogPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more SMSLogs that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SMSLogFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all SMSLogs
+     * const sMSLogs = await prisma.sMSLog.findMany()
+     * 
+     * // Get first 10 SMSLogs
+     * const sMSLogs = await prisma.sMSLog.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const sMSLogWithIdOnly = await prisma.sMSLog.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends SMSLogFindManyArgs>(args?: SelectSubset<T, SMSLogFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SMSLogPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a SMSLog.
+     * @param {SMSLogCreateArgs} args - Arguments to create a SMSLog.
+     * @example
+     * // Create one SMSLog
+     * const SMSLog = await prisma.sMSLog.create({
+     *   data: {
+     *     // ... data to create a SMSLog
+     *   }
+     * })
+     * 
+     */
+    create<T extends SMSLogCreateArgs>(args: SelectSubset<T, SMSLogCreateArgs<ExtArgs>>): Prisma__SMSLogClient<$Result.GetResult<Prisma.$SMSLogPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many SMSLogs.
+     * @param {SMSLogCreateManyArgs} args - Arguments to create many SMSLogs.
+     * @example
+     * // Create many SMSLogs
+     * const sMSLog = await prisma.sMSLog.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends SMSLogCreateManyArgs>(args?: SelectSubset<T, SMSLogCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many SMSLogs and returns the data saved in the database.
+     * @param {SMSLogCreateManyAndReturnArgs} args - Arguments to create many SMSLogs.
+     * @example
+     * // Create many SMSLogs
+     * const sMSLog = await prisma.sMSLog.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many SMSLogs and only return the `id`
+     * const sMSLogWithIdOnly = await prisma.sMSLog.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends SMSLogCreateManyAndReturnArgs>(args?: SelectSubset<T, SMSLogCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SMSLogPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a SMSLog.
+     * @param {SMSLogDeleteArgs} args - Arguments to delete one SMSLog.
+     * @example
+     * // Delete one SMSLog
+     * const SMSLog = await prisma.sMSLog.delete({
+     *   where: {
+     *     // ... filter to delete one SMSLog
+     *   }
+     * })
+     * 
+     */
+    delete<T extends SMSLogDeleteArgs>(args: SelectSubset<T, SMSLogDeleteArgs<ExtArgs>>): Prisma__SMSLogClient<$Result.GetResult<Prisma.$SMSLogPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one SMSLog.
+     * @param {SMSLogUpdateArgs} args - Arguments to update one SMSLog.
+     * @example
+     * // Update one SMSLog
+     * const sMSLog = await prisma.sMSLog.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends SMSLogUpdateArgs>(args: SelectSubset<T, SMSLogUpdateArgs<ExtArgs>>): Prisma__SMSLogClient<$Result.GetResult<Prisma.$SMSLogPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more SMSLogs.
+     * @param {SMSLogDeleteManyArgs} args - Arguments to filter SMSLogs to delete.
+     * @example
+     * // Delete a few SMSLogs
+     * const { count } = await prisma.sMSLog.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends SMSLogDeleteManyArgs>(args?: SelectSubset<T, SMSLogDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more SMSLogs.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SMSLogUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many SMSLogs
+     * const sMSLog = await prisma.sMSLog.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends SMSLogUpdateManyArgs>(args: SelectSubset<T, SMSLogUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more SMSLogs and returns the data updated in the database.
+     * @param {SMSLogUpdateManyAndReturnArgs} args - Arguments to update many SMSLogs.
+     * @example
+     * // Update many SMSLogs
+     * const sMSLog = await prisma.sMSLog.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more SMSLogs and only return the `id`
+     * const sMSLogWithIdOnly = await prisma.sMSLog.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends SMSLogUpdateManyAndReturnArgs>(args: SelectSubset<T, SMSLogUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SMSLogPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one SMSLog.
+     * @param {SMSLogUpsertArgs} args - Arguments to update or create a SMSLog.
+     * @example
+     * // Update or create a SMSLog
+     * const sMSLog = await prisma.sMSLog.upsert({
+     *   create: {
+     *     // ... data to create a SMSLog
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the SMSLog we want to update
+     *   }
+     * })
+     */
+    upsert<T extends SMSLogUpsertArgs>(args: SelectSubset<T, SMSLogUpsertArgs<ExtArgs>>): Prisma__SMSLogClient<$Result.GetResult<Prisma.$SMSLogPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of SMSLogs.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SMSLogCountArgs} args - Arguments to filter SMSLogs to count.
+     * @example
+     * // Count the number of SMSLogs
+     * const count = await prisma.sMSLog.count({
+     *   where: {
+     *     // ... the filter for the SMSLogs we want to count
+     *   }
+     * })
+    **/
+    count<T extends SMSLogCountArgs>(
+      args?: Subset<T, SMSLogCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], SMSLogCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a SMSLog.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SMSLogAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends SMSLogAggregateArgs>(args: Subset<T, SMSLogAggregateArgs>): Prisma.PrismaPromise<GetSMSLogAggregateType<T>>
+
+    /**
+     * Group by SMSLog.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SMSLogGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends SMSLogGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: SMSLogGroupByArgs['orderBy'] }
+        : { orderBy?: SMSLogGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, SMSLogGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetSMSLogGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the SMSLog model
+   */
+  readonly fields: SMSLogFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for SMSLog.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__SMSLogClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    subscription<T extends SMSLog$subscriptionArgs<ExtArgs> = {}>(args?: Subset<T, SMSLog$subscriptionArgs<ExtArgs>>): Prisma__SubscriptionClient<$Result.GetResult<Prisma.$SubscriptionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the SMSLog model
+   */
+  interface SMSLogFieldRefs {
+    readonly id: FieldRef<"SMSLog", 'String'>
+    readonly businessId: FieldRef<"SMSLog", 'String'>
+    readonly subscriptionId: FieldRef<"SMSLog", 'String'>
+    readonly phoneNumber: FieldRef<"SMSLog", 'String'>
+    readonly message: FieldRef<"SMSLog", 'String'>
+    readonly type: FieldRef<"SMSLog", 'String'>
+    readonly status: FieldRef<"SMSLog", 'String'>
+    readonly messageId: FieldRef<"SMSLog", 'String'>
+    readonly provider: FieldRef<"SMSLog", 'String'>
+    readonly errorMessage: FieldRef<"SMSLog", 'String'>
+    readonly createdAt: FieldRef<"SMSLog", 'DateTime'>
+    readonly updatedAt: FieldRef<"SMSLog", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * SMSLog findUnique
+   */
+  export type SMSLogFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SMSLog
+     */
+    select?: SMSLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SMSLog
+     */
+    omit?: SMSLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SMSLogInclude<ExtArgs> | null
+    /**
+     * Filter, which SMSLog to fetch.
+     */
+    where: SMSLogWhereUniqueInput
+  }
+
+  /**
+   * SMSLog findUniqueOrThrow
+   */
+  export type SMSLogFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SMSLog
+     */
+    select?: SMSLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SMSLog
+     */
+    omit?: SMSLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SMSLogInclude<ExtArgs> | null
+    /**
+     * Filter, which SMSLog to fetch.
+     */
+    where: SMSLogWhereUniqueInput
+  }
+
+  /**
+   * SMSLog findFirst
+   */
+  export type SMSLogFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SMSLog
+     */
+    select?: SMSLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SMSLog
+     */
+    omit?: SMSLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SMSLogInclude<ExtArgs> | null
+    /**
+     * Filter, which SMSLog to fetch.
+     */
+    where?: SMSLogWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of SMSLogs to fetch.
+     */
+    orderBy?: SMSLogOrderByWithRelationInput | SMSLogOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for SMSLogs.
+     */
+    cursor?: SMSLogWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` SMSLogs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` SMSLogs.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of SMSLogs.
+     */
+    distinct?: SMSLogScalarFieldEnum | SMSLogScalarFieldEnum[]
+  }
+
+  /**
+   * SMSLog findFirstOrThrow
+   */
+  export type SMSLogFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SMSLog
+     */
+    select?: SMSLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SMSLog
+     */
+    omit?: SMSLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SMSLogInclude<ExtArgs> | null
+    /**
+     * Filter, which SMSLog to fetch.
+     */
+    where?: SMSLogWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of SMSLogs to fetch.
+     */
+    orderBy?: SMSLogOrderByWithRelationInput | SMSLogOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for SMSLogs.
+     */
+    cursor?: SMSLogWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` SMSLogs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` SMSLogs.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of SMSLogs.
+     */
+    distinct?: SMSLogScalarFieldEnum | SMSLogScalarFieldEnum[]
+  }
+
+  /**
+   * SMSLog findMany
+   */
+  export type SMSLogFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SMSLog
+     */
+    select?: SMSLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SMSLog
+     */
+    omit?: SMSLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SMSLogInclude<ExtArgs> | null
+    /**
+     * Filter, which SMSLogs to fetch.
+     */
+    where?: SMSLogWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of SMSLogs to fetch.
+     */
+    orderBy?: SMSLogOrderByWithRelationInput | SMSLogOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing SMSLogs.
+     */
+    cursor?: SMSLogWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` SMSLogs from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` SMSLogs.
+     */
+    skip?: number
+    distinct?: SMSLogScalarFieldEnum | SMSLogScalarFieldEnum[]
+  }
+
+  /**
+   * SMSLog create
+   */
+  export type SMSLogCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SMSLog
+     */
+    select?: SMSLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SMSLog
+     */
+    omit?: SMSLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SMSLogInclude<ExtArgs> | null
+    /**
+     * The data needed to create a SMSLog.
+     */
+    data: XOR<SMSLogCreateInput, SMSLogUncheckedCreateInput>
+  }
+
+  /**
+   * SMSLog createMany
+   */
+  export type SMSLogCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many SMSLogs.
+     */
+    data: SMSLogCreateManyInput | SMSLogCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * SMSLog createManyAndReturn
+   */
+  export type SMSLogCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SMSLog
+     */
+    select?: SMSLogSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the SMSLog
+     */
+    omit?: SMSLogOmit<ExtArgs> | null
+    /**
+     * The data used to create many SMSLogs.
+     */
+    data: SMSLogCreateManyInput | SMSLogCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SMSLogIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * SMSLog update
+   */
+  export type SMSLogUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SMSLog
+     */
+    select?: SMSLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SMSLog
+     */
+    omit?: SMSLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SMSLogInclude<ExtArgs> | null
+    /**
+     * The data needed to update a SMSLog.
+     */
+    data: XOR<SMSLogUpdateInput, SMSLogUncheckedUpdateInput>
+    /**
+     * Choose, which SMSLog to update.
+     */
+    where: SMSLogWhereUniqueInput
+  }
+
+  /**
+   * SMSLog updateMany
+   */
+  export type SMSLogUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update SMSLogs.
+     */
+    data: XOR<SMSLogUpdateManyMutationInput, SMSLogUncheckedUpdateManyInput>
+    /**
+     * Filter which SMSLogs to update
+     */
+    where?: SMSLogWhereInput
+    /**
+     * Limit how many SMSLogs to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * SMSLog updateManyAndReturn
+   */
+  export type SMSLogUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SMSLog
+     */
+    select?: SMSLogSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the SMSLog
+     */
+    omit?: SMSLogOmit<ExtArgs> | null
+    /**
+     * The data used to update SMSLogs.
+     */
+    data: XOR<SMSLogUpdateManyMutationInput, SMSLogUncheckedUpdateManyInput>
+    /**
+     * Filter which SMSLogs to update
+     */
+    where?: SMSLogWhereInput
+    /**
+     * Limit how many SMSLogs to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SMSLogIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * SMSLog upsert
+   */
+  export type SMSLogUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SMSLog
+     */
+    select?: SMSLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SMSLog
+     */
+    omit?: SMSLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SMSLogInclude<ExtArgs> | null
+    /**
+     * The filter to search for the SMSLog to update in case it exists.
+     */
+    where: SMSLogWhereUniqueInput
+    /**
+     * In case the SMSLog found by the `where` argument doesn't exist, create a new SMSLog with this data.
+     */
+    create: XOR<SMSLogCreateInput, SMSLogUncheckedCreateInput>
+    /**
+     * In case the SMSLog was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<SMSLogUpdateInput, SMSLogUncheckedUpdateInput>
+  }
+
+  /**
+   * SMSLog delete
+   */
+  export type SMSLogDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SMSLog
+     */
+    select?: SMSLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SMSLog
+     */
+    omit?: SMSLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SMSLogInclude<ExtArgs> | null
+    /**
+     * Filter which SMSLog to delete.
+     */
+    where: SMSLogWhereUniqueInput
+  }
+
+  /**
+   * SMSLog deleteMany
+   */
+  export type SMSLogDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which SMSLogs to delete
+     */
+    where?: SMSLogWhereInput
+    /**
+     * Limit how many SMSLogs to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * SMSLog.subscription
+   */
+  export type SMSLog$subscriptionArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Subscription
+     */
+    select?: SubscriptionSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Subscription
+     */
+    omit?: SubscriptionOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SubscriptionInclude<ExtArgs> | null
+    where?: SubscriptionWhereInput
+  }
+
+  /**
+   * SMSLog without action
+   */
+  export type SMSLogDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the SMSLog
+     */
+    select?: SMSLogSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the SMSLog
+     */
+    omit?: SMSLogOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SMSLogInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -19987,6 +21334,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth: 'maxAppointmentsPerMonth',
     maxStaff: 'maxStaff',
     maxServices: 'maxServices',
+    maxSmsPerMonth: 'maxSmsPerMonth',
     maxCustomers: 'maxCustomers',
     allowSmsNotifications: 'allowSmsNotifications',
     allowEmailNotifications: 'allowEmailNotifications',
@@ -20012,7 +21360,9 @@ export namespace Prisma {
     trialEndsAt: 'trialEndsAt',
     isTrialUsed: 'isTrialUsed',
     appointmentsThisMonth: 'appointmentsThisMonth',
+    smsUsedThisMonth: 'smsUsedThisMonth',
     usageResetDate: 'usageResetDate',
+    smsCreditBalance: 'smsCreditBalance',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -20032,6 +21382,24 @@ export namespace Prisma {
   };
 
   export type PushSubscriptionScalarFieldEnum = (typeof PushSubscriptionScalarFieldEnum)[keyof typeof PushSubscriptionScalarFieldEnum]
+
+
+  export const SMSLogScalarFieldEnum: {
+    id: 'id',
+    businessId: 'businessId',
+    subscriptionId: 'subscriptionId',
+    phoneNumber: 'phoneNumber',
+    message: 'message',
+    type: 'type',
+    status: 'status',
+    messageId: 'messageId',
+    provider: 'provider',
+    errorMessage: 'errorMessage',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type SMSLogScalarFieldEnum = (typeof SMSLogScalarFieldEnum)[keyof typeof SMSLogScalarFieldEnum]
 
 
   export const SortOrder: {
@@ -21385,6 +22753,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: IntFilter<"SubscriptionPlan"> | number
     maxStaff?: IntFilter<"SubscriptionPlan"> | number
     maxServices?: IntFilter<"SubscriptionPlan"> | number
+    maxSmsPerMonth?: IntFilter<"SubscriptionPlan"> | number
     maxCustomers?: IntFilter<"SubscriptionPlan"> | number
     allowSmsNotifications?: BoolFilter<"SubscriptionPlan"> | boolean
     allowEmailNotifications?: BoolFilter<"SubscriptionPlan"> | boolean
@@ -21408,6 +22777,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: SortOrder
     maxStaff?: SortOrder
     maxServices?: SortOrder
+    maxSmsPerMonth?: SortOrder
     maxCustomers?: SortOrder
     allowSmsNotifications?: SortOrder
     allowEmailNotifications?: SortOrder
@@ -21434,6 +22804,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: IntFilter<"SubscriptionPlan"> | number
     maxStaff?: IntFilter<"SubscriptionPlan"> | number
     maxServices?: IntFilter<"SubscriptionPlan"> | number
+    maxSmsPerMonth?: IntFilter<"SubscriptionPlan"> | number
     maxCustomers?: IntFilter<"SubscriptionPlan"> | number
     allowSmsNotifications?: BoolFilter<"SubscriptionPlan"> | boolean
     allowEmailNotifications?: BoolFilter<"SubscriptionPlan"> | boolean
@@ -21457,6 +22828,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: SortOrder
     maxStaff?: SortOrder
     maxServices?: SortOrder
+    maxSmsPerMonth?: SortOrder
     maxCustomers?: SortOrder
     allowSmsNotifications?: SortOrder
     allowEmailNotifications?: SortOrder
@@ -21487,6 +22859,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: IntWithAggregatesFilter<"SubscriptionPlan"> | number
     maxStaff?: IntWithAggregatesFilter<"SubscriptionPlan"> | number
     maxServices?: IntWithAggregatesFilter<"SubscriptionPlan"> | number
+    maxSmsPerMonth?: IntWithAggregatesFilter<"SubscriptionPlan"> | number
     maxCustomers?: IntWithAggregatesFilter<"SubscriptionPlan"> | number
     allowSmsNotifications?: BoolWithAggregatesFilter<"SubscriptionPlan"> | boolean
     allowEmailNotifications?: BoolWithAggregatesFilter<"SubscriptionPlan"> | boolean
@@ -21512,12 +22885,15 @@ export namespace Prisma {
     trialEndsAt?: DateTimeNullableFilter<"Subscription"> | Date | string | null
     isTrialUsed?: BoolFilter<"Subscription"> | boolean
     appointmentsThisMonth?: IntFilter<"Subscription"> | number
+    smsUsedThisMonth?: IntFilter<"Subscription"> | number
     usageResetDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    smsCreditBalance?: IntFilter<"Subscription"> | number
     createdAt?: DateTimeFilter<"Subscription"> | Date | string
     updatedAt?: DateTimeFilter<"Subscription"> | Date | string
     business?: XOR<BusinessScalarRelationFilter, BusinessWhereInput>
     plan?: XOR<SubscriptionPlanScalarRelationFilter, SubscriptionPlanWhereInput>
     payments?: PaymentListRelationFilter
+    smsLogs?: SMSLogListRelationFilter
   }
 
   export type SubscriptionOrderByWithRelationInput = {
@@ -21533,12 +22909,15 @@ export namespace Prisma {
     trialEndsAt?: SortOrderInput | SortOrder
     isTrialUsed?: SortOrder
     appointmentsThisMonth?: SortOrder
+    smsUsedThisMonth?: SortOrder
     usageResetDate?: SortOrderInput | SortOrder
+    smsCreditBalance?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     business?: BusinessOrderByWithRelationInput
     plan?: SubscriptionPlanOrderByWithRelationInput
     payments?: PaymentOrderByRelationAggregateInput
+    smsLogs?: SMSLogOrderByRelationAggregateInput
   }
 
   export type SubscriptionWhereUniqueInput = Prisma.AtLeast<{
@@ -21557,12 +22936,15 @@ export namespace Prisma {
     trialEndsAt?: DateTimeNullableFilter<"Subscription"> | Date | string | null
     isTrialUsed?: BoolFilter<"Subscription"> | boolean
     appointmentsThisMonth?: IntFilter<"Subscription"> | number
+    smsUsedThisMonth?: IntFilter<"Subscription"> | number
     usageResetDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    smsCreditBalance?: IntFilter<"Subscription"> | number
     createdAt?: DateTimeFilter<"Subscription"> | Date | string
     updatedAt?: DateTimeFilter<"Subscription"> | Date | string
     business?: XOR<BusinessScalarRelationFilter, BusinessWhereInput>
     plan?: XOR<SubscriptionPlanScalarRelationFilter, SubscriptionPlanWhereInput>
     payments?: PaymentListRelationFilter
+    smsLogs?: SMSLogListRelationFilter
   }, "id" | "businessId">
 
   export type SubscriptionOrderByWithAggregationInput = {
@@ -21578,7 +22960,9 @@ export namespace Prisma {
     trialEndsAt?: SortOrderInput | SortOrder
     isTrialUsed?: SortOrder
     appointmentsThisMonth?: SortOrder
+    smsUsedThisMonth?: SortOrder
     usageResetDate?: SortOrderInput | SortOrder
+    smsCreditBalance?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: SubscriptionCountOrderByAggregateInput
@@ -21604,7 +22988,9 @@ export namespace Prisma {
     trialEndsAt?: DateTimeNullableWithAggregatesFilter<"Subscription"> | Date | string | null
     isTrialUsed?: BoolWithAggregatesFilter<"Subscription"> | boolean
     appointmentsThisMonth?: IntWithAggregatesFilter<"Subscription"> | number
+    smsUsedThisMonth?: IntWithAggregatesFilter<"Subscription"> | number
     usageResetDate?: DateTimeNullableWithAggregatesFilter<"Subscription"> | Date | string | null
+    smsCreditBalance?: IntWithAggregatesFilter<"Subscription"> | number
     createdAt?: DateTimeWithAggregatesFilter<"Subscription"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Subscription"> | Date | string
   }
@@ -21674,6 +23060,96 @@ export namespace Prisma {
     isActive?: BoolWithAggregatesFilter<"PushSubscription"> | boolean
     createdAt?: DateTimeWithAggregatesFilter<"PushSubscription"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"PushSubscription"> | Date | string
+  }
+
+  export type SMSLogWhereInput = {
+    AND?: SMSLogWhereInput | SMSLogWhereInput[]
+    OR?: SMSLogWhereInput[]
+    NOT?: SMSLogWhereInput | SMSLogWhereInput[]
+    id?: StringFilter<"SMSLog"> | string
+    businessId?: StringNullableFilter<"SMSLog"> | string | null
+    subscriptionId?: StringNullableFilter<"SMSLog"> | string | null
+    phoneNumber?: StringFilter<"SMSLog"> | string
+    message?: StringFilter<"SMSLog"> | string
+    type?: StringFilter<"SMSLog"> | string
+    status?: StringFilter<"SMSLog"> | string
+    messageId?: StringNullableFilter<"SMSLog"> | string | null
+    provider?: StringFilter<"SMSLog"> | string
+    errorMessage?: StringNullableFilter<"SMSLog"> | string | null
+    createdAt?: DateTimeFilter<"SMSLog"> | Date | string
+    updatedAt?: DateTimeFilter<"SMSLog"> | Date | string
+    subscription?: XOR<SubscriptionNullableScalarRelationFilter, SubscriptionWhereInput> | null
+  }
+
+  export type SMSLogOrderByWithRelationInput = {
+    id?: SortOrder
+    businessId?: SortOrderInput | SortOrder
+    subscriptionId?: SortOrderInput | SortOrder
+    phoneNumber?: SortOrder
+    message?: SortOrder
+    type?: SortOrder
+    status?: SortOrder
+    messageId?: SortOrderInput | SortOrder
+    provider?: SortOrder
+    errorMessage?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    subscription?: SubscriptionOrderByWithRelationInput
+  }
+
+  export type SMSLogWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: SMSLogWhereInput | SMSLogWhereInput[]
+    OR?: SMSLogWhereInput[]
+    NOT?: SMSLogWhereInput | SMSLogWhereInput[]
+    businessId?: StringNullableFilter<"SMSLog"> | string | null
+    subscriptionId?: StringNullableFilter<"SMSLog"> | string | null
+    phoneNumber?: StringFilter<"SMSLog"> | string
+    message?: StringFilter<"SMSLog"> | string
+    type?: StringFilter<"SMSLog"> | string
+    status?: StringFilter<"SMSLog"> | string
+    messageId?: StringNullableFilter<"SMSLog"> | string | null
+    provider?: StringFilter<"SMSLog"> | string
+    errorMessage?: StringNullableFilter<"SMSLog"> | string | null
+    createdAt?: DateTimeFilter<"SMSLog"> | Date | string
+    updatedAt?: DateTimeFilter<"SMSLog"> | Date | string
+    subscription?: XOR<SubscriptionNullableScalarRelationFilter, SubscriptionWhereInput> | null
+  }, "id">
+
+  export type SMSLogOrderByWithAggregationInput = {
+    id?: SortOrder
+    businessId?: SortOrderInput | SortOrder
+    subscriptionId?: SortOrderInput | SortOrder
+    phoneNumber?: SortOrder
+    message?: SortOrder
+    type?: SortOrder
+    status?: SortOrder
+    messageId?: SortOrderInput | SortOrder
+    provider?: SortOrder
+    errorMessage?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: SMSLogCountOrderByAggregateInput
+    _max?: SMSLogMaxOrderByAggregateInput
+    _min?: SMSLogMinOrderByAggregateInput
+  }
+
+  export type SMSLogScalarWhereWithAggregatesInput = {
+    AND?: SMSLogScalarWhereWithAggregatesInput | SMSLogScalarWhereWithAggregatesInput[]
+    OR?: SMSLogScalarWhereWithAggregatesInput[]
+    NOT?: SMSLogScalarWhereWithAggregatesInput | SMSLogScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"SMSLog"> | string
+    businessId?: StringNullableWithAggregatesFilter<"SMSLog"> | string | null
+    subscriptionId?: StringNullableWithAggregatesFilter<"SMSLog"> | string | null
+    phoneNumber?: StringWithAggregatesFilter<"SMSLog"> | string
+    message?: StringWithAggregatesFilter<"SMSLog"> | string
+    type?: StringWithAggregatesFilter<"SMSLog"> | string
+    status?: StringWithAggregatesFilter<"SMSLog"> | string
+    messageId?: StringNullableWithAggregatesFilter<"SMSLog"> | string | null
+    provider?: StringWithAggregatesFilter<"SMSLog"> | string
+    errorMessage?: StringNullableWithAggregatesFilter<"SMSLog"> | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"SMSLog"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"SMSLog"> | Date | string
   }
 
   export type UserCreateInput = {
@@ -22971,6 +24447,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: number
     maxStaff?: number
     maxServices?: number
+    maxSmsPerMonth?: number
     maxCustomers?: number
     allowSmsNotifications?: boolean
     allowEmailNotifications?: boolean
@@ -22994,6 +24471,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: number
     maxStaff?: number
     maxServices?: number
+    maxSmsPerMonth?: number
     maxCustomers?: number
     allowSmsNotifications?: boolean
     allowEmailNotifications?: boolean
@@ -23017,6 +24495,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: IntFieldUpdateOperationsInput | number
     maxStaff?: IntFieldUpdateOperationsInput | number
     maxServices?: IntFieldUpdateOperationsInput | number
+    maxSmsPerMonth?: IntFieldUpdateOperationsInput | number
     maxCustomers?: IntFieldUpdateOperationsInput | number
     allowSmsNotifications?: BoolFieldUpdateOperationsInput | boolean
     allowEmailNotifications?: BoolFieldUpdateOperationsInput | boolean
@@ -23040,6 +24519,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: IntFieldUpdateOperationsInput | number
     maxStaff?: IntFieldUpdateOperationsInput | number
     maxServices?: IntFieldUpdateOperationsInput | number
+    maxSmsPerMonth?: IntFieldUpdateOperationsInput | number
     maxCustomers?: IntFieldUpdateOperationsInput | number
     allowSmsNotifications?: BoolFieldUpdateOperationsInput | boolean
     allowEmailNotifications?: BoolFieldUpdateOperationsInput | boolean
@@ -23063,6 +24543,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: number
     maxStaff?: number
     maxServices?: number
+    maxSmsPerMonth?: number
     maxCustomers?: number
     allowSmsNotifications?: boolean
     allowEmailNotifications?: boolean
@@ -23085,6 +24566,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: IntFieldUpdateOperationsInput | number
     maxStaff?: IntFieldUpdateOperationsInput | number
     maxServices?: IntFieldUpdateOperationsInput | number
+    maxSmsPerMonth?: IntFieldUpdateOperationsInput | number
     maxCustomers?: IntFieldUpdateOperationsInput | number
     allowSmsNotifications?: BoolFieldUpdateOperationsInput | boolean
     allowEmailNotifications?: BoolFieldUpdateOperationsInput | boolean
@@ -23107,6 +24589,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: IntFieldUpdateOperationsInput | number
     maxStaff?: IntFieldUpdateOperationsInput | number
     maxServices?: IntFieldUpdateOperationsInput | number
+    maxSmsPerMonth?: IntFieldUpdateOperationsInput | number
     maxCustomers?: IntFieldUpdateOperationsInput | number
     allowSmsNotifications?: BoolFieldUpdateOperationsInput | boolean
     allowEmailNotifications?: BoolFieldUpdateOperationsInput | boolean
@@ -23127,12 +24610,15 @@ export namespace Prisma {
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
     appointmentsThisMonth?: number
+    smsUsedThisMonth?: number
     usageResetDate?: Date | string | null
+    smsCreditBalance?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     business: BusinessCreateNestedOneWithoutSubscriptionInput
     plan: SubscriptionPlanCreateNestedOneWithoutSubscriptionsInput
     payments?: PaymentCreateNestedManyWithoutSubscriptionInput
+    smsLogs?: SMSLogCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionUncheckedCreateInput = {
@@ -23148,10 +24634,13 @@ export namespace Prisma {
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
     appointmentsThisMonth?: number
+    smsUsedThisMonth?: number
     usageResetDate?: Date | string | null
+    smsCreditBalance?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     payments?: PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
+    smsLogs?: SMSLogUncheckedCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionUpdateInput = {
@@ -23165,12 +24654,15 @@ export namespace Prisma {
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    smsUsedThisMonth?: IntFieldUpdateOperationsInput | number
     usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    smsCreditBalance?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     business?: BusinessUpdateOneRequiredWithoutSubscriptionNestedInput
     plan?: SubscriptionPlanUpdateOneRequiredWithoutSubscriptionsNestedInput
     payments?: PaymentUpdateManyWithoutSubscriptionNestedInput
+    smsLogs?: SMSLogUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type SubscriptionUncheckedUpdateInput = {
@@ -23186,10 +24678,13 @@ export namespace Prisma {
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    smsUsedThisMonth?: IntFieldUpdateOperationsInput | number
     usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    smsCreditBalance?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     payments?: PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
+    smsLogs?: SMSLogUncheckedUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type SubscriptionCreateManyInput = {
@@ -23205,7 +24700,9 @@ export namespace Prisma {
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
     appointmentsThisMonth?: number
+    smsUsedThisMonth?: number
     usageResetDate?: Date | string | null
+    smsCreditBalance?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -23221,7 +24718,9 @@ export namespace Prisma {
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    smsUsedThisMonth?: IntFieldUpdateOperationsInput | number
     usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    smsCreditBalance?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -23239,7 +24738,9 @@ export namespace Prisma {
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    smsUsedThisMonth?: IntFieldUpdateOperationsInput | number
     usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    smsCreditBalance?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -23317,6 +24818,110 @@ export namespace Prisma {
     auth?: StringFieldUpdateOperationsInput | string
     p256dh?: StringFieldUpdateOperationsInput | string
     isActive?: BoolFieldUpdateOperationsInput | boolean
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type SMSLogCreateInput = {
+    id?: string
+    businessId?: string | null
+    phoneNumber: string
+    message: string
+    type: string
+    status: string
+    messageId?: string | null
+    provider?: string
+    errorMessage?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    subscription?: SubscriptionCreateNestedOneWithoutSmsLogsInput
+  }
+
+  export type SMSLogUncheckedCreateInput = {
+    id?: string
+    businessId?: string | null
+    subscriptionId?: string | null
+    phoneNumber: string
+    message: string
+    type: string
+    status: string
+    messageId?: string | null
+    provider?: string
+    errorMessage?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type SMSLogUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneNumber?: StringFieldUpdateOperationsInput | string
+    message?: StringFieldUpdateOperationsInput | string
+    type?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    messageId?: NullableStringFieldUpdateOperationsInput | string | null
+    provider?: StringFieldUpdateOperationsInput | string
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    subscription?: SubscriptionUpdateOneWithoutSmsLogsNestedInput
+  }
+
+  export type SMSLogUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: NullableStringFieldUpdateOperationsInput | string | null
+    subscriptionId?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneNumber?: StringFieldUpdateOperationsInput | string
+    message?: StringFieldUpdateOperationsInput | string
+    type?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    messageId?: NullableStringFieldUpdateOperationsInput | string | null
+    provider?: StringFieldUpdateOperationsInput | string
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type SMSLogCreateManyInput = {
+    id?: string
+    businessId?: string | null
+    subscriptionId?: string | null
+    phoneNumber: string
+    message: string
+    type: string
+    status: string
+    messageId?: string | null
+    provider?: string
+    errorMessage?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type SMSLogUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneNumber?: StringFieldUpdateOperationsInput | string
+    message?: StringFieldUpdateOperationsInput | string
+    type?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    messageId?: NullableStringFieldUpdateOperationsInput | string | null
+    provider?: StringFieldUpdateOperationsInput | string
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type SMSLogUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: NullableStringFieldUpdateOperationsInput | string | null
+    subscriptionId?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneNumber?: StringFieldUpdateOperationsInput | string
+    message?: StringFieldUpdateOperationsInput | string
+    type?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    messageId?: NullableStringFieldUpdateOperationsInput | string | null
+    provider?: StringFieldUpdateOperationsInput | string
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -24425,6 +26030,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: SortOrder
     maxStaff?: SortOrder
     maxServices?: SortOrder
+    maxSmsPerMonth?: SortOrder
     maxCustomers?: SortOrder
     allowSmsNotifications?: SortOrder
     allowEmailNotifications?: SortOrder
@@ -24440,6 +26046,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: SortOrder
     maxStaff?: SortOrder
     maxServices?: SortOrder
+    maxSmsPerMonth?: SortOrder
     maxCustomers?: SortOrder
   }
 
@@ -24455,6 +26062,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: SortOrder
     maxStaff?: SortOrder
     maxServices?: SortOrder
+    maxSmsPerMonth?: SortOrder
     maxCustomers?: SortOrder
     allowSmsNotifications?: SortOrder
     allowEmailNotifications?: SortOrder
@@ -24476,6 +26084,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: SortOrder
     maxStaff?: SortOrder
     maxServices?: SortOrder
+    maxSmsPerMonth?: SortOrder
     maxCustomers?: SortOrder
     allowSmsNotifications?: SortOrder
     allowEmailNotifications?: SortOrder
@@ -24491,6 +26100,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: SortOrder
     maxStaff?: SortOrder
     maxServices?: SortOrder
+    maxSmsPerMonth?: SortOrder
     maxCustomers?: SortOrder
   }
 
@@ -24506,6 +26116,16 @@ export namespace Prisma {
     isNot?: SubscriptionPlanWhereInput
   }
 
+  export type SMSLogListRelationFilter = {
+    every?: SMSLogWhereInput
+    some?: SMSLogWhereInput
+    none?: SMSLogWhereInput
+  }
+
+  export type SMSLogOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
   export type SubscriptionCountOrderByAggregateInput = {
     id?: SortOrder
     businessId?: SortOrder
@@ -24519,13 +26139,17 @@ export namespace Prisma {
     trialEndsAt?: SortOrder
     isTrialUsed?: SortOrder
     appointmentsThisMonth?: SortOrder
+    smsUsedThisMonth?: SortOrder
     usageResetDate?: SortOrder
+    smsCreditBalance?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
 
   export type SubscriptionAvgOrderByAggregateInput = {
     appointmentsThisMonth?: SortOrder
+    smsUsedThisMonth?: SortOrder
+    smsCreditBalance?: SortOrder
   }
 
   export type SubscriptionMaxOrderByAggregateInput = {
@@ -24541,7 +26165,9 @@ export namespace Prisma {
     trialEndsAt?: SortOrder
     isTrialUsed?: SortOrder
     appointmentsThisMonth?: SortOrder
+    smsUsedThisMonth?: SortOrder
     usageResetDate?: SortOrder
+    smsCreditBalance?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -24559,13 +26185,17 @@ export namespace Prisma {
     trialEndsAt?: SortOrder
     isTrialUsed?: SortOrder
     appointmentsThisMonth?: SortOrder
+    smsUsedThisMonth?: SortOrder
     usageResetDate?: SortOrder
+    smsCreditBalance?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
 
   export type SubscriptionSumOrderByAggregateInput = {
     appointmentsThisMonth?: SortOrder
+    smsUsedThisMonth?: SortOrder
+    smsCreditBalance?: SortOrder
   }
 
   export type EnumSubscriptionStatusWithAggregatesFilter<$PrismaModel = never> = {
@@ -24607,6 +26237,51 @@ export namespace Prisma {
     auth?: SortOrder
     p256dh?: SortOrder
     isActive?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type SMSLogCountOrderByAggregateInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    subscriptionId?: SortOrder
+    phoneNumber?: SortOrder
+    message?: SortOrder
+    type?: SortOrder
+    status?: SortOrder
+    messageId?: SortOrder
+    provider?: SortOrder
+    errorMessage?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type SMSLogMaxOrderByAggregateInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    subscriptionId?: SortOrder
+    phoneNumber?: SortOrder
+    message?: SortOrder
+    type?: SortOrder
+    status?: SortOrder
+    messageId?: SortOrder
+    provider?: SortOrder
+    errorMessage?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type SMSLogMinOrderByAggregateInput = {
+    id?: SortOrder
+    businessId?: SortOrder
+    subscriptionId?: SortOrder
+    phoneNumber?: SortOrder
+    message?: SortOrder
+    type?: SortOrder
+    status?: SortOrder
+    messageId?: SortOrder
+    provider?: SortOrder
+    errorMessage?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -25785,11 +27460,25 @@ export namespace Prisma {
     connect?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[]
   }
 
+  export type SMSLogCreateNestedManyWithoutSubscriptionInput = {
+    create?: XOR<SMSLogCreateWithoutSubscriptionInput, SMSLogUncheckedCreateWithoutSubscriptionInput> | SMSLogCreateWithoutSubscriptionInput[] | SMSLogUncheckedCreateWithoutSubscriptionInput[]
+    connectOrCreate?: SMSLogCreateOrConnectWithoutSubscriptionInput | SMSLogCreateOrConnectWithoutSubscriptionInput[]
+    createMany?: SMSLogCreateManySubscriptionInputEnvelope
+    connect?: SMSLogWhereUniqueInput | SMSLogWhereUniqueInput[]
+  }
+
   export type PaymentUncheckedCreateNestedManyWithoutSubscriptionInput = {
     create?: XOR<PaymentCreateWithoutSubscriptionInput, PaymentUncheckedCreateWithoutSubscriptionInput> | PaymentCreateWithoutSubscriptionInput[] | PaymentUncheckedCreateWithoutSubscriptionInput[]
     connectOrCreate?: PaymentCreateOrConnectWithoutSubscriptionInput | PaymentCreateOrConnectWithoutSubscriptionInput[]
     createMany?: PaymentCreateManySubscriptionInputEnvelope
     connect?: PaymentWhereUniqueInput | PaymentWhereUniqueInput[]
+  }
+
+  export type SMSLogUncheckedCreateNestedManyWithoutSubscriptionInput = {
+    create?: XOR<SMSLogCreateWithoutSubscriptionInput, SMSLogUncheckedCreateWithoutSubscriptionInput> | SMSLogCreateWithoutSubscriptionInput[] | SMSLogUncheckedCreateWithoutSubscriptionInput[]
+    connectOrCreate?: SMSLogCreateOrConnectWithoutSubscriptionInput | SMSLogCreateOrConnectWithoutSubscriptionInput[]
+    createMany?: SMSLogCreateManySubscriptionInputEnvelope
+    connect?: SMSLogWhereUniqueInput | SMSLogWhereUniqueInput[]
   }
 
   export type EnumSubscriptionStatusFieldUpdateOperationsInput = {
@@ -25826,6 +27515,20 @@ export namespace Prisma {
     deleteMany?: PaymentScalarWhereInput | PaymentScalarWhereInput[]
   }
 
+  export type SMSLogUpdateManyWithoutSubscriptionNestedInput = {
+    create?: XOR<SMSLogCreateWithoutSubscriptionInput, SMSLogUncheckedCreateWithoutSubscriptionInput> | SMSLogCreateWithoutSubscriptionInput[] | SMSLogUncheckedCreateWithoutSubscriptionInput[]
+    connectOrCreate?: SMSLogCreateOrConnectWithoutSubscriptionInput | SMSLogCreateOrConnectWithoutSubscriptionInput[]
+    upsert?: SMSLogUpsertWithWhereUniqueWithoutSubscriptionInput | SMSLogUpsertWithWhereUniqueWithoutSubscriptionInput[]
+    createMany?: SMSLogCreateManySubscriptionInputEnvelope
+    set?: SMSLogWhereUniqueInput | SMSLogWhereUniqueInput[]
+    disconnect?: SMSLogWhereUniqueInput | SMSLogWhereUniqueInput[]
+    delete?: SMSLogWhereUniqueInput | SMSLogWhereUniqueInput[]
+    connect?: SMSLogWhereUniqueInput | SMSLogWhereUniqueInput[]
+    update?: SMSLogUpdateWithWhereUniqueWithoutSubscriptionInput | SMSLogUpdateWithWhereUniqueWithoutSubscriptionInput[]
+    updateMany?: SMSLogUpdateManyWithWhereWithoutSubscriptionInput | SMSLogUpdateManyWithWhereWithoutSubscriptionInput[]
+    deleteMany?: SMSLogScalarWhereInput | SMSLogScalarWhereInput[]
+  }
+
   export type PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput = {
     create?: XOR<PaymentCreateWithoutSubscriptionInput, PaymentUncheckedCreateWithoutSubscriptionInput> | PaymentCreateWithoutSubscriptionInput[] | PaymentUncheckedCreateWithoutSubscriptionInput[]
     connectOrCreate?: PaymentCreateOrConnectWithoutSubscriptionInput | PaymentCreateOrConnectWithoutSubscriptionInput[]
@@ -25838,6 +27541,36 @@ export namespace Prisma {
     update?: PaymentUpdateWithWhereUniqueWithoutSubscriptionInput | PaymentUpdateWithWhereUniqueWithoutSubscriptionInput[]
     updateMany?: PaymentUpdateManyWithWhereWithoutSubscriptionInput | PaymentUpdateManyWithWhereWithoutSubscriptionInput[]
     deleteMany?: PaymentScalarWhereInput | PaymentScalarWhereInput[]
+  }
+
+  export type SMSLogUncheckedUpdateManyWithoutSubscriptionNestedInput = {
+    create?: XOR<SMSLogCreateWithoutSubscriptionInput, SMSLogUncheckedCreateWithoutSubscriptionInput> | SMSLogCreateWithoutSubscriptionInput[] | SMSLogUncheckedCreateWithoutSubscriptionInput[]
+    connectOrCreate?: SMSLogCreateOrConnectWithoutSubscriptionInput | SMSLogCreateOrConnectWithoutSubscriptionInput[]
+    upsert?: SMSLogUpsertWithWhereUniqueWithoutSubscriptionInput | SMSLogUpsertWithWhereUniqueWithoutSubscriptionInput[]
+    createMany?: SMSLogCreateManySubscriptionInputEnvelope
+    set?: SMSLogWhereUniqueInput | SMSLogWhereUniqueInput[]
+    disconnect?: SMSLogWhereUniqueInput | SMSLogWhereUniqueInput[]
+    delete?: SMSLogWhereUniqueInput | SMSLogWhereUniqueInput[]
+    connect?: SMSLogWhereUniqueInput | SMSLogWhereUniqueInput[]
+    update?: SMSLogUpdateWithWhereUniqueWithoutSubscriptionInput | SMSLogUpdateWithWhereUniqueWithoutSubscriptionInput[]
+    updateMany?: SMSLogUpdateManyWithWhereWithoutSubscriptionInput | SMSLogUpdateManyWithWhereWithoutSubscriptionInput[]
+    deleteMany?: SMSLogScalarWhereInput | SMSLogScalarWhereInput[]
+  }
+
+  export type SubscriptionCreateNestedOneWithoutSmsLogsInput = {
+    create?: XOR<SubscriptionCreateWithoutSmsLogsInput, SubscriptionUncheckedCreateWithoutSmsLogsInput>
+    connectOrCreate?: SubscriptionCreateOrConnectWithoutSmsLogsInput
+    connect?: SubscriptionWhereUniqueInput
+  }
+
+  export type SubscriptionUpdateOneWithoutSmsLogsNestedInput = {
+    create?: XOR<SubscriptionCreateWithoutSmsLogsInput, SubscriptionUncheckedCreateWithoutSmsLogsInput>
+    connectOrCreate?: SubscriptionCreateOrConnectWithoutSmsLogsInput
+    upsert?: SubscriptionUpsertWithoutSmsLogsInput
+    disconnect?: SubscriptionWhereInput | boolean
+    delete?: SubscriptionWhereInput | boolean
+    connect?: SubscriptionWhereUniqueInput
+    update?: XOR<XOR<SubscriptionUpdateToOneWithWhereWithoutSmsLogsInput, SubscriptionUpdateWithoutSmsLogsInput>, SubscriptionUncheckedUpdateWithoutSmsLogsInput>
   }
 
   export type NestedStringFilter<$PrismaModel = never> = {
@@ -26584,11 +28317,14 @@ export namespace Prisma {
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
     appointmentsThisMonth?: number
+    smsUsedThisMonth?: number
     usageResetDate?: Date | string | null
+    smsCreditBalance?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     plan: SubscriptionPlanCreateNestedOneWithoutSubscriptionsInput
     payments?: PaymentCreateNestedManyWithoutSubscriptionInput
+    smsLogs?: SMSLogCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionUncheckedCreateWithoutBusinessInput = {
@@ -26603,10 +28339,13 @@ export namespace Prisma {
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
     appointmentsThisMonth?: number
+    smsUsedThisMonth?: number
     usageResetDate?: Date | string | null
+    smsCreditBalance?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     payments?: PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
+    smsLogs?: SMSLogUncheckedCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionCreateOrConnectWithoutBusinessInput = {
@@ -26987,11 +28726,14 @@ export namespace Prisma {
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    smsUsedThisMonth?: IntFieldUpdateOperationsInput | number
     usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    smsCreditBalance?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     plan?: SubscriptionPlanUpdateOneRequiredWithoutSubscriptionsNestedInput
     payments?: PaymentUpdateManyWithoutSubscriptionNestedInput
+    smsLogs?: SMSLogUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type SubscriptionUncheckedUpdateWithoutBusinessInput = {
@@ -27006,10 +28748,13 @@ export namespace Prisma {
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    smsUsedThisMonth?: IntFieldUpdateOperationsInput | number
     usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    smsCreditBalance?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     payments?: PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
+    smsLogs?: SMSLogUncheckedUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type ServiceUpsertWithWhereUniqueWithoutBusinessInput = {
@@ -28869,11 +30614,14 @@ export namespace Prisma {
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
     appointmentsThisMonth?: number
+    smsUsedThisMonth?: number
     usageResetDate?: Date | string | null
+    smsCreditBalance?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     business: BusinessCreateNestedOneWithoutSubscriptionInput
     plan: SubscriptionPlanCreateNestedOneWithoutSubscriptionsInput
+    smsLogs?: SMSLogCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionUncheckedCreateWithoutPaymentsInput = {
@@ -28889,9 +30637,12 @@ export namespace Prisma {
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
     appointmentsThisMonth?: number
+    smsUsedThisMonth?: number
     usageResetDate?: Date | string | null
+    smsCreditBalance?: number
     createdAt?: Date | string
     updatedAt?: Date | string
+    smsLogs?: SMSLogUncheckedCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionCreateOrConnectWithoutPaymentsInput = {
@@ -29045,11 +30796,14 @@ export namespace Prisma {
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    smsUsedThisMonth?: IntFieldUpdateOperationsInput | number
     usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    smsCreditBalance?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     business?: BusinessUpdateOneRequiredWithoutSubscriptionNestedInput
     plan?: SubscriptionPlanUpdateOneRequiredWithoutSubscriptionsNestedInput
+    smsLogs?: SMSLogUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type SubscriptionUncheckedUpdateWithoutPaymentsInput = {
@@ -29065,9 +30819,12 @@ export namespace Prisma {
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    smsUsedThisMonth?: IntFieldUpdateOperationsInput | number
     usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    smsCreditBalance?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    smsLogs?: SMSLogUncheckedUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type BusinessCreateWithoutReviewsInput = {
@@ -29709,11 +31466,14 @@ export namespace Prisma {
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
     appointmentsThisMonth?: number
+    smsUsedThisMonth?: number
     usageResetDate?: Date | string | null
+    smsCreditBalance?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     business: BusinessCreateNestedOneWithoutSubscriptionInput
     payments?: PaymentCreateNestedManyWithoutSubscriptionInput
+    smsLogs?: SMSLogCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionUncheckedCreateWithoutPlanInput = {
@@ -29728,10 +31488,13 @@ export namespace Prisma {
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
     appointmentsThisMonth?: number
+    smsUsedThisMonth?: number
     usageResetDate?: Date | string | null
+    smsCreditBalance?: number
     createdAt?: Date | string
     updatedAt?: Date | string
     payments?: PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
+    smsLogs?: SMSLogUncheckedCreateNestedManyWithoutSubscriptionInput
   }
 
   export type SubscriptionCreateOrConnectWithoutPlanInput = {
@@ -29776,7 +31539,9 @@ export namespace Prisma {
     trialEndsAt?: DateTimeNullableFilter<"Subscription"> | Date | string | null
     isTrialUsed?: BoolFilter<"Subscription"> | boolean
     appointmentsThisMonth?: IntFilter<"Subscription"> | number
+    smsUsedThisMonth?: IntFilter<"Subscription"> | number
     usageResetDate?: DateTimeNullableFilter<"Subscription"> | Date | string | null
+    smsCreditBalance?: IntFilter<"Subscription"> | number
     createdAt?: DateTimeFilter<"Subscription"> | Date | string
     updatedAt?: DateTimeFilter<"Subscription"> | Date | string
   }
@@ -29863,6 +31628,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: number
     maxStaff?: number
     maxServices?: number
+    maxSmsPerMonth?: number
     maxCustomers?: number
     allowSmsNotifications?: boolean
     allowEmailNotifications?: boolean
@@ -29885,6 +31651,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: number
     maxStaff?: number
     maxServices?: number
+    maxSmsPerMonth?: number
     maxCustomers?: number
     allowSmsNotifications?: boolean
     allowEmailNotifications?: boolean
@@ -29950,6 +31717,44 @@ export namespace Prisma {
 
   export type PaymentCreateManySubscriptionInputEnvelope = {
     data: PaymentCreateManySubscriptionInput | PaymentCreateManySubscriptionInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type SMSLogCreateWithoutSubscriptionInput = {
+    id?: string
+    businessId?: string | null
+    phoneNumber: string
+    message: string
+    type: string
+    status: string
+    messageId?: string | null
+    provider?: string
+    errorMessage?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type SMSLogUncheckedCreateWithoutSubscriptionInput = {
+    id?: string
+    businessId?: string | null
+    phoneNumber: string
+    message: string
+    type: string
+    status: string
+    messageId?: string | null
+    provider?: string
+    errorMessage?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type SMSLogCreateOrConnectWithoutSubscriptionInput = {
+    where: SMSLogWhereUniqueInput
+    create: XOR<SMSLogCreateWithoutSubscriptionInput, SMSLogUncheckedCreateWithoutSubscriptionInput>
+  }
+
+  export type SMSLogCreateManySubscriptionInputEnvelope = {
+    data: SMSLogCreateManySubscriptionInput | SMSLogCreateManySubscriptionInput[]
     skipDuplicates?: boolean
   }
 
@@ -30052,6 +31857,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: IntFieldUpdateOperationsInput | number
     maxStaff?: IntFieldUpdateOperationsInput | number
     maxServices?: IntFieldUpdateOperationsInput | number
+    maxSmsPerMonth?: IntFieldUpdateOperationsInput | number
     maxCustomers?: IntFieldUpdateOperationsInput | number
     allowSmsNotifications?: BoolFieldUpdateOperationsInput | boolean
     allowEmailNotifications?: BoolFieldUpdateOperationsInput | boolean
@@ -30074,6 +31880,7 @@ export namespace Prisma {
     maxAppointmentsPerMonth?: IntFieldUpdateOperationsInput | number
     maxStaff?: IntFieldUpdateOperationsInput | number
     maxServices?: IntFieldUpdateOperationsInput | number
+    maxSmsPerMonth?: IntFieldUpdateOperationsInput | number
     maxCustomers?: IntFieldUpdateOperationsInput | number
     allowSmsNotifications?: BoolFieldUpdateOperationsInput | boolean
     allowEmailNotifications?: BoolFieldUpdateOperationsInput | boolean
@@ -30097,6 +31904,140 @@ export namespace Prisma {
   export type PaymentUpdateManyWithWhereWithoutSubscriptionInput = {
     where: PaymentScalarWhereInput
     data: XOR<PaymentUpdateManyMutationInput, PaymentUncheckedUpdateManyWithoutSubscriptionInput>
+  }
+
+  export type SMSLogUpsertWithWhereUniqueWithoutSubscriptionInput = {
+    where: SMSLogWhereUniqueInput
+    update: XOR<SMSLogUpdateWithoutSubscriptionInput, SMSLogUncheckedUpdateWithoutSubscriptionInput>
+    create: XOR<SMSLogCreateWithoutSubscriptionInput, SMSLogUncheckedCreateWithoutSubscriptionInput>
+  }
+
+  export type SMSLogUpdateWithWhereUniqueWithoutSubscriptionInput = {
+    where: SMSLogWhereUniqueInput
+    data: XOR<SMSLogUpdateWithoutSubscriptionInput, SMSLogUncheckedUpdateWithoutSubscriptionInput>
+  }
+
+  export type SMSLogUpdateManyWithWhereWithoutSubscriptionInput = {
+    where: SMSLogScalarWhereInput
+    data: XOR<SMSLogUpdateManyMutationInput, SMSLogUncheckedUpdateManyWithoutSubscriptionInput>
+  }
+
+  export type SMSLogScalarWhereInput = {
+    AND?: SMSLogScalarWhereInput | SMSLogScalarWhereInput[]
+    OR?: SMSLogScalarWhereInput[]
+    NOT?: SMSLogScalarWhereInput | SMSLogScalarWhereInput[]
+    id?: StringFilter<"SMSLog"> | string
+    businessId?: StringNullableFilter<"SMSLog"> | string | null
+    subscriptionId?: StringNullableFilter<"SMSLog"> | string | null
+    phoneNumber?: StringFilter<"SMSLog"> | string
+    message?: StringFilter<"SMSLog"> | string
+    type?: StringFilter<"SMSLog"> | string
+    status?: StringFilter<"SMSLog"> | string
+    messageId?: StringNullableFilter<"SMSLog"> | string | null
+    provider?: StringFilter<"SMSLog"> | string
+    errorMessage?: StringNullableFilter<"SMSLog"> | string | null
+    createdAt?: DateTimeFilter<"SMSLog"> | Date | string
+    updatedAt?: DateTimeFilter<"SMSLog"> | Date | string
+  }
+
+  export type SubscriptionCreateWithoutSmsLogsInput = {
+    id?: string
+    status?: $Enums.SubscriptionStatus
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    autoRenew?: boolean
+    lastPaymentId?: string | null
+    nextRenewalDate?: Date | string | null
+    trialEndsAt?: Date | string | null
+    isTrialUsed?: boolean
+    appointmentsThisMonth?: number
+    smsUsedThisMonth?: number
+    usageResetDate?: Date | string | null
+    smsCreditBalance?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    business: BusinessCreateNestedOneWithoutSubscriptionInput
+    plan: SubscriptionPlanCreateNestedOneWithoutSubscriptionsInput
+    payments?: PaymentCreateNestedManyWithoutSubscriptionInput
+  }
+
+  export type SubscriptionUncheckedCreateWithoutSmsLogsInput = {
+    id?: string
+    businessId: string
+    planId: string
+    status?: $Enums.SubscriptionStatus
+    startDate?: Date | string | null
+    endDate?: Date | string | null
+    autoRenew?: boolean
+    lastPaymentId?: string | null
+    nextRenewalDate?: Date | string | null
+    trialEndsAt?: Date | string | null
+    isTrialUsed?: boolean
+    appointmentsThisMonth?: number
+    smsUsedThisMonth?: number
+    usageResetDate?: Date | string | null
+    smsCreditBalance?: number
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    payments?: PaymentUncheckedCreateNestedManyWithoutSubscriptionInput
+  }
+
+  export type SubscriptionCreateOrConnectWithoutSmsLogsInput = {
+    where: SubscriptionWhereUniqueInput
+    create: XOR<SubscriptionCreateWithoutSmsLogsInput, SubscriptionUncheckedCreateWithoutSmsLogsInput>
+  }
+
+  export type SubscriptionUpsertWithoutSmsLogsInput = {
+    update: XOR<SubscriptionUpdateWithoutSmsLogsInput, SubscriptionUncheckedUpdateWithoutSmsLogsInput>
+    create: XOR<SubscriptionCreateWithoutSmsLogsInput, SubscriptionUncheckedCreateWithoutSmsLogsInput>
+    where?: SubscriptionWhereInput
+  }
+
+  export type SubscriptionUpdateToOneWithWhereWithoutSmsLogsInput = {
+    where?: SubscriptionWhereInput
+    data: XOR<SubscriptionUpdateWithoutSmsLogsInput, SubscriptionUncheckedUpdateWithoutSmsLogsInput>
+  }
+
+  export type SubscriptionUpdateWithoutSmsLogsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    status?: EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    autoRenew?: BoolFieldUpdateOperationsInput | boolean
+    lastPaymentId?: NullableStringFieldUpdateOperationsInput | string | null
+    nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    smsUsedThisMonth?: IntFieldUpdateOperationsInput | number
+    usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    smsCreditBalance?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    business?: BusinessUpdateOneRequiredWithoutSubscriptionNestedInput
+    plan?: SubscriptionPlanUpdateOneRequiredWithoutSubscriptionsNestedInput
+    payments?: PaymentUpdateManyWithoutSubscriptionNestedInput
+  }
+
+  export type SubscriptionUncheckedUpdateWithoutSmsLogsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: StringFieldUpdateOperationsInput | string
+    planId?: StringFieldUpdateOperationsInput | string
+    status?: EnumSubscriptionStatusFieldUpdateOperationsInput | $Enums.SubscriptionStatus
+    startDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    endDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    autoRenew?: BoolFieldUpdateOperationsInput | boolean
+    lastPaymentId?: NullableStringFieldUpdateOperationsInput | string | null
+    nextRenewalDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
+    appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    smsUsedThisMonth?: IntFieldUpdateOperationsInput | number
+    usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    smsCreditBalance?: IntFieldUpdateOperationsInput | number
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    payments?: PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type BookingCreateManyUserInput = {
@@ -30985,7 +32926,9 @@ export namespace Prisma {
     trialEndsAt?: Date | string | null
     isTrialUsed?: boolean
     appointmentsThisMonth?: number
+    smsUsedThisMonth?: number
     usageResetDate?: Date | string | null
+    smsCreditBalance?: number
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -31001,11 +32944,14 @@ export namespace Prisma {
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    smsUsedThisMonth?: IntFieldUpdateOperationsInput | number
     usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    smsCreditBalance?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     business?: BusinessUpdateOneRequiredWithoutSubscriptionNestedInput
     payments?: PaymentUpdateManyWithoutSubscriptionNestedInput
+    smsLogs?: SMSLogUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type SubscriptionUncheckedUpdateWithoutPlanInput = {
@@ -31020,10 +32966,13 @@ export namespace Prisma {
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    smsUsedThisMonth?: IntFieldUpdateOperationsInput | number
     usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    smsCreditBalance?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     payments?: PaymentUncheckedUpdateManyWithoutSubscriptionNestedInput
+    smsLogs?: SMSLogUncheckedUpdateManyWithoutSubscriptionNestedInput
   }
 
   export type SubscriptionUncheckedUpdateManyWithoutPlanInput = {
@@ -31038,7 +32987,9 @@ export namespace Prisma {
     trialEndsAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     isTrialUsed?: BoolFieldUpdateOperationsInput | boolean
     appointmentsThisMonth?: IntFieldUpdateOperationsInput | number
+    smsUsedThisMonth?: IntFieldUpdateOperationsInput | number
     usageResetDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    smsCreditBalance?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -31061,6 +33012,20 @@ export namespace Prisma {
     payload?: NullableJsonNullValueInput | InputJsonValue
     errorMessage?: string | null
     currency?: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type SMSLogCreateManySubscriptionInput = {
+    id?: string
+    businessId?: string | null
+    phoneNumber: string
+    message: string
+    type: string
+    status: string
+    messageId?: string | null
+    provider?: string
+    errorMessage?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -31127,6 +33092,48 @@ export namespace Prisma {
     payload?: NullableJsonNullValueInput | InputJsonValue
     errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     currency?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type SMSLogUpdateWithoutSubscriptionInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneNumber?: StringFieldUpdateOperationsInput | string
+    message?: StringFieldUpdateOperationsInput | string
+    type?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    messageId?: NullableStringFieldUpdateOperationsInput | string | null
+    provider?: StringFieldUpdateOperationsInput | string
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type SMSLogUncheckedUpdateWithoutSubscriptionInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneNumber?: StringFieldUpdateOperationsInput | string
+    message?: StringFieldUpdateOperationsInput | string
+    type?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    messageId?: NullableStringFieldUpdateOperationsInput | string | null
+    provider?: StringFieldUpdateOperationsInput | string
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type SMSLogUncheckedUpdateManyWithoutSubscriptionInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    businessId?: NullableStringFieldUpdateOperationsInput | string | null
+    phoneNumber?: StringFieldUpdateOperationsInput | string
+    message?: StringFieldUpdateOperationsInput | string
+    type?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    messageId?: NullableStringFieldUpdateOperationsInput | string | null
+    provider?: StringFieldUpdateOperationsInput | string
+    errorMessage?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

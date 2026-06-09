@@ -598,3 +598,58 @@ export const staffApi = {
     return apiCall<{ stats: any }>(url)
   },
 }
+
+// SMS API - /api/sms prefix
+export const smsApi = {
+  // Send test SMS
+  sendTest: (phoneNumber: string, message: string) =>
+    apiCall<{ success: boolean; result: any }>('/api/sms/test', {
+      method: 'POST',
+      body: JSON.stringify({ phoneNumber, message }),
+    }),
+
+  // Get SMS logs
+  getLogs: (params?: { phoneNumber?: string; type?: string; status?: string; limit?: number; offset?: number }) => {
+    let url = '/api/sms/logs'
+    if (params) {
+      const query = new URLSearchParams()
+      if (params.phoneNumber) query.append('phoneNumber', params.phoneNumber)
+      if (params.type) query.append('type', params.type)
+      if (params.status) query.append('status', params.status)
+      if (params.limit) query.append('limit', params.limit.toString())
+      if (params.offset) query.append('offset', params.offset.toString())
+      if (query.toString()) url += `?${query.toString()}`
+    }
+    return apiCall<{ success: boolean; logs: any[]; total: number }>(url)
+  },
+
+  // Get logs by phone number
+  getLogsByPhone: (phoneNumber: string) =>
+    apiCall<{ success: boolean; phoneNumber: string; logs: any[] }>(`/api/sms/logs/${phoneNumber}`),
+
+  // Get SMS statistics
+  getStatistics: (startDate?: Date, endDate?: Date) => {
+    let url = '/api/sms/statistics'
+    if (startDate || endDate) {
+      const query = new URLSearchParams()
+      if (startDate) query.append('startDate', startDate.toISOString())
+      if (endDate) query.append('endDate', endDate.toISOString())
+      url += `?${query.toString()}`
+    }
+    return apiCall<{ success: boolean; statistics: any }>(url)
+  },
+
+  // Send bulk SMS
+  sendBulk: (phoneNumbers: string[], message: string, type?: string) =>
+    apiCall<{ success: boolean; message: string; result: any }>('/api/sms/send-bulk', {
+      method: 'POST',
+      body: JSON.stringify({ phoneNumbers, message, type }),
+    }),
+
+  // Resend SMS
+  resendSMS: (phoneNumber: string, message: string, type?: string) =>
+    apiCall<{ success: boolean; message: string; result: any }>('/api/sms/resend', {
+      method: 'POST',
+      body: JSON.stringify({ phoneNumber, message, type }),
+    }),
+}

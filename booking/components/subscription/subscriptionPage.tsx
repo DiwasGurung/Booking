@@ -17,12 +17,11 @@ interface Plan {
   description: string
   features?: string[]
   recommended?: boolean
-  // Limits
   maxAppointmentsPerMonth: number
   maxStaff: number
   maxServices: number
   maxCustomers: number
-  // Features
+  maxSmsPerMonth: number
   allowSmsNotifications: boolean
   allowEmailNotifications: boolean
   allowOnlineBooking: boolean
@@ -309,10 +308,16 @@ export default function SubscriptionPage() {
                   <Briefcase className="w-4 h-4 text-primary" />
                   <span>{formatLimit(plan.maxServices)} services</span>
                 </div>
-                {plan.allowSmsNotifications && (
+                {plan.allowSmsNotifications && plan.maxSmsPerMonth > 0 && (
                   <div className="flex items-center gap-2 text-sm">
                     <MessageSquare className="w-4 h-4 text-primary" />
-                    <span>SMS Notifications</span>
+                    <span>{formatLimit(plan.maxSmsPerMonth)} SMS/month</span>
+                  </div>
+                )}
+                {plan.allowSmsNotifications && plan.maxSmsPerMonth === -1 && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <MessageSquare className="w-4 h-4 text-primary" />
+                    <span>Unlimited SMS notifications</span>
                   </div>
                 )}
               </div>

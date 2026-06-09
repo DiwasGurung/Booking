@@ -309,6 +309,7 @@ exports.Prisma.SubscriptionPlanScalarFieldEnum = {
   maxAppointmentsPerMonth: 'maxAppointmentsPerMonth',
   maxStaff: 'maxStaff',
   maxServices: 'maxServices',
+  maxSmsPerMonth: 'maxSmsPerMonth',
   maxCustomers: 'maxCustomers',
   allowSmsNotifications: 'allowSmsNotifications',
   allowEmailNotifications: 'allowEmailNotifications',
@@ -331,7 +332,9 @@ exports.Prisma.SubscriptionScalarFieldEnum = {
   trialEndsAt: 'trialEndsAt',
   isTrialUsed: 'isTrialUsed',
   appointmentsThisMonth: 'appointmentsThisMonth',
+  smsUsedThisMonth: 'smsUsedThisMonth',
   usageResetDate: 'usageResetDate',
+  smsCreditBalance: 'smsCreditBalance',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -343,6 +346,21 @@ exports.Prisma.PushSubscriptionScalarFieldEnum = {
   auth: 'auth',
   p256dh: 'p256dh',
   isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.SMSLogScalarFieldEnum = {
+  id: 'id',
+  businessId: 'businessId',
+  subscriptionId: 'subscriptionId',
+  phoneNumber: 'phoneNumber',
+  message: 'message',
+  type: 'type',
+  status: 'status',
+  messageId: 'messageId',
+  provider: 'provider',
+  errorMessage: 'errorMessage',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -422,7 +440,8 @@ exports.Prisma.ModelName = {
   Notification: 'Notification',
   SubscriptionPlan: 'SubscriptionPlan',
   Subscription: 'Subscription',
-  PushSubscription: 'PushSubscription'
+  PushSubscription: 'PushSubscription',
+  SMSLog: 'SMSLog'
 };
 
 /**
