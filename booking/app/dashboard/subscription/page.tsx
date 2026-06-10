@@ -106,69 +106,63 @@ export default function SubscriptionPage() {
 
   if (loading || subscriptionLoading || fetchingBusinessId) {
     return (
-      <div className="flex min-h-screen bg-background">
-        <Sidebar />
-        <div className="flex-1">
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="text-center">
-              <Loader className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
-              <p className="text-muted-foreground">Loading subscription...</p>
-            </div>
+      <div className="min-h-screen bg-background">
+        <Sidebar userRole="BUSINESS_OWNER" />
+        <main className="md:ml-64 pt-6 px-4 md:px-8 py-8 flex items-center justify-center">
+          <div className="text-center">
+            <Loader className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">Loading subscription...</p>
           </div>
-        </div>
+        </main>
       </div>
     )
   }
 
   if (!hasValidSubscription) {
     return (
-      <div className="flex min-h-screen bg-background">
-        <Sidebar />
-        <div className="flex-1">
-          <div className="p-8">
-            <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Subscription' }]} />
-            <div className="mt-8">
-              <Card className="border-amber-200 bg-amber-50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-4">
-                    <AlertCircle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-1" />
-                    <div>
-                      <h3 className="font-semibold text-amber-900 mb-2">No Active Subscription</h3>
-                      <p className="text-sm text-amber-800 mb-4">
-                        You don't have an active subscription. Select a plan to get started with your free 30-day trial.
-                      </p>
-                      <Link href="/subscription">
-                        <Button className="gap-2">
-                          <ArrowUpRight className="w-4 h-4" />
-                          View Plans
-                        </Button>
-                      </Link>
-                    </div>
+      <div className="min-h-screen bg-background">
+        <Sidebar userRole="BUSINESS_OWNER" />
+        <main className="md:ml-64 pt-6 px-4 md:px-8 py-8">
+          <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Subscription' }]} />
+          <div className="mt-8">
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-4">
+                  <AlertCircle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-1" />
+                  <div>
+                    <h3 className="font-semibold text-amber-900 mb-2">No Active Subscription</h3>
+                    <p className="text-sm text-amber-800 mb-4">
+                      You don't have an active subscription. Select a plan to get started with your free 30-day trial.
+                    </p>
+                    <Link href="/subscription">
+                      <Button className="gap-2">
+                        <ArrowUpRight className="w-4 h-4" />
+                        View Plans
+                      </Button>
+                    </Link>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
+        </main>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <div className="flex-1">
-        <div className="p-8">
-          <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Subscription' }]} />
+    <div className="min-h-screen bg-background">
+      <Sidebar userRole="BUSINESS_OWNER" />
+      <main className="md:ml-64 pt-6 px-4 md:px-8 py-8">
+        <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Subscription' }]} />
 
-          <div className="mt-8">
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-foreground mb-2">Subscription Management</h1>
-              <p className="text-muted-foreground">Manage your subscription plan and billing</p>
-            </div>
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Subscription Management</h1>
+          <p className="text-muted-foreground">Manage your subscription plan and billing</p>
+        </div>
 
-            {error && (
+        {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
@@ -177,7 +171,7 @@ export default function SubscriptionPage() {
               </div>
             )}
 
-            {/* Current Subscription Card */}
+        {/* Current Subscription Card */}
             {subscriptionStatus && (
               <Card className="mb-8 border-primary bg-gradient-to-br from-primary/5 via-primary/2 to-transparent">
                 <CardHeader>
@@ -233,7 +227,7 @@ export default function SubscriptionPage() {
               </Card>
             )}
 
-            {/* Action Cards */}
+        {/* Action Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               {/* Upgrade Plan */}
               <Card className="hover:border-primary/50 transition-all">
@@ -278,7 +272,7 @@ export default function SubscriptionPage() {
               </Card>
             </div>
 
-            {/* SMS Usage Card - Show only if SMS is available */}
+        {/* SMS Usage Card - Show only if SMS is available */}
             {subscriptionStatus?.maxSmsPerMonth !== undefined && subscriptionStatus?.maxSmsPerMonth > 0 && (
               <Card className="mb-8 border-blue-200 bg-gradient-to-br from-blue-50 via-blue-5 to-transparent">
                 <CardHeader>
@@ -348,7 +342,7 @@ export default function SubscriptionPage() {
               </Card>
             )}
 
-            {/* Subscription Details */}
+        {/* Subscription Details */}
             <Card>
               <CardHeader>
                 <CardTitle>Subscription Details</CardTitle>
@@ -369,7 +363,7 @@ export default function SubscriptionPage() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground mb-2">Started On</p>
-                      <p className="font-semibold">{formatDate(subscription?.startDate)}</p>
+                      <p className="font-semibold">{formatDate(subscription?.trialEndsAt as string)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground mb-2">Ends On</p>
@@ -394,9 +388,7 @@ export default function SubscriptionPage() {
                 </div>
               </CardContent>
             </Card>
-          </div>
-        </div>
-      </div>
+      </main>
 
       {/* Cancel Subscription Dialog */}
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
