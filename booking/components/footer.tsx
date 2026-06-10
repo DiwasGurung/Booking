@@ -12,7 +12,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           {/* Brand */}
           <div>
-            <h3 className="text-xl font-bold text-white mb-4">BookFlow</h3>
+            <h3 className="text-xl font-bold text-white mb-4">Appoint-Nepal</h3>
             <p className="text-sm text-slate-400">
               The modern appointment booking platform for service businesses and customers.
             </p>
@@ -71,12 +71,12 @@ export function Footer() {
         <div className="border-t border-slate-700 py-8">
           <div className="flex flex-col md:flex-row items-center justify-between">
             <p className="text-sm text-slate-400">
-              {currentYear} BookFlow. All rights reserved.
+              {currentYear} Appoint-Nepal. All rights reserved.
             </p>
             <div className="flex items-center gap-2 mt-4 md:mt-0 text-slate-400">
               <span className="text-sm">Made with</span>
               <Heart className="w-4 h-4 text-red-500" />
-              <span className="text-sm">by the BookFlow team</span>
+              <span className="text-sm">by the Appoint-Nepal team</span>
             </div>
           </div>
         </div>

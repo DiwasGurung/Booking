@@ -18,7 +18,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-bold text-foreground mb-4">1. Introduction</h2>
             <p className="text-muted-foreground">
-              BookFlow ("Company", "we", "our", or "us") operates the BookFlow website and mobile application. This Privacy Policy explains our data collection, use, and protection practices.
+              Appoint-Nepal ("Company", "we", "our", or "us") operates the Appoint-Nepal website and mobile application. This Privacy Policy explains our data collection, use, and protection practices.
             </p>
           </section>
 
@@ -67,7 +67,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-bold text-foreground mb-4">6. Contact Us</h2>
             <p className="text-muted-foreground">
-              If you have any questions about this Privacy Policy, please contact us at privacy@bookflow.com
+              If you have any questions about this Privacy Policy, please contact us at privacy@Appoint-Nepal.com
             </p>
           </section>
         </Card>

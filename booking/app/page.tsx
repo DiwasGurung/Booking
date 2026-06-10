@@ -8,17 +8,18 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 
 export default function HomePage() {
-  // const { user } = useAuth()
-  // const router = useRouter()
+  const { user, loading } = useAuth()
+  const router = useRouter()
 
-  // // Redirect logged-in users to appropriate page
-  // useEffect(() => {
-  //   if (user) {
-  //     if (user.role === 'CUSTOMER') {
-  //       router.push('/search')
-  //     } 
-  //   }
-  // }, [user, router])
+  // Redirect authenticated business owners to their dashboard
+  useEffect(() => {
+    if (!loading && user && user.role === 'BUSINESS_OWNER') {
+      const businessId = user.business?.id || (user as any).businessId
+      if (businessId) {
+        router.replace(`/dashboard/${businessId}`)
+      }
+    }
+  }, [user, loading, router])
 
   return (
     <main className="min-h-screen bg-background">
@@ -134,7 +135,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl font-bold text-foreground text-center mb-4">Built for every industry</h2>
           <p className="text-center text-foreground/60 mb-12">
-            From salons to consulting, BookFlow works for any service-based business
+            From salons to consulting, Appoint-Nepal works for any service-based business
           </p>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

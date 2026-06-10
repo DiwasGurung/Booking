@@ -138,7 +138,7 @@ export const SparrowSMSService = {
    * Send verification code SMS
    */
   async sendVerificationCode(phoneNumber: string, code: string) {
-    const message = `Your BookFlow verification code is: ${code}. Valid for 15 minutes.`
+    const message = `Your Appoint-Nepal verification code is: ${code}. Valid for 15 minutes.`
     return sendSMS(phoneNumber, message, 'verification')
   },
 
@@ -162,7 +162,7 @@ Date: ${bookingData.date}
 Time: ${bookingData.time}
 Booking ID: ${bookingData.bookingId}
 
-Thank you for choosing BookFlow!`
+Thank you for choosing Appoint-Nepal!`
 
     return sendSMS(phoneNumber, message, 'booking')
   },
@@ -260,7 +260,7 @@ ${notificationData.staffName ? `Staff: ${notificationData.staffName}` : ''}
 Date: ${notificationData.date}
 Time: ${notificationData.time}
 
-Log in to BookFlow dashboard to manage.`
+Log in to Appoint-Nepal dashboard to manage.`
 
     return sendSMS(phoneNumber, message, 'owner_notification')
   },

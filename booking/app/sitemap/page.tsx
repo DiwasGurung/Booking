@@ -40,7 +40,7 @@ export default function SitemapPage() {
       items: [
         { label: 'Home', href: '/' },
         { label: 'Login', href: '/login' },
-        { label: 'Sign Up', href: '/signup' },
+        { label: 'Sign Up', href: '/register' },
         { label: 'Sitemap', href: '/sitemap' },
       ],
     },
@@ -56,7 +56,7 @@ export default function SitemapPage() {
             <MapPin className="w-8 h-8 text-primary" />
             <h1 className="text-4xl font-bold text-foreground">Sitemap</h1>
           </div>
-          <p className="text-muted-foreground">Complete navigation guide for BookFlow</p>
+          <p className="text-muted-foreground">Complete navigation guide for Appoint-Nepal</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -101,7 +101,7 @@ export default function SitemapPage() {
             <Link href="/login">
               <Button variant="outline" className="w-full">Login</Button>
             </Link>
-            <Link href="/signup">
+            <Link href="/register">
               <Button variant="outline" className="w-full">Sign Up</Button>
             </Link>
             <Link href="/business/setup">

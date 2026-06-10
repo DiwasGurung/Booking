@@ -42,11 +42,11 @@ export const emailService = {
       const mailOptions = {
         from: emailUser,
         to: email,
-        subject: 'Verify Your Email Address - BookFlow',
+        subject: 'Verify Your Email Address - Appoint-Nepal',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-              <h2 style="color: #333; margin: 0;">Welcome to BookFlow!</h2>
+              <h2 style="color: #333; margin: 0;">Welcome to Appoint-Nepal!</h2>
             </div>
             
             <p style="color: #666; font-size: 16px; line-height: 1.6;">
@@ -106,7 +106,7 @@ export const emailService = {
       const mailOptions = {
         from: emailUser,
         to: email,
-        subject: 'Reset Your Password - BookFlow',
+        subject: 'Reset Your Password - Appoint-Nepal',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -177,7 +177,7 @@ export const emailService = {
       const mailOptions = {
         from: emailUser,
         to: ownerEmail,
-        subject: `New Booking Received - ${bookingDetails.serviceName} - BookFlow`,
+        subject: `New Booking Received - ${bookingDetails.serviceName} - Appoint-Nepal`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
@@ -255,7 +255,7 @@ export const emailService = {
               </div>
               
               <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                This is an automated notification from BookFlow.<br/>
+                This is an automated notification from Appoint-Nepal.<br/>
                 Please do not reply to this email.
               </p>
             </div>
@@ -303,7 +303,7 @@ export const emailService = {
       const mailOptions = {
         from: emailUser,
         to: customerEmail,
-        subject: `Booking Confirmed - ${bookingDetails.businessName} - BookFlow`,
+        subject: `Booking Confirmed - ${bookingDetails.businessName} - Appoint-Nepal`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
@@ -355,7 +355,7 @@ export const emailService = {
               ` : ''}
               
               <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                Thank you for booking with BookFlow!
+                Thank you for booking with Appoint-Nepal!
               </p>
             </div>
           </div>

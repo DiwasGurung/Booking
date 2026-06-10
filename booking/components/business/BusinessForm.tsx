@@ -309,7 +309,7 @@ export const UnifiedBusinessRegister = () => {
           </Card>
 
           {/* Customer signup */}
-          <Link href="/signup">
+          <Link href="/register">
             <Card className="p-6 cursor-pointer hover:border-primary hover:shadow-md transition-all group">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center flex-shrink-0">

@@ -38,7 +38,7 @@ export class TwilioService {
       console.log('[v0] Sending SMS to formatted number:', formattedPhoneNumber)
 
       const message = await client.messages.create({
-        body: `Your BookFlow verification code is: ${code}. Valid for 15 minutes.`,
+        body: `Your Appoint-Nepal verification code is: ${code}. Valid for 15 minutes.`,
         from: fromPhoneNumber,
         to: formattedPhoneNumber,
       })

@@ -21,8 +21,8 @@ export default function ContactPage() {
           <Card className="border border-border shadow-lg p-6 text-center">
             <Mail className="w-12 h-12 text-primary mx-auto mb-4" />
             <h3 className="text-lg font-bold text-foreground mb-2">Email</h3>
-            <p className="text-muted-foreground mb-4">support@bookflow.com</p>
-            <a href="mailto:support@bookflow.com">
+            <p className="text-muted-foreground mb-4">support@Appoint-Nepal.com</p>
+            <a href="mailto:support@Appoint-Nepal.com">
               <Button variant="outline" className="w-full">Send Email</Button>
             </a>
           </Card>

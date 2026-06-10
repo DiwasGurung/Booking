@@ -69,15 +69,38 @@ export const LoginForm = () => {
       await new Promise(resolve => setTimeout(resolve, 500))
 
       console.log("[v0] Login completed, determining redirect path...")
-      console.log("[v0] User role:", result.user?.role, "returnTo:", returnTo)
+      console.log("[v0] User:", user, "User role:", result.user?.role, "returnTo:", returnTo)
 
       // If returnTo is specified (e.g., from home page "Setup Business" button), use it
       if (returnTo) {
         console.log("[v0] Redirecting to returnTo:", returnTo)
         router.push(returnTo)
+        return
+      }
+
+      // Role-based redirects
+      if (result.user?.role === 'BUSINESS_OWNER') {
+        // Get business ID for business owners
+        const businessId = user?.business?.id
+    
+        if (businessId) {
+          console.log("[v0] Redirecting BUSINESS_OWNER to dashboard with businessId:", businessId)
+          router.push(`/dashboard/${businessId}`)
+        } else {
+          console.log("[v0] BUSINESS_OWNER but no businessId, redirecting to /dashboard")
+          router.push("/dashboard")
+        }
+      } else if (result.user?.role === 'CUSTOMER') {
+        // Customers go to search/bookings page
+        console.log("[v0] Redirecting CUSTOMER to search page")
+        router.push("/search")
+      } else if (result.user?.role === 'ADMIN') {
+        // Admins go to admin dashboard
+        console.log("[v0] Redirecting ADMIN to admin dashboard")
+        router.push("/admin")
       } else {
-        // Default redirect to search for all users
-        console.log("[v0] Redirecting to search page")
+        // Default fallback
+        console.log("[v0] Unknown role or no role, redirecting to search")
         router.push("/search")
       }
 
@@ -137,7 +160,7 @@ export const LoginForm = () => {
           </div>
 
           <div className="space-y-3">
-            <Button
+            <Button 
               onClick={handleVerifyEmail}
               size="lg"
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
@@ -146,7 +169,7 @@ export const LoginForm = () => {
               Enter Verification Code
             </Button>
 
-            <Button
+            <Button 
               onClick={handleResendCode}
               variant="outline"
               size="lg"
@@ -240,7 +263,7 @@ export const LoginForm = () => {
             <div className="text-center text-sm">
               <p className="text-muted-foreground">
                 Don&apos;t have an account?{" "}
-                <Link href="/signup" className="text-primary hover:underline font-medium">
+                <Link href="/register" className="text-primary hover:underline font-medium">
                   Create one
                 </Link>
               </p>

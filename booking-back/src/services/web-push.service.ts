@@ -5,7 +5,7 @@ const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY
 
 if (vapidPublicKey && vapidPrivateKey) {
   webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || 'mailto:support@bookflow.app',
+    process.env.VAPID_SUBJECT || 'mailto:support@Appoint-Nepal.app',
     vapidPublicKey,
     vapidPrivateKey
   )

@@ -98,7 +98,7 @@ export default function NotificationPreferencesPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2">Notification Preferences</h1>
-          <p className="text-muted-foreground">Manage how you receive notifications from BookFlow</p>
+          <p className="text-muted-foreground">Manage how you receive notifications from Appoint-Nepal</p>
         </div>
 
         {/* Success Message */}
