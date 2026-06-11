@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronDown, Menu, X, LayoutDashboard, Calendar, Settings, BarChart3, CreditCard, Users, Home, LogOut, UserCog } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/authContext'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 interface NavItem {
   label: string
@@ -20,11 +21,19 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
-  const [isOpen, setIsOpen] = useState(true)
+  const isMobile = useIsMobile()
+  const [isOpen, setIsOpen] = useState(false)
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const pathname = usePathname()
   const router = useRouter()
   const { logout } = useAuth()
+
+  // Close sidebar when navigating on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setIsOpen(false)
+    }
+  }, [pathname, isMobile])
 
   const businessOwnerNav: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: Home },
@@ -105,11 +114,19 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
 
   return (
     <>
+      {/* Backdrop Overlay - Mobile Only */}
+      {isOpen && isMobile && (
+        <div
+          className="fixed inset-0 bg-black/50 z-20 md:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
       {/* Mobile Toggle */}
       <Button
         variant="ghost"
         size="sm"
-        className="md:hidden fixed top-20 left-4 z-40"
+        className="md:hidden fixed top-20 left-4 z-50"
         onClick={() => setIsOpen(!isOpen)}
       >
         {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -118,7 +135,7 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
       {/* Sidebar */}
       <aside
         className={`fixed top-0 left-0 h-screen bg-card border-r border-border transition-all duration-300 z-30 ${
-          isOpen ? 'w-64' : 'w-0 -translate-x-full'
+          isOpen ? 'w-64' : 'w-0 -translate-x-full md:translate-x-0'
         } md:w-64 md:translate-x-0 pt-20`}
       >
         <nav className="p-4 space-y-2 overflow-y-auto h-full pb-24">

@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/context/authContext"
 import { Button } from "@/components/ui/Button"
-import { Menu, X, LayoutDashboard, LogOut, Bookmark, Bell, User as UserIcon } from "lucide-react"
+import { Menu, X, LayoutDashboard, LogOut, Bookmark, Bell, User as UserIcon, Building2 } from "lucide-react"
 import { useState, useEffect } from "react"
 
 export const Header = () => {
@@ -21,7 +21,7 @@ export const Header = () => {
 
   // Hide header on dashboard routes and authentication pages (login, signup)
   const isDashboard = pathname?.startsWith('/dashboard') || pathname?.startsWith('/bookings') || pathname?.startsWith('/subscription')
-  const isAuthPage = pathname === '/login' || pathname === '/register' || pathname === '/signup-business' 
+  const isAuthPage = pathname === '/login' || pathname === '/signup'
 
   const handleLogout = async () => {
     try {
@@ -69,7 +69,7 @@ export const Header = () => {
           className="flex items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
         >
           <div className="text-2xl font-bold">Appoint-Nepal</div>
-          <span className="hidden sm:inline text-sm font-medium opacity-80">Pro</span>
+          {/* <span className="hidden sm:inline text-sm font-medium opacity-80">Pro</span> */}
         </button>
 
         {/* Desktop Navigation */}
@@ -96,6 +96,19 @@ export const Header = () => {
                 <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full"></span>
               </button>
 
+              {/* Setup Business - Only for Customers */}
+              {user.role === 'CUSTOMER' && (
+                <Link href="/businesses/setup">
+                  <Button 
+                    size="sm" 
+                    className="bg-white/20 text-primary-foreground border border-white/30 hover:bg-white/30 transition-all duration-200 font-medium"
+                  >
+                    <Building2 className="w-4 h-4 mr-2" />
+                    Setup Business
+                  </Button>
+                </Link>
+              )}
+
               {/* User Profile */}
               <div className="flex items-center gap-3 pl-3 border-l border-white/20">
                 <div className="text-right">
@@ -112,7 +125,11 @@ export const Header = () => {
               {/* Actions */}
               <div className="flex items-center gap-2 pl-3 border-l border-white/20">
                 <Link href="/account/profile">
-                  <Button size="sm" variant="ghost" className="hover:bg-white/20">
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="hover:bg-white/20 transition-all duration-200 font-medium"
+                  >
                     Profile
                   </Button>
                 </Link>
@@ -120,7 +137,7 @@ export const Header = () => {
                   size="sm"
                   variant="ghost"
                   onClick={handleLogout}
-                  className="hover:bg-destructive/20"
+                  className="hover:bg-destructive/20 transition-all duration-200 font-medium"
                 >
                   <LogOut className="w-4 h-4 mr-1" />
                   Logout
@@ -134,7 +151,7 @@ export const Header = () => {
                   Login
                 </Button>
               </Link>
-              <Link href="/register">
+              <Link href="/signup">
                 <Button size="sm" className="bg-white text-primary hover:bg-white/90">
                   Sign Up
                 </Button>
@@ -159,8 +176,23 @@ export const Header = () => {
             {user ? (
               <>
                 <p className="text-sm font-semibold px-2 py-1">{user.email}</p>
+                {user.role === 'CUSTOMER' && (
+                  <Link href="/business/setup" className="block" onClick={() => setIsOpen(false)}>
+                    <Button 
+                      size="sm" 
+                      className="w-full justify-start bg-white/20 text-primary-foreground border border-white/30 hover:bg-white/30 transition-all duration-200 font-medium"
+                    >
+                      <Building2 className="w-4 h-4 mr-2" />
+                      Setup Business
+                    </Button>
+                  </Link>
+                )}
                 <Link href="/account/profile" className="block" onClick={() => setIsOpen(false)}>
-                  <Button size="sm" variant="ghost" className="w-full justify-start hover:bg-white/20">
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="w-full justify-start hover:bg-white/20 transition-all duration-200 font-medium"
+                  >
                     Profile
                   </Button>
                 </Link>
@@ -168,7 +200,7 @@ export const Header = () => {
                   size="sm"
                   variant="ghost"
                   onClick={handleLogout}
-                  className="w-full justify-start hover:bg-destructive/20"
+                  className="w-full justify-start hover:bg-destructive/20 transition-all duration-200 font-medium"
                 >
                   <LogOut className="w-4 h-4 mr-2" />
                   Logout
@@ -181,7 +213,7 @@ export const Header = () => {
                     Login
                   </Button>
                 </Link>
-                <Link href="/register" className="block" onClick={() => setIsOpen(false)}>
+                <Link href="/signup" className="block" onClick={() => setIsOpen(false)}>
                   <Button size="sm" className="w-full bg-white text-primary hover:bg-white/90">
                     Sign Up
                   </Button>
