@@ -99,7 +99,7 @@ export default function ServicesPage() {
 
   const loadHours = async () => {
     try {
-      const response = await fetch(`/api/business-hours/business/${businessId}`, {
+      const response = await fetch(`http://localhost:5001/api/business-hours/business/${businessId}`, {
         credentials: 'include',
       })
       if (response.ok) {
@@ -178,7 +178,7 @@ export default function ServicesPage() {
   const createHours = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      await fetch('/api/business-hours', {
+      await fetch('http://localhost:5001/api/business-hours', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

@@ -1,159 +1,86 @@
 'use client'
 
-import { useRouter, useParams } from 'next/navigation'
-import { Suspense, useEffect, useState } from 'react'
-import { Input } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
+import { useParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
-import { Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, MessageCircle } from 'lucide-react'
-import { servicesApi, businessHoursApi, bookingsApi, businessApi, type Service, type Business } from '@/lib/api'
-import { useAuth } from '@/context/authContext'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Loader, CheckCircle, AlertCircle, Calendar, Clock, User, Mail, Phone, MapPin, ArrowRight } from 'lucide-react'
+import { businessApi, servicesApi, bookingsApi, type Business, type Service } from '@/lib/api'
 
-function BookingPageContent() {
-  const searchParams = useParams()
-  const router = useRouter()
-  const { user } = useAuth()
-  const businessId = searchParams.businessId as string
+export default function PublicBookingPage() {
+  const params = useParams()
+  const businessId = params.businessId as string
 
-  const [services, setServices] = useState<Service[]>([])
-  const [selectedService, setSelectedService] = useState<Service | null>(null)
-  const [servicesLoading, setServicesLoading] = useState(false)
   const [business, setBusiness] = useState<Business | null>(null)
-  const [date, setDate] = useState('')
-  const [selectedTime, setSelectedTime] = useState<string | null>(null)
-  const [availableSlots, setAvailableSlots] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
-  const [customerName, setCustomerName] = useState('')
-  const [customerEmail, setCustomerEmail] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [notes, setNotes] = useState('')
+  const [services, setServices] = useState<Service[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [bookingSuccess, setBookingSuccess] = useState(false)
-  const [bookingId, setBookingId] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const [selectedService, setSelectedService] = useState<string>('')
+  const [appointmentDate, setAppointmentDate] = useState<string>('')
+  const [appointmentTime, setAppointmentTime] = useState<string>('')
+  const [customerName, setCustomerName] = useState<string>('')
+  const [customerEmail, setCustomerEmail] = useState<string>('')
+  const [customerPhone, setCustomerPhone] = useState<string>('')
+  const [notes, setNotes] = useState<string>('')
 
   useEffect(() => {
-    if (!businessId) return
     loadBusinessData()
   }, [businessId])
 
-  useEffect(() => {
-    if (date && selectedService) {
-      loadAvailableSlots()
-    }
-  }, [date, selectedService])
-
-  const loadBusinessData = async () => {
-    try {
-      setServicesLoading(true)
-      setError('')
-
-      const [servicesRes, businessRes] = await Promise.all([
-        servicesApi.getBusinessServices(businessId),
-        businessApi.getBusinessById(businessId),
-      ])
-
-      if (servicesRes.data) {
-        let list: Service[] = []
-        if (Array.isArray(servicesRes.data)) {
-          list = servicesRes.data
-        } else if (typeof servicesRes.data === 'object' && servicesRes.data !== null) {
-          const data = servicesRes.data as Record<string, any>
-          list = data.services || data.data || []
-        }
-        setServices(list)
-        if (list.length > 0) {
-          setSelectedService(list[0])
-        }
-      }
-
-      if (businessRes.data) {
-        if (typeof businessRes.data === 'object') {
-          setBusiness(businessRes.data as Business)
-        }
-      }
-    } catch (err) {
-      console.error('[v0] Error loading business data:', err)
-      setError('Failed to load business information. Please try again.')
-    } finally {
-      setServicesLoading(false)
-    }
-  }
-
-  const loadAvailableSlots = async () => {
-    if (!selectedService || !date || !businessId) return
-
+  async function loadBusinessData() {
     try {
       setLoading(true)
-      const response = await bookingsApi.getAvailableSlots(businessId, selectedService.id, date)
+      setError(null)
 
-      if (response.data) {
-        let slots: string[] = []
-        if (Array.isArray(response.data)) {
-          slots = response.data
-        } else if (typeof response.data === 'object' && response.data !== null) {
-          const data = response.data as Record<string, any>
-          slots = data.slots || data.availableSlots || data.times || []
-        }
-        setAvailableSlots(slots)
-      } else {
-        setAvailableSlots([])
+      const businessResponse = await businessApi.getBusinessById(businessId)
+      
+      if (!businessResponse.success || !businessResponse.data) {
+        throw new Error(businessResponse.error || 'Business not found')
+      }
+      
+      setBusiness(businessResponse.data)
+
+      const servicesResponse = await servicesApi.getBusinessServices(businessId)
+      
+      if (servicesResponse.success && servicesResponse.data) {
+        setServices(servicesResponse.data)
       }
     } catch (err) {
-      console.error('[v0] Error loading slots:', err)
-      setAvailableSlots([])
+      console.error('[v0] Error loading business:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load booking information')
     } finally {
       setLoading(false)
     }
   }
 
-  const formatTimeSlot = (isoString: string): string => {
-    try {
-      const date = new Date(isoString)
-      return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      })
-    } catch {
-      return isoString
-    }
-  }
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
 
-  const getDisplayTime = (isoString: string): string => {
-    try {
-      const date = new Date(isoString)
-      return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      })
-    } catch {
-      return isoString
-    }
-  }
-
-  const handleConfirmBooking = async () => {
-    if (!selectedService || !date || !selectedTime || !customerName || !customerEmail || !customerPhone) {
+    if (!selectedService || !appointmentDate || !appointmentTime || !customerName || !customerEmail || !customerPhone) {
       setError('Please fill in all required fields')
       return
     }
 
-    if (!user || !user.id) {
-      setError('You must be logged in to create a booking')
-      return
-    }
-
     try {
-      setLoading(true)
-      // selectedTime is now an ISO string, use it directly
-      const startTime = new Date(selectedTime)
-      const endTime = new Date(startTime)
-      endTime.setMinutes(endTime.getMinutes() + selectedService.duration)
+      setSubmitting(true)
+      setError(null)
 
-      const response = await bookingsApi.createBooking({
-        serviceId: selectedService.id,
+      const startTime = new Date(`${appointmentDate}T${appointmentTime}`)
+      const selectedServiceData = services.find(s => s.id === selectedService)
+      
+      if (!selectedServiceData) {
+        throw new Error('Selected service not found')
+      }
+
+      const endTime = new Date(startTime.getTime() + selectedServiceData.duration * 60000)
+
+      const bookingResponse = await bookingsApi.createBooking({
         businessId,
-        userId: user.id,
+        serviceId: selectedService,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         customerName,
@@ -162,320 +89,283 @@ function BookingPageContent() {
         notes,
       })
 
-      if (response.success && response.data) {
-        const booking = response.data as any
-        setBookingId(booking.id || booking._id || '')
-        setBookingSuccess(true)
-      } else {
-        setError(response.error || 'Failed to create booking')
+      if (!bookingResponse.success) {
+        throw new Error(bookingResponse.error || 'Failed to create booking')
       }
+
+      setBookingSuccess(true)
+      setSelectedService('')
+      setAppointmentDate('')
+      setAppointmentTime('')
+      setCustomerName('')
+      setCustomerEmail('')
+      setCustomerPhone('')
+      setNotes('')
+
+      setTimeout(() => setBookingSuccess(false), 5000)
     } catch (err) {
       console.error('[v0] Booking error:', err)
-      setError('Failed to book appointment. Please try again.')
+      setError(err instanceof Error ? err.message : 'Failed to create booking')
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
 
-  if (!businessId) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-foreground mb-2">Invalid Request</h1>
-          <p className="text-muted-foreground mb-6">No business selected for booking</p>
-          <Button onClick={() => router.push('/search')}>Browse Businesses</Button>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center">
+          <Loader className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-foreground text-lg">Loading booking information...</p>
         </div>
       </div>
     )
   }
 
-  if (bookingSuccess) {
+  if (!business) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-        <div className="mx-auto max-w-2xl">
-          <Card className="border border-border shadow-lg">
-            <div className="p-8 md:p-12 text-center">
-              <div className="mb-6">
-                <CheckCircle2 className="w-20 h-20 text-primary mx-auto mb-4" />
-                <h1 className="text-3xl font-bold text-foreground mb-2">Booking Confirmed!</h1>
-                <p className="text-lg text-muted-foreground">Your appointment has been successfully booked</p>
-              </div>
-
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 mb-8 text-left">
-                <div className="space-y-3">
-                  <p><span className="font-semibold text-foreground">Business:</span> {business?.name}</p>
-                  <p><span className="font-semibold text-foreground">Service:</span> {selectedService?.name}</p>
-                  <p><span className="font-semibold text-foreground">Date:</span> {new Date(date).toLocaleDateString()}</p>
-                  <p><span className="font-semibold text-foreground">Time:</span> {getDisplayTime(selectedTime || '')}</p>
-                  <p><span className="font-semibold text-foreground">Booking ID:</span> <code className="bg-secondary px-2 py-1 rounded text-sm">{bookingId}</code></p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {business?.phone && (
-                  <a
-                    href={`https://wa.me/${business.phone.replace(/\D/g, '')}?text=Hi%20${encodeURIComponent(business.name)}%2C%20I%20have%20a%20booking%20with%20ID%20${bookingId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full h-12 bg-[#25D366] text-white rounded-lg hover:bg-[#20BA5A] transition-colors font-semibold"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    Contact via WhatsApp
-                  </a>
-                )}
-                <Button
-                  onClick={() => router.push(`/bookings/${bookingId}`)}
-                  variant="outline"
-                  className="w-full"
-                >
-                  View Booking Details
-                </Button>
-                <Button
-                  onClick={() => router.push('/search')}
-                  className="w-full"
-                >
-                  Book Another Service
-                </Button>
-              </div>
-
-              <p className="text-sm text-muted-foreground mt-6">
-                Confirmation sent to <span className="font-semibold">{customerEmail}</span>
-              </p>
-            </div>
-          </Card>
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <Card className="max-w-md w-full p-8 border-border bg-card">
+          <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-center text-foreground mb-2">Business Not Found</h1>
+          <p className="text-center text-muted-foreground">{error || 'Unable to load business information'}</p>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-10 text-center">
-          <h1 className="text-4xl font-bold text-foreground mb-3">{business?.name || 'Book Your Appointment'}</h1>
-          <p className="text-lg text-muted-foreground">Select a service, date and time</p>
-        </div>
-
-        {error && (
-          <Card className="border border-destructive/50 bg-destructive/5 mb-6">
-            <div className="p-4 flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-              <p className="text-foreground">{error}</p>
+    <div className="min-h-screen bg-background">
+      {/* Hero Section */}
+      <div className="bg-gradient-to-br from-primary to-primary/90 text-primary-foreground py-12 md:py-16 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center gap-4 mb-4">
+            {business.logo && (
+              <img src={business.logo} alt={business.name} className="w-14 h-14 rounded-lg object-cover shadow-lg" />
+            )}
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold text-balance">{business.name}</h1>
+              <p className="text-primary-foreground/85 text-lg mt-1">{business.category}</p>
             </div>
-          </Card>
-        )}
+          </div>
+          {business.description && (
+            <p className="text-primary-foreground/90 text-lg max-w-2xl mt-4">{business.description}</p>
+          )}
+        </div>
+      </div>
 
-        <Card className="border border-border shadow-lg">
-          <div className="p-8 md:p-10">
-            {/* Services */}
-            <div className="mb-8">
-              <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-primary" />
-                Select Service
-              </label>
-
-              {servicesLoading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-                </div>
-              ) : services.length === 0 ? (
-                <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                  No services available
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {services.map(service => (
-                    <button
-                      key={service.id}
-                      onClick={() => {
-                        setSelectedService(service)
-                        setDate('')
-                        setSelectedTime(null)
-                      }}
-                      className={`p-4 rounded-lg border-2 text-left transition-all ${
-                        selectedService?.id === service.id
-                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                          : 'bg-card text-foreground border-border hover:border-primary'
-                      }`}
-                    >
-                      <div className="font-semibold">{service.name}</div>
-                      {service.description && <div className="text-sm opacity-75 mt-1">{service.description}</div>}
-                      <div className="flex justify-between items-center mt-2 text-xs opacity-75">
-                        <span>{service.duration} mins</span>
-                        <span className="font-semibold">
-                          {service.offerPrice ? (
-                            <><span className="line-through">${service.price.toFixed(2)}</span> ${service.offerPrice.toFixed(2)}</>
-                          ) : (
-                            `$${service.price.toFixed(2)}`
-                          )}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+      {/* Main Content */}
+      <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
+        <div className="grid md:grid-cols-3 gap-8">
+          {/* Business Info Sidebar */}
+          <div className="md:col-span-1 space-y-6">
+            {/* Contact Card */}
+            <Card className="border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+              <h2 className="text-lg font-semibold text-foreground mb-4">Contact Information</h2>
+              
+              {business.phone && (
+                <div className="flex items-start gap-3 mb-4">
+                  <Phone className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Phone</p>
+                    <a href={`tel:${business.phone}`} className="text-foreground font-medium hover:text-primary transition-colors">
+                      {business.phone}
+                    </a>
+                  </div>
                 </div>
               )}
-            </div>
 
-            {/* Date */}
-            {selectedService && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  Select Date
-                </label>
-                <Input
-                  type="date"
-                  value={date}
-                  onChange={e => {
-                    setDate(e.target.value)
-                    setSelectedTime(null)
-                  }}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="h-12"
-                />
-              </div>
-            )}
-
-            {/* Time */}
-            {selectedService && date && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-primary" />
-                  Select Time
-                </label>
-
-                {loading ? (
-                  <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+              {business.address && (
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Location</p>
+                    <p className="text-foreground font-medium">{business.address}</p>
                   </div>
-                ) : availableSlots.length === 0 ? (
-                  <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                    No available slots for this date
-                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Services Card */}
+            <Card className="border-border bg-card p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-foreground mb-4">Services</h2>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {services.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">No services available</p>
                 ) : (
-                  <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
-                    {availableSlots.map(slot => (
-                      <button
-                        key={slot}
-                        onClick={() => setSelectedTime(slot)}
-                        className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                          selectedTime === slot
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'bg-card text-foreground border-border hover:border-primary'
-                        }`}
-                      >
-                        {formatTimeSlot(slot)}
-                      </button>
-                    ))}
-                  </div>
+                  services.map(service => (
+                    <button
+                      key={service.id}
+                      onClick={() => setSelectedService(service.id)}
+                      className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                        selectedService === service.id
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50 hover:bg-card/50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <p className="font-medium text-foreground">{service.name}</p>
+                        <p className="text-sm font-semibold text-primary">Rs. {service.price}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {service.duration} min
+                      </p>
+                    </button>
+                  ))
                 )}
               </div>
-            )}
+            </Card>
+          </div>
 
-            {/* Customer Info */}
-            {selectedService && date && selectedTime && (
-              <div className="mb-8 p-6 bg-secondary/20 rounded-lg border border-border">
-                <h3 className="font-semibold text-foreground mb-4">Your Information</h3>
-                <div className="space-y-3">
-                  <Input
-                    type="text"
-                    placeholder="Full Name *"
-                    value={customerName}
-                    onChange={e => setCustomerName(e.target.value)}
-                    className="h-11"
-                  />
-                  <Input
-                    type="email"
-                    placeholder="Email Address *"
-                    value={customerEmail}
-                    onChange={e => setCustomerEmail(e.target.value)}
-                    className="h-11"
-                  />
-                  <Input
-                    type="tel"
-                    placeholder="Phone Number *"
-                    value={customerPhone}
-                    onChange={e => setCustomerPhone(e.target.value)}
-                    className="h-11"
-                  />
-                  <textarea
-                    placeholder="Notes (optional)"
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    className="w-full p-3 border-2 border-border rounded-lg text-sm focus:border-primary focus:outline-none"
-                    rows={3}
-                  />
-                </div>
+          {/* Booking Form */}
+          <div className="md:col-span-2">
+            <Card className="border-border bg-card shadow-lg overflow-hidden">
+              {/* Form Header */}
+              <div className="bg-gradient-to-r from-primary to-primary/80 px-8 py-6 text-primary-foreground">
+                <h2 className="text-3xl font-bold text-balance">Book Your Appointment</h2>
+                <p className="text-primary-foreground/80 mt-2">No registration required. We&apos;ll send you a confirmation email.</p>
               </div>
-            )}
 
-            {/* Summary */}
-            {selectedService && date && selectedTime && (
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 mb-8">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground mb-3">Booking Summary</p>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Service:</span>
-                        <span className="font-medium">{selectedService.name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Date:</span>
-                        <span className="font-medium">{new Date(date).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Time:</span>
-                        <span className="font-medium">{selectedTime}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Duration:</span>
-                        <span className="font-medium">{selectedService.duration} min</span>
-                      </div>
-                      <div className="flex justify-between pt-2 border-t border-primary/20">
-                        <span className="text-muted-foreground">Price:</span>
-                        <span className="font-bold text-primary">${(selectedService.offerPrice || selectedService.price).toFixed(2)}</span>
-                      </div>
+              <form onSubmit={handleSubmit} className="p-8 space-y-6">
+                {/* Success Message */}
+                {bookingSuccess && (
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-emerald-900">Booking Confirmed!</p>
+                      <p className="text-sm text-emerald-700 mt-1">Check your email for confirmation details.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Error Message */}
+                {error && (
+                  <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+                    <p className="text-destructive text-sm">{error}</p>
+                  </div>
+                )}
+
+                {/* Service Selection Reminder */}
+                {!selectedService && (
+                  <div className="p-4 bg-secondary/20 border border-secondary/40 rounded-lg flex items-center gap-2 text-sm text-foreground">
+                    <AlertCircle className="w-4 h-4" />
+                    Please select a service from the list
+                  </div>
+                )}
+
+                {/* Personal Information Section */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-foreground flex items-center gap-2">
+                    <User className="w-4 h-4 text-primary" />
+                    Your Information
+                  </h3>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Full Name *</label>
+                    <Input
+                      type="text"
+                      placeholder="Enter your full name"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      className="bg-background border-border text-foreground"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Email Address *</label>
+                    <Input
+                      type="email"
+                      placeholder="your.email@example.com"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      className="bg-background border-border text-foreground"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">Phone Number *</label>
+                    <Input
+                      type="tel"
+                      placeholder="Enter your phone number"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      className="bg-background border-border text-foreground"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Appointment Section */}
+                <div className="border-t border-border pt-6 space-y-4">
+                  <h3 className="font-semibold text-foreground flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-primary" />
+                    Select Date & Time
+                  </h3>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">Date *</label>
+                      <Input
+                        type="date"
+                        value={appointmentDate}
+                        onChange={(e) => setAppointmentDate(e.target.value)}
+                        className="bg-background border-border text-foreground"
+                        min={new Date().toISOString().split('T')[0]}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">Time *</label>
+                      <Input
+                        type="time"
+                        value={appointmentTime}
+                        onChange={(e) => setAppointmentTime(e.target.value)}
+                        className="bg-background border-border text-foreground"
+                        required
+                      />
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* Actions */}
-            {selectedService && date && selectedTime && (
-              <div className="flex gap-3">
+                {/* Additional Notes */}
+                <div className="border-t border-border pt-6">
+                  <label className="block text-sm font-medium text-foreground mb-2">Additional Notes</label>
+                  <textarea
+                    placeholder="Any special requests or additional information..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-3 rounded-lg bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Submit Button */}
                 <Button
-                  onClick={handleConfirmBooking}
-                  disabled={loading || !customerName || !customerEmail || !customerPhone}
-                  className="flex-1 h-12 bg-primary text-primary-foreground hover:bg-primary/90"
+                  type="submit"
+                  disabled={submitting || !selectedService || !appointmentDate || !appointmentTime}
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-6 font-semibold text-lg rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Confirming...' : 'Confirm Booking'}
+                  {submitting ? (
+                    <>
+                      <Loader className="w-5 h-5 animate-spin" />
+                      Confirming...
+                    </>
+                  ) : (
+                    <>
+                      Confirm Booking
+                      <ArrowRight className="w-5 h-5" />
+                    </>
+                  )}
                 </Button>
-                <Button
-                  onClick={() => setSelectedTime(null)}
-                  variant="outline"
-                  className="px-6 h-12"
-                >
-                  Clear
-                </Button>
-              </div>
-            )}
+              </form>
+            </Card>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
-  )
-}
-
-export default function BookingPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent" /></div>}>
-      <BookingPageContent />
-    </Suspense>
   )
 }

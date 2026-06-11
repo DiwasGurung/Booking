@@ -14,7 +14,7 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Appoint-Nepal - Simple Online Booking for Service Businesses",
+  title: "BookFlow - Simple Online Booking for Service Businesses",
   description:
     "The easiest way to manage bookings online. Let customers book appointments, reduce no-shows, and grow your business.",
   generator: "v0.app",
@@ -44,7 +44,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`font-sans antialiased pt-16 flex flex-col min-h-screen`}>
+      <body suppressHydrationWarning>
         <AuthProvider>
           <GoogleAuthProvider>
             <LayoutClient>
