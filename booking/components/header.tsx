@@ -19,9 +19,10 @@ export const Header = () => {
     setIsMounted(true)
   }, [])
 
-  // Hide header on dashboard routes and authentication pages (login, signup)
+  // Hide header on dashboard routes, authentication pages, and public booking pages
   const isDashboard = pathname?.startsWith('/dashboard') || pathname?.startsWith('/bookings') || pathname?.startsWith('/subscription')
   const isAuthPage = pathname === '/login' || pathname === '/signup'
+  const isPublicBooking = pathname?.startsWith('/book/')
 
   const handleLogout = async () => {
     try {
@@ -39,11 +40,11 @@ export const Header = () => {
   }
 
   // Render nothing early - AFTER all hooks are called
-  if (isDashboard || isAuthPage) {
+  if (!isMounted) {
     return null
   }
 
-  if (!isMounted) {
+  if (isDashboard || isAuthPage || isPublicBooking) {
     return null
   }
 
@@ -68,8 +69,8 @@ export const Header = () => {
           onClick={handleLogoClick}
           className="flex items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
         >
-          <div className="text-2xl font-bold">Appoint-Nepal</div>
-          {/* <span className="hidden sm:inline text-sm font-medium opacity-80">Pro</span> */}
+          <div className="text-2xl font-bold">BookFlow</div>
+          <span className="hidden sm:inline text-sm font-medium opacity-80">Pro</span>
         </button>
 
         {/* Desktop Navigation */}
@@ -98,7 +99,7 @@ export const Header = () => {
 
               {/* Setup Business - Only for Customers */}
               {user.role === 'CUSTOMER' && (
-                <Link href="/businesses/setup">
+                <Link href="/business/setup">
                   <Button 
                     size="sm" 
                     className="bg-white/20 text-primary-foreground border border-white/30 hover:bg-white/30 transition-all duration-200 font-medium"
@@ -213,7 +214,7 @@ export const Header = () => {
                     Login
                   </Button>
                 </Link>
-                <Link href="/signup" className="block" onClick={() => setIsOpen(false)}>
+                <Link href="/register" className="block" onClick={() => setIsOpen(false)}>
                   <Button size="sm" className="w-full bg-white text-primary hover:bg-white/90">
                     Sign Up
                   </Button>
