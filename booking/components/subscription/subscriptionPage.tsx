@@ -17,11 +17,13 @@ interface Plan {
   description: string
   features?: string[]
   recommended?: boolean
+  // Limits
   maxAppointmentsPerMonth: number
   maxStaff: number
   maxServices: number
   maxCustomers: number
   maxSmsPerMonth: number
+  // Features
   allowSmsNotifications: boolean
   allowEmailNotifications: boolean
   allowOnlineBooking: boolean
@@ -52,7 +54,7 @@ export default function SubscriptionPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingPlans, setIsLoadingPlans] = useState(true)
-  const [paymentMethod, setPaymentMethod] = useState<'trial' | 'esewa'>('trial')
+  const [paymentMethod, setPaymentMethod] = useState<'trial' | 'esewa' | 'nabil'>('trial')
   const [esewaFormData, setEsewaFormData] = useState<EsewaFormData | null>(null)
   const [esewaPaymentUrl, setEsewaPaymentUrl] = useState<string>('')
   const esewaFormRef = useRef<HTMLFormElement>(null)
@@ -222,6 +224,55 @@ export default function SubscriptionPage() {
     }
   }
 
+  const handleNabilPayment = async (plan: Plan) => {
+    setIsLoading(true)
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+
+      // Get current business
+      const businessResponse = await fetch(`${API_URL}/api/businesses/current`, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (!businessResponse.ok) {
+        throw new Error('Failed to get business information')
+      }
+
+      const businessData = await businessResponse.json()
+      const businessId = businessData.id
+
+      // Initiate Nabil payment
+      const response = await fetch(`${API_URL}/api/subscription-payment/nabil/initiate`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessId,
+          planId: plan.id,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to initiate payment')
+      }
+
+      const data = await response.json()
+
+      if (data.success && data.paymentUrl) {
+        window.location.href = data.paymentUrl
+        toast.info('Redirecting to Nabil Bank...')
+      } else {
+        throw new Error('Invalid payment response')
+      }
+    } catch (error: any) {
+      console.error('[v0] Nabil payment error:', error)
+      toast.error(error.message || 'Failed to initiate payment')
+      setIsLoading(false)
+    }
+  }
+
   const formatLimit = (limit: number): string => {
     return limit === -1 ? 'Unlimited' : limit.toString()
   }
@@ -374,6 +425,16 @@ export default function SubscriptionPage() {
                   <CreditCard className="w-4 h-4" />
                   Pay with eSewa
                 </Button>
+                <Button
+                  onClick={() => handleNabilPayment(plan)}
+                  disabled={isLoading}
+                  variant="outline"
+                  className="w-full gap-2"
+                  size="lg"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  Pay with Nabil Bank
+                </Button>
               </div>
             </Card>
           ))}
@@ -386,7 +447,7 @@ export default function SubscriptionPage() {
               <CreditCard className="w-5 h-5" />
               Payment Methods
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-center gap-3 p-3 border rounded-lg">
                 <img 
                   src="https://esewa.com.np/common/images/esewa-logo.png" 
@@ -399,6 +460,15 @@ export default function SubscriptionPage() {
                 <div>
                   <p className="font-medium text-sm">eSewa</p>
                   <p className="text-xs text-muted-foreground">Digital Wallet</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 border rounded-lg">
+                <div className="w-8 h-8 bg-red-600 rounded flex items-center justify-center text-white text-xs font-bold">
+                  NB
+                </div>
+                <div>
+                  <p className="font-medium text-sm">Nabil Bank</p>
+                  <p className="text-xs text-muted-foreground">Direct Transfer</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 border rounded-lg opacity-50">

@@ -253,6 +253,7 @@ exports.Prisma.PaymentScalarFieldEnum = {
   esewaProductCode: 'esewaProductCode',
   khaltiPidx: 'khaltiPidx',
   khaltiToken: 'khaltiToken',
+  nabilRefId: 'nabilRefId',
   reference: 'reference',
   customerEmail: 'customerEmail',
   customerPhone: 'customerPhone',

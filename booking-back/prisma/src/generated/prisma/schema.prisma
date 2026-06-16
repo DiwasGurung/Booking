@@ -278,6 +278,8 @@ model Payment {
   khaltiPidx  String?
   khaltiToken String?
 
+  nabilRefId String? @unique
+
   reference     String?
   customerEmail String?
   customerPhone String?

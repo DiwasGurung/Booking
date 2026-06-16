@@ -24,6 +24,13 @@ const GATEWAY_OPTIONS: GatewayOption[] = [
     currency: 'NPR'
   },
   {
+    id: 'NABIL' as PaymentMethod,
+    name: 'Nabil Bank',
+    description: 'Pay with Nabil Bank (NPR)',
+    icon: '🏧',
+    currency: 'NPR'
+  },
+  {
     id: 'KHALTI',
     name: 'Khalti',
     description: 'Pay with Khalti (NPR)',

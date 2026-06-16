@@ -11558,6 +11558,7 @@ export namespace Prisma {
     esewaProductCode: string | null
     khaltiPidx: string | null
     khaltiToken: string | null
+    nabilRefId: string | null
     reference: string | null
     customerEmail: string | null
     customerPhone: string | null
@@ -11580,6 +11581,7 @@ export namespace Prisma {
     esewaProductCode: string | null
     khaltiPidx: string | null
     khaltiToken: string | null
+    nabilRefId: string | null
     reference: string | null
     customerEmail: string | null
     customerPhone: string | null
@@ -11602,6 +11604,7 @@ export namespace Prisma {
     esewaProductCode: number
     khaltiPidx: number
     khaltiToken: number
+    nabilRefId: number
     reference: number
     customerEmail: number
     customerPhone: number
@@ -11635,6 +11638,7 @@ export namespace Prisma {
     esewaProductCode?: true
     khaltiPidx?: true
     khaltiToken?: true
+    nabilRefId?: true
     reference?: true
     customerEmail?: true
     customerPhone?: true
@@ -11657,6 +11661,7 @@ export namespace Prisma {
     esewaProductCode?: true
     khaltiPidx?: true
     khaltiToken?: true
+    nabilRefId?: true
     reference?: true
     customerEmail?: true
     customerPhone?: true
@@ -11679,6 +11684,7 @@ export namespace Prisma {
     esewaProductCode?: true
     khaltiPidx?: true
     khaltiToken?: true
+    nabilRefId?: true
     reference?: true
     customerEmail?: true
     customerPhone?: true
@@ -11789,6 +11795,7 @@ export namespace Prisma {
     esewaProductCode: string | null
     khaltiPidx: string | null
     khaltiToken: string | null
+    nabilRefId: string | null
     reference: string | null
     customerEmail: string | null
     customerPhone: string | null
@@ -11831,6 +11838,7 @@ export namespace Prisma {
     esewaProductCode?: boolean
     khaltiPidx?: boolean
     khaltiToken?: boolean
+    nabilRefId?: boolean
     reference?: boolean
     customerEmail?: boolean
     customerPhone?: boolean
@@ -11857,6 +11865,7 @@ export namespace Prisma {
     esewaProductCode?: boolean
     khaltiPidx?: boolean
     khaltiToken?: boolean
+    nabilRefId?: boolean
     reference?: boolean
     customerEmail?: boolean
     customerPhone?: boolean
@@ -11883,6 +11892,7 @@ export namespace Prisma {
     esewaProductCode?: boolean
     khaltiPidx?: boolean
     khaltiToken?: boolean
+    nabilRefId?: boolean
     reference?: boolean
     customerEmail?: boolean
     customerPhone?: boolean
@@ -11909,6 +11919,7 @@ export namespace Prisma {
     esewaProductCode?: boolean
     khaltiPidx?: boolean
     khaltiToken?: boolean
+    nabilRefId?: boolean
     reference?: boolean
     customerEmail?: boolean
     customerPhone?: boolean
@@ -11919,7 +11930,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "businessId" | "bookingId" | "subscriptionId" | "gateway" | "transactionId" | "amount" | "status" | "esewaRefId" | "esewaProductCode" | "khaltiPidx" | "khaltiToken" | "reference" | "customerEmail" | "customerPhone" | "payload" | "errorMessage" | "currency" | "createdAt" | "updatedAt", ExtArgs["result"]["payment"]>
+  export type PaymentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "businessId" | "bookingId" | "subscriptionId" | "gateway" | "transactionId" | "amount" | "status" | "esewaRefId" | "esewaProductCode" | "khaltiPidx" | "khaltiToken" | "nabilRefId" | "reference" | "customerEmail" | "customerPhone" | "payload" | "errorMessage" | "currency" | "createdAt" | "updatedAt", ExtArgs["result"]["payment"]>
   export type PaymentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     business?: boolean | BusinessDefaultArgs<ExtArgs>
     booking?: boolean | Payment$bookingArgs<ExtArgs>
@@ -11956,6 +11967,7 @@ export namespace Prisma {
       esewaProductCode: string | null
       khaltiPidx: string | null
       khaltiToken: string | null
+      nabilRefId: string | null
       reference: string | null
       customerEmail: string | null
       customerPhone: string | null
@@ -12402,6 +12414,7 @@ export namespace Prisma {
     readonly esewaProductCode: FieldRef<"Payment", 'String'>
     readonly khaltiPidx: FieldRef<"Payment", 'String'>
     readonly khaltiToken: FieldRef<"Payment", 'String'>
+    readonly nabilRefId: FieldRef<"Payment", 'String'>
     readonly reference: FieldRef<"Payment", 'String'>
     readonly customerEmail: FieldRef<"Payment", 'String'>
     readonly customerPhone: FieldRef<"Payment", 'String'>
@@ -21266,6 +21279,7 @@ export namespace Prisma {
     esewaProductCode: 'esewaProductCode',
     khaltiPidx: 'khaltiPidx',
     khaltiToken: 'khaltiToken',
+    nabilRefId: 'nabilRefId',
     reference: 'reference',
     customerEmail: 'customerEmail',
     customerPhone: 'customerPhone',
@@ -22393,6 +22407,7 @@ export namespace Prisma {
     esewaProductCode?: StringNullableFilter<"Payment"> | string | null
     khaltiPidx?: StringNullableFilter<"Payment"> | string | null
     khaltiToken?: StringNullableFilter<"Payment"> | string | null
+    nabilRefId?: StringNullableFilter<"Payment"> | string | null
     reference?: StringNullableFilter<"Payment"> | string | null
     customerEmail?: StringNullableFilter<"Payment"> | string | null
     customerPhone?: StringNullableFilter<"Payment"> | string | null
@@ -22419,6 +22434,7 @@ export namespace Prisma {
     esewaProductCode?: SortOrderInput | SortOrder
     khaltiPidx?: SortOrderInput | SortOrder
     khaltiToken?: SortOrderInput | SortOrder
+    nabilRefId?: SortOrderInput | SortOrder
     reference?: SortOrderInput | SortOrder
     customerEmail?: SortOrderInput | SortOrder
     customerPhone?: SortOrderInput | SortOrder
@@ -22437,6 +22453,7 @@ export namespace Prisma {
     bookingId?: string
     transactionId?: string
     esewaRefId?: string
+    nabilRefId?: string
     AND?: PaymentWhereInput | PaymentWhereInput[]
     OR?: PaymentWhereInput[]
     NOT?: PaymentWhereInput | PaymentWhereInput[]
@@ -22459,7 +22476,7 @@ export namespace Prisma {
     business?: XOR<BusinessScalarRelationFilter, BusinessWhereInput>
     booking?: XOR<BookingNullableScalarRelationFilter, BookingWhereInput> | null
     subscription?: XOR<SubscriptionNullableScalarRelationFilter, SubscriptionWhereInput> | null
-  }, "id" | "bookingId" | "transactionId" | "esewaRefId">
+  }, "id" | "bookingId" | "transactionId" | "esewaRefId" | "nabilRefId">
 
   export type PaymentOrderByWithAggregationInput = {
     id?: SortOrder
@@ -22474,6 +22491,7 @@ export namespace Prisma {
     esewaProductCode?: SortOrderInput | SortOrder
     khaltiPidx?: SortOrderInput | SortOrder
     khaltiToken?: SortOrderInput | SortOrder
+    nabilRefId?: SortOrderInput | SortOrder
     reference?: SortOrderInput | SortOrder
     customerEmail?: SortOrderInput | SortOrder
     customerPhone?: SortOrderInput | SortOrder
@@ -22505,6 +22523,7 @@ export namespace Prisma {
     esewaProductCode?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     khaltiPidx?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     khaltiToken?: StringNullableWithAggregatesFilter<"Payment"> | string | null
+    nabilRefId?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     reference?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     customerEmail?: StringNullableWithAggregatesFilter<"Payment"> | string | null
     customerPhone?: StringNullableWithAggregatesFilter<"Payment"> | string | null
@@ -24060,6 +24079,7 @@ export namespace Prisma {
     esewaProductCode?: string | null
     khaltiPidx?: string | null
     khaltiToken?: string | null
+    nabilRefId?: string | null
     reference?: string | null
     customerEmail?: string | null
     customerPhone?: string | null
@@ -24086,6 +24106,7 @@ export namespace Prisma {
     esewaProductCode?: string | null
     khaltiPidx?: string | null
     khaltiToken?: string | null
+    nabilRefId?: string | null
     reference?: string | null
     customerEmail?: string | null
     customerPhone?: string | null
@@ -24106,6 +24127,7 @@ export namespace Prisma {
     esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    nabilRefId?: NullableStringFieldUpdateOperationsInput | string | null
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
     customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -24132,6 +24154,7 @@ export namespace Prisma {
     esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    nabilRefId?: NullableStringFieldUpdateOperationsInput | string | null
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
     customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -24155,6 +24178,7 @@ export namespace Prisma {
     esewaProductCode?: string | null
     khaltiPidx?: string | null
     khaltiToken?: string | null
+    nabilRefId?: string | null
     reference?: string | null
     customerEmail?: string | null
     customerPhone?: string | null
@@ -24175,6 +24199,7 @@ export namespace Prisma {
     esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    nabilRefId?: NullableStringFieldUpdateOperationsInput | string | null
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
     customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -24198,6 +24223,7 @@ export namespace Prisma {
     esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    nabilRefId?: NullableStringFieldUpdateOperationsInput | string | null
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
     customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -25795,6 +25821,7 @@ export namespace Prisma {
     esewaProductCode?: SortOrder
     khaltiPidx?: SortOrder
     khaltiToken?: SortOrder
+    nabilRefId?: SortOrder
     reference?: SortOrder
     customerEmail?: SortOrder
     customerPhone?: SortOrder
@@ -25822,6 +25849,7 @@ export namespace Prisma {
     esewaProductCode?: SortOrder
     khaltiPidx?: SortOrder
     khaltiToken?: SortOrder
+    nabilRefId?: SortOrder
     reference?: SortOrder
     customerEmail?: SortOrder
     customerPhone?: SortOrder
@@ -25844,6 +25872,7 @@ export namespace Prisma {
     esewaProductCode?: SortOrder
     khaltiPidx?: SortOrder
     khaltiToken?: SortOrder
+    nabilRefId?: SortOrder
     reference?: SortOrder
     customerEmail?: SortOrder
     customerPhone?: SortOrder
@@ -28497,6 +28526,7 @@ export namespace Prisma {
     esewaProductCode?: string | null
     khaltiPidx?: string | null
     khaltiToken?: string | null
+    nabilRefId?: string | null
     reference?: string | null
     customerEmail?: string | null
     customerPhone?: string | null
@@ -28521,6 +28551,7 @@ export namespace Prisma {
     esewaProductCode?: string | null
     khaltiPidx?: string | null
     khaltiToken?: string | null
+    nabilRefId?: string | null
     reference?: string | null
     customerEmail?: string | null
     customerPhone?: string | null
@@ -28874,6 +28905,7 @@ export namespace Prisma {
     esewaProductCode?: StringNullableFilter<"Payment"> | string | null
     khaltiPidx?: StringNullableFilter<"Payment"> | string | null
     khaltiToken?: StringNullableFilter<"Payment"> | string | null
+    nabilRefId?: StringNullableFilter<"Payment"> | string | null
     reference?: StringNullableFilter<"Payment"> | string | null
     customerEmail?: StringNullableFilter<"Payment"> | string | null
     customerPhone?: StringNullableFilter<"Payment"> | string | null
@@ -30084,6 +30116,7 @@ export namespace Prisma {
     esewaProductCode?: string | null
     khaltiPidx?: string | null
     khaltiToken?: string | null
+    nabilRefId?: string | null
     reference?: string | null
     customerEmail?: string | null
     customerPhone?: string | null
@@ -30108,6 +30141,7 @@ export namespace Prisma {
     esewaProductCode?: string | null
     khaltiPidx?: string | null
     khaltiToken?: string | null
+    nabilRefId?: string | null
     reference?: string | null
     customerEmail?: string | null
     customerPhone?: string | null
@@ -30441,6 +30475,7 @@ export namespace Prisma {
     esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    nabilRefId?: NullableStringFieldUpdateOperationsInput | string | null
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
     customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -30465,6 +30500,7 @@ export namespace Prisma {
     esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    nabilRefId?: NullableStringFieldUpdateOperationsInput | string | null
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
     customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -31676,6 +31712,7 @@ export namespace Prisma {
     esewaProductCode?: string | null
     khaltiPidx?: string | null
     khaltiToken?: string | null
+    nabilRefId?: string | null
     reference?: string | null
     customerEmail?: string | null
     customerPhone?: string | null
@@ -31700,6 +31737,7 @@ export namespace Prisma {
     esewaProductCode?: string | null
     khaltiPidx?: string | null
     khaltiToken?: string | null
+    nabilRefId?: string | null
     reference?: string | null
     customerEmail?: string | null
     customerPhone?: string | null
@@ -32250,6 +32288,7 @@ export namespace Prisma {
     esewaProductCode?: string | null
     khaltiPidx?: string | null
     khaltiToken?: string | null
+    nabilRefId?: string | null
     reference?: string | null
     customerEmail?: string | null
     customerPhone?: string | null
@@ -32453,6 +32492,7 @@ export namespace Prisma {
     esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    nabilRefId?: NullableStringFieldUpdateOperationsInput | string | null
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
     customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -32477,6 +32517,7 @@ export namespace Prisma {
     esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    nabilRefId?: NullableStringFieldUpdateOperationsInput | string | null
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
     customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -32499,6 +32540,7 @@ export namespace Prisma {
     esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    nabilRefId?: NullableStringFieldUpdateOperationsInput | string | null
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
     customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -33006,6 +33048,7 @@ export namespace Prisma {
     esewaProductCode?: string | null
     khaltiPidx?: string | null
     khaltiToken?: string | null
+    nabilRefId?: string | null
     reference?: string | null
     customerEmail?: string | null
     customerPhone?: string | null
@@ -33040,6 +33083,7 @@ export namespace Prisma {
     esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    nabilRefId?: NullableStringFieldUpdateOperationsInput | string | null
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
     customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -33064,6 +33108,7 @@ export namespace Prisma {
     esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    nabilRefId?: NullableStringFieldUpdateOperationsInput | string | null
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
     customerPhone?: NullableStringFieldUpdateOperationsInput | string | null
@@ -33086,6 +33131,7 @@ export namespace Prisma {
     esewaProductCode?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiPidx?: NullableStringFieldUpdateOperationsInput | string | null
     khaltiToken?: NullableStringFieldUpdateOperationsInput | string | null
+    nabilRefId?: NullableStringFieldUpdateOperationsInput | string | null
     reference?: NullableStringFieldUpdateOperationsInput | string | null
     customerEmail?: NullableStringFieldUpdateOperationsInput | string | null
     customerPhone?: NullableStringFieldUpdateOperationsInput | string | null

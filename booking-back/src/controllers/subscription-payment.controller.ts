@@ -1,9 +1,10 @@
 // src/controllers/subscription-payment.controller.ts
-// Controller for handling subscription payments with eSewa
+// Controller for handling subscription payments with eSewa, Khalti, and Nabil Bank
 
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import esewaService from '../services/esewa.service';
+import nabilService from '../services/nabil.service';
 import subscriptionService from '../services/subscription.service';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -96,7 +97,7 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
  */
 export const handleEsewaSuccess = async (req: Request, res: Response) => {
   try {
-    const data = Array.isArray(req.query.data) ? req.query.data[0] : req.query.data;
+    const { data } = req.query;
 
     if (!data || typeof data !== 'string') {
       console.error('[SubscriptionPayment] No data in eSewa callback');
@@ -223,11 +224,7 @@ export const handleEsewaFailure = async (req: Request, res: Response) => {
  */
 export const getSubscriptionUsage = async (req: Request, res: Response) => {
   try {
-    const businessId = Array.isArray(req.params.businessId) ? req.params.businessId[0] : req.params.businessId;
-
-    if (!businessId) {
-      return res.status(400).json({ error: 'Business ID is required' });
-    }
+    const { businessId } = req.params as any;
 
     const subscription = await prisma.subscription.findUnique({
       where: { businessId },
@@ -306,7 +303,7 @@ export const getSubscriptionUsage = async (req: Request, res: Response) => {
  */
 export const checkSubscriptionLimit = async (req: Request, res: Response) => {
   try {
-    const { businessId , action } = req.params as any;
+    const { businessId, action } = req.params as any;
 
     const subscription = await prisma.subscription.findUnique({
       where: { businessId },
@@ -422,5 +419,200 @@ export const getSubscriptionPlans = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('[SubscriptionPayment] Get plans error:', error);
     return res.status(500).json({ error: error.message || 'Failed to get plans' });
+  }
+};
+
+/**
+ * Initiate subscription payment with Nabil Bank
+ */
+export const initiateNabilPayment = async (req: Request, res: Response) => {
+  try {
+    const { businessId, planId } = req.body;
+
+    if (!businessId || !planId) {
+      return res.status(400).json({ error: 'Business ID and Plan ID are required' });
+    }
+
+    // Get the subscription plan
+    const plan = await prisma.subscriptionPlan.findUnique({
+      where: { id: planId },
+    });
+
+    if (!plan) {
+      return res.status(404).json({ error: 'Subscription plan not found' });
+    }
+
+    // Get or create subscription
+    let subscription = await prisma.subscription.findUnique({
+      where: { businessId },
+    });
+
+    if (!subscription) {
+      subscription = await prisma.subscription.create({
+        data: {
+          businessId,
+          planId,
+          status: 'TRIAL',
+        },
+      });
+    }
+
+    // Generate unique transaction ID
+    const transactionUuid = `SUB-NABIL-${subscription.id}-${Date.now()}`;
+
+    // Create pending payment record
+    const payment = await prisma.payment.create({
+      data: {
+        businessId,
+        subscriptionId: subscription.id,
+        gateway: 'NABIL',
+        transactionId: transactionUuid,
+        amount: plan.priceNPR,
+        status: 'pending',
+        currency: 'NPR',
+      },
+    });
+
+    // Generate Nabil Bank payment URL
+    const nabilResponse = await nabilService.initiatePayment({
+      amount: plan.priceNPR,
+      subscriptionId: transactionUuid,
+      planName: plan.displayName,
+    });
+
+    if (!nabilResponse.success) {
+      return res.status(500).json({ error: nabilResponse.message });
+    }
+
+    console.log('[SubscriptionPayment] Nabil Bank payment initiated:', {
+      paymentId: payment.id,
+      transactionId: transactionUuid,
+      amount: plan.priceNPR,
+    });
+
+    return res.json({
+      success: true,
+      paymentId: payment.id,
+      paymentUrl: nabilResponse.paymentUrl,
+      transactionId: transactionUuid,
+    });
+  } catch (error: any) {
+    console.error('[SubscriptionPayment] Nabil initiation error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to initiate Nabil payment' });
+  }
+};
+
+/**
+ * Handle Nabil Bank payment success callback
+ */
+export const handleNabilSuccess = async (req: Request, res: Response) => {
+  try {
+    const { transactionId, status, amount, orderId, referenceId } = req.query;
+
+    console.log('[SubscriptionPayment] Nabil success callback:', {
+      transactionId,
+      status,
+      amount,
+      orderId,
+      referenceId,
+    });
+
+    if (status !== 'success' || !transactionId) {
+      return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Invalid payment response`);
+    }
+
+    // Find the payment record
+    const payment = await prisma.payment.findUnique({
+      where: { transactionId: transactionId as string },
+      include: { subscription: true },
+    });
+
+    if (!payment) {
+      console.error('[SubscriptionPayment] Nabil payment not found:', transactionId);
+      return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Payment not found`);
+    }
+
+    // Verify payment with Nabil Bank service
+    const verification = await nabilService.verifyPayment(
+      referenceId as string,
+      parseFloat(amount as string)
+    );
+
+    if (!verification.success) {
+      console.error('[SubscriptionPayment] Nabil verification failed:', verification.message);
+      
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'failed',
+          errorMessage: verification.message,
+        },
+      });
+
+      return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Payment verification failed`);
+    }
+
+    // Update payment record
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'completed',
+        nabilRefId: referenceId as string,
+      },
+    });
+
+    // Activate subscription
+    if (payment.subscriptionId) {
+      const plan = await prisma.subscriptionPlan.findFirst({
+        where: {
+          subscriptions: {
+            some: { id: payment.subscriptionId },
+          },
+        },
+      });
+
+      const durationDays = plan?.durationDays || 30;
+
+      await subscriptionService.activateSubscription(payment.subscriptionId, {
+        paymentId: payment.id,
+        durationDays,
+      });
+
+      console.log('[SubscriptionPayment] Subscription activated:', payment.subscriptionId);
+    }
+
+    return res.redirect(`${FRONTEND_URL}/subscription/payment-success?paymentId=${payment.id}&method=NABIL`);
+  } catch (error: any) {
+    console.error('[SubscriptionPayment] Nabil success callback error:', error);
+    return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=An error occurred`);
+  }
+};
+
+/**
+ * Handle Nabil Bank payment failure callback
+ */
+export const handleNabilFailure = async (req: Request, res: Response) => {
+  try {
+    const { transactionId, errorMessage } = req.query;
+
+    console.log('[SubscriptionPayment] Nabil failure callback:', {
+      transactionId,
+      errorMessage,
+    });
+
+    if (transactionId) {
+      await prisma.payment.updateMany({
+        where: { transactionId: transactionId as string },
+        data: {
+          status: 'failed',
+          errorMessage: (errorMessage as string) || 'Payment failed or cancelled',
+        },
+      });
+    }
+
+    return res.redirect(`${FRONTEND_URL}/subscription/payment-failed?reason=${encodeURIComponent((errorMessage as string) || 'Payment failed')}`);
+  } catch (error: any) {
+    console.error('[SubscriptionPayment] Nabil failure callback error:', error);
+    return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=An error occurred`);
   }
 };
