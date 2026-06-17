@@ -13,7 +13,7 @@ import {
   ChevronRight, Eye, ArrowRight, BarChart3, TrendingDown, Users, Clock
 } from 'lucide-react'
 import { businessApi, bookingsApi, paymentApi } from '@/lib/api'
-import { useParams } from 'next/navigation'
+import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 
 interface BusinessStats {
@@ -46,8 +46,7 @@ interface Payment {
 }
 
 export default function BusinessDashboardPage() {
-  const params = useParams()
-  const businessId = params.businessId as string
+  const { businessId, loading: businessLoading } = useBusinessId()
   const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus()
   const [stats, setStats] = useState<BusinessStats | null>(null)
   const [recentBookings, setRecentBookings] = useState<Booking[]>([])
@@ -56,10 +55,14 @@ export default function BusinessDashboardPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadDashboardData()
+    if (businessId) {
+      loadDashboardData()
+    }
   }, [businessId])
 
   async function loadDashboardData() {
+    if (!businessId) return
+    
     try {
       setLoading(true)
       setError(null)
@@ -102,7 +105,7 @@ export default function BusinessDashboardPage() {
       icon: Calendar,
       color: 'text-blue-600',
       bg: 'bg-blue-50',
-      href: '#bookings'
+      href: '/dashboard/bookings'
     },
     {
       title: 'Total Revenue',
@@ -110,7 +113,7 @@ export default function BusinessDashboardPage() {
       icon: DollarSign,
       color: 'text-green-600',
       bg: 'bg-green-50',
-      href: `/dashboard/${businessId}/payments`
+      href: '/dashboard/payments'
     },
     {
       title: 'Completed',
@@ -118,7 +121,7 @@ export default function BusinessDashboardPage() {
       icon: CheckCircle,
       color: 'text-emerald-600',
       bg: 'bg-emerald-50',
-      href: '#bookings'
+      href: '/dashboard/bookings'
     },
     {
       title: 'Avg Rating',
@@ -126,7 +129,7 @@ export default function BusinessDashboardPage() {
       icon: TrendingUp,
       color: 'text-amber-600',
       bg: 'bg-amber-50',
-      href: '#'
+      href: '/dashboard/analytics'
     },
   ]
 
@@ -283,7 +286,7 @@ export default function BusinessDashboardPage() {
                         </div>
                       ))}
                     </div>
-                    <Link href={`/dashboard/${businessId}/payments`}>
+                    <Link href="/dashboard/payments">
                       <Button variant="ghost" size="sm" className="w-full mt-4 text-blue-600">
                         View All Payments <ArrowRight className="w-3 h-3 ml-1" />
                       </Button>
@@ -301,7 +304,7 @@ export default function BusinessDashboardPage() {
                       <Calendar className="w-5 h-5 text-blue-600" />
                       Recent Bookings
                     </h2>
-                    <Link href={`/dashboard/${businessId}/bookings`}>
+                    <Link href="/dashboard/bookings">
                       <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
                         View All <ArrowRight className="w-3 h-3 ml-1" />
                       </Button>
@@ -361,7 +364,7 @@ export default function BusinessDashboardPage() {
                   </h2>
 
                   <div className="space-y-3">
-                    <Link href={`/dashboard/${businessId}/bookings`} className="block">
+                    <Link href="/dashboard/bookings" className="block">
                       <Card className="border border-slate-200 shadow-sm p-4 bg-white hover:shadow-md transition-shadow cursor-pointer">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -378,7 +381,7 @@ export default function BusinessDashboardPage() {
                       </Card>
                     </Link>
 
-                    <Link href={`/dashboard/${businessId}/services`} className="block">
+                    <Link href="/dashboard/services" className="block">
                       <Card className="border border-slate-200 shadow-sm p-4 bg-white hover:shadow-md transition-shadow cursor-pointer">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -395,7 +398,7 @@ export default function BusinessDashboardPage() {
                       </Card>
                     </Link>
 
-                    <Link href={`/dashboard/${businessId}/staff`} className="block">
+                    <Link href="/dashboard/staff" className="block">
                       <Card className="border border-slate-200 shadow-sm p-4 bg-white hover:shadow-md transition-shadow cursor-pointer">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -412,7 +415,7 @@ export default function BusinessDashboardPage() {
                       </Card>
                     </Link>
 
-                    <Link href={`/dashboard/${businessId}/analytics`} className="block">
+                    <Link href="/dashboard/analytics" className="block">
                       <Card className="border border-slate-200 shadow-sm p-4 bg-white hover:shadow-md transition-shadow cursor-pointer">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">

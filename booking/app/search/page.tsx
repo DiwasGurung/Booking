@@ -26,7 +26,11 @@ export default function SearchPage() {
   
   // Get unique categories
   const categories = React.useMemo(() => {
-    const cats = new Set(businesses.map(b => b.category).filter((c): c is string => Boolean(c)))
+    const cats = new Set(
+      businesses
+        .map(b => (typeof b.category === 'string' ? b.category : ''))
+        .filter(Boolean)
+    )
     return Array.from(cats).sort()
   }, [businesses])
 
@@ -44,7 +48,8 @@ export default function SearchPage() {
     try {
       setLoading(true)
       const response = await businessApi.getAll()
-      const data = Array.isArray(response.data) ? response.data : (response.data as any)?.businesses || []
+      const rawData = (response as any).data
+      const data = Array.isArray(rawData) ? rawData : (rawData?.businesses || [])
       setBusinesses(data)
       setSearched(false)
     } catch (error) {
@@ -58,14 +63,17 @@ export default function SearchPage() {
   const applyFiltersAndSort = () => {
     let filtered = [...businesses]
 
+    const normalizeSearchField = (value: unknown) =>
+      typeof value === 'string' ? value.toLowerCase() : ''
+
     // Apply search query
     if (query.trim()) {
       const lowerQuery = query.toLowerCase()
       filtered = filtered.filter(b =>
-        b.name.toLowerCase().includes(lowerQuery) ||
-        (typeof b.category === 'string' && b.category.toLowerCase().includes(lowerQuery)) ||
-        (typeof b.description === 'string' && b.description.toLowerCase().includes(lowerQuery)) ||
-        (typeof b.city === 'string' && b.city.toLowerCase().includes(lowerQuery))
+        normalizeSearchField(b.name).includes(lowerQuery) ||
+        normalizeSearchField(b.category).includes(lowerQuery) ||
+        normalizeSearchField(b.description).includes(lowerQuery) ||
+        normalizeSearchField(b.city).includes(lowerQuery)
       )
     }
 
@@ -271,6 +279,19 @@ export default function SearchPage() {
                   className="border border-border shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col"
                 >
                   <div className="p-4 md:p-6 flex-1 flex flex-col">
+                    {/* Logo */}
+                    {business.logo && (
+                      <div className="mb-3 md:mb-4 flex justify-center">
+                        <div className="w-16 md:w-20 h-16 md:h-20 bg-muted rounded-lg flex items-center justify-center border border-border overflow-hidden">
+                          <img 
+                            src={business.logo} 
+                            alt={business.name} 
+                            className="w-full h-full object-contain p-1"
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     {/* Header */}
                     <div className="mb-2 md:mb-3">
                       <h3 className="text-base md:text-lg font-semibold text-foreground line-clamp-2">{business.name}</h3>

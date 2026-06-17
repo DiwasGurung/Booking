@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ArrowRight, Building2, MapPin, Phone, Globe, Info } from 'lucide-react'
+import { ArrowRight, Building2, MapPin, Phone, Globe, Info, Loader } from 'lucide-react'
 
 interface BusinessFormData {
   businessName: string
@@ -36,6 +36,7 @@ export default function BusinessProfileSetupPage() {
   const router = useRouter()
   const [activeStep, setActiveStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState<BusinessFormData>({
     businessName: '',
@@ -59,6 +60,61 @@ export default function BusinessProfileSetupPage() {
       sunday: { open: '10:00', close: '16:00', closed: true },
     }
   })
+
+  // Check if business owner already has a business and fetch user email
+  useEffect(() => {
+    const checkExistingBusinessAndFetchEmail = async () => {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+        
+        // Check if business exists
+        const businessResponse = await fetch(`${baseUrl}/api/businesses/current`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (businessResponse.ok) {
+          // Business already exists, redirect to dashboard
+          console.log('[v0] Business already exists, redirecting to dashboard')
+          router.push('/dashboard')
+          return
+        }
+
+        // Fetch user email
+        const userResponse = await fetch(`${baseUrl}/api/auth/me`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          const userEmail = userData.email || userData.user?.email
+          
+          if (userEmail) {
+            // Pre-fill business email with user email
+            setFormData(prev => ({
+              ...prev,
+              businessEmail: userEmail
+            }))
+            console.log('[v0] Pre-filled business email with user email:', userEmail)
+          }
+        }
+      } catch (err) {
+        // Business doesn't exist or error checking, allow to proceed with setup
+        console.log('[v0] No existing business found, allowing setup')
+      } finally {
+        setChecking(false)
+      }
+    }
+
+    checkExistingBusinessAndFetchEmail()
+  }, [router])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -98,6 +154,18 @@ export default function BusinessProfileSetupPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
+      {/* Loading state while checking for existing business */}
+      {checking && (
+        <div className="flex items-center justify-center min-h-screen">
+          <Card className="p-8 text-center">
+            <Loader className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">Checking your business profile...</p>
+          </Card>
+        </div>
+      )}
+
+      {/* Setup form - only show when not checking */}
+      {!checking && (
       <div className="mx-auto max-w-2xl">
         {/* Progress */}
         <div className="mb-8">
@@ -362,6 +430,7 @@ export default function BusinessProfileSetupPage() {
           </Button>
         </div>
       </div>
+      )}
     </div>
   )
 }

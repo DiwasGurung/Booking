@@ -20,6 +20,7 @@ import phoneVerificationRoutes from "./routes/phone-verification.routes"
 import pushSubscriptionRoutes from "./routes/push-subscription.route"
 import staffRoutes from "./routes/staff.routes" 
 import subscriptionPaymentRoutes from "./routes/subscription-payment.routes"
+import uploadRoutes from "./routes/upload.routes"
 
 
 dotenv.config();
@@ -81,6 +82,8 @@ app.use('/api/push-subscriptions', pushSubscriptionRoutes)
 app.use("/api/staff", staffRoutes)
 
 app.use("/api/subscription-payment", subscriptionPaymentRoutes)
+
+app.use("/api/upload", uploadRoutes)
 
 
 // Catch-all route (should be last)

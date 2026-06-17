@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { businessApi } from '@/lib/api'
-import { Loader, AlertCircle, Save, Settings, Bell, Lock, Trash2, Copy, Check } from 'lucide-react'
+import { Loader, AlertCircle, Save, Settings, Bell, Lock, Trash2, Copy, Check, Upload, X } from 'lucide-react'
 
 interface BusinessSettings {
   businessName: string
@@ -36,11 +36,11 @@ interface BusinessSettings {
     twitter?: string
   }
   notificationSettings?: {
-    emailNotifications: boolean
-    smsNotifications: boolean
-    bookingReminders: boolean
-    paymentAlerts: boolean
-    marketingEmails: boolean
+    emailNotifications?: boolean
+    smsNotifications?: boolean
+    bookingReminders?: boolean
+    paymentAlerts?: boolean
+    marketingEmails?: boolean
   }
 }
 
@@ -49,6 +49,10 @@ export default function SettingsPage() {
   const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
   const [settings, setSettings] = useState<BusinessSettings | null>(null)
   const [formData, setFormData] = useState<BusinessSettings | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [isLoadingLogo, setIsLoadingLogo] = useState(false)
+  const [profileCompletion, setProfileCompletion] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -56,6 +60,95 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [activeTab, setActiveTab] = useState('business')
+
+  // Calculate profile completion percentage
+  const calculateProfileCompletion = (data: BusinessSettings) => {
+    const requiredFields = [
+      data.businessName,
+      data.email,
+      data.phone,
+      data.address,
+      data.city,
+      data.description,
+      data.logo
+    ]
+    const completedFields = requiredFields.filter(field => field && field.length > 0).length
+    return Math.round((completedFields / requiredFields.length) * 100)
+  }
+
+  // Handle logo file selection
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file')
+        return
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size should be less than 5MB')
+        return
+      }
+      setLogoFile(file)
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        setLogoPreview(event.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  // Handle logo upload
+  const handleLogoUpload = async () => {
+    if (!logoFile) return
+    
+    setIsLoadingLogo(true)
+    try {
+      const formDataToSend = new FormData()
+      formDataToSend.append('logo', logoFile)
+      
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+      const response = await fetch(`${API_URL}/api/upload/logo`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formDataToSend,
+      })
+
+      if (!response.ok) throw new Error('Failed to upload logo')
+      
+      const data = await response.json()
+      setFormData(prev => prev ? { ...prev, logo: data.logoUrl } : null)
+      setLogoFile(null)
+      alert('Logo uploaded successfully!')
+    } catch (error: any) {
+      console.error('[v0] Logo upload error:', error)
+      alert('Failed to upload logo')
+    } finally {
+      setIsLoadingLogo(false)
+    }
+  }
+
+  // Remove logo
+  const handleRemoveLogo = async () => {
+    if (!formData?.logo) return
+    
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+      const response = await fetch(`${API_URL}/api/businesses/current/logo`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (!response.ok) throw new Error('Failed to remove logo')
+      
+      setFormData(prev => prev ? { ...prev, logo: undefined } : null)
+      setLogoPreview(null)
+      alert('Logo removed successfully!')
+    } catch (error: any) {
+      console.error('[v0] Logo removal error:', error)
+      alert('Failed to remove logo')
+    }
+  }
 
   // Default settings template
   const defaultSettings: BusinessSettings = {
@@ -106,18 +199,30 @@ export default function SettingsPage() {
     try {
       setLoading(true)
       const response = await businessApi.getSettings(businessId)
-      if (response.data) {
+      const settingsData = response.data ?? defaultSettings
+      setFormData(settingsData)
+      setProfileCompletion(calculateProfileCompletion(settingsData))
+      if (settingsData.logo) {
+        setLogoPreview(settingsData.logo)
+      }
+      if (response.success && response.data) {
+        setSettings(response.data)
+        setFormData(response.data)
+      } else if (response.data) {
+        // Handle case where response.data directly contains settings
         setSettings(response.data)
         setFormData(response.data)
       } else {
         setSettings(defaultSettings)
         setFormData(defaultSettings)
+        setError('No settings found, using defaults')
       }
       setError(null)
     } catch (err) {
+      console.error('[v0] Error loading settings:', err)
       setSettings(defaultSettings)
       setFormData(defaultSettings)
-      setError('Using default settings. Some data may not have loaded.')
+      setError('Failed to load settings. Using default values.')
     } finally {
       setLoading(false)
     }
@@ -127,10 +232,14 @@ export default function SettingsPage() {
     if (!businessId || !formData) return
     try {
       setSaving(true)
-      await businessApi.updateSettings(businessId, formData)
-      setSettings(formData)
-      setSuccess(`${tab === 'business' ? 'Business' : tab === 'notifications' ? 'Notification' : 'Security'} settings updated successfully`)
-      setTimeout(() => setSuccess(null), 3000)
+      const response = await businessApi.updateSettings(businessId, formData)
+      if (response.success || response.data) {
+        setSettings(formData)
+        setSuccess(`${tab === 'business' ? 'Business' : tab === 'notifications' ? 'Notification' : 'Security'} settings updated successfully`)
+        setTimeout(() => setSuccess(null), 3000)
+      } else {
+        setError(response.error || 'Failed to save settings')
+      }
     } catch (err) {
       setError('Failed to save settings')
       console.error('[v0] Error saving settings:', err)
@@ -150,11 +259,7 @@ export default function SettingsPage() {
     setFormData({
       ...formData,
       notificationSettings: {
-        emailNotifications: formData.notificationSettings?.emailNotifications ?? true,
-        smsNotifications: formData.notificationSettings?.smsNotifications ?? false,
-        bookingReminders: formData.notificationSettings?.bookingReminders ?? true,
-        paymentAlerts: formData.notificationSettings?.paymentAlerts ?? true,
-        marketingEmails: formData.notificationSettings?.marketingEmails ?? false,
+        ...formData.notificationSettings,
         [key]: value,
       },
     })
@@ -220,6 +325,29 @@ export default function SettingsPage() {
           <p className="text-muted-foreground">Manage your business profile and preferences</p>
         </div>
 
+        {/* Profile Completion Banner */}
+        {profileCompletion < 100 && (
+          <Card className="mb-8 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/30 border-blue-200 dark:border-blue-800">
+            <CardContent className="pt-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-foreground">Complete Your Profile</h3>
+                  <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{profileCompletion}%</span>
+                </div>
+                <div className="w-full bg-blue-200 dark:bg-blue-800/40 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${profileCompletion}%` }}
+                  />
+                </div>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Add a business logo and complete all fields to improve visibility in search results
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto">
             <TabsTrigger value="business" className="flex items-center gap-2">
@@ -238,6 +366,93 @@ export default function SettingsPage() {
 
           {/* Business Settings Tab */}
           <TabsContent value="business" className="space-y-6">
+            {/* Logo Upload */}
+            <Card className="border border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5" />
+                  Business Logo
+                </CardTitle>
+                <CardDescription>Upload a professional logo for your business</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-6">
+                  {/* Logo Preview */}
+                  <div className="flex-shrink-0">
+                    <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border overflow-hidden">
+                      {logoPreview || formData?.logo ? (
+                        <img 
+                          src={logoPreview || formData?.logo} 
+                          alt="Business logo" 
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <Upload className="w-8 h-8 text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Upload Controls */}
+                  <div className="flex-1">
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor="logo-upload" className="block mb-2">Upload Logo (PNG, JPG - Max 5MB)</Label>
+                        <Input
+                          id="logo-upload"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLogoChange}
+                          className="block"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        {logoFile && (
+                          <>
+                            <Button
+                              onClick={handleLogoUpload}
+                              disabled={isLoadingLogo}
+                              className="bg-primary text-primary-foreground hover:bg-primary/90"
+                            >
+                              {isLoadingLogo ? (
+                                <>
+                                  <Loader className="w-4 h-4 mr-2 animate-spin" />
+                                  Uploading...
+                                </>
+                              ) : (
+                                <>
+                                  <Upload className="w-4 h-4 mr-2" />
+                                  Upload Logo
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setLogoFile(null)
+                                setLogoPreview(formData?.logo || null)
+                              }}
+                              variant="outline"
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        )}
+                        {(formData?.logo || logoPreview) && !logoFile && (
+                          <Button
+                            onClick={handleRemoveLogo}
+                            variant="destructive"
+                            className="gap-2"
+                          >
+                            <X className="w-4 h-4" />
+                            Remove Logo
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Basic Information */}
             <Card className="border border-border">
               <CardHeader>
@@ -327,86 +542,6 @@ export default function SettingsPage() {
                     <>
                       <Save className="w-4 h-4 mr-2" />
                       Save Changes
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Address Information */}
-            <Card className="border border-border">
-              <CardHeader>
-                <CardTitle>Address</CardTitle>
-                <CardDescription>Your business location</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="address">Street Address</Label>
-                    <Input
-                      id="address"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      placeholder="123 Main St"
-                      className="mt-2"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="city">City</Label>
-                    <Input
-                      id="city"
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      placeholder="San Francisco"
-                      className="mt-2"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="state">State/Province</Label>
-                    <Input
-                      id="state"
-                      value={formData.state}
-                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                      placeholder="CA"
-                      className="mt-2"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="zipCode">Zip/Postal Code</Label>
-                    <Input
-                      id="zipCode"
-                      value={formData.zipCode}
-                      onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
-                      placeholder="94107"
-                      className="mt-2"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <Label htmlFor="country">Country</Label>
-                    <Input
-                      id="country"
-                      value={formData.country}
-                      onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                      placeholder="United States"
-                      className="mt-2"
-                    />
-                  </div>
-                </div>
-
-                <Button
-                  onClick={() => handleSaveSettings('business')}
-                  disabled={saving}
-                  className="w-full"
-                >
-                  {saving ? (
-                    <>
-                      <Loader className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Address
                     </>
                   )}
                 </Button>
