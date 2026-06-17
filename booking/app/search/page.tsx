@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useEffect, useState } from "react"
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useAuth } from '@/context/authContext'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -11,6 +12,8 @@ import { useRoleProtection } from '@/hooks/useRoleProtection'
 
 export default function SearchPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { refreshUser } = useAuth()
   const { loading: authLoading } = useRoleProtection({ requiredRole: 'CUSTOMER' })
   const [query, setQuery] = useState('')
   const [businesses, setBusinesses] = useState<Business[]>([])
@@ -26,11 +29,7 @@ export default function SearchPage() {
   
   // Get unique categories
   const categories = React.useMemo(() => {
-    const cats = new Set(
-      businesses
-        .map(b => (typeof b.category === 'string' ? b.category : ''))
-        .filter(Boolean)
-    )
+    const cats = new Set(businesses.map(b => b.category).filter(Boolean))
     return Array.from(cats).sort()
   }, [businesses])
 
@@ -38,6 +37,17 @@ export default function SearchPage() {
   useEffect(() => {
     loadAllBusinesses()
   }, [])
+
+  // Refresh auth if coming from Google OAuth callback
+  useEffect(() => {
+    const authRefresh = searchParams.get('authRefresh')
+    if (authRefresh === 'true') {
+      console.log('[v0] Auth refresh triggered from OAuth callback')
+      refreshUser()
+      // Remove the parameter from URL
+      router.replace('/search')
+    }
+  }, [searchParams, refreshUser, router])
 
   // Filter and sort businesses when filters change
   useEffect(() => {
@@ -48,8 +58,12 @@ export default function SearchPage() {
     try {
       setLoading(true)
       const response = await businessApi.getAll()
-      const rawData = (response as any).data
-      const data = Array.isArray(rawData) ? rawData : (rawData?.businesses || [])
+      const responseData = response?.data as Business[] | { businesses?: Business[] } | undefined
+      const data = Array.isArray(responseData)
+        ? responseData
+        : Array.isArray(responseData?.businesses)
+          ? responseData.businesses
+          : []
       setBusinesses(data)
       setSearched(false)
     } catch (error) {
@@ -63,17 +77,21 @@ export default function SearchPage() {
   const applyFiltersAndSort = () => {
     let filtered = [...businesses]
 
-    const normalizeSearchField = (value: unknown) =>
-      typeof value === 'string' ? value.toLowerCase() : ''
+    const normalizeField = (value: unknown) => {
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint' || typeof value === 'boolean') {
+        return String(value).toLowerCase()
+      }
+      return ''
+    }
 
     // Apply search query
     if (query.trim()) {
       const lowerQuery = query.toLowerCase()
       filtered = filtered.filter(b =>
-        normalizeSearchField(b.name).includes(lowerQuery) ||
-        normalizeSearchField(b.category).includes(lowerQuery) ||
-        normalizeSearchField(b.description).includes(lowerQuery) ||
-        normalizeSearchField(b.city).includes(lowerQuery)
+        normalizeField(b.name).includes(lowerQuery) ||
+        normalizeField(b.category).includes(lowerQuery) ||
+        normalizeField(b.description).includes(lowerQuery) ||
+        normalizeField(b.city).includes(lowerQuery)
       )
     }
 
@@ -195,7 +213,7 @@ export default function SearchPage() {
                 >
                   <option value="all">All Categories</option>
                   {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
+                    <option key={String(cat)} value={String(cat)}>{cat}</option>
                   ))}
                 </select>
               </div>

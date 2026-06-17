@@ -56,15 +56,21 @@ export async function GET(request: NextRequest) {
       redirectPath = '/admin'
     }
     
-    console.log('[v0] Redirecting to:', redirectPath)
+    // Add auth refresh trigger to URL
+    const redirectUrl = new URL(redirectPath, request.url)
+    redirectUrl.searchParams.set('authRefresh', 'true')
+    
+    console.log('[v0] Redirecting to:', redirectUrl.toString())
 
-    // Create response with appropriate redirect
-    const redirectResponse = NextResponse.redirect(new URL(redirectPath, request.url))
+    const redirectResponse = NextResponse.redirect(redirectUrl)
 
-    // Get the Set-Cookie header from the backend response if available
-    const setCookieHeader = response.headers.get('set-cookie')
-    if (setCookieHeader) {
-      redirectResponse.headers.set('set-cookie', setCookieHeader)
+    // Copy all Set-Cookie headers from backend response
+    const setCookieHeaders = response.headers.getSetCookie()
+    if (setCookieHeaders.length > 0) {
+      setCookieHeaders.forEach(cookie => {
+        redirectResponse.headers.append('set-cookie', cookie)
+      })
+      console.log('[v0] Set-Cookie headers copied:', setCookieHeaders.length)
     }
 
     return redirectResponse
