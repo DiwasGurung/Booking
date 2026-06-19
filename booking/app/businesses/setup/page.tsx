@@ -38,6 +38,12 @@ export default function BusinessProfileSetupPage() {
   const [loading, setLoading] = useState(false)
   const [checking, setChecking] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [useSameEmail, setUseSameEmail] = useState(true) // Default to same email
+  const [emailVerificationSent, setEmailVerificationSent] = useState(false)
+  const [emailVerificationCode, setEmailVerificationCode] = useState('')
+  const [verificationCode, setVerificationCode] = useState('')
+  const [verifyingEmail, setVerifyingEmail] = useState(false)
   const [formData, setFormData] = useState<BusinessFormData>({
     businessName: '',
     businessEmail: '',
@@ -84,7 +90,7 @@ export default function BusinessProfileSetupPage() {
         }
 
         // Fetch user email
-        const userResponse = await fetch(`${baseUrl}/api/auth/me`, {
+        const userResponse = await fetch(`${baseUrl}/api/users/me`, {
           method: 'GET',
           credentials: 'include',
           headers: {
@@ -94,15 +100,16 @@ export default function BusinessProfileSetupPage() {
 
         if (userResponse.ok) {
           const userData = await userResponse.json()
-          const userEmail = userData.email || userData.user?.email
+          const fetchedUserEmail = userData.email || userData.user?.email
           
-          if (userEmail) {
-            // Pre-fill business email with user email
+          if (fetchedUserEmail) {
+            // Store user email and pre-fill business email
+            setUserEmail(fetchedUserEmail)
             setFormData(prev => ({
               ...prev,
-              businessEmail: userEmail
+              businessEmail: fetchedUserEmail
             }))
-            console.log('[v0] Pre-filled business email with user email:', userEmail)
+            console.log('[v0] Pre-filled business email with user email:', fetchedUserEmail)
           }
         }
       } catch (err) {
@@ -124,10 +131,87 @@ export default function BusinessProfileSetupPage() {
     }))
   }
 
+  // Send verification email if business email is different from user email
+  const sendVerificationEmail = async () => {
+    if (useSameEmail || formData.businessEmail === userEmail) {
+      // Same email, no verification needed
+      return true
+    }
+
+    try {
+      setLoading(true)
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+      const response = await fetch(`${baseUrl}/api/users/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: formData.businessEmail }),
+      })
+
+      if (!response.ok) throw new Error('Failed to send verification email')
+      
+      setEmailVerificationSent(true)
+      console.log('[v0] Email verification sent to:', formData.businessEmail)
+      return false // Need verification
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send verification email')
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Verify the business email with the code using existing endpoint
+  const verifyBusinessEmail = async () => {
+    try {
+      setVerifyingEmail(true)
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+      const response = await fetch(`${baseUrl}/api/users/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          email: formData.businessEmail,
+          code: verificationCode
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Invalid verification code')
+      }
+      
+      console.log('[v0] Business email verified successfully')
+      setEmailVerificationSent(false)
+      setVerificationCode('')
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to verify email')
+      return false
+    } finally {
+      setVerifyingEmail(false)
+    }
+  }
+
   const handleSubmit = async () => {
     try {
       setLoading(true)
       setError(null)
+
+      // Check if business email verification is needed and done
+      if (formData.businessEmail !== userEmail && !emailVerificationSent) {
+        // Different email - need to verify first
+        const needsVerification = await sendVerificationEmail()
+        if (!needsVerification) {
+          return // Verification email sent, wait for user to verify
+        }
+      }
+
+      // If verification was sent but not yet completed
+      if (emailVerificationSent) {
+        setError('Please verify your business email first')
+        return
+      }
 
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
       const response = await fetch(`${baseUrl}/api/businesses`, {
@@ -227,7 +311,35 @@ export default function BusinessProfileSetupPage() {
                     placeholder="business@example.com"
                     value={formData.businessEmail}
                     onChange={handleInputChange}
+                    disabled={useSameEmail}
                   />
+                  <div className="flex items-center gap-2 mt-3">
+                    <input
+                      type="checkbox"
+                      id="useSameEmail"
+                      checked={useSameEmail}
+                      onChange={(e) => {
+                        const isChecked = e.target.checked
+                        setUseSameEmail(isChecked)
+                        if (isChecked && userEmail) {
+                          console.log('[v0] Using same personal email:', userEmail)
+                          setFormData(prev => ({
+                            ...prev,
+                            businessEmail: userEmail
+                          }))
+                        } else if (!isChecked) {
+                          setFormData(prev => ({
+                            ...prev,
+                            businessEmail: ''
+                          }))
+                        }
+                      }}
+                      className="w-4 h-4 rounded border border-input cursor-pointer"
+                    />
+                    <label htmlFor="useSameEmail" className="text-sm font-medium text-foreground cursor-pointer">
+                      {userEmail ? `Use my personal email (${userEmail})` : 'Loading personal email...'}
+                    </label>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-foreground mb-2">Phone</label>
@@ -404,6 +516,62 @@ export default function BusinessProfileSetupPage() {
             </div>
           )}
         </Card>
+
+        {/* Email Verification Modal */}
+        {emailVerificationSent && (
+          <Card className="border border-primary bg-primary/5 p-6 mb-6">
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Verify Your Business Email</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  We've sent a verification code to <strong>{formData.businessEmail}</strong>
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-2">Verification Code</label>
+                <Input
+                  placeholder="Enter 6-digit code"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.slice(0, 6))}
+                  maxLength={6}
+                  className="text-center text-lg tracking-widest"
+                />
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Check your email inbox (or spam folder) for the verification code. It will expire in 15 minutes.
+              </p>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEmailVerificationSent(false)
+                    setVerificationCode('')
+                  }}
+                  disabled={verifyingEmail}
+                >
+                  Change Email
+                </Button>
+                <Button
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1"
+                  onClick={verifyBusinessEmail}
+                  disabled={verifyingEmail || verificationCode.length !== 6}
+                >
+                  {verifyingEmail ? (
+                    <>
+                      <Loader className="w-4 h-4 mr-2 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    'Verify Email'
+                  )}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Navigation Buttons */}
         <div className="flex justify-between gap-4">
