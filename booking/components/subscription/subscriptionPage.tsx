@@ -49,7 +49,16 @@ interface EsewaFormData {
 export default function SubscriptionPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, token } = useAuth()
+
+  // Build headers including the Bearer token (reliable across cross-origin) plus cookies
+  const getAuthHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    return headers
+  }
   const [plans, setPlans] = useState<Plan[]>([])
   const [selectedPlan, setSelectedPlan] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
@@ -142,7 +151,7 @@ export default function SubscriptionPage() {
       // Get current business
       const businessResponse = await fetch(`${API_URL}/api/businesses/current`, {
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       })
 
       if (!businessResponse.ok) {
@@ -161,7 +170,7 @@ export default function SubscriptionPage() {
       const response = await fetch(`${API_URL}/api/subscriptions/create-trial`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           businessId,
           planId: plan.id,
@@ -191,7 +200,7 @@ export default function SubscriptionPage() {
       // Get current business
       const businessResponse = await fetch(`${API_URL}/api/businesses/current`, {
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       })
 
       if (!businessResponse.ok) {
@@ -210,7 +219,7 @@ export default function SubscriptionPage() {
       const response = await fetch(`${API_URL}/api/subscription-payment/esewa/initiate`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           businessId,
           planId: plan.id,
@@ -246,7 +255,7 @@ export default function SubscriptionPage() {
       // Get current business
       const businessResponse = await fetch(`${API_URL}/api/businesses/current`, {
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       })
 
       if (!businessResponse.ok) {
@@ -265,7 +274,7 @@ export default function SubscriptionPage() {
       const response = await fetch(`${API_URL}/api/subscription-payment/nabil/initiate`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           businessId,
           planId: plan.id,

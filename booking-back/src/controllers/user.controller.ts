@@ -115,6 +115,13 @@ export const loginUser = async (req: AuthRequest, res: Response) => {
     const token = generateToken(user.id)
     console.log('[Login] Setting auth cookie with token:', token.substring(0, 20) + '...')
     res.cookie('authToken', token, generateCookie(token))
+    // Also set user role in cookie for middleware to read
+    res.cookie('userRole', user.role, {
+      httpOnly: false, // Must be accessible to middleware
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    })
     console.log('[Login] Cookie options:', generateCookie(token))
 
     res.json({
@@ -365,15 +372,25 @@ export const verifyEmail = async (req: AuthRequest, res: Response) => {
     // Generate auth token now that email is verified
     const token = generateToken(verifiedUser.id)
 
+    // Set auth cookies so the user is automatically logged in after verification
+    res.cookie('authToken', token, generateCookie(token))
+    res.cookie('userRole', verifiedUser.role, {
+      httpOnly: false, // Must be accessible to middleware
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    })
+
     res.json({
       success: true,
       token,
-      message: 'Email verified successfully. You can now login.',
+      message: 'Email verified successfully.',
       user: {
         id: verifiedUser.id,
         email: verifiedUser.email,
         firstName: verifiedUser.firstName,
         lastName: verifiedUser.lastName,
+        role: verifiedUser.role,
         isEmailVerified: verifiedUser.isEmailVerified,
       },
     })

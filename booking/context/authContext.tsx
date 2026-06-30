@@ -29,6 +29,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   refreshUser: (token?: string) => Promise<void>
   setToken: (token: string) => void
+  token: string | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -39,17 +40,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setTokenState] = useState<string | null>(null)
 
   const setToken = (newToken: string) => {
-    console.log("[v0] Token stored in auth context")
+    console.log("[v0] Token stored in auth context and localStorage")
     setTokenState(newToken)
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("authToken", newToken)
+      } catch (e) {
+        console.warn("[v0] Failed to persist token to localStorage", e)
+      }
+    }
   }
 
   const checkAuth = async (authToken?: string) => {
     try {
       console.log("[v0] Checking authentication with backend:", API_URL)
 
-      // Use provided token or stored token
-      const bearerToken = authToken || token
-  
+      // Use provided token, in-memory token, or persisted token
+      const storedToken =
+        typeof window !== "undefined" ? localStorage.getItem("authToken") : null
+      const bearerToken = authToken || token || storedToken
+
       // Check if user is authenticated by calling the API
       // httpOnly cookie is automatically sent with credentials: 'include'
       const controller = new AbortController()
@@ -83,8 +93,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(null)
       } else if (response.status === 403) {
         console.log("[v0] User email not verified (403) - this is expected during email verification flow")
-        setUser(null)}
-        else {
+        setUser(null)
+      } else {
         console.log("[v0] Auth check returned status:", response.status)
         setUser(null)
       }
@@ -107,9 +117,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await checkAuth(authToken)
   }
 
-  // Initial auth check
+  // Initial auth check - hydrate token from localStorage first
   useEffect(() => {
-    checkAuth()
+    const storedToken =
+      typeof window !== "undefined" ? localStorage.getItem("authToken") : null
+    if (storedToken) {
+      setTokenState(storedToken)
+    }
+    checkAuth(storedToken || undefined)
   }, [])
 
   // Listen for auth changes (e.g., after Google sign-in or register)
@@ -143,13 +158,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error("[v0] Logout error:", error)
     } finally {
       setUser(null)
+      setTokenState(null)
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("authToken")
+      }
       // httpOnly cookie is cleared by backend on logout
     }
   }
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, logout, isAuthenticated: !!user, refreshUser, setToken }}
+      value={{ user, loading, logout, isAuthenticated: !!user, refreshUser, setToken, token }}
     >
       {children}
     </AuthContext.Provider>

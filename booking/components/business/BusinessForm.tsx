@@ -9,22 +9,16 @@ import { Label } from '@/components/ui/label'
 import { useAuth } from '@/context/authContext'
 import { Loader2, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select'
+import { BUSINESS_CATEGORIES } from '@/components/constants/businessCategories'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-
-interface Plan {
-  id: string
-  name: string
-  price: string
-  period: string
-  description: string
-}
-545
-const PLANS: Plan[] = [
-  { id: 'free', name: 'Free', price: '$0', period: '/month', description: 'Get started' },
-  { id: 'pro', name: 'Pro', price: '$29', period: '/month', description: 'For growing businesses' },
-  { id: 'enterprise', name: 'Enterprise', price: 'Custom', period: 'pricing', description: 'For large teams' },
-]
 
 const NEPAL_DISTRICTS = [
   'Kathmandu', 'Bhaktapur', 'Lalitpur', 'Pokhara', 'Biratnagar', 'Janakpur', 'Butwal', 'Nepalgunj',
@@ -39,11 +33,11 @@ const NEPAL_DISTRICTS = [
 
 export const UnifiedBusinessRegister = () => {
   const router = useRouter()
-  const { refreshUser } = useAuth()
+  const { refreshUser, setToken } = useAuth()
 
-  // Main flow: 1=Register, 2=VerifyEmail, 3=BusinessSetup, 4=SelectPlan
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
-  const [businessStep, setBusinessStep] = useState<'basic' | 'location' | 'plan'>('basic')
+  // Main flow: 1=Register, 2=VerifyEmail, 3=BusinessSetup
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [businessStep, setBusinessStep] = useState<'basic' | 'location'>('basic')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -71,9 +65,6 @@ export const UnifiedBusinessRegister = () => {
   const [businessCity, setBusinessCity] = useState('')
   const [businessDescription, setBusinessDescription] = useState('')
   const [useSameEmail, setUseSameEmail] = useState(true)
-
-  // Step 4: Plan Selection
-  const [selectedPlan, setSelectedPlan] = useState('')
 
   // Step 1: Register User
   const handleUserRegistration = async (e: React.FormEvent) => {
@@ -143,7 +134,13 @@ export const UnifiedBusinessRegister = () => {
         throw new Error(data.error || 'Verification failed')
       }
 
-      await refreshUser()
+      // Store token and authenticate the user (cookie is also set by backend)
+      if (data.token) {
+        setToken(data.token)
+        await refreshUser(data.token)
+      } else {
+        await refreshUser()
+      }
       setStep(3)
       toast.success('Email verified! Now set up your business.')
     } catch (err: any) {
@@ -191,30 +188,22 @@ export const UnifiedBusinessRegister = () => {
         return
       }
       setBusinessStep('location')
-    } else if (businessStep === 'location') {
-      if (!businessAddress || !businessCity) {
-        toast.error('Please fill in all location fields')
-        return
-      }
-      setBusinessStep('plan')
     }
   }
 
   const handleBusinessPrev = () => {
     if (businessStep === 'location') {
       setBusinessStep('basic')
-    } else if (businessStep === 'plan') {
-      setBusinessStep('location')
     }
   }
 
-  // Step 3+4: Create Business with Plan
+  // Step 3: Create Business then redirect to subscription
   const handleBusinessCreation = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
-    if (!selectedPlan) {
-      setError('Please select a subscription plan')
+    if (!businessAddress || !businessCity) {
+      toast.error('Please fill in all location fields')
       return
     }
 
@@ -254,8 +243,8 @@ export const UnifiedBusinessRegister = () => {
       toast.success('Business created successfully!')
       await refreshUser()
       
-      // Redirect to subscription with plan info
-      router.push(`/subscription?plan=${selectedPlan}&from=setup`)
+      // Redirect to subscription page to choose a plan
+      router.push('/subscription?from=setup')
     } catch (err: any) {
       setError(err.message)
       toast.error(err.message)
@@ -272,9 +261,9 @@ export const UnifiedBusinessRegister = () => {
           <div className="p-8">
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-foreground mb-2">Create Account</h1>
-              <p className="text-sm text-muted-foreground">Step 1 of 4: Personal Information</p>
+              <p className="text-sm text-muted-foreground">Step 1 of 3: Personal Information</p>
               <div className="mt-4 h-1 bg-slate-200 rounded-full overflow-hidden">
-                <div className="h-full w-1/4 bg-primary rounded-full transition-all" />
+                <div className="h-full w-1/3 bg-primary rounded-full transition-all" />
               </div>
             </div>
 
@@ -387,9 +376,9 @@ export const UnifiedBusinessRegister = () => {
           <div className="p-8">
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-foreground mb-2">Verify Email</h1>
-              <p className="text-sm text-muted-foreground">Step 2 of 4: Email Verification</p>
+              <p className="text-sm text-muted-foreground">Step 2 of 3: Email Verification</p>
               <div className="mt-4 h-1 bg-slate-200 rounded-full overflow-hidden">
-                <div className="h-full w-2/4 bg-primary rounded-full transition-all" />
+                <div className="h-full w-2/3 bg-primary rounded-full transition-all" />
               </div>
             </div>
 
@@ -447,36 +436,46 @@ export const UnifiedBusinessRegister = () => {
     )
   }
 
-  // RENDER: Step 3+4 - Business Setup with Plan Selection
+  // RENDER: Step 3 - Business Setup
   if (step === 3) {
+    const isLocation = businessStep === 'location'
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
         <div className="w-full max-w-2xl">
-          <div className="mb-8 text-center">
+          <div className="mb-6 text-center">
             <h1 className="text-3xl font-bold text-foreground mb-2">Setup Your Business</h1>
             <p className="text-muted-foreground text-sm">
-              {businessStep === 'plan' ? 'Step 4 of 4: Choose Your Plan' : 'Step 3 of 4: Business Information'}
+              Step 3 of 3: {isLocation ? 'Business Location' : 'Business Information'}
             </p>
           </div>
 
-          <div className="mb-8 flex gap-2">
-            {(['basic', 'location', 'plan'] as const).map((s, idx) => (
-              <button
-                key={s}
-                onClick={() => {
-                  if (s === 'basic' || (s === 'location' && businessStep !== 'plan')) {
-                    setBusinessStep(s)
-                  }
-                }}
-                className={`flex-1 h-2 rounded-full transition ${
-                  s === businessStep
-                    ? 'bg-primary'
-                    : ['basic', 'location', 'plan'].indexOf(s) < ['basic', 'location', 'plan'].indexOf(businessStep)
-                    ? 'bg-primary/30'
-                    : 'bg-muted'
-                }`}
-              />
-            ))}
+          {/* Substep progress */}
+          <div className="mb-8 flex items-center gap-3">
+            {(['basic', 'location'] as const).map((s, idx) => {
+              const order = ['basic', 'location']
+              const active = s === businessStep
+              const completed = order.indexOf(s) < order.indexOf(businessStep)
+              return (
+                <div key={s} className="flex items-center gap-3 flex-1">
+                  <div
+                    className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold transition ${
+                      active
+                        ? 'bg-primary text-primary-foreground'
+                        : completed
+                        ? 'bg-primary/20 text-primary'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {completed ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
+                  </div>
+                  <span className={`text-sm font-medium ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {s === 'basic' ? 'Details' : 'Location'}
+                  </span>
+                  {idx === 0 && <div className="flex-1 h-0.5 bg-muted rounded-full" />}
+                </div>
+              )
+            })}
           </div>
 
           {error && (
@@ -486,11 +485,19 @@ export const UnifiedBusinessRegister = () => {
             </div>
           )}
 
-          <form onSubmit={businessStep === 'plan' ? handleBusinessCreation : (e) => { e.preventDefault(); handleBusinessNext() }} className="space-y-6">
+          <form
+            onSubmit={isLocation ? handleBusinessCreation : (e) => { e.preventDefault(); handleBusinessNext() }}
+            className="space-y-6"
+          >
             {/* BASIC INFO */}
             {businessStep === 'basic' && (
-              <Card className="p-6 space-y-4">
+              <Card className="p-6 space-y-5">
                 <div>
+                  <h2 className="text-lg font-semibold text-foreground mb-1">Business Details</h2>
+                  <p className="text-sm text-muted-foreground">Tell us about your business</p>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="businessName">Business Name *</Label>
                   <Input
                     id="businessName"
@@ -501,41 +508,48 @@ export const UnifiedBusinessRegister = () => {
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="businessEmail">Business Email *</Label>
-                  <Input
-                    id="businessEmail"
-                    type="email"
-                    placeholder="business@example.com"
-                    value={businessEmail}
-                    onChange={(e) => setBusinessEmail(e.target.value)}
-                    required
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="businessEmail">Business Email *</Label>
+                    <Input
+                      id="businessEmail"
+                      type="email"
+                      placeholder="business@example.com"
+                      value={businessEmail}
+                      onChange={(e) => setBusinessEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="businessPhone">Phone Number *</Label>
+                    <Input
+                      id="businessPhone"
+                      placeholder="+977 98..."
+                      value={businessPhone}
+                      onChange={(e) => setBusinessPhone(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="businessPhone">Phone Number *</Label>
-                  <Input
-                    id="businessPhone"
-                    placeholder="+977 98..."
-                    value={businessPhone}
-                    onChange={(e) => setBusinessPhone(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="businessCategory">Business Category *</Label>
-                  <Input
-                    id="businessCategory"
-                    placeholder="Restaurant, Salon, Clinic, etc."
-                    value={businessCategory}
-                    onChange={(e) => setBusinessCategory(e.target.value)}
-                    required
-                  />
+                  <Select value={businessCategory} onValueChange={setBusinessCategory}>
+                    <SelectTrigger id="businessCategory">
+                      <SelectValue placeholder="Select your business category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BUSINESS_CATEGORIES.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="businessDescription">Business Description (Optional)</Label>
                   <textarea
                     id="businessDescription"
@@ -550,8 +564,13 @@ export const UnifiedBusinessRegister = () => {
 
             {/* LOCATION */}
             {businessStep === 'location' && (
-              <Card className="p-6 space-y-4">
+              <Card className="p-6 space-y-5">
                 <div>
+                  <h2 className="text-lg font-semibold text-foreground mb-1">Business Location</h2>
+                  <p className="text-sm text-muted-foreground">Where is your business located?</p>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="businessAddress">Street Address *</Label>
                   <Input
                     id="businessAddress"
@@ -562,47 +581,20 @@ export const UnifiedBusinessRegister = () => {
                   />
                 </div>
 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="businessCity">District *</Label>
-                  <select
-                    id="businessCity"
-                    value={businessCity}
-                    onChange={(e) => setBusinessCity(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground"
-                    required
-                  >
-                    <option value="">Select a district</option>
-                    {NEPAL_DISTRICTS.map((district) => (
-                      <option key={district} value={district}>
-                        {district}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </Card>
-            )}
-
-            {/* PLAN SELECTION */}
-            {businessStep === 'plan' && (
-              <Card className="p-6 space-y-4">
-                <h2 className="font-semibold mb-4">Select Your Subscription Plan</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {PLANS.map((plan) => (
-                    <div
-                      key={plan.id}
-                      onClick={() => setSelectedPlan(plan.id)}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition ${
-                        selectedPlan === plan.id
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50'
-                      }`}
-                    >
-                      <h3 className="font-semibold">{plan.name}</h3>
-                      <p className="text-2xl font-bold my-2">{plan.price}</p>
-                      <p className="text-xs text-muted-foreground mb-2">{plan.period}</p>
-                      <p className="text-sm text-muted-foreground">{plan.description}</p>
-                    </div>
-                  ))}
+                  <Select value={businessCity} onValueChange={setBusinessCity}>
+                    <SelectTrigger id="businessCity">
+                      <SelectValue placeholder="Select a district" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NEPAL_DISTRICTS.map((district) => (
+                        <SelectItem key={district} value={district}>
+                          {district}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </Card>
             )}
@@ -623,7 +615,7 @@ export const UnifiedBusinessRegister = () => {
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
-                    {businessStep === 'plan' ? 'Complete Setup' : 'Next'}
+                    {isLocation ? 'Complete & Choose Plan' : 'Next'}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

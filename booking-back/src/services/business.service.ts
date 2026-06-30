@@ -22,14 +22,15 @@ export class BusinessService {
   logo?: string
 }): Promise<Business> {
   if (!data.userId) throw new Error("userId is required to create a business")
- 
-    // Check if user already has a business
+
+  // Check if user already has a business
   const existingBusiness = await prisma.business.findUnique({ where: { userId: data.userId } });
   if (existingBusiness) {
     throw new Error("This user already has a business");
   }
 
-  return prisma.business.create({
+  // Create business and update user role to business_owner
+  const business = await prisma.business.create({
     data: {
       name: data.name,
       email: data.email,
@@ -37,8 +38,8 @@ export class BusinessService {
       category: data.category,
       address: data.address,
       city: data.city,
-      state: data.state,
-      zipCode: data.zipCode,
+      state: data.state || '',
+      zipCode: data.zipCode || '',
       country: data.country,
       description: data.description,
       website: data.website,
@@ -48,6 +49,14 @@ export class BusinessService {
       },
     },
   })
+
+  // Update user role to BUSINESS_OWNER (must match the UserRole enum)
+  await prisma.user.update({
+    where: { id: data.userId },
+    data: { role: 'BUSINESS_OWNER' }
+  })
+
+  return business
 }
 
 
@@ -61,6 +70,7 @@ export class BusinessService {
       include: {
         user: true,
         services: true,
+        staff: true,
         hours: true,
       },
     })
@@ -75,6 +85,7 @@ export class BusinessService {
       include: {
         user: true,
         services: true,
+        staff: true,
         hours: true,
       },
     })
@@ -206,6 +217,7 @@ export class BusinessService {
    */
   async getBusinessSettings(businessId: string) {
     try {
+      console.log('[v0] getBusinessSettings called with:', businessId)
       const business = await prisma.business.findUnique({
         where: { id: businessId },
         select: {
@@ -227,6 +239,8 @@ export class BusinessService {
           notificationSettings: true,
         }
       })
+      
+      console.log('[v0] business found:', business)
       
       if (!business) {
         throw new Error("Business not found")
@@ -260,6 +274,7 @@ export class BusinessService {
         }
       }
     } catch (error) {
+      console.log('[v0] getBusinessSettings error:', error instanceof Error ? error.message : String(error))
       throw error
     }
   }
