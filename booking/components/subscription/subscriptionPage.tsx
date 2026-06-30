@@ -109,7 +109,11 @@ export default function SubscriptionPage() {
 
         setPlans(sortedPlans)
         
-        if (sortedPlans.length > 0) {
+        // Check if plan is specified in URL params
+        const planFromUrl = searchParams.get('plan')
+        if (planFromUrl) {
+          setSelectedPlan(planFromUrl)
+        } else if (sortedPlans.length > 0) {
           setSelectedPlan(sortedPlans[1]?.id || sortedPlans[0]?.id)
         }
       } catch (error) {
@@ -121,7 +125,7 @@ export default function SubscriptionPage() {
     }
 
     fetchPlans()
-  }, [])
+  }, [searchParams])
 
   // Handle redirect when user is not authenticated
   useEffect(() => {
@@ -142,11 +146,16 @@ export default function SubscriptionPage() {
       })
 
       if (!businessResponse.ok) {
-        throw new Error('Failed to get business information')
+        const errorData = await businessResponse.json().catch(() => ({}))
+        throw new Error(errorData.error || errorData.message || 'Failed to get business information')
       }
 
       const businessData = await businessResponse.json()
-      const businessId = businessData.id
+      const businessId = businessData.id || businessData.business?.id
+
+      if (!businessId) {
+        throw new Error('Business ID not found')
+      }
 
       // Create subscription with free trial
       const response = await fetch(`${API_URL}/api/subscriptions/create-trial`, {
@@ -186,11 +195,16 @@ export default function SubscriptionPage() {
       })
 
       if (!businessResponse.ok) {
-        throw new Error('Failed to get business information')
+        const errorData = await businessResponse.json().catch(() => ({}))
+        throw new Error(errorData.error || errorData.message || 'Failed to get business information')
       }
 
       const businessData = await businessResponse.json()
-      const businessId = businessData.id
+      const businessId = businessData.id || businessData.business?.id
+      
+      if (!businessId) {
+        throw new Error('Business ID not found')
+      }
 
       // Initiate eSewa payment
       const response = await fetch(`${API_URL}/api/subscription-payment/esewa/initiate`, {
@@ -236,11 +250,16 @@ export default function SubscriptionPage() {
       })
 
       if (!businessResponse.ok) {
-        throw new Error('Failed to get business information')
+        const errorData = await businessResponse.json().catch(() => ({}))
+        throw new Error(errorData.error || errorData.message || 'Failed to get business information')
       }
 
       const businessData = await businessResponse.json()
-      const businessId = businessData.id
+      const businessId = businessData.id || businessData.business?.id
+      
+      if (!businessId) {
+        throw new Error('Business ID not found')
+      }
 
       // Initiate Nabil payment
       const response = await fetch(`${API_URL}/api/subscription-payment/nabil/initiate`, {
@@ -288,12 +307,27 @@ export default function SubscriptionPage() {
     )
   }
 
-  if (!user) {
+  // Allow access from setup flow or if user is authenticated
+  if (!user && !fromSetup) {
     return null
   }
 
+  // Show loading if plans not yet loaded
+  if (!plans || plans.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 py-12 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center py-20">
+            <Loader className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">Loading subscription plans...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 py-12 px-4">
+    <div className="relative min-h-screen bg-gradient-to-br from-background via-background to-primary/5 py-12 px-4 z-10">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">

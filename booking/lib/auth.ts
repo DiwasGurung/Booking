@@ -12,6 +12,7 @@ export interface BusinessUser {
 }
 
 export interface LoginResponse {
+  token(token: any): unknown
   success: boolean
   message?: string
   user?: BusinessUser

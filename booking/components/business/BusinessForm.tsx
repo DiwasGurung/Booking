@@ -1,771 +1,639 @@
-"use client"
+'use client'
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { Input } from "@/components/ui/Input"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/Button"
-import { Card } from "@/components/ui/card"
-import { 
-  AlertCircle, 
-  ArrowRight, 
-  ArrowLeft,
-  Mail, 
-  Lock, 
-  Building2, 
-  User, 
-  MapPin,
-  Phone,
-  CheckCircle2,
-  Loader2
-} from "lucide-react"
-import { toast } from "sonner"
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
-import { BUSINESS_CATEGORIES } from "@/components/constants/businessCategories"
-import { useAuth } from "@/context/authContext"
-import { login } from "@/lib/auth"
-import { GoogleSignInButton } from "@/components/google-signin-button"
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Label } from '@/components/ui/label'
+import { useAuth } from '@/context/authContext'
+import { Loader2, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react'
+import { toast } from 'sonner'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
-type RegistrationPath = "pending" | "login" | "new-user"
-type Step = 1 | 2 | 3
+interface Plan {
+  id: string
+  name: string
+  price: string
+  period: string
+  description: string
+}
+545
+const PLANS: Plan[] = [
+  { id: 'free', name: 'Free', price: '$0', period: '/month', description: 'Get started' },
+  { id: 'pro', name: 'Pro', price: '$29', period: '/month', description: 'For growing businesses' },
+  { id: 'enterprise', name: 'Enterprise', price: 'Custom', period: 'pricing', description: 'For large teams' },
+]
+
+const NEPAL_DISTRICTS = [
+  'Kathmandu', 'Bhaktapur', 'Lalitpur', 'Pokhara', 'Biratnagar', 'Janakpur', 'Butwal', 'Nepalgunj',
+  'Dharan', 'Itahari', 'Birgunj', 'Chitwan', 'Jhapa', 'Morang', 'Sunsari', 'Illam', 'Panchthar',
+  'Taplejung', 'Dhankuta', 'Khotang', 'Udayapur', 'Okhaldhunga', 'Sindhuli', 'Ramechhap', 'Dolakha',
+  'Nuwakot', 'Rasuwa', 'Sindhpalchok', 'Kavre', 'Makwanpur', 'Rautahat', 'Bara', 'Parsa', 'Saptari',
+  'Sarlahi', 'Mahottari', 'Dhanusa', 'Banke', 'Bardiya', 'Kailali', 'Kanchanpur', 'Doti', 'Achham',
+  'Baitadi', 'Dadeldhura', 'Bajhang', 'Bajura', 'Humla', 'Jumla', 'Kalikot', 'Mugu', 'Gorkha',
+  'Lamjung', 'Tanahu', 'Syangja', 'Palpa', 'Nawalparasi', 'Rupandehi', 'Arghakhanchi', 'Gulmi',
+  'Pyuthan', 'Baglung', 'Myagdi', 'Parbat', 'Dolpa', 'Mustang', 'Manang',
+]
 
 export const UnifiedBusinessRegister = () => {
-  const { user, loading, refreshUser, setToken } = useAuth()
   const router = useRouter()
+  const { refreshUser } = useAuth()
 
-  const [path, setPath] = useState<RegistrationPath>("pending")
-  const [step, setStep] = useState<Step>(1)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState("")
+  // Main flow: 1=Register, 2=VerifyEmail, 3=BusinessSetup, 4=SelectPlan
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+  const [businessStep, setBusinessStep] = useState<'basic' | 'location' | 'plan'>('basic')
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  // Login form
-  const [loginForm, setLoginForm] = useState({
-    email: "",
-    password: "",
-  })
+  // Step 1: Registration
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [phone, setPhone] = useState('')
 
-  // User registration
-  const [userForm, setUserForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  })
+  // Step 2: Email Verification
+  const [verificationCode, setVerificationCode] = useState('')
+  const [registeredUserId, setRegisteredUserId] = useState('')
+  const [registeredEmail, setRegisteredEmail] = useState('')
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendMessage, setResendMessage] = useState('')
 
-  // Business registration
-  const [businessForm, setBusinessForm] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    category: "",
-    address: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    country: "Nepal",
-    description: "",
-  })
+  // Step 3: Business Setup
+  const [businessName, setBusinessName] = useState('')
+  const [businessEmail, setBusinessEmail] = useState('')
+  const [businessPhone, setBusinessPhone] = useState('')
+  const [businessCategory, setBusinessCategory] = useState('')
+  const [businessAddress, setBusinessAddress] = useState('')
+  const [businessCity, setBusinessCity] = useState('')
+  const [businessDescription, setBusinessDescription] = useState('')
+  const [useSameEmail, setUseSameEmail] = useState(true)
 
-  // Check if user is already logged in
-  useEffect(() => {
-    if (!loading && user) {
-      setPath("new-user")
-      setStep(2) // Skip to business info
-    }
-  }, [user, loading])
+  // Step 4: Plan Selection
+  const [selectedPlan, setSelectedPlan] = useState('')
 
-  const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLoginForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
-    setError("")
-  }
-
-  const handleUserChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUserForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
-    setError("")
-  }
-
-  const handleBusinessChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setBusinessForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
-    setError("")
-  }
-
-  // Login handler
-  const handleLogin = async (e: React.FormEvent) => {
+  // Step 1: Register User
+  const handleUserRegistration = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
-    setError("")
+    setError('')
 
-    try {
-      const result = await login(loginForm.email, loginForm.password)
-
-      if (!result.success) {
-        throw new Error(result.message || "Invalid email or password")
-      }
-
-      await refreshUser()
-      await new Promise(resolve => setTimeout(resolve, 300))
-
-      toast.success("Logged in successfully!")
-      router.push("/register-business")
-    } catch (err: any) {
-      setError(err.message || "Login failed")
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  // Validate user form
-  const validateUserForm = () => {
-    if (!userForm.firstName.trim()) return "First name is required"
-    if (!userForm.lastName.trim()) return "Last name is required"
-    if (!userForm.email.trim()) return "Email is required"
-    if (!userForm.password) return "Password is required"
-    if (userForm.password.length < 6) return "Password must be at least 6 characters"
-    if (userForm.password !== userForm.confirmPassword) return "Passwords do not match"
-    return null
-  }
-
-  // Validate business form
-  const validateBusinessForm = () => {
-    if (!businessForm.name.trim()) return "Business name is required"
-    if (!businessForm.email.trim()) return "Business email is required"
-    if (!businessForm.phone.trim()) return "Phone number is required"
-    if (!businessForm.category) return "Please select a category"
-    if (!businessForm.address.trim()) return "Address is required"
-    if (!businessForm.city.trim()) return "City is required"
-    return null
-  }
-
-  // Handle next step
-  const handleNextStep = () => {
-    if (step === 1) {
-      const validationError = validateUserForm()
-      if (validationError) {
-        setError(validationError)
-        return
-      }
-    }
-    setError("")
-    setStep((step + 1) as Step)
-  }
-
-  // Handle previous step
-  const handlePrevStep = () => {
-    setError("")
-    // If on step 1 or logged in user on step 2, go back to initial selection
-    if (step === 1 || (step === 2 && user)) {
-      setPath("pending")
-      setStep(1)
-      return
-    }
-    // Otherwise go to previous step
-    if (step > 1) {
-      setStep((step - 1) as Step)
-    }
-  }
-
-  // Submit combined registration
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    const validationError = validateBusinessForm()
-    if (validationError) {
-      setError(validationError)
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
       return
     }
 
-    setIsSubmitting(true)
-    setError("")
+    setIsLoading(true)
 
     try {
-      let token = ""
-      let userId = user?.id
-
-      // If new user, register first
-      if (!user) {
-        const userRes = await fetch(`${API_URL}/api/users/register`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            firstName: userForm.firstName,
-            lastName: userForm.lastName,
-            email: userForm.email,
-            password: userForm.password,
-          }),
-        })
-
-        if (!userRes.ok) {
-          const data = await userRes.json().catch(() => ({}))
-          throw new Error(data.error || data.message || "User registration failed")
-        }
-
-        const userData = await userRes.json()
-        token = userData.token
-        userId = userData.user.id
-
-        if (token) {
-          setToken(token)
-        }
-      }
-
-      // Register business
-      const businessRes = await fetch(`${API_URL}/api/businesses/setup/basic`, {
-        method: "POST",
-        credentials: "include",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
+      const response = await fetch(`${API_URL}/api/users/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          ...businessForm,
-          userId,
+          email,
+          password,
+          firstName,
+          lastName,
+          phone,
+          role: 'CUSTOMER',
         }),
       })
 
-      if (!businessRes.ok) {
-        const data = await businessRes.json().catch(() => ({}))
-        throw new Error(data.error || data.message || "Business registration failed")
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Registration failed')
       }
 
-      if (token) {
-        await refreshUser(token)
-      } else {
-        window.dispatchEvent(new Event('authStateChanged'))
+      setRegisteredUserId(data.user.id)
+      setRegisteredEmail(data.user.email)
+      setBusinessEmail(data.user.email)
+      setStep(2)
+      toast.success('Registration successful! Check your email for verification code.')
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Step 2: Verify Email
+  const handleEmailVerification = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
+
+    try {
+      const response = await fetch(`${API_URL}/api/users/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: registeredEmail,
+          code: verificationCode,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Verification failed')
       }
 
-      await new Promise(resolve => setTimeout(resolve, 300))
-      toast.success("Business registered successfully!")
-      router.push("/subscription")
+      await refreshUser()
+      setStep(3)
+      toast.success('Email verified! Now set up your business.')
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
+  // Resend verification code
+  const handleResendVerification = async () => {
+    setResendLoading(true)
+    setResendMessage('')
+    setError('')
+
+    try {
+      const response = await fetch(`${API_URL}/api/users/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: registeredEmail }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to resend verification code')
+      }
+
+      setResendMessage('Verification code has been resent to your email!')
+      setVerificationCode('')
+      setTimeout(() => setResendMessage(''), 5000)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setResendLoading(false)
+    }
+  }
+
+  // Business Setup Navigation
+  const handleBusinessNext = () => {
+    if (businessStep === 'basic') {
+      if (!businessName || !businessEmail || !businessPhone || !businessCategory) {
+        toast.error('Please fill in all required fields')
+        return
+      }
+      setBusinessStep('location')
+    } else if (businessStep === 'location') {
+      if (!businessAddress || !businessCity) {
+        toast.error('Please fill in all location fields')
+        return
+      }
+      setBusinessStep('plan')
+    }
+  }
+
+  const handleBusinessPrev = () => {
+    if (businessStep === 'location') {
+      setBusinessStep('basic')
+    } else if (businessStep === 'plan') {
+      setBusinessStep('location')
+    }
+  }
+
+  // Step 3+4: Create Business with Plan
+  const handleBusinessCreation = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    if (!selectedPlan) {
+      setError('Please select a subscription plan')
+      return
+    }
+
+    setIsLoading(true)
+
+    try {
+      const userId = registeredUserId
+      if (!userId) {
+        throw new Error('User not authenticated')
+      }
+
+      const response = await fetch(`${API_URL}/api/businesses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          userId: userId,
+          name: businessName,
+          email: useSameEmail ? businessEmail : businessEmail,
+          phone: businessPhone,
+          category: businessCategory,
+          address: businessAddress,
+          city: businessCity,
+          state: 'Nepal',
+          zipCode: '00000',
+          country: 'Nepal',
+          description: businessDescription,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Failed to create business')
+      }
+
+      toast.success('Business created successfully!')
+      await refreshUser()
+      
+      // Redirect to subscription with plan info
+      router.push(`/subscription?plan=${selectedPlan}&from=setup`)
     } catch (err: any) {
       setError(err.message)
       toast.error(err.message)
     } finally {
-      setIsSubmitting(false)
+      setIsLoading(false)
     }
   }
 
-  if (loading) {
+  // RENDER: Step 1 - Registration
+  if (step === 1) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
-  // Initial selection screen
-  if (path === "pending") {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-12">
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-foreground mb-3">Register Your Business</h1>
-          <p className="text-muted-foreground">Start accepting bookings online in minutes</p>
-        </div>
-
-        <div className="grid gap-4">
-          {/* New User */}
-          <Card 
-            className="p-6 cursor-pointer hover:border-primary hover:shadow-md transition-all group"
-            onClick={() => { setPath("new-user"); setStep(1) }}
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <User className="w-6 h-6 text-primary" />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <div className="p-8">
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-foreground mb-2">Create Account</h1>
+              <p className="text-sm text-muted-foreground">Step 1 of 4: Personal Information</p>
+              <div className="mt-4 h-1 bg-slate-200 rounded-full overflow-hidden">
+                <div className="h-full w-1/4 bg-primary rounded-full transition-all" />
               </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-lg text-foreground">I&apos;m new here</h3>
-                <p className="text-sm text-muted-foreground">Create an account and set up your business</p>
-              </div>
-              <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
             </div>
-          </Card>
 
-          {/* Existing User */}
-          <Card 
-            className="p-6 cursor-pointer hover:border-primary hover:shadow-md transition-all group"
-            onClick={() => setPath("login")}
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                <Building2 className="w-6 h-6 text-foreground" />
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-800">{error}</p>
               </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-lg text-foreground">I have an account</h3>
-                <p className="text-sm text-muted-foreground">Log in and add a new business</p>
-              </div>
-              <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-            </div>
-          </Card>
+            )}
 
-          {/* Customer signup */}
-          <Link href="/register">
-            <Card className="p-6 cursor-pointer hover:border-primary hover:shadow-md transition-all group">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                  <User className="w-6 h-6 text-muted-foreground" />
+            <form onSubmit={handleUserRegistration} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input
+                    id="firstName"
+                    placeholder="John"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                  />
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-lg text-foreground">Just a customer</h3>
-                  <p className="text-sm text-muted-foreground">Sign up to book appointments</p>
+                <div>
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input
+                    id="lastName"
+                    placeholder="Doe"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                  />
                 </div>
-                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
               </div>
-            </Card>
-          </Link>
-        </div>
-      </div>
-    )
-  }
 
-  // Login screen
-  if (path === "login") {
-    return (
-      <div className="max-w-md mx-auto px-4 py-12">
-        <button 
-          onClick={() => setPath("pending")}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </button>
-
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Welcome back</h1>
-          <p className="text-muted-foreground">Log in to add a new business to your account</p>
-        </div>
-
-        {error && (
-          <div className="flex items-start gap-3 p-4 bg-destructive/10 border border-destructive/20 rounded-lg mb-6">
-            <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-destructive">{error}</p>
-          </div>
-        )}
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="name@example.com"
-                className="pl-10"
-                value={loginForm.email}
-                onChange={handleLoginChange}
-                disabled={isSubmitting}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Enter your password"
-                className="pl-10"
-                value={loginForm.password}
-                onChange={handleLoginChange}
-                disabled={isSubmitting}
-                required
-              />
-            </div>
-          </div>
-
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Signing in...
-              </>
-            ) : "Sign in"}
-          </Button>
-        </form>
-
-        <div className="my-6">
-          <Separator />
-        </div>
-
-        <GoogleSignInButton />
-
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Don&apos;t have an account?{" "}
-          <button 
-            onClick={() => { setPath("new-user"); setStep(1) }}
-            className="text-primary hover:underline font-medium"
-          >
-            Sign up
-          </button>
-        </p>
-      </div>
-    )
-  }
-
-  // Multi-step registration form
-  return (
-    <div className="max-w-2xl mx-auto px-4 py-12">
-      {/* Header with back button */}
-      <button 
-        onClick={handlePrevStep}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </button>
-
-      {/* Progress indicator */}
-      <div className="flex items-center gap-3 mb-8">
-        {!user && (
-          <>
-            <div className={`flex items-center gap-2 ${step >= 1 ? "text-primary" : "text-muted-foreground"}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                step > 1 ? "bg-primary text-primary-foreground" : step === 1 ? "border-2 border-primary text-primary" : "border-2 border-muted-foreground"
-              }`}>
-                {step > 1 ? <CheckCircle2 className="w-5 h-5" /> : "1"}
-              </div>
-              <span className="text-sm font-medium hidden sm:inline">Account</span>
-            </div>
-            <div className="flex-1 h-0.5 bg-muted">
-              <div className={`h-full bg-primary transition-all ${step > 1 ? "w-full" : "w-0"}`} />
-            </div>
-          </>
-        )}
-        
-        <div className={`flex items-center gap-2 ${step >= 2 ? "text-primary" : "text-muted-foreground"}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-            step > 2 ? "bg-primary text-primary-foreground" : step === 2 ? "border-2 border-primary text-primary" : "border-2 border-muted-foreground"
-          }`}>
-            {step > 2 ? <CheckCircle2 className="w-5 h-5" /> : user ? "1" : "2"}
-          </div>
-          <span className="text-sm font-medium hidden sm:inline">Business Info</span>
-        </div>
-
-        <div className="flex-1 h-0.5 bg-muted">
-          <div className={`h-full bg-primary transition-all ${step > 2 ? "w-full" : "w-0"}`} />
-        </div>
-
-        <div className={`flex items-center gap-2 ${step >= 3 ? "text-primary" : "text-muted-foreground"}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-            step === 3 ? "border-2 border-primary text-primary" : "border-2 border-muted-foreground"
-          }`}>
-            {user ? "2" : "3"}
-          </div>
-          <span className="text-sm font-medium hidden sm:inline">Location</span>
-        </div>
-      </div>
-
-      {error && (
-        <div className="flex items-start gap-3 p-4 bg-destructive/10 border border-destructive/20 rounded-lg mb-6">
-          <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-destructive">{error}</p>
-        </div>
-      )}
-
-      <form onSubmit={step === 3 ? handleSubmit : (e) => { e.preventDefault(); handleNextStep() }}>
-        {/* Step 1: Account Info (only for new users) */}
-        {step === 1 && !user && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Create your account</h2>
-              <p className="text-muted-foreground">Enter your personal details to get started</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First name</Label>
+              <div>
+                <Label htmlFor="email">Email *</Label>
                 <Input
-                  id="firstName"
-                  name="firstName"
-                  placeholder="John"
-                  value={userForm.firstName}
-                  onChange={handleUserChange}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last name</Label>
-                <Input
-                  id="lastName"
-                  name="lastName"
-                  placeholder="Doe"
-                  value={userForm.lastName}
-                  onChange={handleUserChange}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="userEmail">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="userEmail"
-                  name="email"
+                  id="email"
                   type="email"
-                  placeholder="name@example.com"
-                  className="pl-10"
-                  value={userForm.email}
-                  onChange={handleUserChange}
+                  placeholder="john@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="userPassword">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <div>
+                <Label htmlFor="phone">Phone Number</Label>
                 <Input
-                  id="userPassword"
-                  name="password"
+                  id="phone"
+                  placeholder="+977 98..."
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="password">Password *</Label>
+                <Input
+                  id="password"
                   type="password"
-                  placeholder="At least 6 characters"
-                  className="pl-10"
-                  value={userForm.password}
-                  onChange={handleUserChange}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <div>
+                <Label htmlFor="confirmPassword">Confirm Password *</Label>
                 <Input
                   id="confirmPassword"
-                  name="confirmPassword"
                   type="password"
-                  placeholder="Repeat your password"
-                  className="pl-10"
-                  value={userForm.confirmPassword}
-                  onChange={handleUserChange}
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                 />
               </div>
+
+              <Button className="w-full" disabled={isLoading}>
+                {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Continue
+              </Button>
+
+              <div className="text-center pt-2">
+                <p className="text-sm text-muted-foreground">
+                  Already have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => router.push('/login')}
+                    className="text-primary hover:text-primary/80 font-semibold underline"
+                  >
+                    Login here
+                  </button>
+                </p>
+              </div>
+            </form>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  // RENDER: Step 2 - Email Verification
+  if (step === 2) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-lg">
+          <div className="p-8">
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-foreground mb-2">Verify Email</h1>
+              <p className="text-sm text-muted-foreground">Step 2 of 4: Email Verification</p>
+              <div className="mt-4 h-1 bg-slate-200 rounded-full overflow-hidden">
+                <div className="h-full w-2/4 bg-primary rounded-full transition-all" />
+              </div>
             </div>
 
-            <Button type="submit" className="w-full">
-              Continue
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            )}
 
-            <p className="text-center text-sm text-muted-foreground">
-              Already have an account?{" "}
-              <button 
+            <form onSubmit={handleEmailVerification} className="space-y-4">
+              <div>
+                <Label htmlFor="code">Verification Code *</Label>
+                <Input
+                  id="code"
+                  placeholder="000000"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.trim().slice(0, 6))}
+                  maxLength={6}
+                  className="text-center text-2xl tracking-widest font-mono"
+                  required
+                />
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                Check your email spam folder if you don&apos;t see the code. It expires in 15 minutes.
+              </p>
+
+              {resendMessage && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-md flex gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-green-800">{resendMessage}</p>
+                </div>
+              )}
+
+              <Button className="w-full" disabled={isLoading || verificationCode.length !== 6}>
+                {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Verify Email
+              </Button>
+
+              <Button
                 type="button"
-                onClick={() => setPath("login")}
-                className="text-primary hover:underline font-medium"
+                variant="outline"
+                className="w-full"
+                onClick={handleResendVerification}
+                disabled={resendLoading || isLoading}
               >
-                Sign in
-              </button>
+                {resendLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Resend Code
+              </Button>
+            </form>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  // RENDER: Step 3+4 - Business Setup with Plan Selection
+  if (step === 3) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl">
+          <div className="mb-8 text-center">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Setup Your Business</h1>
+            <p className="text-muted-foreground text-sm">
+              {businessStep === 'plan' ? 'Step 4 of 4: Choose Your Plan' : 'Step 3 of 4: Business Information'}
             </p>
           </div>
-        )}
 
-        {/* Step 2: Business Info */}
-        {step === 2 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Business information</h2>
-              <p className="text-muted-foreground">Tell us about your business</p>
+          <div className="mb-8 flex gap-2">
+            {(['basic', 'location', 'plan'] as const).map((s, idx) => (
+              <button
+                key={s}
+                onClick={() => {
+                  if (s === 'basic' || (s === 'location' && businessStep !== 'plan')) {
+                    setBusinessStep(s)
+                  }
+                }}
+                className={`flex-1 h-2 rounded-full transition ${
+                  s === businessStep
+                    ? 'bg-primary'
+                    : ['basic', 'location', 'plan'].indexOf(s) < ['basic', 'location', 'plan'].indexOf(businessStep)
+                    ? 'bg-primary/30'
+                    : 'bg-muted'
+                }`}
+              />
+            ))}
+          </div>
+
+          {error && (
+            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex gap-3">
+              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+              <p className="text-destructive text-sm">{error}</p>
             </div>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="businessName">Business name</Label>
-              <div className="relative">
-                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="businessName"
-                  name="name"
-                  placeholder="Your Business Name"
-                  className="pl-10"
-                  value={businessForm.name}
-                  onChange={handleBusinessChange}
-                  required
-                />
-              </div>
-            </div>
+          <form onSubmit={businessStep === 'plan' ? handleBusinessCreation : (e) => { e.preventDefault(); handleBusinessNext() }} className="space-y-6">
+            {/* BASIC INFO */}
+            {businessStep === 'basic' && (
+              <Card className="p-6 space-y-4">
+                <div>
+                  <Label htmlFor="businessName">Business Name *</Label>
+                  <Input
+                    id="businessName"
+                    placeholder="My Awesome Business"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    required
+                  />
+                </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="businessEmail">Business email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <div>
+                  <Label htmlFor="businessEmail">Business Email *</Label>
                   <Input
                     id="businessEmail"
-                    name="email"
                     type="email"
                     placeholder="business@example.com"
-                    className="pl-10"
-                    value={businessForm.email}
-                    onChange={handleBusinessChange}
+                    value={businessEmail}
+                    onChange={(e) => setBusinessEmail(e.target.value)}
                     required
                   />
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="businessPhone">Phone number</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <div>
+                  <Label htmlFor="businessPhone">Phone Number *</Label>
                   <Input
                     id="businessPhone"
-                    name="phone"
-                    placeholder="98XXXXXXXX"
-                    className="pl-10"
-                    value={businessForm.phone}
-                    onChange={handleBusinessChange}
+                    placeholder="+977 98..."
+                    value={businessPhone}
+                    onChange={(e) => setBusinessPhone(e.target.value)}
                     required
                   />
                 </div>
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label>Business category</Label>
-              <Select
-                value={businessForm.category}
-                onValueChange={(value) => setBusinessForm(prev => ({ ...prev, category: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {BUSINESS_CATEGORIES.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
+                <div>
+                  <Label htmlFor="businessCategory">Business Category *</Label>
+                  <Input
+                    id="businessCategory"
+                    placeholder="Restaurant, Salon, Clinic, etc."
+                    value={businessCategory}
+                    onChange={(e) => setBusinessCategory(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="businessDescription">Business Description (Optional)</Label>
+                  <textarea
+                    id="businessDescription"
+                    placeholder="Tell us about your business..."
+                    value={businessDescription}
+                    onChange={(e) => setBusinessDescription(e.target.value)}
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground min-h-24"
+                  />
+                </div>
+              </Card>
+            )}
+
+            {/* LOCATION */}
+            {businessStep === 'location' && (
+              <Card className="p-6 space-y-4">
+                <div>
+                  <Label htmlFor="businessAddress">Street Address *</Label>
+                  <Input
+                    id="businessAddress"
+                    placeholder="123 Business Street"
+                    value={businessAddress}
+                    onChange={(e) => setBusinessAddress(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="businessCity">District *</Label>
+                  <select
+                    id="businessCity"
+                    value={businessCity}
+                    onChange={(e) => setBusinessCity(e.target.value)}
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background text-foreground"
+                    required
+                  >
+                    <option value="">Select a district</option>
+                    {NEPAL_DISTRICTS.map((district) => (
+                      <option key={district} value={district}>
+                        {district}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </Card>
+            )}
+
+            {/* PLAN SELECTION */}
+            {businessStep === 'plan' && (
+              <Card className="p-6 space-y-4">
+                <h2 className="font-semibold mb-4">Select Your Subscription Plan</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {PLANS.map((plan) => (
+                    <div
+                      key={plan.id}
+                      onClick={() => setSelectedPlan(plan.id)}
+                      className={`p-4 border-2 rounded-lg cursor-pointer transition ${
+                        selectedPlan === plan.id
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <h3 className="font-semibold">{plan.name}</h3>
+                      <p className="text-2xl font-bold my-2">{plan.price}</p>
+                      <p className="text-xs text-muted-foreground mb-2">{plan.period}</p>
+                      <p className="text-sm text-muted-foreground">{plan.description}</p>
+                    </div>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              </Card>
+            )}
+
+            {/* BUTTONS */}
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={handleBusinessPrev}
+                disabled={businessStep === 'basic'}
+              >
+                Back
+              </Button>
+              <Button type="submit" disabled={isLoading} className="flex-1 gap-2">
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    {businessStep === 'plan' ? 'Complete Setup' : 'Next'}
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </Button>
             </div>
+          </form>
+        </div>
+      </div>
+    )
+  }
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (optional)</Label>
-              <textarea
-                id="description"
-                name="description"
-                placeholder="Tell customers about your business..."
-                className="w-full min-h-24 p-3 border border-input rounded-md bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                value={businessForm.description}
-                onChange={handleBusinessChange}
-              />
-            </div>
-
-            <Button type="submit" className="w-full">
-              Continue
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
-        )}
-
-        {/* Step 3: Location */}
-        {step === 3 && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Business location</h2>
-              <p className="text-muted-foreground">Where is your business located?</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="address">Street address</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="address"
-                  name="address"
-                  placeholder="123 Main Street"
-                  className="pl-10"
-                  value={businessForm.address}
-                  onChange={handleBusinessChange}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input
-                  id="city"
-                  name="city"
-                  placeholder="Kathmandu"
-                  value={businessForm.city}
-                  onChange={handleBusinessChange}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="state">State/Province</Label>
-                <Input
-                  id="state"
-                  name="state"
-                  placeholder="Bagmati"
-                  value={businessForm.state}
-                  onChange={handleBusinessChange}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="zipCode">ZIP/Postal code</Label>
-                <Input
-                  id="zipCode"
-                  name="zipCode"
-                  placeholder="44600"
-                  value={businessForm.zipCode}
-                  onChange={handleBusinessChange}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="country">Country</Label>
-                <Input
-                  id="country"
-                  name="country"
-                  placeholder="Nepal"
-                  value={businessForm.country}
-                  onChange={handleBusinessChange}
-                  required
-                />
-              </div>
-            </div>
-
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating your business...
-                </>
-              ) : (
-                <>
-                  Complete Registration
-                  <CheckCircle2 className="w-4 h-4 ml-2" />
-                </>
-              )}
-            </Button>
-          </div>
-        )}
-      </form>
-    </div>
-  )
+  return null
 }
