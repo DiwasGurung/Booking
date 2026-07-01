@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    
     "target": "ES2020",
     "module": "nodenext",
     "moduleResolution": "nodenext",
@@ -7,7 +8,7 @@
     "esModuleInterop": true,
     "strict": true,
     "skipLibCheck": true,
-    "rootDir": "./src",
+    "rootDir": "./",
     "types": ["node"]
   },
   "include": ["src","prisma","scripts", "../booking/app/constants", "../booking/lib/firebase.ts"],
