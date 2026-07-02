@@ -97,7 +97,7 @@ model Business {
   description String?
   logo        String?
   coverImage  String?
-  email       String @unique
+  email       String 
   phone       String
   website     String?
   category    String

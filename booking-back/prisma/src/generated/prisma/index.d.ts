@@ -21832,7 +21832,6 @@ export namespace Prisma {
   export type BusinessWhereUniqueInput = Prisma.AtLeast<{
     id?: string
     userId?: string
-    email?: string
     AND?: BusinessWhereInput | BusinessWhereInput[]
     OR?: BusinessWhereInput[]
     NOT?: BusinessWhereInput | BusinessWhereInput[]
@@ -21840,6 +21839,7 @@ export namespace Prisma {
     description?: StringNullableFilter<"Business"> | string | null
     logo?: StringNullableFilter<"Business"> | string | null
     coverImage?: StringNullableFilter<"Business"> | string | null
+    email?: StringFilter<"Business"> | string
     phone?: StringFilter<"Business"> | string
     website?: StringNullableFilter<"Business"> | string | null
     category?: StringFilter<"Business"> | string
@@ -21864,7 +21864,7 @@ export namespace Prisma {
     reviews?: ReviewListRelationFilter
     hours?: BusinessHoursListRelationFilter
     customers?: CustomerListRelationFilter
-  }, "id" | "userId" | "email">
+  }, "id" | "userId">
 
   export type BusinessOrderByWithAggregationInput = {
     id?: SortOrder

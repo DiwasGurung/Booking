@@ -18,6 +18,7 @@ import { BUSINESS_CATEGORIES } from "@/components/constants/businessCategories"
 import { useAuth } from "@/context/authContext"
 
 interface BusinessFormData {
+  userId: string
   name: string
   email: string
   phone: string
@@ -34,13 +35,14 @@ interface BusinessFormData {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
 
 export const SetupBusinessForm = () => {
-  const { user, refreshUser } = useAuth()
+  const { user, refreshUser, token } = useAuth()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [currentStep, setCurrentStep] = useState<"basic" | "location" | "details" | "review">("basic")
 
   const [formData, setFormData] = useState<BusinessFormData>({
+    userId: user?.id || "", 
     name: "",
     email: "",
     phone: "",
@@ -107,19 +109,52 @@ export const SetupBusinessForm = () => {
     setIsLoading(true)
     setError("")
 
+    // Check if user is authenticated
+    if (!user) {
+      setError("You must be logged in to create a business")
+      setIsLoading(false)
+      return
+    }
+
     try {
-      const response = await fetch(`${API_URL}/api/businesses/setup/basic`, {
+      // Prioritize localStorage token (most reliable), then fall back to context token
+      let currentToken = null
+      if (typeof window !== 'undefined') {
+        currentToken = localStorage.getItem('authToken')
+      }
+      if (!currentToken) {
+        currentToken = token
+      }
+
+      console.log('[v0] SetupBusinessForm: token from localStorage:', !!(typeof window !== 'undefined' && localStorage.getItem('authToken')))
+      console.log('[v0] SetupBusinessForm: token from context:', !!token)
+      console.log('[v0] SetupBusinessForm: using token:', !!currentToken)
+      console.log('[v0] SetupBusinessForm: user data:', { userId: user?.id, role: user?.role, email: user?.email })
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (currentToken) {
+        headers['Authorization'] = `Bearer ${currentToken}`
+        console.log('[v0] SetupBusinessForm: Authorization header set')
+      } else {
+        console.warn('[v0] SetupBusinessForm: No token available!')
+      }
+
+      const response = await fetch(`${API_URL}/api/businesses`, {
         method: "POST",
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(formData),
       })
 
+      console.log('[v0] SetupBusinessForm: API response status:', response.status)
+
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
-        throw new Error(data.error || data.message || "Failed to register business")
+        const errorMsg = data.error || data.message || data.details || "Failed to register business"
+        console.error('[v0] Business setup error response:', data)
+        throw new Error(errorMsg)
       }
 
       const businessData = await response.json()

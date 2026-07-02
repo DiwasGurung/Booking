@@ -99,7 +99,7 @@ export const Header = () => {
 
               {/* Setup Business - Only for Customers */}
               {user.role === 'CUSTOMER' && (
-                <Link href="/businesses/setup">
+                <Link href="/setup-business">
                   <Button 
                     size="sm" 
                     className="bg-white/20 text-primary-foreground border border-white/30 hover:bg-white/30 transition-all duration-200 font-medium"

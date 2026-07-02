@@ -202,6 +202,11 @@ export const UnifiedBusinessRegister = () => {
     e.preventDefault()
     setError('')
 
+    if (!businessName || !businessEmail || !businessPhone || !businessCategory) {
+      toast.error('Please fill in all business details')
+      return
+    }
+    
     if (!businessAddress || !businessCity) {
       toast.error('Please fill in all location fields')
       return
