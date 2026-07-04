@@ -484,7 +484,7 @@ export const UnifiedBusinessRegister = () => {
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex gap-3">
+            <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex gap-3">
               <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
               <p className="text-destructive text-sm">{error}</p>
             </div>
@@ -506,7 +506,7 @@ export const UnifiedBusinessRegister = () => {
                   <Label htmlFor="businessName">Business Name *</Label>
                   <Input
                     id="businessName"
-                    placeholder="My Awesome Business"
+                    placeholder="Secha Salon"
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
                     required
