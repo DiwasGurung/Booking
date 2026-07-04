@@ -15,7 +15,7 @@ export default function RegisterBusinessPage() {
         router.push('/signup-business')
       } else {
         // User is authenticated, redirect to business setup
-        router.push('/businesses/setup')
+        router.push(`/dashboard/${user.business?.id || (user as any).businessId}/setup`)
       }
     }
   }, [user, loading, router])
