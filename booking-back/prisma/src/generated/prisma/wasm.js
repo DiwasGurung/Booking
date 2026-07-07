@@ -434,7 +434,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "/Users/diwasgurung/Desktop/booking-system/booking-back/prisma/src/generated/prisma",
+      "value": "C:\\Users\\diwas\\Desktop\\Booking\\booking-back\\prisma\\src\\generated\\prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -443,12 +443,12 @@ const config = {
     "binaryTargets": [
       {
         "fromEnvVar": null,
-        "value": "darwin-arm64",
+        "value": "windows",
         "native": true
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/diwasgurung/Desktop/booking-system/booking-back/prisma/schema.prisma",
+    "sourceFilePath": "C:\\Users\\diwas\\Desktop\\Booking\\booking-back\\prisma\\schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {

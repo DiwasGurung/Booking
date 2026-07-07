@@ -27,12 +27,6 @@ export const GatewayStatusComponent: React.FC = () => {
       features: ['Fast Checkout', 'Multiple Payment Methods', 'Nepal Only'],
     },
     {
-      name: 'Nabil Bank',
-      status: 'active',
-      currency: ['NPR'],
-      features: ['Direct Bank Transfer', 'Secure Payment', 'Merchant Account'],
-    },
-    {
       name: 'Stripe',
       status: 'active',
       currency: ['USD', 'EUR', 'GBP', 'CAD', 'AUD'],
@@ -46,7 +40,7 @@ export const GatewayStatusComponent: React.FC = () => {
       try {
         setLoading(true);
         // Check each gateway status
-        const gateways = ['ESEWA', 'KHALTI', 'NABIL', 'STRIPE'];
+        const gateways = ['ESEWA', 'KHALTI', 'STRIPE'];
         const statusResults: GatewayStatus[] = [];
 
         for (const gateway of gateways) {
@@ -64,12 +58,6 @@ export const GatewayStatusComponent: React.FC = () => {
                 status: result.available ? 'active' : 'inactive',
                 currency: ['NPR'],
                 features: ['Fast Checkout', 'Multiple Payment Methods', 'Nepal Only'],
-              },
-              NABIL: {
-                name: 'Nabil Bank',
-                status: result.available ? 'active' : 'inactive',
-                currency: ['NPR'],
-                features: ['Direct Bank Transfer', 'Secure Payment', 'Merchant Account'],
               },
               STRIPE: {
                 name: 'Stripe',
