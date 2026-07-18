@@ -1,4 +1,5 @@
 import { Request, Response } from 'express'
+import prisma from '../lib/prisma'
 import subscriptionService from '../services/subscription.service'
 import {
   CreateSubscriptionTrialSchema,
@@ -321,7 +322,6 @@ class SubscriptionController {
     try {
       console.log('[v0] Fetching all subscription plans')
 
-      const { prisma } = await import('../lib/prisma.js')
       const plans = await prisma.subscriptionPlan.findMany({
         where: { active: true },
         orderBy: { priceNPR: 'asc' },

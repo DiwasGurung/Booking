@@ -2,11 +2,11 @@
 // Controller for handling subscription payments with eSewa and Khalti
 
 import { Request, Response } from 'express';
-import { prisma } from '../lib/prisma';
+import  prisma  from '../lib/prisma';
 import esewaService from '../services/esewa.service';
 
 import subscriptionService from '../services/subscription.service';
-import { v4 as uuidv4 } from 'uuid';
+
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
@@ -284,7 +284,6 @@ export const getSubscriptionUsage = async (req: Request, res: Response) => {
         customers: customersCount,
       },
       features: {
-        allowSmsNotifications: plan.allowSmsNotifications,
         allowEmailNotifications: plan.allowEmailNotifications,
         allowOnlineBooking: plan.allowOnlineBooking,
         allowReports: plan.allowReports,
@@ -379,10 +378,7 @@ export const checkSubscriptionLimit = async (req: Request, res: Response) => {
         }
         break;
 
-      case 'send-sms':
-        allowed = plan.allowSmsNotifications;
-        reason = allowed ? '' : 'SMS notifications not available in your plan';
-        break;
+   
 
       case 'view-reports':
         allowed = plan.allowReports;
