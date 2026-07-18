@@ -1,5 +1,5 @@
 import  prisma  from "../lib/prisma"
-import type { Customer, Prisma } from "../../prisma/src/generated/prisma/client"
+import type { Customer, Prisma } from "@prisma/client"
 
 export class CustomerService {
   /**

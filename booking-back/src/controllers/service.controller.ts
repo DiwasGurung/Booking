@@ -1,16 +1,25 @@
 import { Request, Response } from "express"
 import ServiceService from "../services/service.service"
+import { isValidationError } from "../validators"
 
 class ServiceController {
   /**
-   * Create service
+   * Get all services (with optional businessId filter)
    */
-  async create(req: Request, res: Response) {
+  async getAll(req: Request, res: Response) {
     try {
-      const service = await ServiceService.createService(req.body)
-      res.status(201).json(service)
+      const { businessId } = req.query
+      
+      if (businessId) {
+        const services = await ServiceService.getServicesByBusinessId(businessId as string)
+        return res.json({ data: services })
+      }
+      
+      const services = await ServiceService.getAllServices()
+      res.json({ data: services })
     } catch (error) {
-      res.status(500).json({ message: "Failed to create service", error })
+      console.error('[v0] Error getting services:', error)
+      res.status(500).json({ message: "Failed to fetch services", error })
     }
   }
 
@@ -19,42 +28,85 @@ class ServiceController {
    */
   async getById(req: Request, res: Response) {
     try {
-      const { id } = req.params
-      const service = await ServiceService.getServiceById(id as string)
+      const { ServiceParamsSchema, parseAndValidate } = await import('../validators/index.js')
+      
+      const validation = parseAndValidate(ServiceParamsSchema, req.params)
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
 
+      const service = await ServiceService.getServiceById(validation.data.serviceId)
+      
       if (!service) {
         return res.status(404).json({ message: "Service not found" })
       }
-
-      res.json(service)
+      
+      res.json({ data: service })
     } catch (error) {
+      console.error('[v0] Error getting service:', error)
       res.status(500).json({ message: "Failed to fetch service", error })
     }
   }
 
   /**
-   * Get all services for a business
+   * Get services by business ID
    */
-  async getBusinessServices(req: Request, res: Response) {
+  async getByBusinessId(req: Request, res: Response) {
     try {
-      const { businessId } = req.params
-      const services = await ServiceService.getBusinessServices(businessId as string)
-      res.json(services)
+      const { BusinessIdParamsSchema, parseAndValidate } = await import('../validators/index.js')
+      
+      const validation = parseAndValidate(BusinessIdParamsSchema, req.params)
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
+
+      const services = await ServiceService.getServicesByBusinessId(validation.data.businessId)
+      res.json({ data: services })
     } catch (error) {
+      console.error('[v0] Error getting services by business:', error)
       res.status(500).json({ message: "Failed to fetch services", error })
     }
   }
 
   /**
-   * Get active services for a business
+   * Create service
    */
-  async getActiveServices(req: Request, res: Response) {
+  async create(req: Request, res: Response) {
     try {
-      const { businessId } = req.params
-      const services = await ServiceService.getActiveServices(businessId as string)
-      res.json(services)
+      const { CreateServiceSchema, parseAndValidate } = await import('../validators/index.js')
+      
+      const validation = parseAndValidate(CreateServiceSchema, req.body)
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
+
+      const { businessId, name, description, price, duration } = validation.data
+
+      // Check subscription service limit
+      const subscriptionService : any= await import('../services/subscription.service.js').then(m => m.default)
+      const serviceLimit = await subscriptionService.canAddService(businessId)
+      
+      if (!serviceLimit.allowed) {
+        console.warn('[v0] Service limit exceeded for business:', businessId)
+        return res.status(429).json({
+          message: serviceLimit.reason || 'Service limit reached. Please upgrade your subscription.',
+          error: 'SERVICE_LIMIT_EXCEEDED',
+          current: serviceLimit.current,
+          limit: serviceLimit.limit,
+        })
+      }
+
+      const service = await ServiceService.createService({
+        businessId,
+        name,
+        description,
+        price,
+        duration,
+      })
+      res.status(201).json({ data: service })
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch active services", error })
+      console.error('[v0] Error creating service:', error)
+      res.status(500).json({ message: "Failed to create service", error })
     }
   }
 
@@ -63,10 +115,28 @@ class ServiceController {
    */
   async update(req: Request, res: Response) {
     try {
-      const { id } = req.params
-      const service = await ServiceService.updateService(id as string, req.body)
-      res.json(service)
+      const { ServiceParamsSchema, UpdateServiceSchema, parseAndValidate } = await import('../validators/index.js')
+      
+      const paramsValidation = parseAndValidate(ServiceParamsSchema, req.params)
+      if (isValidationError(paramsValidation)) {
+        return res.status(400).json({ message: paramsValidation.error })
+      }
+
+      const bodyValidation = parseAndValidate(UpdateServiceSchema, req.body)
+      if (isValidationError(bodyValidation)) {
+        return res.status(400).json({ message: bodyValidation.error })
+      }
+
+      const { name, description, price, duration } = bodyValidation.data
+      const service = await ServiceService.updateService(paramsValidation.data.serviceId, {
+        name,
+        description,
+        price,
+        duration,
+      })
+      res.json({ data: service })
     } catch (error) {
+      console.error('[v0] Error updating service:', error)
       res.status(500).json({ message: "Failed to update service", error })
     }
   }
@@ -76,24 +146,58 @@ class ServiceController {
    */
   async delete(req: Request, res: Response) {
     try {
-      const { id } = req.params
-      const service = await ServiceService.deleteService(id as string)
-      res.json(service)
+      const { ServiceParamsSchema, parseAndValidate } = await import('../validators/index.js')
+      
+      const validation = parseAndValidate(ServiceParamsSchema, req.params)
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
+
+      await ServiceService.deleteService(validation.data.serviceId)
+      res.json({ message: "Service deleted successfully" })
     } catch (error) {
+      console.error('[v0] Error deleting service:', error)
       res.status(500).json({ message: "Failed to delete service", error })
     }
   }
 
   /**
-   * Services with booking stats
+   * Get active services for a business
+   */
+  async getActiveServices(req: Request, res: Response) {
+    try {
+      const { BusinessIdParamsSchema, parseAndValidate } = await import('../validators/index.js')
+      
+      const validation = parseAndValidate(BusinessIdParamsSchema, req.params)
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
+
+      const services = await ServiceService.getActiveServices(validation.data.businessId)
+      res.json({ data: services })
+    } catch (error) {
+      console.error('[v0] Error getting active services:', error)
+      res.status(500).json({ message: "Failed to fetch active services", error })
+    }
+  }
+
+  /**
+   * Get services with booking statistics
    */
   async withStats(req: Request, res: Response) {
     try {
-      const { businessId } = req.params
-      const services = await ServiceService.getServicesWithStats(businessId as string)
-      res.json(services)
+      const { BusinessIdParamsSchema, parseAndValidate } = await import('../validators/index.js')
+      
+      const validation = parseAndValidate(BusinessIdParamsSchema, req.params)
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
+
+      const servicesWithStats = await ServiceService.getServicesWithStats(validation.data.businessId)
+      res.json({ data: servicesWithStats })
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch service stats", error })
+      console.error('[v0] Error getting services with stats:', error)
+      res.status(500).json({ message: "Failed to fetch services with stats", error })
     }
   }
 }

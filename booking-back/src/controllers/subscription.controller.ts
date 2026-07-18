@@ -1,5 +1,16 @@
 import { Request, Response } from 'express'
 import subscriptionService from '../services/subscription.service'
+import {
+  CreateSubscriptionTrialSchema,
+  SubscriptionBusinessParamsSchema,
+  SubscriptionParamsSchema,
+  ActivateSubscriptionSchema,
+  UpgradeSubscriptionSchema,
+  DowngradeSubscriptionSchema,
+  RenewSubscriptionSchema,
+  parseAndValidate,
+  isValidationError,
+} from '../validators'
 
 class SubscriptionController {
   /**
@@ -7,11 +18,13 @@ class SubscriptionController {
    */
   async createWithTrial(req: Request, res: Response) {
     try {
-      const { businessId, planId } = req.body
+      const validation = parseAndValidate(CreateSubscriptionTrialSchema, req.body)
 
-      if (!businessId || !planId) {
-        return res.status(400).json({ message: 'businessId and planId are required' })
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
       }
+
+      const { businessId, planId } = validation.data
 
       console.log(`[v0] Creating free trial subscription for business: ${businessId}`)
 
@@ -35,11 +48,13 @@ class SubscriptionController {
    */
   async getStatus(req: Request, res: Response) {
     try {
-      const { businessId } = req.params
+      const validation = parseAndValidate(SubscriptionBusinessParamsSchema, req.params)
 
-      if (!businessId || Array.isArray(businessId)) {
-        return res.status(400).json({ message: 'businessId is required' })
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
       }
+
+      const { businessId } = validation.data
 
       console.log(`[v0] Fetching subscription status for business: ${businessId}`)
 
@@ -57,11 +72,13 @@ class SubscriptionController {
    */
   async checkValidity(req: Request, res: Response) {
     try {
-      const { businessId } = req.params
+      const validation = parseAndValidate(SubscriptionBusinessParamsSchema, req.params)
 
-      if (!businessId || Array.isArray(businessId)) {
-        return res.status(400).json({ message: 'businessId is required' })
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
       }
+
+      const { businessId } = validation.data
 
       console.log(`[v0] Checking subscription validity for business: ${businessId}`)
 
@@ -82,12 +99,20 @@ class SubscriptionController {
    */
   async activate(req: Request, res: Response) {
     try {
-      const { subscriptionId } = req.params
-      const { paymentId, durationDays } = req.body
+      const paramsValidation = parseAndValidate(SubscriptionParamsSchema, req.params)
 
-      if (!subscriptionId || Array.isArray(subscriptionId) || !paymentId) {
-        return res.status(400).json({ message: 'subscriptionId and paymentId are required' })
+      if (isValidationError(paramsValidation)) {
+        return res.status(400).json({ message: paramsValidation.error })
       }
+
+      const bodyValidation = parseAndValidate(ActivateSubscriptionSchema, req.body)
+
+      if (isValidationError(bodyValidation)) {
+        return res.status(400).json({ message: bodyValidation.error })
+      }
+
+      const { subscriptionId } = paramsValidation.data
+      const { paymentId, durationDays } = bodyValidation.data
 
       console.log(`[v0] Activating subscription: ${subscriptionId}`)
 
@@ -111,11 +136,13 @@ class SubscriptionController {
    */
   async checkTrialExpiration(req: Request, res: Response) {
     try {
-      const { businessId } = req.params
+      const validation = parseAndValidate(SubscriptionBusinessParamsSchema, req.params)
 
-      if (!businessId || Array.isArray(businessId)) {
-        return res.status(400).json({ message: 'businessId is required' })
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
       }
+
+      const { businessId } = validation.data
 
       console.log(`[v0] Checking trial expiration for business: ${businessId}`)
 
@@ -136,11 +163,13 @@ class SubscriptionController {
    */
   async cancel(req: Request, res: Response) {
     try {
-      const { subscriptionId } = req.params
+      const validation = parseAndValidate(SubscriptionParamsSchema, req.params)
 
-      if (!subscriptionId || Array.isArray(subscriptionId)) {
-        return res.status(400).json({ message: 'subscriptionId is required' })
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
       }
+
+      const { subscriptionId } = validation.data
 
       console.log(`[v0] Cancelling subscription: ${subscriptionId}`)
 
@@ -193,6 +222,241 @@ class SubscriptionController {
       res
         .status(500)
         .json({ message: 'Failed to fetch expiring soon subscriptions', error: error.message })
+    }
+  }
+
+  /**
+   * Check if business can add appointment
+   */
+  async checkAppointmentLimit(req: Request, res: Response) {
+    try {
+      const validation = parseAndValidate(SubscriptionBusinessParamsSchema, req.params)
+
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
+
+      const { businessId } = validation.data
+
+      const result = await subscriptionService.canAddAppointment(businessId)
+      res.json(result)
+    } catch (error: any) {
+      console.error('[v0] Error checking appointment limit:', error)
+      res.status(500).json({ message: 'Failed to check appointment limit', error: error.message })
+    }
+  }
+
+  /**
+   * Check if business can add staff
+   */
+  async checkStaffLimit(req: Request, res: Response) {
+    try {
+      const validation = parseAndValidate(SubscriptionBusinessParamsSchema, req.params)
+
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
+
+      const { businessId } = validation.data
+
+      const result = await subscriptionService.canAddStaff(businessId)
+      res.json(result)
+    } catch (error: any) {
+      console.error('[v0] Error checking staff limit:', error)
+      res.status(500).json({ message: 'Failed to check staff limit', error: error.message })
+    }
+  }
+
+  /**
+   * Check if business can add service
+   */
+  async checkServiceLimit(req: Request, res: Response) {
+    try {
+      const validation = parseAndValidate(SubscriptionBusinessParamsSchema, req.params)
+
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
+
+      const { businessId } = validation.data
+
+      const result = await subscriptionService.canAddService(businessId)
+      res.json(result)
+    } catch (error: any) {
+      console.error('[v0] Error checking service limit:', error)
+      res.status(500).json({ message: 'Failed to check service limit', error: error.message })
+    }
+  }
+
+  /**
+   * Get subscription usage details
+   */
+  async getUsageDetails(req: Request, res: Response) {
+    try {
+      const validation = parseAndValidate(SubscriptionBusinessParamsSchema, req.params)
+
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
+
+      const { businessId } = validation.data
+
+      const usage = await subscriptionService.getUsageDetails(businessId)
+
+      if (!usage) {
+        return res.status(404).json({ message: 'No subscription found for this business' })
+      }
+
+      res.json(usage)
+    } catch (error: any) {
+      console.error('[v0] Error getting usage details:', error)
+      res.status(500).json({ message: 'Failed to get usage details', error: error.message })
+    }
+  }
+
+  /**
+   * Get all subscription plans
+   */
+  async getAllPlans(req: Request, res: Response) {
+    try {
+      console.log('[v0] Fetching all subscription plans')
+
+      const { prisma } = await import('../lib/prisma.js')
+      const plans = await prisma.subscriptionPlan.findMany({
+        where: { active: true },
+        orderBy: { priceNPR: 'asc' },
+      })
+
+      res.json({
+        count: plans.length,
+        plans,
+      })
+    } catch (error: any) {
+      console.error('[v0] Error fetching subscription plans:', error)
+      res.status(500).json({ message: 'Failed to fetch subscription plans', error: error.message })
+    }
+  }
+
+  /**
+   * Upgrade subscription to a higher tier
+   */
+  async upgrade(req: Request, res: Response) {
+    try {
+      const validation = parseAndValidate(UpgradeSubscriptionSchema, req.body)
+
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
+
+      const { businessId, newPlanId, paymentId } = validation.data
+
+      console.log(`[v0] Upgrading subscription for business: ${businessId}`)
+
+      const subscription = await subscriptionService.upgradeSubscription(
+        businessId,
+        newPlanId,
+        paymentId
+      )
+
+      res.json({
+        message: 'Subscription upgraded successfully',
+        subscription,
+      })
+    } catch (error: any) {
+      console.error('[v0] Error upgrading subscription:', error)
+      res.status(500).json({ message: 'Failed to upgrade subscription', error: error.message })
+    }
+  }
+
+  /**
+   * Downgrade subscription to a lower tier
+   */
+  async downgrade(req: Request, res: Response) {
+    try {
+      const validation = parseAndValidate(DowngradeSubscriptionSchema, req.body)
+
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
+
+      const { businessId, newPlanId, paymentId } = validation.data
+
+      console.log(`[v0] Downgrading subscription for business: ${businessId}`)
+
+      const subscription = await subscriptionService.downgradeSubscription(
+        businessId,
+        newPlanId,
+        paymentId
+      )
+
+      res.json({
+        message: 'Subscription downgraded successfully. Changes take effect on next billing cycle.',
+        subscription,
+      })
+    } catch (error: any) {
+      console.error('[v0] Error downgrading subscription:', error)
+      res.status(500).json({ message: 'Failed to downgrade subscription', error: error.message })
+    }
+  }
+
+  /**
+   * Renew subscription after payment
+   */
+  async renew(req: Request, res: Response) {
+    try {
+      const validation = parseAndValidate(RenewSubscriptionSchema, req.body)
+
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
+
+      const { subscriptionId, paymentId, durationDays } = validation.data
+
+      console.log(`[v0] Renewing subscription: ${subscriptionId}`)
+
+      const subscription = await subscriptionService.renewSubscription(
+        subscriptionId,
+        paymentId,
+        durationDays || 30
+      )
+
+      res.json({
+        message: 'Subscription renewed successfully',
+        subscription,
+      })
+    } catch (error: any) {
+      console.error('[v0] Error renewing subscription:', error)
+      res.status(500).json({ message: 'Failed to renew subscription', error: error.message })
+    }
+  }
+
+  /**
+   * Get next renewal date
+   */
+  async getNextRenewal(req: Request, res: Response) {
+    try {
+      const validation = parseAndValidate(SubscriptionBusinessParamsSchema, req.params)
+
+      if (isValidationError(validation)) {
+        return res.status(400).json({ message: validation.error })
+      }
+
+      const { businessId } = validation.data
+
+      const renewalDate = await subscriptionService.getNextRenewalDate(businessId)
+
+      res.json({
+        businessId,
+        nextRenewalDate: renewalDate,
+        daysUntilRenewal: renewalDate
+          ? Math.ceil(
+              (renewalDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+            )
+          : null,
+      })
+    } catch (error: any) {
+      console.error('[v0] Error getting renewal date:', error)
+      res.status(500).json({ message: 'Failed to get renewal date', error: error.message })
     }
   }
 }

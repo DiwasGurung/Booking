@@ -129,19 +129,19 @@ exports.Prisma.UserScalarFieldEnum = {
   phone: 'phone',
   avatar: 'avatar',
   role: 'role',
-  isEmailVerified: 'isEmailVerified',
-  emailVerificationCode: 'emailVerificationCode',
-  emailVerificationCodeExpires: 'emailVerificationCodeExpires',
-  emailVerificationAttempts: 'emailVerificationAttempts',
-  isPhoneVerified: 'isPhoneVerified',
-  phoneVerificationCode: 'phoneVerificationCode',
-  phoneVerificationCodeExpires: 'phoneVerificationCodeExpires',
-  phoneVerificationAttempts: 'phoneVerificationAttempts',
-  firebaseUid: 'firebaseUid',
   googleId: 'googleId',
   authProvider: 'authProvider',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  isEmailVerified: 'isEmailVerified',
+  emailVerificationAttempts: 'emailVerificationAttempts',
+  emailVerificationCode: 'emailVerificationCode',
+  emailVerificationCodeExpires: 'emailVerificationCodeExpires',
+  isPhoneVerified: 'isPhoneVerified',
+  phoneVerificationAttempts: 'phoneVerificationAttempts',
+  phoneVerificationCode: 'phoneVerificationCode',
+  phoneVerificationCodeExpires: 'phoneVerificationCodeExpires',
+  firebaseUid: 'firebaseUid'
 };
 
 exports.Prisma.BusinessScalarFieldEnum = {
@@ -167,29 +167,6 @@ exports.Prisma.BusinessScalarFieldEnum = {
   notificationSettings: 'notificationSettings',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
-};
-
-exports.Prisma.StaffScalarFieldEnum = {
-  id: 'id',
-  businessId: 'businessId',
-  firstName: 'firstName',
-  lastName: 'lastName',
-  email: 'email',
-  phone: 'phone',
-  avatar: 'avatar',
-  role: 'role',
-  isActive: 'isActive',
-  workingHours: 'workingHours',
-  breakTimes: 'breakTimes',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.StaffServiceScalarFieldEnum = {
-  id: 'id',
-  staffId: 'staffId',
-  serviceId: 'serviceId',
-  createdAt: 'createdAt'
 };
 
 exports.Prisma.ServiceScalarFieldEnum = {
@@ -225,7 +202,6 @@ exports.Prisma.BookingScalarFieldEnum = {
   id: 'id',
   serviceId: 'serviceId',
   businessId: 'businessId',
-  staffId: 'staffId',
   customerId: 'customerId',
   userId: 'userId',
   startTime: 'startTime',
@@ -241,25 +217,25 @@ exports.Prisma.BookingScalarFieldEnum = {
 
 exports.Prisma.PaymentScalarFieldEnum = {
   id: 'id',
-  businessId: 'businessId',
   bookingId: 'bookingId',
-  subscriptionId: 'subscriptionId',
-  gateway: 'gateway',
   transactionId: 'transactionId',
   amount: 'amount',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
   status: 'status',
-  esewaRefId: 'esewaRefId',
-  esewaProductCode: 'esewaProductCode',
-  khaltiPidx: 'khaltiPidx',
-  khaltiToken: 'khaltiToken',
-  reference: 'reference',
+  businessId: 'businessId',
+  currency: 'currency',
   customerEmail: 'customerEmail',
   customerPhone: 'customerPhone',
-  payload: 'payload',
   errorMessage: 'errorMessage',
-  currency: 'currency',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  esewaProductCode: 'esewaProductCode',
+  esewaRefId: 'esewaRefId',
+  gateway: 'gateway',
+  khaltiPidx: 'khaltiPidx',
+  khaltiToken: 'khaltiToken',
+  payload: 'payload',
+  reference: 'reference',
+  subscriptionId: 'subscriptionId'
 };
 
 exports.Prisma.ReviewScalarFieldEnum = {
@@ -304,64 +280,23 @@ exports.Prisma.SubscriptionPlanScalarFieldEnum = {
   description: 'description',
   durationDays: 'durationDays',
   currency: 'currency',
-  active: 'active',
-  maxAppointmentsPerMonth: 'maxAppointmentsPerMonth',
-  maxStaff: 'maxStaff',
-  maxServices: 'maxServices',
-  maxSmsPerMonth: 'maxSmsPerMonth',
-  maxCustomers: 'maxCustomers',
-  allowSmsNotifications: 'allowSmsNotifications',
-  allowEmailNotifications: 'allowEmailNotifications',
-  allowOnlineBooking: 'allowOnlineBooking',
-  allowReports: 'allowReports',
-  allowCustomBranding: 'allowCustomBranding',
-  prioritySupport: 'prioritySupport'
+  active: 'active'
 };
 
 exports.Prisma.SubscriptionScalarFieldEnum = {
   id: 'id',
   businessId: 'businessId',
-  planId: 'planId',
-  status: 'status',
   startDate: 'startDate',
   endDate: 'endDate',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
   autoRenew: 'autoRenew',
+  isTrialUsed: 'isTrialUsed',
   lastPaymentId: 'lastPaymentId',
   nextRenewalDate: 'nextRenewalDate',
+  planId: 'planId',
   trialEndsAt: 'trialEndsAt',
-  isTrialUsed: 'isTrialUsed',
-  appointmentsThisMonth: 'appointmentsThisMonth',
-  smsUsedThisMonth: 'smsUsedThisMonth',
-  usageResetDate: 'usageResetDate',
-  smsCreditBalance: 'smsCreditBalance',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.PushSubscriptionScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  endpoint: 'endpoint',
-  auth: 'auth',
-  p256dh: 'p256dh',
-  isActive: 'isActive',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.SMSLogScalarFieldEnum = {
-  id: 'id',
-  businessId: 'businessId',
-  subscriptionId: 'subscriptionId',
-  phoneNumber: 'phoneNumber',
-  message: 'message',
-  type: 'type',
-  status: 'status',
-  messageId: 'messageId',
-  provider: 'provider',
-  errorMessage: 'errorMessage',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  status: 'status'
 };
 
 exports.Prisma.SortOrder = {
@@ -397,8 +332,7 @@ exports.UserRole = exports.$Enums.UserRole = {
 
 exports.AuthProvider = exports.$Enums.AuthProvider = {
   EMAIL: 'EMAIL',
-  GOOGLE: 'GOOGLE',
-  FIREBASE: 'FIREBASE'
+  GOOGLE: 'GOOGLE'
 };
 
 exports.BookingStatus = exports.$Enums.BookingStatus = {
@@ -428,8 +362,6 @@ exports.SubscriptionStatus = exports.$Enums.SubscriptionStatus = {
 exports.Prisma.ModelName = {
   User: 'User',
   Business: 'Business',
-  Staff: 'Staff',
-  StaffService: 'StaffService',
   Service: 'Service',
   Customer: 'Customer',
   Booking: 'Booking',
@@ -438,9 +370,7 @@ exports.Prisma.ModelName = {
   BusinessHours: 'BusinessHours',
   Notification: 'Notification',
   SubscriptionPlan: 'SubscriptionPlan',
-  Subscription: 'Subscription',
-  PushSubscription: 'PushSubscription',
-  SMSLog: 'SMSLog'
+  Subscription: 'Subscription'
 };
 
 /**

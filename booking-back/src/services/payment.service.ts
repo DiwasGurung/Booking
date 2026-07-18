@@ -1,5 +1,5 @@
-import { prisma } from "../lib/prisma"
-import type { Payment, PaymentStatus, Prisma } from "../../prisma/src/generated/prisma/client"
+import  prisma  from "../lib/prisma"
+import type { Payment, PaymentStatus, Prisma } from "@prisma/client"
 export class PaymentService {
   /**
    * Create a new payment

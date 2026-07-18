@@ -8,7 +8,7 @@ serviceRoutes.post("/", ServiceController.create)
 
 // Get services for a business
 
-serviceRoutes.get("/business/:businessId", ServiceController.getBusinessServices)
+serviceRoutes.get("/business/:businessId", ServiceController.getByBusinessId)
 
 // Get active services for a business
 serviceRoutes.get("/business/:businessId/active", ServiceController.getActiveServices)

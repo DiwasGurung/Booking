@@ -1,5 +1,5 @@
 import  prisma  from "../lib/prisma"
-import type { BusinessHours, Prisma } from "../../prisma/src/generated/prisma/client"
+import type { BusinessHours, Prisma } from "@prisma/client"
 
 export class BusinessHoursService {
   /**

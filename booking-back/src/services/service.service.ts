@@ -1,87 +1,134 @@
-import { prisma } from "../lib/prisma"
-import type { Service, Prisma } from "../../prisma/src/generated/prisma/client"
+import prisma from "../lib/prisma"
 
-export class ServiceService {
+class ServiceService {
   /**
-   * Create a new service
+   * Get all services
    */
-  async createService(data: {
-    businessId: string
-    name: string
-    price: number
-    offerPrice?: number
-    duration: number
-    description?: string
-    image?: string
-    capacity?: number
-     isActive?: boolean
-  }): Promise<Service> {
-    return prisma.service.create({
-      data,
+  async getAllServices() {
+    return await prisma.service.findMany({
+      include: {
+        business: true,
+      },
     })
   }
 
   /**
    * Get service by ID
    */
-  async getServiceById(id: string): Promise<Service | null> {
-    return prisma.service.findUnique({
+  async getServiceById(id: string) {
+    return await prisma.service.findUnique({
       where: { id },
+      include: {
+        business: true,
+      },
     })
   }
 
   /**
-   * Get all services for a business
+   * Get services by business ID
    */
-  async getBusinessServices(businessId: string): Promise<Service[]> {
-    return prisma.service.findMany({
+  async getServicesByBusinessId(businessId: string) {
+    return await prisma.service.findMany({
       where: { businessId },
-      orderBy: { createdAt: "desc" },
+      include: {
+        business: true,
+      },
+    })
+  }
+
+  /**
+   * Create service
+   */
+  async createService(data: {
+    name: string
+    description?: string
+    price: number
+    duration: number
+    businessId: string
+  }) {
+    return await prisma.service.create({
+      data,
+      include: {
+        business: true,
+      },
     })
   }
 
   /**
    * Update service
    */
-  async updateService(id: string, data: Prisma.ServiceUpdateInput): Promise<Service> {
-    return prisma.service.update({
+  async updateService(
+    id: string,
+    data: {
+      name?: string
+      description?: string
+      price?: number
+      duration?: number
+    }
+  ) {
+    return await prisma.service.update({
       where: { id },
       data,
+      include: {
+        business: true,
+      },
     })
   }
 
   /**
    * Delete service
    */
-  async deleteService(id: string): Promise<Service> {
-    return prisma.service.delete({
+  async deleteService(id: string) {
+    return await prisma.service.delete({
       where: { id },
     })
   }
-
-  /**
-   * Get all active services for a business
+/**
+   * Get active services for a business
    */
-  async getActiveServices(businessId: string): Promise<Service[]> {
-    return prisma.service.findMany({
-      where: { businessId, isActive: true },
-      orderBy: { name: "asc" },
+  async getActiveServices(businessId: string) {
+    return await prisma.service.findMany({
+      where: { businessId },
+      include: {
+        business: true,
+        staffServices: {
+          include: {
+            staff: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
     })
   }
 
   /**
-   * Get services with booking stats
+   * Get services with booking statistics for a business
    */
   async getServicesWithStats(businessId: string) {
-    return prisma.service.findMany({
+    const services = await prisma.service.findMany({
       where: { businessId },
       include: {
+        business: true,
         _count: {
-          select: { bookings: true },
+          select: {
+            bookings: true,
+            staffServices: true,
+          },
         },
       },
-      orderBy: { createdAt: "desc" },
     })
+
+    // Enrich with stats
+    return services.map(service => ({
+      ...service,
+      stats: {
+        totalBookings: service._count.bookings,
+        staffCount: service._count.staffServices,
+        revenue: 0, // Can be calculated from bookings if needed
+      },
+    }))
   }
 }
 

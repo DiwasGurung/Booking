@@ -1,93 +1,126 @@
-import 'dotenv/config'
 import { prisma } from '../src/lib/prisma'
-import process from 'process'
 
-async function seedPlans() {
+export async function seedSubscriptionPlans() {
   try {
-    console.log('Seeding subscription plans...')
+    console.log('[v0] Seeding subscription plans...')
 
-    // Delete existing plans to avoid conflicts
-    await prisma.subscriptionPlan.deleteMany({})
-    console.log('Cleared existing plans')
+    // Delete existing plans
+    await prisma.subscriptionPlan.deleteMany()
 
-    // Create subscription plans
-    const plans = await prisma.subscriptionPlan.createMany({
-      data: [
-        {
-           id: 'basic', 
-          name: 'basic',
-          displayName: 'Basic',
-          priceNPR: 499,
-          currency: 'NPR',
-          description: 'Perfect for small businesses',
-          durationDays: 30,
-          features: [
-            'Up to 50 bookings/month',
-            'Basic analytics',
-            'Email support',
-            'Custom booking page',
-          ],
-          active: true,
-        },
-        {
-            id: 'pro',
-          name: 'pro',
-          displayName: 'Professional',
-          priceNPR: 999,
-          currency: 'NPR',
-          description: 'For growing businesses',
-          durationDays: 30,
-          features: [
-            'Unlimited bookings',
-            'Advanced analytics',
-            'Priority support',
-            'Custom branding',
-            'Team management',
-            'API access',
-          ],
-          active: true,
-        },
-        {
-            id: 'enterprise',
-          name: 'enterprise',
-          displayName: 'Enterprise',
-          priceNPR: 2499,
-          currency: 'NPR',
-          description: 'For large businesses with advanced needs',
-          durationDays: 30,
-          features: [
-            'Unlimited everything',
-            'Dedicated account manager',
-            '24/7 phone support',
-            'White-label solution',
-            'Advanced integrations',
-            'Custom development',
-            'SLA guarantee',
-          ],
-          active: true,
-        },
-      ],
+    // Starter Plan - ₹499/month
+    const starterPlan = await prisma.subscriptionPlan.create({
+      data: {
+        name: 'starter',
+        displayName: 'Starter',
+        priceNPR: 499,
+        currency: 'NPR',
+        durationDays: 30,
+        description: 'Perfect for solo practitioners and new businesses',
+        features: [
+          'Up to 200 bookings/month',
+          'Basic booking page',
+          '5 services maximum',
+          'SMS reminders',
+          'Email support',
+          '30-day booking history',
+        ],
+        active: true,
+        maxAppointmentsPerMonth: 200,
+        maxStaff: 1,
+        maxServices: 5,
+        maxCustomers: 100,
+        maxSmsPerMonth: 100,
+        allowSmsNotifications: true,
+        allowEmailNotifications: true,
+        allowOnlineBooking: true,
+        allowReports: false,
+        allowCustomBranding: false,
+        prioritySupport: false,
+      },
     })
 
-    console.log(`✓ Created ${plans.count} subscription plans`)
-
-    // Fetch and display created plans
-    const createdPlans = await prisma.subscriptionPlan.findMany({
-      orderBy: { priceNPR: 'asc' },
+    // Professional Plan - ₹999/month (Most Popular)
+    const professionalPlan = await prisma.subscriptionPlan.create({
+      data: {
+        name: 'professional',
+        displayName: 'Professional',
+        priceNPR: 999,
+        currency: 'NPR',
+        durationDays: 30,
+        description: 'For growing salons, clinics, and small teams',
+        features: [
+          'Unlimited bookings',
+          'Unlimited services',
+          'Staff management (up to 5 staff)',
+          'Calendar sync (Google Calendar)',
+          'Customer database & notes',
+          'Automated reminders (SMS + Email)',
+          'Payment collection (eSewa/Khalti)',
+          'Basic analytics',
+          'Priority email support',
+        ],
+        active: true,
+        maxAppointmentsPerMonth: -1, // Unlimited
+        maxStaff: 5,
+        maxServices: -1, // Unlimited
+        maxCustomers: -1, // Unlimited
+        maxSmsPerMonth: 500,
+        allowSmsNotifications: true,
+        allowEmailNotifications: true,
+        allowOnlineBooking: true,
+        allowReports: true,
+        allowCustomBranding: false,
+        prioritySupport: true,
+      },
     })
 
-    console.log('\nCreated plans:')
-    createdPlans.forEach((plan) => {
-      console.log(`- ${plan.displayName} (${plan.name}): ₨${plan.priceNPR}`)
+    // Enterprise Plan - ₹2,499/month
+    const enterprisePlan = await prisma.subscriptionPlan.create({
+      data: {
+        name: 'enterprise',
+        displayName: 'Enterprise',
+        priceNPR: 2499,
+        currency: 'NPR',
+        durationDays: 30,
+        description: 'For large spas, chains, and multi-location businesses',
+        features: [
+          'Everything in Professional',
+          'Unlimited staff',
+          'Multiple locations',
+          'Advanced analytics & reports',
+          'Custom branding',
+          'API access',
+          'Dedicated account manager',
+          'Phone + Email support',
+          'Custom integrations',
+        ],
+        active: true,
+        maxAppointmentsPerMonth: -1, // Unlimited
+        maxStaff: -1, // Unlimited
+        maxServices: -1, // Unlimited
+        maxCustomers: -1, // Unlimited
+        maxSmsPerMonth: -1, // Unlimited
+        allowSmsNotifications: true,
+        allowEmailNotifications: true,
+        allowOnlineBooking: true,
+        allowReports: true,
+        allowCustomBranding: true,
+        prioritySupport: true,
+      },
     })
 
-    console.log('\n✓ Subscription plans seeded successfully!')
+    console.log('[v0] Subscription plans seeded successfully:')
+    console.log(`  - Starter (₹${starterPlan.priceNPR}/month)`)
+    console.log(`  - Professional (₹${professionalPlan.priceNPR}/month)`)
+    console.log(`  - Enterprise (₹${enterprisePlan.priceNPR}/month)`)
+
+    return {
+      starter: starterPlan,
+      professional: professionalPlan,
+      enterprise: enterprisePlan,
+    }
   } catch (error) {
-    console.error('Error seeding plans:', error)
-    process.exit(1)
-  } finally {
-    await prisma.$disconnect()
+    console.error('[v0] Error seeding subscription plans:', error)
+    throw error
   }
 }
-
-seedPlans()

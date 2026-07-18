@@ -1,5 +1,5 @@
-import { prisma } from "../lib/prisma"
-import type { Notification, NotificationType, Prisma } from"../../prisma/src/generated/prisma/client"
+import  prisma  from "../lib/prisma"
+import type { Notification, NotificationType, Prisma } from"@prisma/client"
 
 
 

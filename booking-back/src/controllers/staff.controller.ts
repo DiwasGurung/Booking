@@ -11,24 +11,28 @@ interface AuthRequest extends Request {
  */
 export const createStaff = async (req: AuthRequest, res: Response) => {
   try {
-    const { businessId, firstName, lastName, email, phone, avatar, role, workingHours, breakTimes, serviceIds } = req.body
-
-    if (!businessId || !firstName || !lastName) {
-      return res.status(400).json({ error: "Business ID, first name, and last name are required" })
+    const { CreateStaffSchema, parseAndValidate } = await import('../validators/index.js')
+    
+    const validation = parseAndValidate(CreateStaffSchema, req.body)
+    if (!validation.success) {
+      return res.status(400).json({ error: validation.error })
     }
 
-    const staff = await staffService.createStaff({
-      businessId,
-      firstName,
-      lastName,
-      email,
-      phone,
-      avatar,
-      role,
-      workingHours,
-      breakTimes,
-      serviceIds,
-    })
+    // Check subscription staff limit
+    const subscriptionService: any = await import('../services/subscription.service.js').then(m => m.default)
+    const staffLimit = await subscriptionService.canAddStaff(validation.data.businessId)
+    
+    if (!staffLimit.allowed) {
+      console.warn('[v0] Staff limit exceeded for business:', validation.data.businessId)
+      return res.status(429).json({
+        message: staffLimit.reason || 'Staff limit reached. Please upgrade your subscription.',
+        error: 'STAFF_LIMIT_EXCEEDED',
+        current: staffLimit.current,
+        limit: staffLimit.limit,
+      })
+    }
+
+    const staff = await staffService.createStaff(validation.data)
 
     res.status(201).json({ success: true, staff })
   } catch (error: any) {
@@ -42,9 +46,14 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
  */
 export const getStaffById = async (req: Request, res: Response) => {
   try {
-    const id = req.params.id as string
+    const { StaffParamsSchema, parseAndValidate } = await import('../validators/index.js')
+    
+    const validation = parseAndValidate(StaffParamsSchema, req.params)
+    if (!validation.success) {
+      return res.status(400).json({ error: validation.error })
+    }
 
-    const staff = await staffService.getStaffById(id)
+    const staff = await staffService.getStaffById(validation.data.staffId)
     if (!staff) {
       return res.status(404).json({ error: "Staff not found" })
     }
@@ -61,10 +70,16 @@ export const getStaffById = async (req: Request, res: Response) => {
  */
 export const getBusinessStaff = async (req: Request, res: Response) => {
   try {
-    const businessId = req.params.businessId as string
+    const { BusinessIdParamsSchema, parseAndValidate } = await import('../validators/index.js')
+    
+    const validation = parseAndValidate(BusinessIdParamsSchema, req.params)
+    if (!validation.success) {
+      return res.status(400).json({ error: validation.error })
+    }
+
     const includeInactive = req.query.includeInactive === "true"
 
-    const staff = await staffService.getBusinessStaff(businessId, includeInactive)
+    const staff = await staffService.getBusinessStaff(validation.data.businessId, includeInactive)
     res.json({ staff })
   } catch (error: any) {
     console.error("[Staff Controller] Get business staff error:", error.message)
