@@ -44,7 +44,7 @@ interface EsewaFormData {
   signature: string
 }
 
-export default function SubscriptionPage() {
+export default function SubscriptionPlan() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, loading: authLoading, token } = useAuth()
@@ -164,6 +164,8 @@ export default function SubscriptionPage() {
         throw new Error('Business ID not found')
       }
 
+      console.log('[v0] Starting trial with:', { businessId, planId: plan.id, planName: plan.name })
+
       // Create subscription with free trial
       const response = await fetch(`${API_URL}/api/subscriptions/create-trial`, {
         method: 'POST',
@@ -177,7 +179,8 @@ export default function SubscriptionPage() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
-        throw new Error(data.error || data.message || 'Failed to create subscription')
+        console.error('[v0] Subscription trial error response:', { status: response.status, data })
+        throw new Error(data.message || data.error || `Server error: ${response.status}`)
       }
 
       toast.success(`${plan.displayName || plan.name} trial activated! You have 30 days free access.`)

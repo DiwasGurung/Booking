@@ -1,5 +1,7 @@
 import { Request, Response } from "express"
 import staffService from "../services/staff.service"
+import { CreateStaffSchema, StaffParamsSchema, BusinessIdParamsSchema, parseAndValidate } from "../validators"
+import SubscriptionService from "../services/subscription.service"
 
 interface AuthRequest extends Request {
   user?: { id: string }
@@ -11,16 +13,13 @@ interface AuthRequest extends Request {
  */
 export const createStaff = async (req: AuthRequest, res: Response) => {
   try {
-    const { CreateStaffSchema, parseAndValidate } = await import('../validators/index.js')
-    
     const validation = parseAndValidate(CreateStaffSchema, req.body)
     if (!validation.success) {
       return res.status(400).json({ error: validation.error })
     }
 
     // Check subscription staff limit
-    const subscriptionService: any = await import('../services/subscription.service.js').then(m => m.default)
-    const staffLimit = await subscriptionService.canAddStaff(validation.data.businessId)
+    const staffLimit = await SubscriptionService.canAddStaff(validation.data.businessId)
     
     if (!staffLimit.allowed) {
       console.warn('[v0] Staff limit exceeded for business:', validation.data.businessId)
@@ -46,8 +45,6 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
  */
 export const getStaffById = async (req: Request, res: Response) => {
   try {
-    const { StaffParamsSchema, parseAndValidate } = await import('../validators/index.js')
-    
     const validation = parseAndValidate(StaffParamsSchema, req.params)
     if (!validation.success) {
       return res.status(400).json({ error: validation.error })
@@ -70,8 +67,6 @@ export const getStaffById = async (req: Request, res: Response) => {
  */
 export const getBusinessStaff = async (req: Request, res: Response) => {
   try {
-    const { BusinessIdParamsSchema, parseAndValidate } = await import('../validators/index.js')
-    
     const validation = parseAndValidate(BusinessIdParamsSchema, req.params)
     if (!validation.success) {
       return res.status(400).json({ error: validation.error })

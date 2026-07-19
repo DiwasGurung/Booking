@@ -10,6 +10,6 @@
     "rootDir": "./",
     "types": ["node"]
   },
-  "include": ["src","prisma","scripts", "../booking/app/constants", "../booking/lib/firebase.ts", "prisma.config.js"],
+  "include": ["src","prisma","scripts", "../booking/app/constants", "../booking/lib/firebase.ts", "prisma.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

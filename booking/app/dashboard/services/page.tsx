@@ -58,6 +58,7 @@ export default function ServicesPage() {
   const [closeTime, setCloseTime] = useState('')
   const [isClosed, setIsClosed] = useState(false)
   const bookingUrl = businessId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/book/${businessId}` : ''
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (businessId) {
@@ -77,7 +78,18 @@ export default function ServicesPage() {
     try {
       setLoading(true)
       const response = await servicesApi.getBusinessServices(businessId)
-      const servicesData = (response.data || []).map((service: any) => ({
+      const rawData = response as any
+
+      // API may return either an array or nested structure: { data: { data: Array } }
+      const servicesArray = Array.isArray(rawData)
+        ? rawData
+        : Array.isArray(rawData.data)
+        ? rawData.data
+        : Array.isArray(rawData.data?.data)
+        ? rawData.data.data
+        : []
+
+      const servicesData = servicesArray.map((service: any) => ({
         id: service.id,
         name: service.name,
         description: service.description,
@@ -87,10 +99,12 @@ export default function ServicesPage() {
         isActive: service.isActive ?? true,
         capacity: service.capacity ?? 1,
       }))
+
       setServices(servicesData)
       setError(null)
-    } catch (err) {
-      setError('Failed to load services')
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Unknown error'
+      setError(`Failed to load services: ${errorMessage}`)
       console.error('[v0] Error loading services:', err)
     } finally {
       setLoading(false)
@@ -146,7 +160,10 @@ export default function ServicesPage() {
 
   const createService = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!businessId || isSubmitting) return
     try {
+
+       setIsSubmitting(true)
       const serviceData: any = {
         businessId,
         name,
@@ -172,6 +189,8 @@ export default function ServicesPage() {
     } catch (err) {
       setError('Failed to save service')
       console.error('[v0] Error saving service:', err)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -354,7 +373,7 @@ export default function ServicesPage() {
                   </Label>
                 </div>
 
-                <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Button type="submit" disabled={ isSubmitting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                   {editingServiceId ? 'Update Service' : 'Add Service'}
                 </Button>
 

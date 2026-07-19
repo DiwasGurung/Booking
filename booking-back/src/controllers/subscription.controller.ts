@@ -1,5 +1,4 @@
 import { Request, Response } from 'express'
-import prisma from '../lib/prisma'
 import subscriptionService from '../services/subscription.service'
 import {
   CreateSubscriptionTrialSchema,
@@ -12,6 +11,7 @@ import {
   parseAndValidate,
   isValidationError,
 } from '../validators'
+import prisma from '../lib/prisma'
 
 class SubscriptionController {
   /**
@@ -52,6 +52,7 @@ class SubscriptionController {
       const validation = parseAndValidate(SubscriptionBusinessParamsSchema, req.params)
 
       if (isValidationError(validation)) {
+        console.error('[v0] Validation error for getStatus:', validation.error)
         return res.status(400).json({ message: validation.error })
       }
 
@@ -60,6 +61,20 @@ class SubscriptionController {
       console.log(`[v0] Fetching subscription status for business: ${businessId}`)
 
       const status = await subscriptionService.getSubscriptionStatus(businessId)
+
+      console.log(`[v0] Subscription status fetched:`, { businessId, hasSubscription: status.hasSubscription, status: status.status })
+
+      // Return default subscription status if none exists (first-time user)
+      if (!status.hasSubscription) {
+        return res.json({
+          hasSubscription: false,
+          status: null,
+          daysRemaining: null,
+          expiresAt: null,
+          planName: 'No subscription',
+          message: 'User can create a free trial subscription',
+        })
+      }
 
       res.json(status)
     } catch (error: any) {
@@ -322,6 +337,7 @@ class SubscriptionController {
     try {
       console.log('[v0] Fetching all subscription plans')
 
+  
       const plans = await prisma.subscriptionPlan.findMany({
         where: { active: true },
         orderBy: { priceNPR: 'asc' },

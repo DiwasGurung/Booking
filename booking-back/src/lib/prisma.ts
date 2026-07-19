@@ -1,13 +1,22 @@
+import 'dotenv/config'; // 1. Crucial for runtime app initialization
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
 const prismaClientSingleton = () => {
-  // Ensure your DATABASE_URL is set in your .env file
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is not defined in your environment variables.");
+  }
+
+  // 2. Configure the Node-pg pool using the environment string
+  const pool = new Pool({ 
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false } // Prevents SSL connection issues with Neon
+  });
+  
   const adapter = new PrismaPg(pool);
 
-  // In v7, you MUST pass the adapter option
+  // 3. In Prisma v7, you must pass the driver adapter option
   return new PrismaClient({ adapter }); 
 };
 

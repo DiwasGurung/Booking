@@ -1,10 +1,13 @@
 import { z } from 'zod'
 
 // Common patterns
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// Accepts both UUID format (550e8400-e29b-41d4-a716-446655440000) and Prisma CUID format (cmr3bpoto0001s7p5vjcs71b3)
+// CUID is typically 25 characters starting with 'c', UUID is 36 characters with hyphens
+const UUID_REGEX = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|c[a-z0-9]{24})$/
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_REGEX = /^[\d\-\+\s\(\)]{6,}$/
 const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const PLAN_SLUG_REGEX = /^[a-z]+(?:-[a-z]+)*$/
 
 // ============= BUSINESS SCHEMAS =============
 export const BusinessParamsSchema = z.object({
@@ -72,7 +75,7 @@ export const BookingQuerySchema = z.object({
 
 // ============= SERVICE SCHEMAS =============
 export const ServiceParamsSchema = z.object({
-  serviceId: z.string().regex(UUID_REGEX, 'Invalid service ID format'),
+  id: z.string().regex(UUID_REGEX, 'Invalid service ID format'),
 })
 
 export const CreateServiceSchema = z.object({
@@ -139,7 +142,7 @@ export const SubscriptionBusinessParamsSchema = z.object({
 
 export const CreateSubscriptionTrialSchema = z.object({
   businessId: z.string().regex(UUID_REGEX, 'Invalid business ID format'),
-  planId: z.string().regex(UUID_REGEX, 'Invalid plan ID format'),
+  planId: z.string().regex(PLAN_SLUG_REGEX, 'Invalid plan ID format'),
 })
 
 export const ActivateSubscriptionSchema = z.object({
@@ -149,13 +152,13 @@ export const ActivateSubscriptionSchema = z.object({
 
 export const UpgradeSubscriptionSchema = z.object({
   businessId: z.string().regex(UUID_REGEX, 'Invalid business ID format'),
-  newPlanId: z.string().regex(UUID_REGEX, 'Invalid plan ID format'),
+  newPlanId: z.string().regex(PLAN_SLUG_REGEX, 'Invalid plan ID format'),
   paymentId: z.string().min(1, 'Payment ID is required'),
 })
 
 export const DowngradeSubscriptionSchema = z.object({
   businessId: z.string().regex(UUID_REGEX, 'Invalid business ID format'),
-  newPlanId: z.string().regex(UUID_REGEX, 'Invalid plan ID format'),
+  newPlanId: z.string().regex(PLAN_SLUG_REGEX, 'Invalid plan ID format'),
   paymentId: z.string().min(1, 'Payment ID is required'),
 })
 

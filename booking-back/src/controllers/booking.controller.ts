@@ -3,10 +3,10 @@ import BookingService from "../services/booking.service";
 import NotificationService from "../services/notification.service";
 import NotificationSSEService from "../services/notification-sse.service";
 import { emailService } from "../services/email.service";
+import SubscriptionService from "../services/subscription.service";
 import prisma from "../lib/prisma";
+import { CreateBookingSchema, parseAndValidate } from "../validators";
 import type { BookingStatus } from "@prisma/client";
-import { ParamsDictionary } from "express-serve-static-core";
-import { ParsedQs } from "qs";
 
 class BookingController {
   /**
@@ -23,52 +23,52 @@ class BookingController {
       res.status(400).json({ 
           message: "User ID is required. Please log in to create a booking."
         })
-        return
+          return
       }
 
       // Validate request body
-      const { CreateBookingSchema, parseAndValidate } = await import('../validators/index.js')
       const bodyValidation = parseAndValidate(CreateBookingSchema, req.body)
       if (!bodyValidation.success) {
          res.status(400).json({ message: bodyValidation.error })
          return
       }
-      
+  
       // Check subscription and feature gating
       const { businessId } = bodyValidation.data
-      const subscriptionService: any = await import('../services/subscription.service.js').then(m => m.default)
-      const appointmentLimit = await subscriptionService.canAddAppointment(businessId)
+      const appointmentLimit = await SubscriptionService.canAddAppointment(businessId)
       
       if (!appointmentLimit.allowed) {
         console.warn('[v0] Booking limit exceeded for business:', businessId)
-        res.status(429).json({
+         res.status(429).json({
           message: appointmentLimit.reason || 'Booking limit reached. Please upgrade your subscription.',
           error: 'LIMIT_EXCEEDED',
         })
-        return
+            return
       }
       
-      // Convert appointmentDate to startTime/endTime required by service
       const startTime = new Date(bodyValidation.data.appointmentDate)
-      // Determine endTime from service duration if available (assumed minutes), default to +60 minutes
-      const svc = await prisma.service.findUnique({ where: { id: bodyValidation.data.serviceId } })
-      const durationMinutes = (svc && (svc as any).duration) ? (svc as any).duration : 60
-      const endTime = new Date(startTime.getTime() + durationMinutes * 60000)
-
-      const bookingData = {
-        // spread other validated fields except appointmentDate
-        serviceId: bodyValidation.data.serviceId,
-        businessId: bodyValidation.data.businessId,
-        userId: String(userId),
-        staffId: bodyValidation.data.staffId,
-        customerName: bodyValidation.data.customerName,
-        customerEmail: bodyValidation.data.customerEmail,
-        customerPhone: bodyValidation.data.customerPhone,
-        notes: bodyValidation.data.notes,
-        startTime,
-        endTime,
+      if (Number.isNaN(startTime.getTime())) {
+        res.status(400).json({ message: 'Invalid appointment date format' })
+        return
       }
 
+      const service = await prisma.service.findUnique({
+        where: { id: bodyValidation.data.serviceId }
+      })
+
+      if (!service) {
+        res.status(404).json({ message: 'Service not found' })
+        return
+      }
+
+      const { appointmentDate, ...bookingFields } = bodyValidation.data
+      const bookingData = {
+        ...bookingFields,
+        userId,
+        startTime,
+        endTime: new Date(startTime.getTime() + service.duration * 60000),
+      }
+      
       const booking = await BookingService.createBooking(bookingData)
       console.log('[v0] Booking created successfully:', booking)
 
@@ -128,79 +128,79 @@ class BookingController {
       //     }
       //   })
 
-        // if (business?.user?.phone && business.user.phone.length > 0) {
-        //   // Check SMS quota
-        //   const quotaCheck = await SubscriptionSmsService.checkSmsQuota(booking.businessId)
+      //   if (business?.user?.phone && business.user.phone.length > 0) {
+      //     // Check SMS quota
+      //     const quotaCheck = await SubscriptionSmsService.checkSmsQuota(booking.businessId)
           
-        //   if (!quotaCheck.available) {
-        //     console.warn('[v0] SMS quota exceeded for business:', booking.businessId)
-        //     console.warn('[v0] Remaining SMS:', quotaCheck.remaining, 'Limit:', quotaCheck.limit)
-        //   } else {
-        //     // Get service and staff details
-        //     const service = await prisma.service.findUnique({
-        //       where: { id: booking.serviceId }
-        //     })
+      //     if (!quotaCheck.available) {
+      //       console.warn('[v0] SMS quota exceeded for business:', booking.businessId)
+      //       console.warn('[v0] Remaining SMS:', quotaCheck.remaining, 'Limit:', quotaCheck.limit)
+      //     } else {
+      //       // Get service and staff details
+      //       const service = await prisma.service.findUnique({
+      //         where: { id: booking.serviceId }
+      //       })
 
-        //     let staffName: string | undefined
-        //     if (booking.staffId) {
-        //       const staff = await prisma.staff.findUnique({
-        //         where: { id: booking.staffId }
-        //       })
-        //       if (staff) {
-        //         staffName = `${staff.firstName} ${staff.lastName}`
-        //       }
-        //     }
+      //       let staffName: string | undefined
+      //       if (booking.staffId) {
+      //         const staff = await prisma.staff.findUnique({
+      //           where: { id: booking.staffId }
+      //         })
+      //         if (staff) {
+      //           staffName = `${staff.firstName} ${staff.lastName}`
+      //         }
+      //       }
 
-        //     const formattedDate = booking.startTime.toLocaleDateString('en-US', {
-        //       month: 'short',
-        //       day: 'numeric',
-        //       year: 'numeric',
-        //     })
+      //       const formattedDate = booking.startTime.toLocaleDateString('en-US', {
+      //         month: 'short',
+      //         day: 'numeric',
+      //         year: 'numeric',
+      //       })
 
-        //     const formattedTime = booking.startTime.toLocaleTimeString('en-US', {
-        //       hour: '2-digit',
-        //       minute: '2-digit',
-        //     })
+      //       const formattedTime = booking.startTime.toLocaleTimeString('en-US', {
+      //         hour: '2-digit',
+      //         minute: '2-digit',
+      //       })
 
-        //     const smsResult = await SparrowSMSService.sendOwnerNotification(business.user.phone, {
-        //       customerName: booking.customerName,
-        //       customerPhone: booking.customerPhone,
-        //       serviceName: service?.name || 'Service',
-        //       staffName,
-        //       date: formattedDate,
-        //       time: formattedTime,
-        //       businessName: business.name,
-        //     })
+      //       const smsResult = await SparrowSMSService.sendOwnerNotification(business.user.phone, {
+      //         customerName: booking.customerName,
+      //         customerPhone: booking.customerPhone,
+      //         serviceName: service?.name || 'Service',
+      //         staffName,
+      //         date: formattedDate,
+      //         time: formattedTime,
+      //         businessName: business.name,
+      //       })
 
-        //     if (smsResult.success) {
-        //       // Increment SMS usage
-        //       await SubscriptionSmsService.incrementSmsUsage(booking.businessId, 1, business.subscription?.id)
-        //       console.log('[v0] SMS notification sent to business owner:', business.user.phone)
+      //       if (smsResult.success) {
+      //         // Increment SMS usage
+      //         await SubscriptionSmsService.incrementSmsUsage(booking.businessId, 1, business.subscription?.id)
+      //         console.log('[v0] SMS notification sent to business owner:', business.user.phone)
               
-        //       // Log SMS attempt
-        //       await SubscriptionSmsService.logSmsAttempt({
-        //         businessId: booking.businessId,
-        //         subscriptionId: business.subscription?.id,
-        //         phoneNumber: business.user.phone,
-        //         message: `New booking from ${booking.customerName}`,
-        //         type: 'owner_notification',
-        //         status: 'SENT',
-        //         messageId: smsResult.messageId,
-        //       })
-        //     } else {
-        //       console.error('[v0] Failed to send SMS notification:', smsResult.error)
+      //         // Log SMS attempt
+      //         await SubscriptionSmsService.logSmsAttempt({
+      //           businessId: booking.businessId,
+      //           subscriptionId: business.subscription?.id,
+      //           phoneNumber: business.user.phone,
+      //           message: `New booking from ${booking.customerName}`,
+      //           type: 'owner_notification',
+      //           status: 'SENT',
+      //           messageId: smsResult.messageId,
+      //         })
+      //       } else {
+      //         console.error('[v0] Failed to send SMS notification:', smsResult.error)
               
-        //       // Log failed SMS attempt
-        //       await SubscriptionSmsService.logSmsAttempt({
-        //         businessId: booking.businessId,
-        //         subscriptionId: business.subscription?.id,
-        //         phoneNumber: business.user.phone,
-        //         message: `New booking from ${booking.customerName}`,
-        //         type: 'owner_notification',
-        //         status: 'FAILED',
-        //         errorMessage: smsResult.error,
-        //       })
-        //     }
+      //         // Log failed SMS attempt
+      //         await SubscriptionSmsService.logSmsAttempt({
+      //           businessId: booking.businessId,
+      //           subscriptionId: business.subscription?.id,
+      //           phoneNumber: business.user.phone,
+      //           message: `New booking from ${booking.customerName}`,
+      //           type: 'owner_notification',
+      //           status: 'FAILED',
+      //           errorMessage: smsResult.error,
+      //         })
+      //       }
       //     }
       //   }
       // } catch (smsError) {
@@ -208,7 +208,7 @@ class BookingController {
       //   console.error('[v0] Failed to send SMS notification to owner:', smsError)
       // }
 
-      res.status(201).json(booking)
+      // res.status(201).json(booking)
     } catch (error) {
       console.error('[v0] Error creating booking:', error instanceof Error ? error.message : String(error))
       res.status(500).json({ 
@@ -218,6 +218,9 @@ class BookingController {
     }
   }
 
+  /**
+   * Get booking by ID
+   */
   async getBookingById(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -459,7 +462,7 @@ class BookingController {
 
       // Validate required fields
       if (!businessId || !serviceId || !customerName || !customerEmail || !customerPhone) {
-     res.status(400).json({ 
+       res.status(400).json({ 
           success: false,
           message: "Missing required fields: businessId, serviceId, customerName, customerEmail, customerPhone"
         })
@@ -486,7 +489,7 @@ class BookingController {
       })
 
       if (!service || service.businessId !== businessId) {
-        res.status(404).json({
+         res.status(404).json({
           success: false,
           message: "Service not found"
         })
@@ -592,5 +595,3 @@ class BookingController {
 }
 
 export default new BookingController();
-
-

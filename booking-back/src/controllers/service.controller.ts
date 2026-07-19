@@ -1,6 +1,8 @@
 import { Request, Response } from "express"
 import ServiceService from "../services/service.service"
 import { isValidationError } from "../validators"
+import { ServiceParamsSchema, BusinessIdParamsSchema, CreateServiceSchema, UpdateServiceSchema, parseAndValidate } from "../validators"
+import subscriptionService from "../services/subscription.service"
 
 class ServiceController {
   /**
@@ -28,14 +30,14 @@ class ServiceController {
    */
   async getById(req: Request, res: Response) {
     try {
-      const { ServiceParamsSchema, parseAndValidate } = await import('../validators/index.js')
+
       
       const validation = parseAndValidate(ServiceParamsSchema, req.params)
       if (isValidationError(validation)) {
         return res.status(400).json({ message: validation.error })
       }
 
-      const service = await ServiceService.getServiceById(validation.data.serviceId)
+      const service = await ServiceService.getServiceById(validation.data.id)
       
       if (!service) {
         return res.status(404).json({ message: "Service not found" })
@@ -53,7 +55,6 @@ class ServiceController {
    */
   async getByBusinessId(req: Request, res: Response) {
     try {
-      const { BusinessIdParamsSchema, parseAndValidate } = await import('../validators/index.js')
       
       const validation = parseAndValidate(BusinessIdParamsSchema, req.params)
       if (isValidationError(validation)) {
@@ -73,7 +74,6 @@ class ServiceController {
    */
   async create(req: Request, res: Response) {
     try {
-      const { CreateServiceSchema, parseAndValidate } = await import('../validators/index.js')
       
       const validation = parseAndValidate(CreateServiceSchema, req.body)
       if (isValidationError(validation)) {
@@ -82,8 +82,7 @@ class ServiceController {
 
       const { businessId, name, description, price, duration } = validation.data
 
-      // Check subscription service limit
-      const subscriptionService : any= await import('../services/subscription.service.js').then(m => m.default)
+   
       const serviceLimit = await subscriptionService.canAddService(businessId)
       
       if (!serviceLimit.allowed) {
@@ -115,7 +114,7 @@ class ServiceController {
    */
   async update(req: Request, res: Response) {
     try {
-      const { ServiceParamsSchema, UpdateServiceSchema, parseAndValidate } = await import('../validators/index.js')
+
       
       const paramsValidation = parseAndValidate(ServiceParamsSchema, req.params)
       if (isValidationError(paramsValidation)) {
@@ -128,7 +127,7 @@ class ServiceController {
       }
 
       const { name, description, price, duration } = bodyValidation.data
-      const service = await ServiceService.updateService(paramsValidation.data.serviceId, {
+      const service = await ServiceService.updateService(paramsValidation.data.id, {
         name,
         description,
         price,
@@ -146,14 +145,13 @@ class ServiceController {
    */
   async delete(req: Request, res: Response) {
     try {
-      const { ServiceParamsSchema, parseAndValidate } = await import('../validators/index.js')
       
       const validation = parseAndValidate(ServiceParamsSchema, req.params)
       if (isValidationError(validation)) {
         return res.status(400).json({ message: validation.error })
       }
 
-      await ServiceService.deleteService(validation.data.serviceId)
+      await ServiceService.deleteService(validation.data.id)
       res.json({ message: "Service deleted successfully" })
     } catch (error) {
       console.error('[v0] Error deleting service:', error)
@@ -166,7 +164,6 @@ class ServiceController {
    */
   async getActiveServices(req: Request, res: Response) {
     try {
-      const { BusinessIdParamsSchema, parseAndValidate } = await import('../validators/index.js')
       
       const validation = parseAndValidate(BusinessIdParamsSchema, req.params)
       if (isValidationError(validation)) {
@@ -186,7 +183,6 @@ class ServiceController {
    */
   async withStats(req: Request, res: Response) {
     try {
-      const { BusinessIdParamsSchema, parseAndValidate } = await import('../validators/index.js')
       
       const validation = parseAndValidate(BusinessIdParamsSchema, req.params)
       if (isValidationError(validation)) {
