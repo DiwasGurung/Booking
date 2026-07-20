@@ -3,14 +3,11 @@ import { ReactNode } from "react"
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
 export type ApiResponse<T> = {
-  paymentUrl?: any
-  transactionId?: never[]
-  paymentId?: never[]
-  available?: any
   data?: T
   error?: string
   message?: string
   success?: boolean
+  status?: number
 }
 
 // Export types for use in components
@@ -24,9 +21,6 @@ export interface Service {
 }
 
 export interface Business {
-  createdAt: string
-  logo: null
-  reviewCount: number
   category: ReactNode
   rating: any
   description: any
@@ -59,6 +53,7 @@ export interface Booking {
     avatar?: string
   }
 }
+
 // Payment types
 export interface Payment {
   id: string
@@ -132,7 +127,6 @@ export async function apiCall<T>(
     }
     
     // Use credentials: 'include' to automatically send/receive HTTP-only cookies
-    // This eliminates the need for localStorage token management
     const response = await fetch(url, {
       headers,
       credentials: 'include', // Send session cookies with every request
@@ -140,10 +134,12 @@ export async function apiCall<T>(
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }))
+      const errorData = await response.json().catch(() => ({ message: response.statusText }))
       return {
-        error: error.message || error.error || 'An error occurred',
+        error: errorData.message || errorData.error || errorData.reason || 'An error occurred',
         success: false,
+        status: response.status,
+        data: errorData, // Include full error data for debugging
       }
     }
 
@@ -160,9 +156,29 @@ export async function apiCall<T>(
 
 // Users API - /api/users prefix
 export const usersApi = {
+  // Register/Create new user
+  signup: (data: { email: string; password: string; firstName: string; lastName: string; phone?: string; role?: string }) =>
+    apiCall<any>('/api/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Login user
+  login: (email: string, password: string) =>
+    apiCall<any>('/api/users/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  // Logout user
+  logout: () =>
+    apiCall<any>('/api/users/logout', {
+      method: 'POST',
+    }),
+
   // Update user profile (firstName, lastName, phone, avatar)
   updateProfile: (userId: string, data: { firstName?: string; lastName?: string; phone?: string; avatar?: string }) =>
-    apiCall<any>(`/api/users/profile`, {
+    apiCall<any>(`/api/users/${userId}/profile`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
@@ -251,7 +267,8 @@ export const businessHoursApi = {
 
 // Bookings API - /api/booking prefix
 export const bookingsApi = {
-   createBooking: (data: {
+  // Create a new booking
+  createBooking: (data: {
     serviceId: string
     businessId: string
     userId?: string
@@ -280,17 +297,16 @@ export const bookingsApi = {
     }),
 
   // Update booking status
-  updateBookingStatus: (bookingId: string, status: string, reason?: string) =>
+  updateBookingStatus: (bookingId: string, status: string) =>
     apiCall<Booking>(`/api/booking/bookings/${bookingId}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ status, reason }),
+      body: JSON.stringify({ status }),
     }),
 
   // Cancel a booking
-  cancelBooking: (bookingId: string, reason?: string) =>
+  cancelBooking: (bookingId: string) =>
     apiCall<Booking>(`/api/booking/bookings/${bookingId}/cancel`, {
       method: 'PATCH',
-      body: JSON.stringify({ reason }),
     }),
 
   // Delete a booking
@@ -321,6 +337,8 @@ export const bookingsApi = {
   // Get all bookings for a specific user/customer
   getCustomerBookings: (userId: string) =>
     apiCall<Booking[]>(`/api/booking/users/${userId}/bookings`),
+
+  
 }
 
 // Business API - /api/businesses prefix
@@ -496,8 +514,6 @@ export const paymentApi = {
   checkSubscriptionPaymentStatus: (subscriptionId: string) =>
     apiCall<{ paid: boolean; status: string; lastPayment?: Payment }>(`/api/payment/subscription/${subscriptionId}/status`),
 }
-
-
 
 // Staff types
 export interface Staff {
