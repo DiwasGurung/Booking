@@ -76,6 +76,8 @@ export default function StaffPage() {
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null)
   const [formData, setFormData] = useState<StaffFormData>(initialFormData)
   const [saving, setSaving] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [currentStep, setCurrentStep] = useState(1)
 
   useEffect(() => {
     if (businessId) {
@@ -111,10 +113,9 @@ export default function StaffPage() {
     if (!businessId) return
     try {
       const response = await servicesApi.getBusinessServices(businessId)
-      if (response.data) {
-        const servicesData = Array.isArray(response.data) ? response.data : []
-        setServices(servicesData)
-      }
+      // API returns nested structure: { data: { data: Array } }
+      const servicesArray = Array.isArray(response.data) ? response.data : []
+      setServices(servicesArray)
     } catch (err) {
       console.error('[Staff] Error loading services:', err)
     }
@@ -123,6 +124,7 @@ export default function StaffPage() {
   const openAddModal = () => {
     setEditingStaff(null)
     setFormData(initialFormData)
+    setCurrentStep(1)
     setIsModalOpen(true)
   }
 
@@ -138,14 +140,16 @@ export default function StaffPage() {
       breakTimes: staff.breakTimes || [],
       serviceIds: staff.services?.map(s => s.service.id) || [],
     })
+    setCurrentStep(1)
     setIsModalOpen(true)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!businessId) return
+    if (!businessId || isSubmitting) return
 
     try {
+      setIsSubmitting(true)
       setSaving(true)
       
       if (editingStaff) {
@@ -155,12 +159,14 @@ export default function StaffPage() {
       }
 
       setIsModalOpen(false)
+      setCurrentStep(1)
       loadStaff()
     } catch (err) {
       console.error('[Staff] Error saving staff:', err)
       setError('Failed to save staff member')
     } finally {
       setSaving(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -168,20 +174,37 @@ export default function StaffPage() {
     if (!confirm('Are you sure you want to delete this staff member?')) return
 
     try {
-      await staffApi.delete(staffId)
-      loadStaff()
+      const response = await staffApi.delete(staffId)
+      
+      if (!response.success || response.error) {
+        setError(response.error || 'Failed to delete staff member')
+        console.error('[Staff] Delete error:', response.error)
+        return
+      }
+
+      setError(null)
+      await loadStaff()
     } catch (err) {
       console.error('[Staff] Error deleting staff:', err)
-      setError('Failed to delete staff member')
+      setError(err instanceof Error ? err.message : 'Failed to delete staff member')
     }
   }
 
   const handleToggleStatus = async (staffId: string) => {
     try {
-      await staffApi.toggleStatus(staffId)
-      loadStaff()
+      const response = await staffApi.toggleStatus(staffId)
+      
+      if (!response.success || response.error) {
+        setError(response.error || 'Failed to toggle staff status')
+        console.error('[Staff] Toggle error:', response.error)
+        return
+      }
+
+      setError(null)
+      await loadStaff()
     } catch (err) {
       console.error('[Staff] Error toggling status:', err)
+      setError(err instanceof Error ? err.message : 'Failed to toggle staff status')
     }
   }
 
@@ -233,6 +256,31 @@ export default function StaffPage() {
       ...prev,
       breakTimes: prev.breakTimes.map((bt, i) => i === index ? { ...bt, [field]: value } : bt)
     }))
+  }
+
+  // Validation functions for each step
+  const isStep1Valid = () => formData.firstName.trim() && formData.lastName.trim()
+  const isStep2Valid = () => formData.serviceIds.length > 0
+  const isStep3Valid = () => true // Schedule is optional
+  const isStep4Valid = () => true // Confirmation step
+
+  const canProceedToNext = () => {
+    if (currentStep === 1) return isStep1Valid()
+    if (currentStep === 2) return isStep2Valid()
+    if (currentStep === 3) return isStep3Valid()
+    return true
+  }
+
+  const goToNextStep = () => {
+    if (canProceedToNext() && currentStep < 4) {
+      setCurrentStep(currentStep + 1)
+    }
+  }
+
+  const goToPreviousStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1)
+    }
   }
 
   if (fetchingBusinessId || loading) {
@@ -379,23 +427,44 @@ export default function StaffPage() {
             )}
           </div>
 
-        {/* Add/Edit Modal */}
+        {/* Step-by-Step Wizard Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-background rounded-lg w-full max-w-2xl max-h-[90vh] overflow-auto">
+            <div className="bg-background rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col">
+              {/* Header */}
               <div className="sticky top-0 bg-background border-b p-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">
-                  {editingStaff ? 'Edit Staff Member' : 'Add Staff Member'}
-                </h2>
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    {editingStaff ? 'Edit Staff Member' : 'Add Staff Member'}
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-1">Step {currentStep} of 4</p>
+                </div>
                 <Button variant="ghost" size="sm" onClick={() => setIsModalOpen(false)}>
                   <X className="w-4 h-4" />
                 </Button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-4 space-y-6">
-                {/* Basic Info */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Basic Information</h3>
+              {/* Progress Bar */}
+              <div className="px-4 pt-4 flex gap-1">
+                {[1, 2, 3, 4].map((step) => (
+                  <div
+                    key={step}
+                    className={`flex-1 h-1 rounded-full transition-colors ${
+                      step <= currentStep ? 'bg-primary' : 'bg-muted'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleSubmit} className="flex-1 overflow-auto p-4 space-y-6">
+                {/* STEP 1: Basic Information */}
+                {currentStep === 1 && (
+                <div className="space-y-4 animate-in fade-in">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
+                    <p className="text-sm text-muted-foreground mb-6">Tell us about the staff member</p>
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="firstName">First Name *</Label>
@@ -445,11 +514,15 @@ export default function StaffPage() {
                     />
                   </div>
                 </div>
+                )}
 
-                {/* Services */}
-                <div className="space-y-4">
-                  <h3 className="font-medium">Services</h3>
-                  <p className="text-sm text-muted-foreground">Select the services this staff member can perform</p>
+                {/* STEP 2: Services */}
+                {currentStep === 2 && (
+                <div className="space-y-4 animate-in fade-in">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Services</h3>
+                    <p className="text-sm text-muted-foreground mb-6">Select the services this staff member can perform</p>
+                  </div>
                   <div className="grid grid-cols-2 gap-2 max-h-40 overflow-auto border rounded-lg p-3">
                     {services.map((service) => (
                       <div key={service.id} className="flex items-center gap-2">
@@ -468,105 +541,188 @@ export default function StaffPage() {
                     )}
                   </div>
                 </div>
+                )}
 
-                {/* Working Hours */}
-                <div className="space-y-4">
-                  <h3 className="font-medium flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Working Hours
-                  </h3>
-                  <div className="space-y-2">
-                    {DAYS.map((day) => (
-                      <div key={day} className="flex items-center gap-4 p-2 border rounded-lg">
-                        <div className="flex items-center gap-2 w-32">
-                          <Checkbox
-                            id={`day-${day}`}
-                            checked={formData.workingHours[day]?.isWorking}
-                            onCheckedChange={() => toggleDayWorking(day)}
-                          />
-                          <Label htmlFor={`day-${day}`} className="text-sm cursor-pointer">
-                            {DAY_LABELS[day]}
-                          </Label>
-                        </div>
-                        {formData.workingHours[day]?.isWorking && (
-                          <div className="flex items-center gap-2 flex-1">
-                            <Input
-                              type="time"
-                              value={formData.workingHours[day]?.start || '09:00'}
-                              onChange={(e) => updateDayHours(day, 'start', e.target.value)}
-                              className="w-28"
-                            />
-                            <span className="text-muted-foreground">to</span>
-                            <Input
-                              type="time"
-                              value={formData.workingHours[day]?.end || '17:00'}
-                              onChange={(e) => updateDayHours(day, 'end', e.target.value)}
-                              className="w-28"
-                            />
-                          </div>
-                        )}
-                        {!formData.workingHours[day]?.isWorking && (
-                          <span className="text-sm text-muted-foreground">Day off</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Break Times */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium">Break Times</h3>
-                    <Button type="button" variant="outline" size="sm" onClick={addBreakTime}>
-                      <Plus className="w-4 h-4 mr-1" />
-                      Add Break
-                    </Button>
-                  </div>
-                  {formData.breakTimes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No break times set</p>
-                  ) : (
+                {/* STEP 3: Working Hours and Break Times */}
+                {currentStep === 3 && (
+                  <div className="space-y-4 animate-in fade-in">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        Schedule & Working Hours
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-6">Set the working hours and break times</p>
+                    </div>
                     <div className="space-y-2">
-                      {formData.breakTimes.map((bt, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <Input
-                            type="time"
-                            value={bt.start}
-                            onChange={(e) => updateBreakTime(index, 'start', e.target.value)}
-                            className="w-28"
-                          />
-                          <span className="text-muted-foreground">to</span>
-                          <Input
-                            type="time"
-                            value={bt.end}
-                            onChange={(e) => updateBreakTime(index, 'end', e.target.value)}
-                            className="w-28"
-                          />
-                          <Button type="button" variant="ghost" size="sm" onClick={() => removeBreakTime(index)}>
-                            <X className="w-4 h-4" />
-                          </Button>
+                      {DAYS.map((day) => (
+                        <div key={day} className="flex items-center gap-4 p-2 border rounded-lg">
+                          <div className="flex items-center gap-2 w-32">
+                            <Checkbox
+                              id={`day-${day}`}
+                              checked={formData.workingHours[day]?.isWorking}
+                              onCheckedChange={() => toggleDayWorking(day)}
+                            />
+                            <Label htmlFor={`day-${day}`} className="text-sm cursor-pointer">
+                              {DAY_LABELS[day]}
+                            </Label>
+                          </div>
+                          {formData.workingHours[day]?.isWorking && (
+                            <div className="flex items-center gap-2 flex-1">
+                              <Input
+                                type="time"
+                                value={formData.workingHours[day]?.start || '09:00'}
+                                onChange={(e) => updateDayHours(day, 'start', e.target.value)}
+                                className="w-28"
+                              />
+                              <span className="text-muted-foreground">to</span>
+                              <Input
+                                type="time"
+                                value={formData.workingHours[day]?.end || '17:00'}
+                                onChange={(e) => updateDayHours(day, 'end', e.target.value)}
+                                className="w-28"
+                              />
+                            </div>
+                          )}
+                          {!formData.workingHours[day]?.isWorking && (
+                            <span className="text-sm text-muted-foreground">Day off</span>
+                          )}
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
 
-                {/* Actions */}
-                <div className="flex justify-end gap-3 pt-4 border-t">
+                    {/* Break Times */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium">Break Times</h3>
+                        <Button type="button" variant="outline" size="sm" onClick={addBreakTime}>
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Break
+                        </Button>
+                      </div>
+                      {formData.breakTimes.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No break times set</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {formData.breakTimes.map((bt, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <Input
+                                type="time"
+                                value={bt.start}
+                                onChange={(e) => updateBreakTime(index, 'start', e.target.value)}
+                                className="w-28"
+                              />
+                              <span className="text-muted-foreground">to</span>
+                              <Input
+                                type="time"
+                                value={bt.end}
+                                onChange={(e) => updateBreakTime(index, 'end', e.target.value)}
+                                className="w-28"
+                              />
+                              <Button type="button" variant="ghost" size="sm" onClick={() => removeBreakTime(index)}>
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 4: Review & Confirm */}
+                {currentStep === 4 && (
+                <div className="space-y-4 animate-in fade-in">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Review Information</h3>
+                    <p className="text-sm text-muted-foreground mb-6">Please review the information before confirming</p>
+                  </div>
+
+                  <div className="space-y-4 bg-muted/30 rounded-lg p-4">
+                    {/* Basic Info Review */}
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">Basic Information</h4>
+                      <div className="space-y-1 text-sm">
+                        <p><span className="text-muted-foreground">Name:</span> {formData.firstName} {formData.lastName}</p>
+                        <p><span className="text-muted-foreground">Role:</span> {formData.role}</p>
+                        {formData.email && <p><span className="text-muted-foreground">Email:</span> {formData.email}</p>}
+                        {formData.phone && <p><span className="text-muted-foreground">Phone:</span> {formData.phone}</p>}
+                      </div>
+                    </div>
+
+                    {/* Services Review */}
+                    <div className="pt-3 border-t">
+                      <h4 className="font-medium text-sm mb-2">Services ({formData.serviceIds.length})</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {formData.serviceIds.map(serviceId => {
+                          const service = services.find(s => s.id === serviceId)
+                          return service ? (
+                            <Badge key={serviceId} variant="secondary">{service.name}</Badge>
+                          ) : null
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Schedule Review */}
+                    <div className="pt-3 border-t">
+                      <h4 className="font-medium text-sm mb-2">Working Schedule</h4>
+                      <div className="text-sm space-y-1">
+                        {DAYS.map(day => {
+                          const hours = formData.workingHours[day]
+                          return hours?.isWorking ? (
+                            <p key={day}><span className="text-muted-foreground">{DAY_LABELS[day]}:</span> {hours.start} - {hours.end}</p>
+                          ) : (
+                            <p key={day}><span className="text-muted-foreground">{DAY_LABELS[day]}:</span> <span className="text-xs">Day off</span></p>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-sm">
+                    <p>✓ All information looks good. Click <span className="font-medium">Submit</span> to {editingStaff ? 'update' : 'add'} this staff member.</p>
+                  </div>
+                </div>
+                )}
+              </form>
+
+              {/* Navigation Actions */}
+              <div className="border-t bg-muted/30 p-4 flex justify-between gap-3">
+                <div className="flex gap-2">
                   <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={saving}>
-                    {saving ? (
-                      <>
-                        <Loader className="w-4 h-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      editingStaff ? 'Update Staff' : 'Add Staff'
-                    )}
-                  </Button>
                 </div>
-              </form>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={goToPreviousStep}
+                    disabled={currentStep === 1}
+                  >
+                    Previous
+                  </Button>
+                  {currentStep < 4 ? (
+                    <Button onClick={goToNextStep} disabled={!canProceedToNext()}>
+                      Next
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={saving || isSubmitting}
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      {saving ? (
+                        <>
+                          <Loader className="w-4 h-4 mr-2 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        editingStaff ? 'Update Staff' : 'Add Staff'
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}

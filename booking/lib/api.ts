@@ -7,7 +7,6 @@ export type ApiResponse<T> = {
   error?: string
   message?: string
   success?: boolean
-  status?: number
 }
 
 // Export types for use in components
@@ -134,12 +133,10 @@ export async function apiCall<T>(
     })
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: response.statusText }))
+      const error = await response.json().catch(() => ({ message: response.statusText }))
       return {
-        error: errorData.message || errorData.error || errorData.reason || 'An error occurred',
+        error: error.message || error.error || 'An error occurred',
         success: false,
-        status: response.status,
-        data: errorData, // Include full error data for debugging
       }
     }
 
@@ -338,7 +335,6 @@ export const bookingsApi = {
   getCustomerBookings: (userId: string) =>
     apiCall<Booking[]>(`/api/booking/users/${userId}/bookings`),
 
-  
 }
 
 // Business API - /api/businesses prefix
