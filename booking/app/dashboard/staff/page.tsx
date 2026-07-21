@@ -23,9 +23,11 @@ import {
   Mail,
   Clock,
   Calendar,
-  X
+  X,
+  Zap
 } from 'lucide-react'
 import { useBusinessId } from '@/hooks/useBusinessId'
+import { useSubscriptionUsage } from '@/hooks/useSusbcriptionUsage'
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 const DAY_LABELS: Record<string, string> = {
@@ -68,6 +70,7 @@ const initialFormData: StaffFormData = {
 export default function StaffPage() {
   const router = useRouter()
   const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
+  const { usage: subscriptionUsage, refetch } = useSubscriptionUsage(businessId)
   const [staffMembers, setStaffMembers] = useState<Staff[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
@@ -109,15 +112,41 @@ export default function StaffPage() {
     }
   }
 
-  const loadServices = async () => {
+ const loadServices = async () => {
     if (!businessId) return
     try {
+      setLoading(true)
       const response = await servicesApi.getBusinessServices(businessId)
-      // API returns nested structure: { data: { data: Array } }
-      const servicesArray = Array.isArray(response.data) ? response.data : []
-      setServices(servicesArray)
-    } catch (err) {
-      console.error('[Staff] Error loading services:', err)
+      const rawData = response as any
+
+      // API may return either an array or nested structure: { data: { data: Array } }
+      const servicesArray = Array.isArray(rawData)
+        ? rawData
+        : Array.isArray(rawData.data)
+        ? rawData.data
+        : Array.isArray(rawData.data?.data)
+        ? rawData.data.data
+        : []
+
+      const servicesData = servicesArray.map((service: any) => ({
+        id: service.id,
+        name: service.name,
+        description: service.description,
+        price: service.price,
+        offerPrice: service.offerPrice,
+        duration: service.duration,
+        isActive: service.isActive ?? true,
+        capacity: service.capacity ?? 1,
+      }))
+
+      setServices(servicesData)
+      setError(null)
+    } catch (err: any) {
+      const errorMessage = err?.message || 'Unknown error'
+      setError(`Failed to load services: ${errorMessage}`)
+      console.error('[v0] Error loading services:', err)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -161,6 +190,11 @@ export default function StaffPage() {
       setIsModalOpen(false)
       setCurrentStep(1)
       loadStaff()
+
+       // Refresh subscription usage data
+    if (typeof refetch === 'function') {
+      await refetch()
+    }
     } catch (err) {
       console.error('[Staff] Error saving staff:', err)
       setError('Failed to save staff member')
@@ -317,6 +351,52 @@ export default function StaffPage() {
             </Button>
           </div>
         </div>
+
+         {/* Subscription Usage Card */}
+        {subscriptionUsage && (
+          <Card className="mb-8 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm">Staff Limit</CardTitle>
+                  <CardDescription className="mt-1">
+                    {subscriptionUsage.staffUnlimited ? 'Unlimited staff' : `${subscriptionUsage.staffCurrent} of ${subscriptionUsage.staffLimit} staff members`}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-3">
+                  {!subscriptionUsage.staffUnlimited && (
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-primary">{subscriptionUsage.staffCurrent}/{subscriptionUsage.staffLimit}</p>
+                      <p className="text-xs text-muted-foreground">{subscriptionUsage.staffUsagePercent}% used</p>
+                    </div>
+                  )}
+                  {!subscriptionUsage.staffUnlimited && subscriptionUsage.staffUsagePercent >= 80 && (
+                    <Button size="sm" variant="outline" onClick={() => router.push('/subscription')}>
+                      <Zap className="w-4 h-4 mr-2" />
+                      Upgrade
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            {!subscriptionUsage.staffUnlimited && (
+              <CardContent>
+                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                  <div
+                    className={`h-full transition-all ${
+                      subscriptionUsage.staffUsagePercent >= 100
+                        ? 'bg-destructive'
+                        : subscriptionUsage.staffUsagePercent >= 80
+                        ? 'bg-yellow-500'
+                        : 'bg-primary'
+                    }`}
+                    style={{ width: `${Math.min(subscriptionUsage.staffUsagePercent, 100)}%` }}
+                  />
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        )}
 
         {error && (
           <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive">
@@ -545,88 +625,91 @@ export default function StaffPage() {
 
                 {/* STEP 3: Working Hours and Break Times */}
                 {currentStep === 3 && (
-                  <div className="space-y-4 animate-in fade-in">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                        <Clock className="w-4 h-4" />
-                        Schedule & Working Hours
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-6">Set the working hours and break times</p>
-                    </div>
-                    <div className="space-y-2">
-                      {DAYS.map((day) => (
-                        <div key={day} className="flex items-center gap-4 p-2 border rounded-lg">
-                          <div className="flex items-center gap-2 w-32">
-                            <Checkbox
-                              id={`day-${day}`}
-                              checked={formData.workingHours[day]?.isWorking}
-                              onCheckedChange={() => toggleDayWorking(day)}
+                <div className="space-y-4 animate-in fade-in">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      Schedule & Working Hours
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">Set the working hours and break times</p>
+                  </div>
+                  <div className="space-y-2">
+                    {DAYS.map((day) => (
+                      <div key={day} className="flex items-center gap-4 p-2 border rounded-lg">
+                        <div className="flex items-center gap-2 w-32">
+                          <Checkbox
+                            id={`day-${day}`}
+                            checked={formData.workingHours[day]?.isWorking}
+                            onCheckedChange={() => toggleDayWorking(day)}
+                          />
+                          <Label htmlFor={`day-${day}`} className="text-sm cursor-pointer">
+                            {DAY_LABELS[day]}
+                          </Label>
+                        </div>
+                        {formData.workingHours[day]?.isWorking && (
+                          <div className="flex items-center gap-2 flex-1">
+                            <Input
+                              type="time"
+                              value={formData.workingHours[day]?.start || '09:00'}
+                              onChange={(e) => updateDayHours(day, 'start', e.target.value)}
+                              className="w-28"
                             />
-                            <Label htmlFor={`day-${day}`} className="text-sm cursor-pointer">
-                              {DAY_LABELS[day]}
-                            </Label>
+                            <span className="text-muted-foreground">to</span>
+                            <Input
+                              type="time"
+                              value={formData.workingHours[day]?.end || '17:00'}
+                              onChange={(e) => updateDayHours(day, 'end', e.target.value)}
+                              className="w-28"
+                            />
                           </div>
-                          {formData.workingHours[day]?.isWorking && (
-                            <div className="flex items-center gap-2 flex-1">
-                              <Input
-                                type="time"
-                                value={formData.workingHours[day]?.start || '09:00'}
-                                onChange={(e) => updateDayHours(day, 'start', e.target.value)}
-                                className="w-28"
-                              />
-                              <span className="text-muted-foreground">to</span>
-                              <Input
-                                type="time"
-                                value={formData.workingHours[day]?.end || '17:00'}
-                                onChange={(e) => updateDayHours(day, 'end', e.target.value)}
-                                className="w-28"
-                              />
-                            </div>
-                          )}
-                          {!formData.workingHours[day]?.isWorking && (
-                            <span className="text-sm text-muted-foreground">Day off</span>
-                          )}
+                        )}
+                        {!formData.workingHours[day]?.isWorking && (
+                          <span className="text-sm text-muted-foreground">Day off</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                )}
+
+                {currentStep === 3 && (
+
+          
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">Break Times</h3>
+                    <Button type="button" variant="outline" size="sm" onClick={addBreakTime}>
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Break
+                    </Button>
+                  </div>
+                  {formData.breakTimes.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No break times set</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {formData.breakTimes.map((bt, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Input
+                            type="time"
+                            value={bt.start}
+                            onChange={(e) => updateBreakTime(index, 'start', e.target.value)}
+                            className="w-28"
+                          />
+                          <span className="text-muted-foreground">to</span>
+                          <Input
+                            type="time"
+                            value={bt.end}
+                            onChange={(e) => updateBreakTime(index, 'end', e.target.value)}
+                            className="w-28"
+                          />
+                          <Button type="button" variant="ghost" size="sm" onClick={() => removeBreakTime(index)}>
+                            <X className="w-4 h-4" />
+                          </Button>
                         </div>
                       ))}
                     </div>
-
-                    {/* Break Times */}
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium">Break Times</h3>
-                        <Button type="button" variant="outline" size="sm" onClick={addBreakTime}>
-                          <Plus className="w-4 h-4 mr-1" />
-                          Add Break
-                        </Button>
-                      </div>
-                      {formData.breakTimes.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No break times set</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {formData.breakTimes.map((bt, index) => (
-                            <div key={index} className="flex items-center gap-2">
-                              <Input
-                                type="time"
-                                value={bt.start}
-                                onChange={(e) => updateBreakTime(index, 'start', e.target.value)}
-                                className="w-28"
-                              />
-                              <span className="text-muted-foreground">to</span>
-                              <Input
-                                type="time"
-                                value={bt.end}
-                                onChange={(e) => updateBreakTime(index, 'end', e.target.value)}
-                                className="w-28"
-                              />
-                              <Button type="button" variant="ghost" size="sm" onClick={() => removeBreakTime(index)}>
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  )}
+                </div>
                 )}
 
                 {/* STEP 4: Review & Confirm */}

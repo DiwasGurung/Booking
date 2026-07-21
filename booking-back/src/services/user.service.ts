@@ -43,15 +43,8 @@ export const userService = {
     })
   },
 
-  // Get user by Firebase UID
-  async findByFirebaseUid(firebaseUid: string) {
-    return prisma.user.findUnique({
-      where: { firebaseUid },
-      include: {
-        business: true,
-      },
-    })
-  },
+ 
+  
 
   // Get user by email
   async findByEmail(email: string) {

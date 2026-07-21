@@ -66,6 +66,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/business-hours", businessHoursRoutes);
 
 app.use("/api/notifications", notificationRoutes);
+
 app.use("/api/seed", seedRoutes);
 
 app.use("/api/payments", paymentRoutes);

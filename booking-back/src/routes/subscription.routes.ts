@@ -67,6 +67,11 @@ subscriptionRoutes.post('/renew', auth, (req, res) =>
   SubscriptionController.renew(req, res)
 )
 
+
+subscriptionRoutes.post('/cancel/:subscriptionId', auth, (req, res) =>
+  SubscriptionController.cancelSubscription(req, res)
+)
+
 // Get next renewal date
 subscriptionRoutes.get('/renewal-date/:businessId', (req, res) =>
   SubscriptionController.getNextRenewal(req, res)

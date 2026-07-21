@@ -140,7 +140,7 @@ export default function PublicBookingPage() {
       <div className="bg-gradient-to-br from-primary to-primary/90 text-primary-foreground py-12 md:py-16 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-4 mb-4">
-            {business.logo && (
+            {business.logo && typeof business.logo === 'string' && (
               <img src={business.logo} alt={business.name} className="w-14 h-14 rounded-lg object-cover shadow-lg" />
             )}
             <div>

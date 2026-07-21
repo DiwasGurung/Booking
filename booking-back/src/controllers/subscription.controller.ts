@@ -175,9 +175,9 @@ class SubscriptionController {
   }
 
   /**
-   * Cancel subscription
+   * Cancel a subscription
    */
-  async cancel(req: Request, res: Response) {
+  async cancelSubscription(req: Request, res: Response) {
     try {
       const validation = parseAndValidate(SubscriptionParamsSchema, req.params)
 
@@ -186,14 +186,22 @@ class SubscriptionController {
       }
 
       const { subscriptionId } = validation.data
+      const userId = (req as any).userId as string
+
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' })
+      }
 
       console.log(`[v0] Cancelling subscription: ${subscriptionId}`)
 
-      const subscription = await subscriptionService.cancelSubscription(subscriptionId)
+      const result = await subscriptionService.cancelSubscription({
+        subscriptionId,
+        userId,
+      })
 
       res.json({
         message: 'Subscription cancelled successfully',
-        subscription,
+        subscription: result,
       })
     } catch (error: any) {
       console.error('[v0] Error cancelling subscription:', error)
@@ -312,7 +320,7 @@ class SubscriptionController {
       const validation = parseAndValidate(SubscriptionBusinessParamsSchema, req.params)
 
       if (isValidationError(validation)) {
-        return res.status(400).json({ message: validation.error })
+        return res.status(400).json({ success: false, message: validation.error })
       }
 
       const { businessId } = validation.data
@@ -320,13 +328,30 @@ class SubscriptionController {
       const usage = await subscriptionService.getUsageDetails(businessId)
 
       if (!usage) {
-        return res.status(404).json({ message: 'No subscription found for this business' })
+        return res.status(404).json({ success: false, message: 'No subscription found for this business' })
       }
 
-      res.json(usage)
+      // Transform the response to match frontend hook expectations
+      const transformedData = {
+        staffCurrent: usage.currentUsage?.staff || 0,
+        staffLimit: typeof usage.limits?.maxStaff === 'number' ? usage.limits.maxStaff : -1,
+        staffUnlimited: usage.limits?.maxStaff === 'Unlimited' || usage.limits?.maxStaff === -1,
+        serviceCurrent: usage.currentUsage?.services || 0,
+        serviceLimit: typeof usage.limits?.maxServices === 'number' ? usage.limits.maxServices : -1,
+        serviceUnlimited: usage.limits?.maxServices === 'Unlimited' || usage.limits?.maxServices === -1,
+        appointmentCurrent: usage.currentUsage?.appointmentsThisMonth || 0,
+        appointmentLimit: typeof usage.limits?.appointmentsPerMonth === 'number' ? usage.limits.appointmentsPerMonth : -1,
+        appointmentUnlimited: usage.limits?.appointmentsPerMonth === 'Unlimited' || usage.limits?.appointmentsPerMonth === -1,
+        planName: usage.planName || 'Unknown',
+      }
+
+      res.json({
+        success: true,
+        data: transformedData,
+      })
     } catch (error: any) {
       console.error('[v0] Error getting usage details:', error)
-      res.status(500).json({ message: 'Failed to get usage details', error: error.message })
+      res.status(500).json({ success: false, message: 'Failed to get usage details', error: error.message })
     }
   }
 
@@ -337,7 +362,7 @@ class SubscriptionController {
     try {
       console.log('[v0] Fetching all subscription plans')
 
-  
+    
       const plans = await prisma.subscriptionPlan.findMany({
         where: { active: true },
         orderBy: { priceNPR: 'asc' },

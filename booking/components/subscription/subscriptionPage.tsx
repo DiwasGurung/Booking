@@ -1,3 +1,23 @@
+/**
+ * Subscription Page with Plan Selection and Billing Period Options
+ * 
+ * Component Flow:
+ * 1. SubscriptionPlanCard - Displays individual plan with features and pricing
+ *    - Integrates BillingPeriodSelector for monthly/quarterly/6-month/yearly options
+ *    - Calls onSelect callback with planId and billingPeriod
+ * 
+ * 2. BillingPeriodSelector - Inline component showing billing period options
+ *    - Displays discount badges (-10%, -20%, -25%)
+ *    - Calculates prices based on selected period
+ *    - Emits selected period to parent (SubscriptionPlanCard)
+ * 
+ * 3. Payment Flow:
+ *    - User clicks SubscriptionPlanCard -> onSelect called
+ *    - handlePlanSelect captures billingPeriod and triggers trial or payment
+ *    - Trial: Creates subscription with TRIAL status (15-day free period)
+ *    - Payment: Redirects to eSewa with correct pricing for selected period
+ */
+
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
@@ -6,8 +26,9 @@ import { useAuth } from '@/context/authContext'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Check, Loader, CreditCard, AlertCircle, Users, Calendar, Briefcase } from 'lucide-react'
+import { Loader, CreditCard, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import type { BillingPeriod } from '@/components/BillingPeriodSelector'
 
 interface Plan {
   id: string
@@ -44,6 +65,11 @@ interface EsewaFormData {
   signature: string
 }
 
+const formatLimit = (limit: number): string => {
+  if (limit === -1) return 'Unlimited'
+  return limit.toLocaleString()
+}
+
 export default function SubscriptionPlan() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -59,11 +85,13 @@ export default function SubscriptionPlan() {
   }
   const [plans, setPlans] = useState<Plan[]>([])
   const [selectedPlan, setSelectedPlan] = useState<string>('')
+  const [selectedBillingPeriod, setSelectedBillingPeriod] = useState<BillingPeriod>('MONTHLY')
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingPlans, setIsLoadingPlans] = useState(true)
-  const [paymentMethod, setPaymentMethod] = useState<'trial' | 'esewa' | 'nabil'>('trial')
   const [esewaFormData, setEsewaFormData] = useState<EsewaFormData | null>(null)
   const [esewaPaymentUrl, setEsewaPaymentUrl] = useState<string>('')
+  const [trialUsed, setTrialUsed] = useState(false)
+  const [loadingTrialStatus, setLoadingTrialStatus] = useState(true)
   const esewaFormRef = useRef<HTMLFormElement>(null)
   
   // Check URL params for payment status
@@ -82,6 +110,45 @@ export default function SubscriptionPlan() {
     }
   }, [status, message])
 
+  // Check if trial has been used
+  useEffect(() => {
+    const checkTrialStatus = async () => {
+      try {
+        setLoadingTrialStatus(true)
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+        
+        const response = await fetch(`${API_URL}/api/businesses/current`, {
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        })
+
+        if (response.ok) {
+          const businessData = await response.json()
+          const businessId = businessData.id || businessData.business?.id
+          
+          if (businessId) {
+            // Fetch subscription status to check if trial was used
+            const subResponse = await fetch(`${API_URL}/api/subscriptions/status/${businessId}`, {
+              credentials: 'include',
+              headers: getAuthHeaders(),
+            })
+            
+            if (subResponse.ok) {
+              const subData = await subResponse.json()
+              setTrialUsed(subData.status === 'TRIAL' || (subData.hasSubscription && subData.status !== 'TRIAL'))
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[v0] Error checking trial status:', error)
+      } finally {
+        setLoadingTrialStatus(false)
+      }
+    }
+
+    checkTrialStatus()
+  }, [])
+
   // Submit eSewa form when data is ready
   useEffect(() => {
     if (esewaFormData && esewaFormRef.current) {
@@ -95,16 +162,136 @@ export default function SubscriptionPlan() {
       try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
         
+        console.log('[v0] Fetching subscription plans from:', `${API_URL}/api/subscription-payment/plans`)
+        
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+        
         const response = await fetch(`${API_URL}/api/subscription-payment/plans`, {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
         })
 
+        clearTimeout(timeout)
+
         if (!response.ok) {
-          throw new Error('Failed to fetch plans')
+          console.error('[v0] Plans fetch failed with status:', response.status)
+          
+          // If no plans found, try to seed them
+          if (response.status === 404 || response.status === 500) {
+            console.log('[v0] No plans found (status ' + response.status + '), attempting to seed subscription plans...')
+            try {
+              console.log('[v0] Calling POST /api/seed/plans (backend Express endpoint)')
+              const seedResponse = await fetch(`${API_URL}/api/seed/plans`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+              })
+
+              console.log('[v0] Seed response received - status: ' + seedResponse.status)
+              const seedData = await seedResponse.json().catch(() => ({ error: 'Failed to parse response' }))
+              console.log('[v0] Seed response data:', seedData)
+
+              if (seedResponse.ok && seedData.plans) {
+                console.log('[v0] Plans seeded successfully! Created ' + seedData.plans.length + ' plans')
+                
+                // Wait a moment for database to be ready
+                await new Promise(resolve => setTimeout(resolve, 1000))
+                
+                console.log('[v0] Retrying fetch after seeding...')
+                const retryResponse = await fetch(`${API_URL}/api/subscription-payment/plans`, {
+                  credentials: 'include',
+                  headers: { 'Content-Type': 'application/json' },
+                })
+
+                console.log('[v0] Retry fetch status:', retryResponse.status)
+                
+                if (retryResponse.ok) {
+                  const data = await retryResponse.json()
+                  console.log('[v0] Plans loaded after seeding! Found ' + (data.plans?.length || 0) + ' plans')
+                  const sortedPlans = (data.plans || [])
+                    .sort((a: Plan, b: Plan) => a.priceNPR - b.priceNPR)
+                    .map((plan: Plan, index: number) => ({
+                      ...plan,
+                      recommended: index === 1,
+                    }))
+                  setPlans(sortedPlans)
+                  setIsLoadingPlans(false)
+                  return
+                } else {
+                  const retryData = await retryResponse.json().catch(() => ({}))
+                  console.error('[v0] Retry fetch failed - status: ' + retryResponse.status, retryData)
+                }
+              } else {
+                console.error('[v0] Seeding failed - response ok: ' + seedResponse.ok + ', has plans:', !!seedData.plans)
+              }
+            } catch (seedError: any) {
+              console.error('[v0] Exception during seeding:', seedError.message, seedError.stack)
+            }
+          }
+          throw new Error(`Failed to fetch plans: ${response.status}`)
         }
 
         const data = await response.json()
+        console.log('[v0] Plans fetched successfully:', data)
+        
+        // If no plans exist, seed them
+        if (!data.plans || data.plans.length === 0) {
+          console.log('[v0] No plans found in response, attempting to seed subscription plans...')
+          try {
+            console.log('[v0] Calling POST /api/seed/plans (backend Express endpoint)')
+            const seedResponse = await fetch(`${API_URL}/api/seed/plans`, {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+            })
+
+            console.log('[v0] Seed response received - status: ' + seedResponse.status)
+            const seedData = await seedResponse.json().catch(() => ({ error: 'Failed to parse response' }))
+            console.log('[v0] Seed response data:', seedData)
+
+            if (seedResponse.ok && seedData.plans) {
+              console.log('[v0] Plans seeded successfully! Created ' + seedData.plans.length + ' plans')
+              
+              // Wait a moment for database to be ready
+              await new Promise(resolve => setTimeout(resolve, 1000))
+              
+              console.log('[v0] Retrying fetch after seeding...')
+              const retryResponse = await fetch(`${API_URL}/api/subscription-payment/plans`, {
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+              })
+
+              console.log('[v0] Retry fetch status:', retryResponse.status)
+              
+              if (retryResponse.ok) {
+                const retryData = await retryResponse.json()
+                console.log('[v0] Plans loaded after seeding! Found ' + (retryData.plans?.length || 0) + ' plans')
+                const sortedPlans = (retryData.plans || [])
+                  .sort((a: Plan, b: Plan) => a.priceNPR - b.priceNPR)
+                  .map((plan: Plan, index: number) => ({
+                    ...plan,
+                    recommended: index === 1,
+                  }))
+                setPlans(sortedPlans)
+                setIsLoadingPlans(false)
+                return
+              } else {
+                const retryData = await retryResponse.json().catch(() => ({}))
+                console.error('[v0] Retry fetch failed - status: ' + retryResponse.status, retryData)
+              }
+            } else {
+              console.error('[v0] Seeding failed - response ok: ' + seedResponse.ok + ', has plans:', !!seedData.plans)
+            }
+          } catch (seedError: any) {
+            console.error('[v0] Exception during seeding:', seedError.message, seedError.stack)
+          }
+          // Still set empty plans and show error
+          setPlans([])
+          setIsLoadingPlans(false)
+          throw new Error('No subscription plans available')
+        }
         
         // Sort plans by price and set recommended flag
         const sortedPlans = (data.plans || [])
@@ -114,6 +301,7 @@ export default function SubscriptionPlan() {
             recommended: index === 1,
           }))
 
+        console.log('[v0] Sorted plans:', sortedPlans.length)
         setPlans(sortedPlans)
         
         // Check if plan is specified in URL params
@@ -123,9 +311,12 @@ export default function SubscriptionPlan() {
         } else if (sortedPlans.length > 0) {
           setSelectedPlan(sortedPlans[1]?.id || sortedPlans[0]?.id)
         }
-      } catch (error) {
-        console.error('[v0] Error fetching plans:', error)
-        toast.error('Failed to load subscription plans')
+      } catch (error: any) {
+        console.error('[v0] Error fetching plans:', error.message)
+        if (error.name !== 'AbortError') {
+          toast.error('Failed to load subscription plans')
+        }
+        setPlans([]) // Clear any partial data on error
       } finally {
         setIsLoadingPlans(false)
       }
@@ -141,9 +332,25 @@ export default function SubscriptionPlan() {
     }
   }, [user, authLoading, router, fromSetup])
 
-  const handleStartTrial = async (plan: Plan) => {
+  const handlePlanSelect = async (planId: string, billingPeriod: BillingPeriod) => {
+    // For now, this initiates trial. User can also click "Pay with eSewa" for immediate payment
+    await handleStartTrial(planId, billingPeriod)
+  }
+
+  const handleStartTrial = async (planId: string, billingPeriod?: BillingPeriod) => {
     setIsLoading(true)
     try {
+      if (billingPeriod) {
+        setSelectedBillingPeriod(billingPeriod)
+      }
+
+      const plan = plans.find(p => p.id === planId)
+      if (!plan) {
+        throw new Error('Plan not found')
+      }
+
+      console.log('[v0] Found plan:', { id: plan.id, name: plan.name, displayName: plan.displayName, idType: typeof plan.id, idLength: plan.id?.length })
+
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
       // Get current business
@@ -164,7 +371,7 @@ export default function SubscriptionPlan() {
         throw new Error('Business ID not found')
       }
 
-      console.log('[v0] Starting trial with:', { businessId, planId: plan.id, planName: plan.name })
+      console.log('[v0] Starting trial with:', { businessId, planId: plan.id, planName: plan.name, billingPeriod })
 
       // Create subscription with free trial
       const response = await fetch(`${API_URL}/api/subscriptions/create-trial`, {
@@ -183,7 +390,7 @@ export default function SubscriptionPlan() {
         throw new Error(data.message || data.error || `Server error: ${response.status}`)
       }
 
-      toast.success(`${plan.displayName || plan.name} trial activated! You have 30 days free access.`)
+      toast.success(`${plan.displayName || plan.name} trial activated! You have 15 days free access.`)
       router.push('/dashboard')
     } catch (error: any) {
       console.error('[v0] Subscription creation error:', error)
@@ -193,7 +400,7 @@ export default function SubscriptionPlan() {
     }
   }
 
-  const handleEsewaPayment = async (plan: Plan) => {
+  const handleEsewaPayment = async (planId: string, billingPeriod: BillingPeriod) => {
     setIsLoading(true)
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
@@ -216,14 +423,15 @@ export default function SubscriptionPlan() {
         throw new Error('Business ID not found')
       }
 
-      // Initiate eSewa payment
+      // Initiate eSewa payment with billing period
       const response = await fetch(`${API_URL}/api/subscription-payment/esewa/initiate`, {
         method: 'POST',
         credentials: 'include',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           businessId,
-          planId: plan.id,
+          planId,
+          billingPeriod,
         }),
       })
 
@@ -248,69 +456,55 @@ export default function SubscriptionPlan() {
     }
   }
 
-  const handleNabilPayment = async (plan: Plan) => {
-    setIsLoading(true)
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
-      // Get current business
-      const businessResponse = await fetch(`${API_URL}/api/businesses/current`, {
-        credentials: 'include',
-        headers: getAuthHeaders(),
-      })
-
-      if (!businessResponse.ok) {
-        const errorData = await businessResponse.json().catch(() => ({}))
-        throw new Error(errorData.error || errorData.message || 'Failed to get business information')
-      }
-
-      const businessData = await businessResponse.json()
-      const businessId = businessData.id || businessData.business?.id
-      
-      if (!businessId) {
-        throw new Error('Business ID not found')
-      }
-
-      // Initiate Nabil payment
-      const response = await fetch(`${API_URL}/api/subscription-payment/nabil/initiate`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          businessId,
-          planId: plan.id,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
-        throw new Error(data.error || 'Failed to initiate payment')
-      }
-
-      const data = await response.json()
-
-      if (data.success && data.paymentUrl) {
-        window.location.href = data.paymentUrl
-        toast.info('Redirecting to Nabil Bank...')
-      } else {
-        throw new Error('Invalid payment response')
-      }
-    } catch (error: any) {
-      console.error('[v0] Nabil payment error:', error)
-      toast.error(error.message || 'Failed to initiate payment')
-      setIsLoading(false)
-    }
-  }
 
   const formatLimit = (limit: number): string => {
     return limit === -1 ? 'Unlimited' : limit.toString()
   }
 
-  if (authLoading || isLoadingPlans) {
+  if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <Loader className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
+          <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-full animate-spin">
+            <Loader className="w-8 h-8 text-primary" />
+          </div>
+          <p className="text-muted-foreground">Authenticating...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error if plans failed to load
+  if (!authLoading && !isLoadingPlans && plans.length === 0) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md p-8">
+          <div className="text-center space-y-4">
+            <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
+            <h2 className="text-xl font-bold">Unable to Load Plans</h2>
+            <p className="text-muted-foreground text-sm">
+              We couldn&apos;t load the subscription plans at this time. Please try again or contact support if the issue persists.
+            </p>
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="w-full"
+            >
+              Try Again
+            </Button>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  if (isLoadingPlans) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-full animate-spin">
+            <Loader className="w-8 h-8 text-primary" />
+          </div>
           <p className="text-muted-foreground">Loading subscription plans...</p>
         </div>
       </div>
@@ -342,13 +536,13 @@ export default function SubscriptionPlan() {
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-block mb-4 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-full">
-            <p className="text-sm font-semibold text-green-700">30 Days Free Trial Included</p>
+            <p className="text-sm font-semibold text-green-700">15 Days Free Trial Included</p>
           </div>
           <h1 className="text-4xl font-bold text-foreground mb-4">
             Choose Your Plan
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Start with 30 days free trial. Pay with eSewa when ready.
+            Start with 15 days free trial. No credit card required. Pay with eSewa when ready.
           </p>
         </div>
 
@@ -376,54 +570,116 @@ export default function SubscriptionPlan() {
                 <p className="text-muted-foreground text-sm">{plan.description}</p>
               </div>
 
+              {/* Billing Period Selector */}
+              <div className="mb-6">
+                <p className="text-xs font-semibold text-muted-foreground mb-3">Billing Period</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setSelectedBillingPeriod('MONTHLY')}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                      selectedBillingPeriod === 'MONTHLY'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-foreground'
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setSelectedBillingPeriod('QUARTERLY')}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                      selectedBillingPeriod === 'QUARTERLY'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-foreground'
+                    }`}
+                  >
+                    <span>3 Months</span>
+                    <span className="block text-xs opacity-75 font-normal">Save 10%</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedBillingPeriod('HALF_YEARLY')}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                      selectedBillingPeriod === 'HALF_YEARLY'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-foreground'
+                    }`}
+                  >
+                    <span>6 Months</span>
+                    <span className="block text-xs opacity-75 font-normal">Save 20%</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedBillingPeriod('YEARLY')}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                      selectedBillingPeriod === 'YEARLY'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-foreground'
+                    }`}
+                  >
+                    <span>Yearly</span>
+                    <span className="block text-xs opacity-75 font-normal">Save 25%</span>
+                  </button>
+                </div>
+              </div>
+
               {/* Price */}
               <div className="mb-6">
                 <div className="flex items-baseline gap-1">
                   <span className="text-4xl font-bold text-foreground">
-                    Rs. {plan.priceNPR.toLocaleString()}
+                    Rs. {Math.round(
+                      selectedBillingPeriod === 'MONTHLY'
+                        ? plan.priceNPR
+                        : selectedBillingPeriod === 'QUARTERLY'
+                        ? plan.priceNPR * 3 * 0.9
+                        : selectedBillingPeriod === 'HALF_YEARLY'
+                        ? plan.priceNPR * 6 * 0.8
+                        : plan.priceNPR * 12 * 0.75
+                    ).toLocaleString()}
                   </span>
-                  <span className="text-muted-foreground">/month</span>
+                  <span className="text-muted-foreground">
+                    {selectedBillingPeriod === 'MONTHLY'
+                      ? '/month'
+                      : selectedBillingPeriod === 'QUARTERLY'
+                      ? '/3 months'
+                      : selectedBillingPeriod === 'HALF_YEARLY'
+                      ? '/6 months'
+                      : '/year'}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  30 days free trial included
+                  15 days free trial included
                 </p>
-              </div>
-
-              {/* Limits */}
-              <div className="mb-6 space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  <span>{formatLimit(plan.maxAppointmentsPerMonth)} appointments/month</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Users className="w-4 h-4 text-primary" />
-                  <span>{formatLimit(plan.maxStaff)} staff members</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Briefcase className="w-4 h-4 text-primary" />
-                  <span>{formatLimit(plan.maxServices)} services</span>
-                </div>
               </div>
 
               {/* Features */}
               <div className="flex-1 mb-6">
                 <ul className="space-y-3">
+                  <li className="flex items-start gap-2 text-sm">
+                    <span className="text-primary font-bold mt-0.5">✓</span>
+                    <span>{formatLimit(plan.maxAppointmentsPerMonth)} appointments/month</span>
+                  </li>
+                  <li className="flex items-start gap-2 text-sm">
+                    <span className="text-primary font-bold mt-0.5">✓</span>
+                    <span>{formatLimit(plan.maxStaff)} staff members</span>
+                  </li>
+                  <li className="flex items-start gap-2 text-sm">
+                    <span className="text-primary font-bold mt-0.5">✓</span>
+                    <span>{formatLimit(plan.maxServices)} services</span>
+                  </li>
                   {plan.features?.map((feature, index) => (
-                    <li key={index} className="flex items-start gap-3">
-                      <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                      <span className="text-sm text-foreground">{feature}</span>
+                    <li key={index} className="flex items-start gap-2 text-sm">
+                      <span className="text-primary font-bold mt-0.5">✓</span>
+                      <span>{feature}</span>
                     </li>
                   ))}
                   {plan.allowReports && (
-                    <li className="flex items-start gap-3">
-                      <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                      <span className="text-sm text-foreground">Advanced Reports</span>
+                    <li className="flex items-start gap-2 text-sm">
+                      <span className="text-primary font-bold mt-0.5">✓</span>
+                      <span>Advanced Reports</span>
                     </li>
                   )}
                   {plan.prioritySupport && (
-                    <li className="flex items-start gap-3">
-                      <Check className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                      <span className="text-sm text-foreground">Priority Support</span>
+                    <li className="flex items-start gap-2 text-sm">
+                      <span className="text-primary font-bold mt-0.5">✓</span>
+                      <span>Priority Support</span>
                     </li>
                   )}
                 </ul>
@@ -431,41 +687,39 @@ export default function SubscriptionPlan() {
 
               {/* Action Buttons */}
               <div className="space-y-3">
+                {trialUsed ? (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-900">
+                      Your free trial has already been used. Please select a paid plan to continue.
+                    </p>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={() => handleStartTrial(plan.id, selectedBillingPeriod)}
+                    disabled={isLoading || loadingTrialStatus}
+                    variant={plan.recommended ? 'default' : 'outline'}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader className="w-4 h-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      'Start 15 Days Free Trial'
+                    )}
+                  </Button>
+                )}
                 <Button
-                  onClick={() => handleStartTrial(plan)}
-                  disabled={isLoading}
-                  variant={plan.recommended ? 'default' : 'outline'}
-                  className="w-full"
-                  size="lg"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader className="w-4 h-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    'Start 30 Days Free Trial'
-                  )}
-                </Button>
-                <Button
-                  onClick={() => handleEsewaPayment(plan)}
-                  disabled={isLoading}
+                  onClick={() => handleEsewaPayment(plan.id, selectedBillingPeriod)}
+                  disabled={isLoading || loadingTrialStatus}
                   variant="outline"
                   className="w-full gap-2"
                   size="lg"
                 >
                   <CreditCard className="w-4 h-4" />
                   Pay with eSewa
-                </Button>
-                <Button
-                  onClick={() => handleNabilPayment(plan)}
-                  disabled={isLoading}
-                  variant="outline"
-                  className="w-full gap-2"
-                  size="lg"
-                >
-                  <CreditCard className="w-4 h-4" />
-                  Pay with Nabil Bank
                 </Button>
               </div>
             </Card>
@@ -474,43 +728,23 @@ export default function SubscriptionPlan() {
 
         {/* Payment Methods Info */}
         <div className="max-w-2xl mx-auto mb-12">
-          <Card className="p-6 bg-card/50">
+          <Card className="p-6 bg-card/50 border-primary/20">
             <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-              <CreditCard className="w-5 h-5" />
-              Payment Methods
+              <CreditCard className="w-5 h-5 text-primary" />
+              Secure Payment with eSewa
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-center gap-3 p-3 border rounded-lg">
-                <img 
-                  src="https://esewa.com.np/common/images/esewa-logo.png" 
-                  alt="eSewa" 
-                  className="h-8 object-contain"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
-                <div>
-                  <p className="font-medium text-sm">eSewa</p>
-                  <p className="text-xs text-muted-foreground">Digital Wallet</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 border rounded-lg">
-                <div className="w-8 h-8 bg-red-600 rounded flex items-center justify-center text-white text-xs font-bold">
-                  NB
-                </div>
-                <div>
-                  <p className="font-medium text-sm">Nabil Bank</p>
-                  <p className="text-xs text-muted-foreground">Direct Transfer</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 border rounded-lg opacity-50">
-                <div className="w-8 h-8 bg-purple-600 rounded flex items-center justify-center text-white text-xs font-bold">
-                  K
-                </div>
-                <div>
-                  <p className="font-medium text-sm">Khalti</p>
-                  <p className="text-xs text-muted-foreground">Coming Soon</p>
-                </div>
+            <div className="flex items-center gap-4 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+              <img 
+                src="https://esewa.com.np/common/images/esewa-logo.png" 
+                alt="eSewa" 
+                className="h-10 object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+              <div className="flex-1">
+                <p className="font-medium text-foreground">eSewa Digital Wallet</p>
+                <p className="text-sm text-muted-foreground">Safe and secure payment processing with instant confirmation</p>
               </div>
             </div>
           </Card>
@@ -525,13 +759,19 @@ export default function SubscriptionPlan() {
             <div className="bg-card/50 border border-border rounded-lg p-6">
               <h3 className="font-semibold text-foreground mb-2">What happens after the trial?</h3>
               <p className="text-muted-foreground text-sm">
-                After 30 days, you can continue using the service by paying with eSewa. Your data and settings will be preserved.
+                After 15 days, you can continue using the service by paying with eSewa. Your data and settings will be preserved. Choose your preferred billing period (monthly, quarterly, 6-month, or yearly) for automatic discounts.
               </p>
             </div>
             <div className="bg-card/50 border border-border rounded-lg p-6">
               <h3 className="font-semibold text-foreground mb-2">Can I upgrade my plan later?</h3>
               <p className="text-muted-foreground text-sm">
                 Yes, you can upgrade or downgrade your plan at any time. The new limits will apply immediately.
+              </p>
+            </div>
+            <div className="bg-card/50 border border-border rounded-lg p-6">
+              <h3 className="font-semibold text-foreground mb-2">Do you offer discounts for longer billing periods?</h3>
+              <p className="text-muted-foreground text-sm">
+                Yes! Choose quarterly (-10%), semi-annual (-20%), or annual (-25%) billing to save money. The discount is automatically calculated when you select your preferred billing period.
               </p>
             </div>
             <div className="bg-card/50 border border-border rounded-lg p-6">

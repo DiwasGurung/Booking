@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
@@ -46,6 +47,7 @@ interface Payment {
 }
 
 export default function BusinessDashboardPage() {
+  const router = useRouter()
   const { businessId, loading: businessLoading } = useBusinessId()
   const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus()
   const [stats, setStats] = useState<BusinessStats | null>(null)
@@ -53,6 +55,19 @@ export default function BusinessDashboardPage() {
   const [recentPayments, setRecentPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Check subscription status and redirect if no subscription
+  useEffect(() => {
+    if (!subscriptionLoading && subscriptionStatus) {
+      console.log('[dashboard] Subscription status:', subscriptionStatus)
+      
+      // Redirect only if no subscription, or if CANCELLED and already expired
+      if (subscriptionStatus.hasSubscription === false) {
+        console.log('[dashboard] No subscription found, redirecting to subscription page...')
+        router.push('/subscription?from=setup')
+      }
+    }
+  }, [subscriptionStatus, subscriptionLoading, router])
 
   useEffect(() => {
     if (businessId) {
@@ -174,14 +189,22 @@ export default function BusinessDashboardPage() {
             <div className={`mb-4 md:mb-6 p-3 md:p-4 rounded-lg border flex flex-col sm:flex-row items-start sm:items-center gap-3 ${
               subscriptionStatus.status === 'TRIAL' 
                 ? 'bg-blue-50 border-blue-200' 
+                : subscriptionStatus.status === 'CANCELLED'
+                ? 'bg-amber-50 border-amber-200'
                 : 'bg-green-50 border-green-200'
             }`}>
               <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                subscriptionStatus.status === 'TRIAL' ? 'text-blue-600' : 'text-green-600'
+                subscriptionStatus.status === 'TRIAL' 
+                  ? 'text-blue-600' 
+                  : subscriptionStatus.status === 'CANCELLED'
+                  ? 'text-amber-600'
+                  : 'text-green-600'
               }`} />
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm md:text-base break-words">
-                  {subscriptionStatus.status === 'TRIAL' 
+                  {subscriptionStatus.status === 'CANCELLED'
+                    ? `Your subscription will end on ${subscriptionStatus.expiresAt ? new Date(subscriptionStatus.expiresAt).toLocaleDateString() : 'soon'}`
+                    : subscriptionStatus.status === 'TRIAL' 
                     ? `Free Trial Active - ${subscriptionStatus.daysRemaining} days remaining` 
                     : `${subscriptionStatus.planName} - Active`}
                 </p>

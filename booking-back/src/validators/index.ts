@@ -7,7 +7,10 @@ const UUID_REGEX = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_REGEX = /^[\d\-\+\s\(\)]{6,}$/
 const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-const PLAN_SLUG_REGEX = /^[a-z]+(?:-[a-z]+)*$/
+// Plan IDs can be text slugs like "starter", "pro", "enterprise" or CUID format
+// Slug format: lowercase letters and hyphens (e.g., starter, premium-plan)
+// CUID format: exactly 25 characters starting with 'c' followed by 24 lowercase letters and numbers (e.g., cmrugku3k0000mof509oyfcv5)
+const PLAN_SLUG_REGEX = /^([a-z]+(?:-[a-z]+)*|c[a-z0-9]{24})$/
 
 // ============= BUSINESS SCHEMAS =============
 export const BusinessParamsSchema = z.object({
@@ -142,7 +145,7 @@ export const SubscriptionBusinessParamsSchema = z.object({
 
 export const CreateSubscriptionTrialSchema = z.object({
   businessId: z.string().regex(UUID_REGEX, 'Invalid business ID format'),
-  planId: z.string().regex(PLAN_SLUG_REGEX, 'Invalid plan ID format'),
+  planId: z.string().regex(UUID_REGEX, 'Invalid plan ID format'),
 })
 
 export const ActivateSubscriptionSchema = z.object({

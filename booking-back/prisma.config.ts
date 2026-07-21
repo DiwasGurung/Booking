@@ -8,6 +8,7 @@ export default defineConfig({
   // 3. Custom pathing for migrations and seed scripts
   migrations: {
     path: "prisma/migrations",
+    seed: "tsx scripts/seed-plans.ts", 
 
   },
   datasource: {

@@ -18,89 +18,109 @@ class SeedController {
 
       const plans = [
         {
-          name: 'Basic',
-          displayName: 'Basic Plan',
-          description: 'Perfect for getting started',
-          priceNPR: 2999, // Rs. 2,999/month
+          name: 'starter',
+          displayName: 'Starter',
+          description: 'Perfect for solo practitioners and new businesses',
+          priceNPR: 499,
+          currency: 'NPR',
           durationDays: 30,
+          // Billing period pricing with discounts
+          priceMonthlyNPR: 499,
+          priceQuarterlyNPR: 1347,      // 3 months @ 10% discount
+          priceSemiAnnualNPR: 2394,     // 6 months @ 20% discount
+          priceAnnualNPR: 4491,         // 12 months @ 25% discount
           features: [
-            '50 bookings/month',
-            'Up to 2 staff members',
-            '5 services',
-            'Email notifications',
-            'Basic analytics',
+            'Up to 200 bookings/month',
+            'Basic booking page',
+            '5 services maximum',
+            'Email reminders',
+            'Email support',
+            '30-day booking history',
           ],
           // Limits
-          maxAppointmentsPerMonth: 50,
-          maxStaff: 2,
+          maxAppointmentsPerMonth: 200,
+          maxStaff: 1,
           maxServices: 5,
           maxCustomers: 100,
-          maxSmsPerMonth: 0,  // SMS disabled
           // Features
-          allowSmsNotifications: false,
           allowEmailNotifications: true,
           allowOnlineBooking: true,
           allowReports: false,
           allowCustomBranding: false,
           prioritySupport: false,
+          active: true,
         },
         {
-          name: 'Professional',
-          displayName: 'Professional Plan',
-          description: 'For growing businesses',
-          priceNPR: 5999, // Rs. 5,999/month
+          name: 'professional',
+          displayName: 'Professional',
+          description: 'For growing salons, clinics, and small teams',
+          priceNPR: 999,
+          currency: 'NPR',
           durationDays: 30,
+          // Billing period pricing with discounts
+          priceMonthlyNPR: 999,
+          priceQuarterlyNPR: 2697,      // 3 months @ 10% discount
+          priceSemiAnnualNPR: 4794,     // 6 months @ 20% discount
+          priceAnnualNPR: 8991,         // 12 months @ 25% discount
           features: [
-            '500 bookings/month',
-            'Up to 10 staff members',
-            '20 services',
-            'SMS & Email notifications',
-            'Advanced analytics',
-            'Custom branding',
+            'Unlimited bookings',
+            'Unlimited services',
+            'Staff management (up to 5 staff)',
+            'Calendar sync (Google Calendar)',
+            'Customer database & notes',
+            'Automated email reminders',
+            'Payment collection (eSewa)',
+            'Basic analytics',
+            'Priority email support',
           ],
           // Limits
-          maxAppointmentsPerMonth: 500,
-          maxStaff: 10,
-          maxServices: 20,
-          maxCustomers: 500,
-          maxSmsPerMonth: 100,  // 100 SMS per month
+          maxAppointmentsPerMonth: -1,  // Unlimited
+          maxStaff: 5,
+          maxServices: -1,              // Unlimited
+          maxCustomers: -1,             // Unlimited
           // Features
-          allowSmsNotifications: true,
           allowEmailNotifications: true,
           allowOnlineBooking: true,
           allowReports: true,
-          allowCustomBranding: true,
-          prioritySupport: false,
+          allowCustomBranding: false,
+          prioritySupport: true,
+          active: true,
         },
         {
-          name: 'Enterprise',
-          displayName: 'Enterprise Plan',
-          description: 'For large-scale operations',
-          priceNPR: 9999, // Rs. 9,999/month
+          name: 'enterprise',
+          displayName: 'Enterprise',
+          description: 'For large spas, chains, and multi-location businesses',
+          priceNPR: 2499,
+          currency: 'NPR',
           durationDays: 30,
+          // Billing period pricing with discounts
+          priceMonthlyNPR: 2499,
+          priceQuarterlyNPR: 6747,      // 3 months @ 10% discount
+          priceSemiAnnualNPR: 11994,    // 6 months @ 20% discount
+          priceAnnualNPR: 22491,        // 12 months @ 25% discount
           features: [
-            'Unlimited bookings',
+            'Everything in Professional',
             'Unlimited staff',
-            'Unlimited services',
-            'SMS & Email notifications',
-            'Full analytics & reports',
+            'Multiple locations',
+            'Advanced analytics & reports',
             'Custom branding',
-            'Priority 24/7 support',
             'API access',
+            'Dedicated account manager',
+            'Phone + Email support',
+            'Custom integrations',
           ],
-          // Limits (-1 means unlimited)
-          maxAppointmentsPerMonth: -1,
-          maxStaff: -1,
-          maxServices: -1,
-          maxCustomers: -1,
-          maxSmsPerMonth: -1,  // Unlimited SMS
+          // Limits
+          maxAppointmentsPerMonth: -1,  // Unlimited
+          maxStaff: -1,                 // Unlimited
+          maxServices: -1,              // Unlimited
+          maxCustomers: -1,             // Unlimited
           // Features
-          allowSmsNotifications: true,
           allowEmailNotifications: true,
           allowOnlineBooking: true,
           allowReports: true,
           allowCustomBranding: true,
           prioritySupport: true,
+          active: true,
         },
       ]
 

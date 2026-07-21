@@ -8,6 +8,10 @@ interface SubscriptionStatus {
   hasSubscription: boolean
   status: string | null
   planName?: string
+  startDate?: string | null
+  trialEndsAt?: string | null
+  endDate?: string | null
+  isTrialUsed?: boolean
   daysRemaining: number | null
   expiresAt: string | null
   autoRenew?: boolean

@@ -15,16 +15,16 @@ import { Loader, AlertCircle, CreditCard, Calendar, CheckCircle, ArrowRight, Tra
 import { toast } from 'sonner'
 
 interface SubscriptionDetails {
-  id: string
+  id?: string
   status: string
   planName: string
-  planPrice: number
+  planPrice?: number
   trialEndsAt: string | null
   expiresAt: string | null
   daysRemaining: number
-  autoRenew: boolean
-  startDate: string
-  createdAt: string
+  autoRenew?: boolean
+  startDate?: string
+  createdAt?: string
   smsUsedThisMonth?: number
   maxSmsPerMonth?: number
 }
@@ -76,10 +76,14 @@ export default function SubscriptionPage() {
 
   const handleCancelSubscription = async () => {
     try {
+      if (!subscription?.id) {
+        throw new Error('Subscription ID not found')
+      }
+      
       setCancelling(true)
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
       
-      const response = await fetch(`${API_URL}/api/subscriptions/cancel/${subscription?.id}`, {
+      const response = await fetch(`${API_URL}/api/subscriptions/cancel/${subscription.id}`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -173,17 +177,35 @@ export default function SubscriptionPage() {
 
         {/* Current Subscription Card */}
             {subscriptionStatus && (
-              <Card className="mb-8 border-primary bg-gradient-to-br from-primary/5 via-primary/2 to-transparent">
+              <Card className={`mb-8 border-primary bg-gradient-to-br from-primary/5 via-primary/2 to-transparent ${
+                subscriptionStatus.status === 'CANCELLED' ? 'border-amber-200 bg-gradient-to-br from-amber-50 via-amber-50/50 to-transparent' : ''
+              }`}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div>
                       <CardTitle className="text-2xl">{subscriptionStatus.planName}</CardTitle>
-                      <CardDescription>Your current subscription plan</CardDescription>
+                      <CardDescription>
+                        {subscriptionStatus.status === 'CANCELLED' 
+                          ? `Subscription ends on ${subscriptionStatus.expiresAt ? new Date(subscriptionStatus.expiresAt).toLocaleDateString() : 'soon'}`
+                          : 'Your current subscription plan'
+                        }
+                      </CardDescription>
                     </div>
                     <Badge 
-                      className={subscriptionStatus.status === 'TRIAL' ? 'bg-blue-500' : 'bg-green-500'}
+                      className={
+                        subscriptionStatus.status === 'TRIAL' 
+                          ? 'bg-blue-500' 
+                          : subscriptionStatus.status === 'CANCELLED'
+                          ? 'bg-amber-500'
+                          : 'bg-green-500'
+                      }
                     >
-                      {subscriptionStatus.status === 'TRIAL' ? 'Trial Active' : 'Active'}
+                      {subscriptionStatus.status === 'TRIAL' 
+                        ? 'Trial Active' 
+                        : subscriptionStatus.status === 'CANCELLED'
+                        ? 'Cancelled'
+                        : 'Active'
+                      }
                     </Badge>
                   </div>
                 </CardHeader>
@@ -363,7 +385,7 @@ export default function SubscriptionPage() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground mb-2">Started On</p>
-                      <p className="font-semibold">{formatDate(subscription?.trialEndsAt as string)}</p>
+                      <p className="font-semibold">{formatDate(subscriptionStatus?.startDate as string)}</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground mb-2">Ends On</p>
@@ -371,19 +393,39 @@ export default function SubscriptionPage() {
                     </div>
                   </div>
 
-                  {/* Cancel Subscription Button */}
+                  {/* Cancel or Reactivate Section */}
                   <div className="border-t pt-6">
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Need to cancel your subscription? You can cancel anytime. Your access will continue until the end of the current billing period.
-                    </p>
-                    <Button 
-                      variant="destructive" 
-                      className="gap-2"
-                      onClick={() => setShowCancelDialog(true)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Cancel Subscription
-                    </Button>
+                    {subscriptionStatus?.status === 'CANCELLED' ? (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <p className="text-sm text-amber-900 mb-4">
+                          Your subscription has been cancelled and will end on{' '}
+                          <span className="font-semibold">
+                            {subscriptionStatus.expiresAt ? new Date(subscriptionStatus.expiresAt).toLocaleDateString() : 'soon'}
+                          </span>
+                          . You can still use all features until then.
+                        </p>
+                        <Link href="/subscription">
+                          <Button className="gap-2">
+                            <ArrowUpRight className="w-4 h-4" />
+                            View Renewal Plans
+                          </Button>
+                        </Link>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Need to cancel your subscription? You can cancel anytime. Your access will continue until the end of the current billing period.
+                        </p>
+                        <Button 
+                          variant="destructive" 
+                          className="gap-2"
+                          onClick={() => setShowCancelDialog(true)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Cancel Subscription
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardContent>

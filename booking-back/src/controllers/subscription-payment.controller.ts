@@ -1,12 +1,9 @@
-// src/controllers/subscription-payment.controller.ts
-// Controller for handling subscription payments with eSewa and Khalti
+
 
 import { Request, Response } from 'express';
 import  prisma  from '../lib/prisma';
 import esewaService from '../services/esewa.service';
-
 import subscriptionService from '../services/subscription.service';
-
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
@@ -16,7 +13,7 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
  */
 export const initiateEsewaPayment = async (req: Request, res: Response) => {
   try {
-    const { businessId, planId } = req.body;
+    const { businessId, planId, billingPeriod = 'MONTHLY' } = req.body;
 
     if (!businessId || !planId) {
       return res.status(400).json({ error: 'Business ID and Plan ID are required' });
@@ -31,6 +28,19 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Subscription plan not found' });
     }
 
+    // Import billing utility to calculate price
+    const { getPriceForPeriod, getDurationDays } = require('../utils/billing');
+    const priceNPR = getPriceForPeriod(
+      plan.priceNPR,
+      billingPeriod,
+      {
+        monthly: plan.priceNPR,
+        quarterly: plan.priceNPR,
+        semiAnnual: plan.priceNPR,
+        annual: plan.priceNPR,
+      }
+    );
+
     // Get or create subscription
     let subscription = await prisma.subscription.findUnique({
       where: { businessId },
@@ -42,7 +52,14 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
           businessId,
           planId,
           status: 'TRIAL',
+          billingPeriod,
         },
+      });
+    } else {
+      // Update billing period if changing plans
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: { billingPeriod, planId },
       });
     }
 
@@ -56,7 +73,7 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
         subscriptionId: subscription.id,
         gateway: 'ESEWA',
         transactionId: transactionUuid,
-        amount: plan.priceNPR,
+        amount: priceNPR,
         status: 'pending',
         currency: 'NPR',
       },
@@ -64,7 +81,7 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
 
     // Generate eSewa payment form data
     const esewaResponse = await esewaService.initiatePayment({
-      amount: plan.priceNPR,
+      amount: priceNPR,
       transactionUuid: transactionUuid,
       successUrl: `${BACKEND_URL}/api/subscription-payment/esewa/success`,
       failureUrl: `${BACKEND_URL}/api/subscription-payment/esewa/failure`,
@@ -77,7 +94,9 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
     console.log('[SubscriptionPayment] eSewa payment initiated:', {
       paymentId: payment.id,
       transactionUuid,
-      amount: plan.priceNPR,
+      amount: priceNPR,
+      billingPeriod,
+      durationDays: getDurationDays(billingPeriod),
     });
 
     return res.json({
@@ -85,6 +104,8 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
       paymentId: payment.id,
       formData: esewaResponse.formData,
       paymentUrl: esewaResponse.paymentUrl,
+      billingPeriod,
+      durationDays: getDurationDays(billingPeriod),
     });
   } catch (error: any) {
     console.error('[SubscriptionPayment] Initiation error:', error);
@@ -224,10 +245,13 @@ export const handleEsewaFailure = async (req: Request, res: Response) => {
  */
 export const getSubscriptionUsage = async (req: Request, res: Response) => {
   try {
-    const { businessId } = req.params as any;
+    const { businessId } = req.params;
+    
+    // Ensure businessId is a string
+    const id = typeof businessId === 'string' ? businessId : Array.isArray(businessId) ? businessId[0] : businessId as string;
 
     const subscription = await prisma.subscription.findUnique({
-      where: { businessId },
+      where: { businessId: id },
       include: { plan: true },
     });
 
@@ -242,18 +266,18 @@ export const getSubscriptionUsage = async (req: Request, res: Response) => {
     const [appointmentsCount, staffCount, servicesCount, customersCount] = await Promise.all([
       prisma.booking.count({
         where: {
-          businessId,
+          businessId: businessId as string,
           createdAt: { gte: startOfMonth },
         },
       }),
       prisma.staff.count({
-        where: { businessId, isActive: true },
+        where: { businessId: businessId as string, isActive: true },
       }),
       prisma.service.count({
-        where: { businessId, isActive: true },
+        where: { businessId: businessId as string, isActive: true },
       }),
       prisma.customer.count({
-        where: { businessId },
+        where: { businessId: businessId as string },
       }),
     ]);
 
@@ -302,10 +326,13 @@ export const getSubscriptionUsage = async (req: Request, res: Response) => {
  */
 export const checkSubscriptionLimit = async (req: Request, res: Response) => {
   try {
-    const { businessId, action } = req.params as any;
+    const { businessId, action } = req.params;
+    
+    // Ensure businessId is a string
+    const id = typeof businessId === 'string' ? businessId : Array.isArray(businessId) ? businessId[0] : businessId as string;
 
     const subscription = await prisma.subscription.findUnique({
-      where: { businessId },
+      where: { businessId: id },
       include: { plan: true },
     });
 
@@ -335,7 +362,7 @@ export const checkSubscriptionLimit = async (req: Request, res: Response) => {
           const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
           currentUsage = await prisma.booking.count({
             where: {
-              businessId,
+              businessId: businessId as string  ,
               createdAt: { gte: startOfMonth },
             },
           });
@@ -348,7 +375,7 @@ export const checkSubscriptionLimit = async (req: Request, res: Response) => {
       case 'add-staff':
         if (plan.maxStaff !== -1) {
           currentUsage = await prisma.staff.count({
-            where: { businessId, isActive: true },
+            where: { businessId: businessId as string, isActive: true },
           });
           limit = plan.maxStaff;
           allowed = currentUsage < limit;
@@ -359,7 +386,7 @@ export const checkSubscriptionLimit = async (req: Request, res: Response) => {
       case 'add-service':
         if (plan.maxServices !== -1) {
           currentUsage = await prisma.service.count({
-            where: { businessId, isActive: true },
+            where: { businessId: businessId as string, isActive: true },
           });
           limit = plan.maxServices;
           allowed = currentUsage < limit;
@@ -370,15 +397,13 @@ export const checkSubscriptionLimit = async (req: Request, res: Response) => {
       case 'add-customer':
         if (plan.maxCustomers !== -1) {
           currentUsage = await prisma.customer.count({
-            where: { businessId },
+            where: { businessId: businessId as string },
           });
           limit = plan.maxCustomers;
           allowed = currentUsage < limit;
           reason = allowed ? '' : `Customer limit reached (${limit})`;
         }
         break;
-
-   
 
       case 'view-reports':
         allowed = plan.allowReports;
@@ -417,3 +442,5 @@ export const getSubscriptionPlans = async (req: Request, res: Response) => {
     return res.status(500).json({ error: error.message || 'Failed to get plans' });
   }
 };
+
+

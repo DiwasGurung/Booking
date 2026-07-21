@@ -20,6 +20,7 @@ export interface Service {
 }
 
 export interface Business {
+  logo: import("react/jsx-runtime").JSX.Element
   category: ReactNode
   rating: any
   description: any

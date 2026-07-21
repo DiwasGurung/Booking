@@ -27,9 +27,13 @@ type ServiceLimitResult = {
 }
 
 type SubscriptionStatusResult = {
+  id?: string
   hasSubscription: boolean
   status: SubscriptionStatus | null
   daysRemaining: number | null
+  startDate?: Date | null
+  endDate?: Date | null
+  isTrialUsed?: boolean
   trialEndsAt: Date | null
   expiresAt: Date | null
   planName?: string
@@ -69,7 +73,8 @@ class SubscriptionService {
       console.log(`[v0] Creating subscription with free trial for business: ${data.businessId}, planId: ${data.planId}`)
 
       const now = new Date()
-      const trialEndsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+      const trialEndsAt = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000) // 15 days trial
+      const trialDays = Math.floor((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 
       const plan = await prisma.subscriptionPlan.findUnique({
         where: { id: data.planId },
@@ -79,7 +84,8 @@ class SubscriptionService {
         throw new Error(`Subscription plan not found: ${data.planId}`)
       }
 
-      console.log(`[v0] Found plan: ${plan.displayName} with ID: ${plan.id}`)
+      console.log(`[v0] Found plan: ${plan.displayName} with ID: ${plan.id}, Plan durationDays: ${plan.durationDays}`)
+      console.log(`[v0] Creating trial for ${trialDays} days, trial ends at: ${trialEndsAt}`)
 
       await prisma.subscription.deleteMany({
         where: { businessId: data.businessId },
@@ -91,7 +97,7 @@ class SubscriptionService {
           planId: data.planId,
           status: 'TRIAL' as SubscriptionStatus,
           trialEndsAt,
-          isTrialUsed: false,
+          isTrialUsed: true,
           startDate: now,
           endDate: trialEndsAt,
           autoRenew: true,
@@ -102,7 +108,8 @@ class SubscriptionService {
         },
       })
 
-      console.log(`[v0] Subscription created with trial until: ${trialEndsAt}`)
+      const actualTrialDays = Math.floor((subscription.endDate!.getTime() - subscription.startDate!.getTime()) / (1000 * 60 * 60 * 24))
+      console.log(`[v0] Subscription created - Trial: ${actualTrialDays} days, ends: ${subscription.endDate}, trialEndsAt: ${subscription.trialEndsAt}`)
       return subscription as SubscriptionWithRelations
     } catch (error) {
       console.error(`[v0] Failed to create subscription:`, error)
@@ -214,21 +221,41 @@ class SubscriptionService {
       const now = new Date()
       let daysRemaining = 0
       let expiresAt: Date | null = null
+      let hasValidSubscription = true
 
       if (subscription.status === 'TRIAL' && subscription.trialEndsAt) {
         daysRemaining = Math.ceil(
           (subscription.trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
         )
         expiresAt = subscription.trialEndsAt
-      } else if (subscription.status === 'ACTIVE' && subscription.endDate) {
+        
+        // If trial has expired, subscription is no longer valid
+        if (daysRemaining <= 0) {
+          console.log(`[v0] Trial expired for business ${businessId}`)
+          hasValidSubscription = false
+        }
+      } else if ((subscription.status === 'ACTIVE' || subscription.status === 'CANCELLED') && subscription.endDate) {
         daysRemaining = Math.ceil(
           (subscription.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
         )
         expiresAt = subscription.endDate
+        
+        // If CANCELLED and already expired, subscription is no longer valid
+        if (subscription.status === 'CANCELLED' && daysRemaining <= 0) {
+          console.log(`[v0] Cancelled subscription expired for business ${businessId}`)
+          hasValidSubscription = false
+        }
+        
+        // If ACTIVE but somehow expired, subscription is no longer valid
+        if (subscription.status === 'ACTIVE' && daysRemaining <= 0) {
+          console.log(`[v0] Active subscription expired for business ${businessId}`)
+          hasValidSubscription = false
+        }
       }
 
       return {
-        hasSubscription: true,
+        id: subscription.id,
+        hasSubscription: hasValidSubscription,
         status: subscription.status,
         planName: subscription.plan.displayName,
         daysRemaining: Math.max(0, daysRemaining),
@@ -258,9 +285,31 @@ class SubscriptionService {
     try {
       console.log(`[v0] Activating subscription: ${subscriptionId}`)
 
+      // Fetch subscription to get billing period
+      const currentSubscription = await prisma.subscription.findUnique({
+        where: { id: subscriptionId },
+      })
+
+      if (!currentSubscription) {
+        throw new Error(`Subscription not found: ${subscriptionId}`)
+      }
+
       const now = new Date()
-      const durationDays = data.durationDays || 30
+      
+      // Use provided durationDays or calculate based on billing period
+      let durationDays = data.durationDays || 30
+      if (currentSubscription.billingPeriod) {
+        const billingDays: Record<string, number> = {
+          MONTHLY: 30,
+          QUARTERLY: 90,
+          HALF_YEARLY: 180,
+          YEARLY: 365,
+        }
+        durationDays = billingDays[currentSubscription.billingPeriod] || 30
+      }
+
       const endDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
+      const billingCycleEndDate = new Date(endDate) // Same as endDate initially
 
       const subscription = await prisma.subscription.update({
         where: { id: subscriptionId },
@@ -268,7 +317,9 @@ class SubscriptionService {
           status: 'ACTIVE' as SubscriptionStatus,
           startDate: now,
           endDate,
+          billingCycleEndDate,
           lastPaymentId: data.paymentId,
+          nextRenewalDate: endDate,
           isTrialUsed: true,
         },
         include: {
@@ -277,7 +328,13 @@ class SubscriptionService {
         },
       })
 
-      console.log(`[v0] Subscription activated until: ${endDate}`)
+      console.log(`[v0] Subscription activated:`, {
+        subscriptionId,
+        billingPeriod: currentSubscription.billingPeriod,
+        durationDays,
+        activatedAt: now,
+        expiresAt: endDate,
+      })
       return subscription as SubscriptionWithRelations
     } catch (error) {
       console.error(`[v0] Failed to activate subscription:`, error)
@@ -331,30 +388,7 @@ class SubscriptionService {
     }
   }
 
-  /**
-   * Cancel subscription
-   */
-  async cancelSubscription(subscriptionId: string): Promise<SubscriptionWithRelations> {
-    try {
-      console.log(`[v0] Cancelling subscription: ${subscriptionId}`)
-
-      const subscription = await prisma.subscription.update({
-        where: { id: subscriptionId },
-        data: {
-          status: 'CANCELLED' as SubscriptionStatus,
-          autoRenew: false,
-        },
-        include: {
-          plan: true,
-          business: true,
-        },
-      })
-      return subscription as SubscriptionWithRelations
-    } catch (error) {
-      console.error(`[v0] Failed to cancel subscription:`, error)
-      throw error
-    }
-  }
+  
 
   /**
    * Get all expired subscriptions
@@ -809,14 +843,37 @@ class SubscriptionService {
       return null
     }
   }
+
+  /**
+   * Cancel a subscription
+   */
+  async cancelSubscription(data: {
+    subscriptionId: string
+    userId: string
+  }): Promise<SubscriptionWithRelations> {
+    const subscription = await prisma.subscription.findUnique({
+      where: { id: data.subscriptionId },
+      include: { plan: true, business: true },
+    })
+
+    if (!subscription) {
+      throw new Error(`Subscription not found: ${data.subscriptionId}`)
+    }
+
+    console.log(`[v0] Cancelling subscription ${data.subscriptionId}`)
+
+    const updated = await prisma.subscription.update({
+      where: { id: data.subscriptionId },
+      data: {
+        status: 'CANCELLED' as SubscriptionStatus,
+        cancelledAt: new Date(),
+      },
+      include: { plan: true, business: true },
+    })
+
+    console.log(`[v0] Subscription cancelled successfully`)
+    return updated as SubscriptionWithRelations
+  }
 }
 
 export default new SubscriptionService()
-export function canAddService(businessId: string) {
-  throw new Error("Function not implemented.")
-}
-
-export function canAddAppointment(businessId: string) {
-  throw new Error("Function not implemented.")
-}
-

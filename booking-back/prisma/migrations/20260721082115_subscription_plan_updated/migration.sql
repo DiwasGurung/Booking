@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "subscription_plans" ALTER COLUMN "priceMonthlyNPR" DROP NOT NULL,
+ALTER COLUMN "priceMonthlyNPR" SET DATA TYPE DOUBLE PRECISION;

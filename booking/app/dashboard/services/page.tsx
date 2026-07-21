@@ -15,6 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { servicesApi } from '@/lib/api'
 import { Loader, AlertCircle, Edit, Trash2, Plus, Copy, Check } from 'lucide-react'
 import { useBusinessId } from '@/hooks/useBusinessId'
+import { useSubscriptionUsage } from '@/hooks/useSusbcriptionUsage'
 
 interface Service {
   id: string
@@ -59,6 +60,7 @@ export default function ServicesPage() {
   const [isClosed, setIsClosed] = useState(false)
   const bookingUrl = businessId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/book/${businessId}` : ''
   const [isSubmitting, setIsSubmitting] = useState(false)
+   const { usage: subscriptionUsage } = useSubscriptionUsage(businessId)
 
   useEffect(() => {
     if (businessId) {
@@ -266,6 +268,26 @@ export default function ServicesPage() {
             { label: 'Services & Hours' },
           ]}
         />
+         {/* Services Usage Card */}
+        {subscriptionUsage && (
+          <Card className="mb-8 bg-gradient-to-br from-green-50 to-green-50/50 border-green-200">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm">Services Available</CardTitle>
+                  <CardDescription className="mt-1">
+                    {subscriptionUsage.serviceUnlimited ? 'Unlimited services' : `${subscriptionUsage.serviceCurrent} service available`}
+                  </CardDescription>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-green-600">{subscriptionUsage.serviceCurrent}</p>
+                  <p className="text-xs text-muted-foreground">Service{subscriptionUsage.serviceCurrent !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+        )}
+
 
         {error && (
           <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-3">
