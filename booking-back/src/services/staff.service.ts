@@ -1,4 +1,5 @@
-import prisma from "../lib/prisma"
+import  prisma  from "../lib/prisma"
+import { staffVerificationService } from "./staff-verification.service"
 
 export interface WorkingHours {
   [day: string]: {
@@ -71,7 +72,35 @@ export class StaffService {
       })
 
       // Fetch updated staff with services
-      return this.getStaffById(staff.id)
+      const updatedStaff = await this.getStaffById(staff.id)
+      
+      // Send verification email asynchronously (don't wait)
+      try {
+        
+        staffVerificationService.sendVerificationEmail(
+          updatedStaff?.id,
+          updatedStaff?.email,
+          updatedStaff?.firstName,
+          updatedStaff?.businessId
+        ).catch((err: any) => console.error('[v0] Failed to send verification email:', err))
+      } catch (error) {
+        console.error('[v0] Error importing verification service:', error)
+      }
+      
+      return updatedStaff
+    }
+
+    // Send verification email asynchronously (don't wait)
+    try {
+  
+      staffVerificationService.sendVerificationEmail(
+        staff.id,
+        staff.email,
+        staff.firstName,
+        staff.businessId
+      ).catch((err: any) => console.error('[v0] Failed to send verification email:', err))
+    } catch (error) {
+      console.error('[v0] Error importing verification service:', error)
     }
 
     return staff
@@ -146,8 +175,8 @@ export class StaffService {
     })
 
     return staffServices
-      .map((ss) => ss.staff)
-      .filter((staff) => staff.isActive)
+      .map((ss: { staff: any }) => ss.staff)
+      .filter((staff: { isActive: any }) => staff.isActive)
   }
 
   /**
@@ -285,7 +314,7 @@ export class StaffService {
         if (isBreak) continue
 
         // Check if slot overlaps with existing booking
-        const isBooked = existingBookings.some((booking) => {
+        const isBooked = existingBookings.some((booking: { endTime: Date; startTime: Date }) => {
           return slotStart < booking.endTime && slotEnd > booking.startTime
         })
 
@@ -321,7 +350,7 @@ export class StaffService {
       }),
     ])
 
-    const totalRevenue = revenue.reduce((sum, booking) => {
+    const totalRevenue = revenue.reduce((sum: any, booking: { service: { offerPrice: any; price: any } }) => {
       return sum + (booking.service.offerPrice || booking.service.price)
     }, 0)
 
@@ -331,6 +360,107 @@ export class StaffService {
       cancelledBookings,
       totalRevenue,
       completionRate: totalBookings > 0 ? (completedBookings / totalBookings) * 100 : 0,
+    }
+  }
+
+  /**
+   * Get staff info by staffCode (public)
+   */
+  async getStaffByCode(staffCode: string) {
+    const staff = await prisma.staff.findUnique({
+      where: { staffCode },
+      include: {
+        services: {
+          include: {
+            service: true,
+          },
+        },
+        business: {
+          select: {
+            id: true,
+            businessName: true,
+          },
+        },
+      },
+    })
+
+    if (!staff) return null
+
+    // Return only public information
+    return {
+      id: staff.id,
+      firstName: staff.firstName,
+      lastName: staff.lastName,
+      email: staff.email,
+      phone: staff.phone,
+      avatar: staff.avatar,
+      staffCode: staff.staffCode,
+      businessId: staff.business.id,
+      businessName: staff.business.businessName,
+      services: staff.services.map((ss: { service: { id: any; name: any; duration: any; price: any; description: any } }) => ({
+        id: ss.service.id,
+        name: ss.service.name,
+        duration: ss.service.duration,
+        price: ss.service.price,
+        description: ss.service.description,
+      })),
+    }
+  }
+
+  /**
+   * Get staff bookings by staffCode (public)
+   */
+  async getBookingsByStaffCode(staffCode: string) {
+    const staff = await prisma.staff.findUnique({
+      where: { staffCode },
+      include: {
+        bookings: {
+          where: {
+            status: 'CONFIRMED',
+            startDate: {
+              gte: new Date(),
+            },
+          },
+          include: {
+            customer: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+              },
+            },
+            service: {
+              select: {
+                id: true,
+                name: true,
+                duration: true,
+                price: true,
+              },
+            },
+          },
+          orderBy: {
+            startDate: 'asc',
+          },
+        },
+      },
+    })
+
+    if (!staff) return null
+
+    return {
+      staffName: `${staff.firstName} ${staff.lastName}`,
+      staffCode: staff.staffCode,
+      bookings: staff.bookings.map((booking: { id: any; customer: any; service: any; startDate: any; endDate: any; status: any; notes: any }) => ({
+        id: booking.id,
+        customer: booking.customer,
+        service: booking.service,
+        startDate: booking.startDate,
+        endDate: booking.endDate,
+        status: booking.status,
+        notes: booking.notes,
+      })),
     }
   }
 }

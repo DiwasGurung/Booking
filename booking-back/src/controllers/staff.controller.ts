@@ -200,3 +200,51 @@ export const getStaffStats = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to get staff statistics" })
   }
 }
+
+/**
+ * Get staff by staffCode (public - for direct booking)
+ */
+export const getStaffByCode = async (req: Request, res: Response) => {
+  try {
+    const staffCode = req.params.staffCode as string
+
+    if (!staffCode) {
+      return res.status(400).json({ error: "Staff code is required" })
+    }
+
+    const staff = await staffService.getStaffByCode(staffCode)
+
+    if (!staff) {
+      return res.status(404).json({ error: "Staff member not found" })
+    }
+
+    res.json(staff)
+  } catch (error: any) {
+    console.error("[Staff Controller] Get staff by code error:", error.message)
+    res.status(500).json({ error: "Failed to get staff information" })
+  }
+}
+
+/**
+ * Get staff bookings by staffCode (public - for staff booking view)
+ */
+export const getStaffBookings = async (req: Request, res: Response) => {
+  try {
+    const staffCode = req.params.staffCode as string
+
+    if (!staffCode) {
+      return res.status(400).json({ error: "Staff code is required" })
+    }
+
+    const result = await staffService.getBookingsByStaffCode(staffCode)
+
+    if (!result) {
+      return res.status(404).json({ error: "Staff member not found" })
+    }
+
+    res.json(result)
+  } catch (error: any) {
+    console.error("[Staff Controller] Get bookings error:", error.message)
+    res.status(500).json({ error: "Failed to get bookings" })
+  }
+}

@@ -1,3 +1,5 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -18,6 +20,13 @@ enum SubscriptionStatus {
   EXPIRED
   CANCELLED
   TRIAL
+}
+
+enum BillingPeriod {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
 }
 
 enum BookingStatus {
@@ -44,13 +53,6 @@ enum NotificationType {
   APPOINTMENT_APPROACHING
 }
 
-enum BillingPeriod {
-  MONTHLY
-  QUARTERLY
-  HALF_YEARLY
-  YEARLY
-}
-
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -70,7 +72,6 @@ model User {
   phoneVerificationCode String? @unique
   phoneVerificationCodeExpires DateTime?
   phoneVerificationAttempts Int @default(0)
-
 
   googleId      String?   @unique  
   authProvider  AuthProvider @default(EMAIL)
@@ -141,14 +142,24 @@ model Staff {
 
   firstName   String
   lastName    String
-  email       String?
+  email       String @unique
   phone       String?
   avatar      String?
   role        String   @default("Staff")
   isActive    Boolean  @default(true)
   
+  // Email verification
+  emailVerified               Boolean   @default(false)
+  verificationToken           String?   @unique
+  verificationTokenExpiresAt  DateTime?
+  
+  // Public booking link - unique code for staff direct booking page
+  staffCode   String   @unique @default(cuid())
+  
+  // Working hours per day (JSON): { "monday": { "start": "09:00", "end": "17:00", "isWorking": true }, ... }
   workingHours Json?
   
+  // Break times (JSON): [{ "start": "12:00", "end": "13:00" }]
   breakTimes   Json?
 
   services  StaffService[]
@@ -159,8 +170,10 @@ model Staff {
 
   @@index([businessId])
   @@index([isActive])
+  @@index([staffCode])
 }
 
+// Join table connecting staff to services they can perform
 model StaffService {
   id        String  @id @default(cuid())
   staffId   String
@@ -226,6 +239,7 @@ model Booking {
   businessId String
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
+  // Optional staff assignment
   staffId    String?
   staff      Staff? @relation(fields: [staffId], references: [id], onDelete: SetNull)
 
@@ -259,9 +273,11 @@ model Payment {
   businessId        String
   business          Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
+  // Booking payment (optional)
   bookingId         String?  @unique
   booking           Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
+  // Subscription payment (optional)
   subscriptionId    String?
   subscription      Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
 
@@ -344,10 +360,28 @@ model Notification {
   createdAt DateTime @default(now())
 }
 
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  endpoint  String   @unique  // Web Push service endpoint
+  keys      String            // JSON stringified: { p256dh: string, auth: string }
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+  @@index([isActive])
+  @@map("push_subscriptions")
+}
+
 model SubscriptionPlan {
   id            String   @id @default(cuid())
   name          String   @unique 
-  priceNPR      Int     
+  priceNPR      Int     // Base monthly price
   displayName   String   
   features      String[] @default([])
   description   String?
@@ -355,16 +389,19 @@ model SubscriptionPlan {
   currency      String   @default("NPR")
   active        Boolean  @default(true)
   
-  priceMonthlyNPR      Float?  
-  priceQuarterlyNPR    Int? 
-  priceSemiAnnualNPR   Int? 
-  priceAnnualNPR       Int? 
-
-  maxAppointmentsPerMonth  Int  @default(-1)  
-  maxStaff                 Int  @default(-1)  
-  maxServices              Int  @default(-1)  
-  maxCustomers             Int  @default(-1)  
+  // Pricing for different billing periods (with discounts)
+  priceMonthlyNPR      Int  // Monthly billing
+  priceQuarterlyNPR    Int? // 3 months with discount
+  priceSemiAnnualNPR   Int? // 6 months with discount
+  priceAnnualNPR       Int? // 12 months with discount
   
+  // Plan Limits
+  maxAppointmentsPerMonth  Int  @default(-1)  // -1 means unlimited
+  maxStaff                 Int  @default(-1)  // -1 means unlimited
+  maxServices              Int  @default(-1)  // -1 means unlimited
+  maxCustomers             Int  @default(-1)  // -1 means unlimited
+  
+  // Features flags (Email-only notifications)
   allowEmailNotifications  Boolean @default(true)
   allowOnlineBooking       Boolean @default(true)
   allowReports             Boolean @default(false)
@@ -387,7 +424,8 @@ model Subscription {
   plan            SubscriptionPlan @relation(fields: [planId], references: [id])
 
   status          SubscriptionStatus @default(TRIAL)
-
+  
+  // Billing period tracking
   billingPeriod   BillingPeriod @default(MONTHLY)
   billingCycleEndDate DateTime?
 
@@ -400,9 +438,9 @@ model Subscription {
 
   trialEndsAt     DateTime?
   isTrialUsed     Boolean  @default(false)
-
   cancelledAt     DateTime?
   
+  // Usage tracking
   appointmentsThisMonth    Int      @default(0)
   usageResetDate           DateTime?
 
@@ -416,19 +454,3 @@ model Subscription {
   @@map("subscriptions")
 }
 
-model PushSubscription {
-  id        String   @id @default(cuid())
-  userId    String
-  user     User  @relation(fields: [userId], references: [id])
-  endpoint  String   @unique
-  auth      String
-  p256dh    String
-  isActive  Boolean  @default(true)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-  @@index([isActive])
-  @@map("push_subscriptions")
-}

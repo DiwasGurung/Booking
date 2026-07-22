@@ -101,13 +101,16 @@ export const CreateStaffSchema = z.object({
   businessId: z.string().regex(UUID_REGEX, 'Invalid business ID format'),
   firstName: z.string().min(2, 'First name is required').max(50),
   lastName: z.string().min(2, 'Last name is required').max(50),
-  email: z.string().email('Invalid email format').optional(),
+  email: z.string().email('Invalid email format'),
   phone: z.string().regex(PHONE_REGEX, 'Invalid phone number').optional(),
   avatar: z.string().url('Invalid avatar URL').optional().or(z.literal('')),
   role: z.string().max(50).optional(),
+  serviceIds: z.array(z.string().regex(UUID_REGEX, 'Invalid service ID format')).optional(),
 })
 
-export const UpdateStaffSchema = CreateStaffSchema.partial()
+export const UpdateStaffSchema = CreateStaffSchema.partial().extend({
+  serviceIds: z.array(z.string().regex(UUID_REGEX, 'Invalid service ID format')).optional(),
+})
 
 // ============= USER SCHEMAS =============
 export const UserParamsSchema = z.object({

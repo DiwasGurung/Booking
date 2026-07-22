@@ -1,5 +1,5 @@
 import { Router } from "express"
-import { auth } from "../middleware/auth.middleware"
+import { auth, optionalAuth } from "../middleware/auth.middleware"
 import {
   createStaff,
   getStaffById,
@@ -10,6 +10,8 @@ import {
   toggleStaffStatus,
   getStaffAvailability,
   getStaffStats,
+  getStaffByCode,
+  getStaffBookings,
 } from "../controllers/staff.controller"
 
 const router = Router()
@@ -76,5 +78,19 @@ router.get("/:staffId/availability", getStaffAvailability)
  * @access Private (Business Owner)
  */
 router.get("/:staffId/stats", auth, getStaffStats)
+
+/**
+ * @route GET /api/staff/code/:staffCode
+ * @desc Get staff info by staffCode (public)
+ * @access Public
+ */
+router.get("/code/:staffCode", getStaffByCode)
+
+/**
+ * @route GET /api/staff/code/:staffCode/bookings
+ * @desc Get staff bookings by staffCode (public)
+ * @access Public
+ */
+router.get("/code/:staffCode/bookings", getStaffBookings)
 
 export default router

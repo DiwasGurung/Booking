@@ -42,11 +42,11 @@ export const emailService = {
       const mailOptions = {
         from: emailUser,
         to: email,
-        subject: 'Verify Your Email Address - Appoint-Nepal',
+        subject: 'Verify Your Email Address - BookFlow',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-              <h2 style="color: #333; margin: 0;">Welcome to Appoint-Nepal!</h2>
+              <h2 style="color: #333; margin: 0;">Welcome to BookFlow!</h2>
             </div>
             
             <p style="color: #666; font-size: 16px; line-height: 1.6;">
@@ -106,7 +106,7 @@ export const emailService = {
       const mailOptions = {
         from: emailUser,
         to: email,
-        subject: 'Reset Your Password - Appoint-Nepal',
+        subject: 'Reset Your Password - BookFlow',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -177,7 +177,7 @@ export const emailService = {
       const mailOptions = {
         from: emailUser,
         to: ownerEmail,
-        subject: `New Booking Received - ${bookingDetails.serviceName} - Appoint-Nepal`,
+        subject: `New Booking Received - ${bookingDetails.serviceName} - BookFlow`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
@@ -255,7 +255,7 @@ export const emailService = {
               </div>
               
               <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                This is an automated notification from Appoint-Nepal.<br/>
+                This is an automated notification from BookFlow.<br/>
                 Please do not reply to this email.
               </p>
             </div>
@@ -303,7 +303,7 @@ export const emailService = {
       const mailOptions = {
         from: emailUser,
         to: customerEmail,
-        subject: `Booking Confirmed - ${bookingDetails.businessName} - Appoint-Nepal`,
+        subject: `Booking Confirmed - ${bookingDetails.businessName} - BookFlow`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
@@ -355,7 +355,7 @@ export const emailService = {
               ` : ''}
               
               <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                Thank you for booking with Appoint-Nepal!
+                Thank you for booking with BookFlow!
               </p>
             </div>
           </div>
@@ -367,6 +367,83 @@ export const emailService = {
       return result
     } catch (error: any) {
       console.error('[Email Service] Failed to send booking confirmation to customer:', error.message)
+      throw error
+    }
+  },
+
+  /**
+   * Send staff email verification
+   */
+  async sendStaffVerificationEmail(staffEmail: string, staffName: string, verificationToken: string, businessName: string) {
+    try {
+      const transporter = initializeTransporter()
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const verificationLink = `${baseUrl}/staff/verify-email?token=${verificationToken}`
+
+      const mailOptions = {
+        from: emailUser,
+        to: staffEmail,
+        subject: `Verify Your Email - ${businessName} Staff Portal`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
+              <h2 style="color: white; margin: 0;">Welcome to BookFlow Staff Portal!</h2>
+            </div>
+            
+            <div style="border: 1px solid #e0e0e0; border-top: none; padding: 30px; border-radius: 0 0 8px 8px;">
+              <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+                Hi ${staffName},
+              </p>
+              
+              <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+                You have been added as a staff member at <strong>${businessName}</strong>. 
+              </p>
+
+              <p style="color: #333; font-size: 16px; margin-bottom: 30px;">
+                Please verify your email address to access your staff portal and create your booking page.
+              </p>
+
+              <div style="text-align: center; margin-bottom: 30px;">
+                <a href="${verificationLink}" style="background-color: #008B8B; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">
+                  Verify Email Address
+                </a>
+              </div>
+
+              <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+                Or copy this link if the button doesn't work:
+              </p>
+
+              <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px; word-break: break-all;">
+                <a href="${verificationLink}" style="color: #008B8B; text-decoration: none;">${verificationLink}</a>
+              </div>
+
+              <p style="color: #666; font-size: 14px;">
+                <strong>Note:</strong> This link expires in 24 hours. If it expires, you can request a new verification email from the login page.
+              </p>
+
+              <p style="color: #666; font-size: 14px; margin-top: 30px;">
+                Once verified, you'll be able to:
+              </p>
+              <ul style="color: #666; font-size: 14px;">
+                <li>View your bookings and schedule</li>
+                <li>Share your direct booking link with customers</li>
+                <li>Manage your availability and services</li>
+              </ul>
+
+              <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+                If you didn't create this account, please ignore this email.
+              </p>
+            </div>
+          </div>
+        `,
+      }
+
+      const result = await transporter.sendMail(mailOptions)
+      console.log('[Email Service] Staff verification email sent to:', staffEmail)
+      return result
+    } catch (error: any) {
+      console.error('[Email Service] Failed to send staff verification email:', error.message)
       throw error
     }
   },

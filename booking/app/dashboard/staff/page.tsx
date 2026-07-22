@@ -24,8 +24,11 @@ import {
   Clock,
   Calendar,
   X,
-  Zap
+  Zap,
+  Copy,
+  Link
 } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionUsage } from '@/hooks/useSusbcriptionUsage'
 
@@ -69,8 +72,9 @@ const initialFormData: StaffFormData = {
 
 export default function StaffPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
-  const { usage: subscriptionUsage, refetch } = useSubscriptionUsage(businessId)
+  const { usage: subscriptionUsage } = useSubscriptionUsage(businessId)
   const [staffMembers, setStaffMembers] = useState<Staff[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
@@ -112,41 +116,26 @@ export default function StaffPage() {
     }
   }
 
- const loadServices = async () => {
+  const loadServices = async () => {
     if (!businessId) return
     try {
-      setLoading(true)
       const response = await servicesApi.getBusinessServices(businessId)
-      const rawData = response as any
-
-      // API may return either an array or nested structure: { data: { data: Array } }
-      const servicesArray = Array.isArray(rawData)
-        ? rawData
-        : Array.isArray(rawData.data)
-        ? rawData.data
-        : Array.isArray(rawData.data?.data)
-        ? rawData.data.data
-        : []
-
-      const servicesData = servicesArray.map((service: any) => ({
-        id: service.id,
-        name: service.name,
-        description: service.description,
-        price: service.price,
-        offerPrice: service.offerPrice,
-        duration: service.duration,
-        isActive: service.isActive ?? true,
-        capacity: service.capacity ?? 1,
-      }))
-
-      setServices(servicesData)
-      setError(null)
+      
+      // Handle various response formats
+      let servicesArray: any[] = []
+      if (response) {
+        if (Array.isArray(response.data)) {
+          servicesArray = response.data
+        } else if (Array.isArray(response)) {
+          servicesArray = response
+        }
+      }
+      
+      setServices(servicesArray)
     } catch (err: any) {
-      const errorMessage = err?.message || 'Unknown error'
-      setError(`Failed to load services: ${errorMessage}`)
-      console.error('[v0] Error loading services:', err)
-    } finally {
-      setLoading(false)
+      console.error('[Staff] Error loading services:', err?.message || err)
+      // Services load failed, but page can still function with subscription data
+      setServices([])
     }
   }
 
@@ -190,11 +179,6 @@ export default function StaffPage() {
       setIsModalOpen(false)
       setCurrentStep(1)
       loadStaff()
-
-       // Refresh subscription usage data
-    if (typeof refetch === 'function') {
-      await refetch()
-    }
     } catch (err) {
       console.error('[Staff] Error saving staff:', err)
       setError('Failed to save staff member')
@@ -240,6 +224,24 @@ export default function StaffPage() {
       console.error('[Staff] Error toggling status:', err)
       setError(err instanceof Error ? err.message : 'Failed to toggle staff status')
     }
+  }
+
+  const copyBookingLink = (staffCode: string, staffName: string) => {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+    const bookingLink = `${baseUrl}/staff/${staffCode}/book`
+    
+    navigator.clipboard.writeText(bookingLink).then(() => {
+      toast({
+        title: 'Copied!',
+        description: `Booking link for ${staffName} copied to clipboard`,
+      })
+    }).catch(() => {
+      toast({
+        title: 'Failed to copy',
+        description: 'Could not copy link to clipboard',
+        variant: 'destructive',
+      })
+    })
   }
 
   const toggleService = (serviceId: string) => {
@@ -352,7 +354,7 @@ export default function StaffPage() {
           </div>
         </div>
 
-         {/* Subscription Usage Card */}
+        {/* Subscription Usage Card */}
         {subscriptionUsage && (
           <Card className="mb-8 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
             <CardHeader className="pb-3">
@@ -395,6 +397,26 @@ export default function StaffPage() {
                 </div>
               </CardContent>
             )}
+          </Card>
+        )}
+
+        {/* Services Usage Card */}
+        {subscriptionUsage && (
+          <Card className="mb-8 bg-gradient-to-br from-green-50 to-green-50/50 border-green-200">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm">Services Available</CardTitle>
+                  <CardDescription className="mt-1">
+                    {subscriptionUsage.serviceUnlimited ? 'Unlimited services' : `${subscriptionUsage.serviceCurrent} service available`}
+                  </CardDescription>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-green-600">{subscriptionUsage.serviceCurrent}</p>
+                  <p className="text-xs text-muted-foreground">Service{subscriptionUsage.serviceCurrent !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+            </CardHeader>
           </Card>
         )}
 
@@ -464,6 +486,31 @@ export default function StaffPage() {
                             +{staff.services.length - 3} more
                           </Badge>
                         )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Booking Link Info */}
+                  {(staff as any).staffCode && (
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-xs text-muted-foreground mb-2">Booking Link:</p>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1 text-xs"
+                          onClick={() => copyBookingLink((staff as any).staffCode, staff.firstName)}
+                        >
+                          <Copy className="w-3 h-3 mr-1" />
+                          Copy Link
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => window.open(`/staff/${(staff as any).staffCode}/bookings`, '_blank')}
+                        >
+                          <Link className="w-3 h-3" />
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -674,7 +721,7 @@ export default function StaffPage() {
 
                 {currentStep === 3 && (
 
-          
+      
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-medium">Break Times</h3>
