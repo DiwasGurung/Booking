@@ -119,7 +119,7 @@ class StaffVerificationService {
           staff.email,
           staff.firstName,
           staff.verificationToken,
-          staff.business.businessName
+          staff.business.name
         )
       } else {
         // Generate new token and send

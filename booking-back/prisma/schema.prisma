@@ -152,6 +152,11 @@ model Staff {
   emailVerified               Boolean   @default(false)
   verificationToken           String?   @unique
   verificationTokenExpiresAt  DateTime?
+
+    // Password authentication
+  password                    String?   // Hashed password, null until staff sets it
+  passwordResetToken          String?   @unique
+  passwordResetExpiresAt      DateTime?
   
   // Public booking link - unique code for staff direct booking page
   staffCode   String   @unique @default(cuid())
@@ -366,7 +371,8 @@ model PushSubscription {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   endpoint  String   @unique  // Web Push service endpoint
-  keys      String            // JSON stringified: { p256dh: string, auth: string }
+  p256dh   String
+  auth     String
   isActive  Boolean  @default(true)
 
   createdAt DateTime @default(now())

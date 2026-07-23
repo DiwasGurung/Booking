@@ -11,8 +11,7 @@ import { useToast } from '@/hooks/use-toast'
 interface Booking {
   id: string
   customer: {
-    firstName: string
-    lastName: string
+    name: string
     email: string
     phone: string
   }
@@ -21,8 +20,8 @@ interface Booking {
     duration: number
     price: number
   }
-  startDate: string
-  endDate: string
+  startTime: string
+  endTime: string
   status: string
   notes?: string
 }
@@ -169,7 +168,7 @@ export default function StaffBookingsPage() {
                         <User className="w-5 h-5 text-muted-foreground" />
                         <div>
                           <p className="font-semibold">
-                            {booking.customer.firstName} {booking.customer.lastName}
+                            {booking.customer.name}
                           </p>
                           <p className="text-sm text-muted-foreground">{booking.customer.email}</p>
                         </div>
@@ -200,8 +199,8 @@ export default function StaffBookingsPage() {
                         <div>
                           <p className="text-sm text-muted-foreground">Appointment</p>
                           <p className="font-medium">
-                            {new Date(booking.startDate).toLocaleDateString()} at{' '}
-                            {new Date(booking.startDate).toLocaleTimeString([], {
+                            {new Date(booking.startTime).toLocaleDateString()} at{' '}
+                            {new Date(booking.startTime).toLocaleTimeString([], {
                               hour: '2-digit',
                               minute: '2-digit',
                             })}

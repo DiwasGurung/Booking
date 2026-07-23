@@ -28,8 +28,7 @@ interface Staff {
 }
 
 interface FormData {
-  firstName: string
-  lastName: string
+  customerName: string
   email: string
   phone: string
   serviceId: string
@@ -48,8 +47,7 @@ export default function StaffDirectBookPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState<FormData>({
-    firstName: '',
-    lastName: '',
+    customerName: '',
     email: '',
     phone: '',
     serviceId: '',
@@ -96,7 +94,7 @@ export default function StaffDirectBookPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.serviceId || !formData.date || !formData.time) {
+    if (!formData.customerName || !formData.email || !formData.serviceId || !formData.date || !formData.time) {
       toast({
         title: 'Missing Fields',
         description: 'Please fill in all required fields',
@@ -117,11 +115,10 @@ export default function StaffDirectBookPage() {
           businessId: staff?.id, // Will be derived from staff
           customerId: '', // New customer
           serviceId: formData.serviceId,
-          customerFirstName: formData.firstName,
-          customerLastName: formData.lastName,
+          customerName: formData.customerName,
           customerEmail: formData.email,
           customerPhone: formData.phone,
-          startDate: `${formData.date}T${formData.time}`,
+          startTime: `${formData.date}T${formData.time}`,
           notes: formData.notes,
           source: 'direct-staff-booking',
         }),
@@ -134,8 +131,7 @@ export default function StaffDirectBookPage() {
           description: 'Your appointment has been scheduled successfully',
         })
         setFormData({
-          firstName: '',
-          lastName: '',
+          customerName: '',
           email: '',
           phone: '',
           serviceId: staff?.services[0]?.id || '',
@@ -200,9 +196,9 @@ export default function StaffDirectBookPage() {
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="text-2xl">
-              Book with {staff.firstName} {staff.lastName}
+              Book an Appointment
             </CardTitle>
-            <CardDescription>Schedule an appointment at your convenience</CardDescription>
+            <CardDescription>Schedule an appointment with {staff.firstName} {staff.lastName} at your convenience</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -231,30 +227,16 @@ export default function StaffDirectBookPage() {
               <div className="space-y-4">
                 <h3 className="font-semibold text-sm">Your Information</h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="firstName">First Name *</Label>
-                    <Input
-                      id="firstName"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      placeholder="John"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="lastName">Last Name *</Label>
-                    <Input
-                      id="lastName"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      placeholder="Doe"
-                      required
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="customerName">Full Name *</Label>
+                  <Input
+                    id="customerName"
+                    name="customerName"
+                    value={formData.customerName}
+                    onChange={handleInputChange}
+                    placeholder="John Doe"
+                    required
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

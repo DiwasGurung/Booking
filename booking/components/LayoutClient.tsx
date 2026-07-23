@@ -15,7 +15,7 @@ export default function LayoutClient({
   useEffect(() => {
     // Check if header should be visible
     const isDashboard = pathname?.startsWith('/dashboard') || pathname?.startsWith('/bookings') || pathname?.startsWith('/subscription')
-    const isAuthPage = pathname === '/login' || pathname === '/signup'
+    const isAuthPage = pathname === '/login' || pathname === '/signup'  || pathname === '/staff/login'
     const isPublicBooking = pathname?.startsWith('/book/')
     const headerHidden = isDashboard || isAuthPage || isPublicBooking
 

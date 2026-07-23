@@ -8,7 +8,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/label"
-import { AlertCircle, Lock, Mail, CheckCircle } from "lucide-react"
+import { AlertCircle, Lock, Mail, CheckCircle, Eye, EyeOff } from "lucide-react"
 import { useAuth } from "@/context/authContext"
 import { GoogleSignInButton } from "@/components/google-signin-button"
 import { Separator } from "@/components/ui/separator"
@@ -20,6 +20,7 @@ export const LoginForm = () => {
   const returnTo = searchParams.get("returnTo")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false)
@@ -228,7 +229,7 @@ export const LoginForm = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
+             <div className="space-y-2">
               <Label htmlFor="password" className="text-sm font-medium">
                 Password
               </Label>
@@ -236,14 +237,22 @@ export const LoginForm = () => {
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your password"
-                  className="pl-9"
+                  className="pl-9 pr-10"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+                  disabled={isLoading}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 

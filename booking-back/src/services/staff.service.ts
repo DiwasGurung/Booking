@@ -49,7 +49,7 @@ export class StaffService {
 
     const staff = await prisma.staff.create({
       data: {
-        ...staffData,
+        ...(staffData as any),
         workingHours: staffData.workingHours as any,
         breakTimes: staffData.breakTimes as any,
       },
@@ -75,16 +75,18 @@ export class StaffService {
       const updatedStaff = await this.getStaffById(staff.id)
       
       // Send verification email asynchronously (don't wait)
-      try {
-        
-        staffVerificationService.sendVerificationEmail(
-          updatedStaff?.id,
-          updatedStaff?.email,
-          updatedStaff?.firstName,
-          updatedStaff?.businessId
-        ).catch((err: any) => console.error('[v0] Failed to send verification email:', err))
-      } catch (error) {
-        console.error('[v0] Error importing verification service:', error)
+      if (updatedStaff) {
+        try {
+       
+          staffVerificationService.sendVerificationEmail(
+            updatedStaff.id,
+            updatedStaff.email,
+            updatedStaff.firstName,
+            updatedStaff.businessId
+          ).catch(err => console.error('[v0] Failed to send verification email:', err))
+        } catch (error) {
+          console.error('[v0] Error importing verification service:', error)
+        }
       }
       
       return updatedStaff
@@ -98,7 +100,7 @@ export class StaffService {
         staff.email,
         staff.firstName,
         staff.businessId
-      ).catch((err: any) => console.error('[v0] Failed to send verification email:', err))
+      ).catch(err => console.error('[v0] Failed to send verification email:', err))
     } catch (error) {
       console.error('[v0] Error importing verification service:', error)
     }
@@ -175,8 +177,8 @@ export class StaffService {
     })
 
     return staffServices
-      .map((ss: { staff: any }) => ss.staff)
-      .filter((staff: { isActive: any }) => staff.isActive)
+      .map((ss) => ss.staff)
+      .filter((staff) => staff.isActive)
   }
 
   /**
@@ -314,7 +316,7 @@ export class StaffService {
         if (isBreak) continue
 
         // Check if slot overlaps with existing booking
-        const isBooked = existingBookings.some((booking: { endTime: Date; startTime: Date }) => {
+        const isBooked = existingBookings.some((booking) => {
           return slotStart < booking.endTime && slotEnd > booking.startTime
         })
 
@@ -350,7 +352,7 @@ export class StaffService {
       }),
     ])
 
-    const totalRevenue = revenue.reduce((sum: any, booking: { service: { offerPrice: any; price: any } }) => {
+    const totalRevenue = revenue.reduce((sum, booking) => {
       return sum + (booking.service.offerPrice || booking.service.price)
     }, 0)
 
@@ -375,12 +377,7 @@ export class StaffService {
             service: true,
           },
         },
-        business: {
-          select: {
-            id: true,
-            businessName: true,
-          },
-        },
+        business:true
       },
     })
 
@@ -396,8 +393,8 @@ export class StaffService {
       avatar: staff.avatar,
       staffCode: staff.staffCode,
       businessId: staff.business.id,
-      businessName: staff.business.businessName,
-      services: staff.services.map((ss: { service: { id: any; name: any; duration: any; price: any; description: any } }) => ({
+      businessName: staff.business.name,
+      services: staff.services.map(ss => ({
         id: ss.service.id,
         name: ss.service.name,
         duration: ss.service.duration,
@@ -417,7 +414,7 @@ export class StaffService {
         bookings: {
           where: {
             status: 'CONFIRMED',
-            startDate: {
+            startTime: {
               gte: new Date(),
             },
           },
@@ -425,8 +422,7 @@ export class StaffService {
             customer: {
               select: {
                 id: true,
-                firstName: true,
-                lastName: true,
+                name: true,
                 email: true,
                 phone: true,
               },
@@ -441,7 +437,7 @@ export class StaffService {
             },
           },
           orderBy: {
-            startDate: 'asc',
+            startTime: 'asc',
           },
         },
       },
@@ -452,12 +448,12 @@ export class StaffService {
     return {
       staffName: `${staff.firstName} ${staff.lastName}`,
       staffCode: staff.staffCode,
-      bookings: staff.bookings.map((booking: { id: any; customer: any; service: any; startDate: any; endDate: any; status: any; notes: any }) => ({
+      bookings: staff.bookings.map(booking => ({
         id: booking.id,
         customer: booking.customer,
         service: booking.service,
-        startDate: booking.startDate,
-        endDate: booking.endDate,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
         status: booking.status,
         notes: booking.notes,
       })),

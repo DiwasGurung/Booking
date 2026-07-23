@@ -36,10 +36,10 @@ export default function VerifyEmailPage() {
 
         if (response.ok) {
           setStatus('success')
-          setMessage('Email verified successfully! You can now access your booking page.')
+          setMessage('Email verified successfully! Please set your password to continue.')
           setTimeout(() => {
-            router.push(`/staff/${id}/bookings`)
-          }, 3000)
+            router.push(`/staff/set-password?staffId=${id}&token=${token}`)
+          }, 2000)
         } else {
           const error = await response.json()
           setStatus('error')

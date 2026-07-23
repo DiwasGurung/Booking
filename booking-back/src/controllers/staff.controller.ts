@@ -2,6 +2,7 @@ import { Request, Response } from "express"
 import staffService from "../services/staff.service"
 import { CreateStaffSchema, StaffParamsSchema, BusinessIdParamsSchema, parseAndValidate } from "../validators"
 import SubscriptionService from "../services/subscription.service"
+import  prisma  from "../lib/prisma"
 
 interface AuthRequest extends Request {
   user?: { id: string }
@@ -245,6 +246,57 @@ export const getStaffBookings = async (req: Request, res: Response) => {
     res.json(result)
   } catch (error: any) {
     console.error("[Staff Controller] Get bookings error:", error.message)
+    res.status(500).json({ error: "Failed to get bookings" })
+  }
+}
+
+/**
+ * Get bookings for authenticated staff member
+ */
+export const getStaffAuthenticatedBookings = async (req: any, res: Response) => {
+  try {
+    const staffId = req.params.staffId as string
+    const requestingStaffId = req.staffId // From middleware
+
+    // Security: Staff can only view their own bookings
+    if (staffId !== requestingStaffId) {
+      return res.status(403).json({ error: "Unauthorized: You can only view your own bookings" })
+    }
+
+    const bookings = await prisma.booking.findMany({
+      where: {
+        staffId,
+        status: "CONFIRMED",
+        startTime: {
+          gte: new Date(),
+        },
+      },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        service: {
+          select: {
+            id: true,
+            name: true,
+            duration: true,
+            price: true,
+          },
+        },
+      },
+      orderBy: {
+        startTime: "asc",
+      },
+    })
+
+    res.json(bookings)
+  } catch (error: any) {
+    console.error("[Staff Controller] Get authenticated bookings error:", error.message)
     res.status(500).json({ error: "Failed to get bookings" })
   }
 }
