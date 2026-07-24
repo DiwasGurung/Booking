@@ -21,7 +21,7 @@ export const Header = () => {
 
   // Hide header on dashboard routes, authentication pages, and public booking pages
   const isDashboard = pathname?.startsWith('/dashboard') || pathname?.startsWith('/bookings') || pathname?.startsWith('/subscription')
-  const isAuthPage = pathname === '/login' || pathname === '/signup'
+  const isAuthPage = pathname === '/login' || pathname === '/signup' || pathname === '/staff/login'
   const isPublicBooking = pathname?.startsWith('/book/')
 
   const handleLogout = async () => {
