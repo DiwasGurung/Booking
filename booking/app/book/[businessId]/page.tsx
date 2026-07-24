@@ -5,8 +5,9 @@ import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Loader, CheckCircle, AlertCircle, Calendar, Clock, User, Mail, Phone, MapPin, ArrowRight } from 'lucide-react'
-import { businessApi, servicesApi, bookingsApi, type Business, type Service } from '@/lib/api'
+import { Loader, CheckCircle, AlertCircle, Calendar, Clock, User, Mail, Phone, MapPin, ArrowRight, Users } from 'lucide-react'
+import { businessApi, businessHoursApi, servicesApi, bookingsApi, staffApi, type Business, type BusinessHours, type Service, type Staff, type Booking } from '@/lib/api'
+import { getAvailableTimeSlots } from '@/lib/availability'
 
 export default function PublicBookingPage() {
   const params = useParams()
@@ -14,12 +15,18 @@ export default function PublicBookingPage() {
 
   const [business, setBusiness] = useState<Business | null>(null)
   const [services, setServices] = useState<Service[]>([])
+  const [staff, setStaff] = useState<Staff[]>([])
+  const [businessHours, setBusinessHours] = useState<BusinessHours[]>([])
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<any[]>([])
+  const [loadingTimeSlots, setLoadingTimeSlots] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [bookingSuccess, setBookingSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [selectedService, setSelectedService] = useState<string>('')
+  const [selectedStaff, setSelectedStaff] = useState<string>('')
   const [appointmentDate, setAppointmentDate] = useState<string>('')
   const [appointmentTime, setAppointmentTime] = useState<string>('')
   const [customerName, setCustomerName] = useState<string>('')
@@ -30,6 +37,37 @@ export default function PublicBookingPage() {
   useEffect(() => {
     loadBusinessData()
   }, [businessId])
+
+  // Calculate available time slots when date or staff changes
+  useEffect(() => {
+    if (!appointmentDate || !selectedService || businessHours.length === 0) {
+      setAvailableTimeSlots([])
+      return
+    }
+
+    setLoadingTimeSlots(true)
+    const selectedServiceData = services.find(s => s.id === selectedService)
+    const selectedStaffData = selectedStaff ? staff.find(s => s.id === selectedStaff) : null
+
+    if (!selectedServiceData) {
+      setAvailableTimeSlots([])
+      setLoadingTimeSlots(false)
+      return
+    }
+
+    const slots = getAvailableTimeSlots(
+      appointmentDate,
+      selectedStaff || null,
+      selectedServiceData.duration,
+      businessHours,
+      bookings,
+      staff,
+      selectedStaffData || null
+    )
+
+    setAvailableTimeSlots(slots)
+    setLoadingTimeSlots(false)
+  }, [appointmentDate, selectedService, selectedStaff, businessHours, bookings, services, staff])
 
   async function loadBusinessData() {
     try {
@@ -44,10 +82,54 @@ export default function PublicBookingPage() {
       
       setBusiness(businessResponse.data)
 
-      const servicesResponse = await servicesApi.getBusinessServices(businessId)
+       const response = await servicesApi.getBusinessServices(businessId)
+      const rawData = response as any
+
+      // API may return either an array or nested structure: { data: { data: Array } }
+      const servicesArray = Array.isArray(rawData)
+        ? rawData
+        : Array.isArray(rawData.data)
+        ? rawData.data
+        : Array.isArray(rawData.data?.data)
+        ? rawData.data.data
+        : []
+
+      const servicesData = servicesArray.map((service: any) => ({
+        id: service.id,
+        name: service.name,
+        description: service.description,
+        price: service.price,
+        offerPrice: service.offerPrice,
+        duration: service.duration,
+        isActive: service.isActive ?? true,
+        capacity: service.capacity ?? 1,
+      }))
+
+      setServices(servicesData)
+
+      // Fetch staff members
+      const staffResponse = await staffApi.getBusinessStaff(businessId)
       
-      if (servicesResponse.success && servicesResponse.data) {
-        setServices(servicesResponse.data)
+      if (staffResponse.success && staffResponse.data?.staff && Array.isArray(staffResponse.data.staff)) {
+        setStaff(staffResponse.data.staff)
+      } else if (staffResponse.success && Array.isArray(staffResponse.data)) {
+        // Fallback in case data is directly an array
+        setStaff(staffResponse.data)
+      } else {
+        console.log('[v0] Staff data issue:', staffResponse.data)
+        setStaff([])
+      }
+
+      // Fetch business hours
+      const hoursResponse = await businessHoursApi.getBusinessHours(businessId)
+      if (hoursResponse.success && Array.isArray(hoursResponse.data)) {
+        setBusinessHours(hoursResponse.data)
+      }
+
+      // Fetch bookings for availability checking
+      const bookingsResponse = await bookingsApi.getBusinessBookings(businessId)
+      if (bookingsResponse.success && Array.isArray(bookingsResponse.data)) {
+        setBookings(bookingsResponse.data)
       }
     } catch (err) {
       console.error('[v0] Error loading business:', err)
@@ -81,6 +163,7 @@ export default function PublicBookingPage() {
       const bookingResponse = await bookingsApi.createBooking({
         businessId,
         serviceId: selectedService,
+        staffId: selectedStaff || undefined, // Optional - auto-assign if not selected
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         customerName,
@@ -95,6 +178,7 @@ export default function PublicBookingPage() {
 
       setBookingSuccess(true)
       setSelectedService('')
+      setSelectedStaff('')
       setAppointmentDate('')
       setAppointmentTime('')
       setCustomerName('')
@@ -134,14 +218,16 @@ export default function PublicBookingPage() {
     )
   }
 
+  const businessLogoSrc = typeof business.logo === 'string' ? business.logo : undefined
+
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-primary to-primary/90 text-primary-foreground py-12 md:py-16 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-4 mb-4">
-            {business.logo && typeof business.logo === 'string' && (
-              <img src={business.logo} alt={business.name} className="w-14 h-14 rounded-lg object-cover shadow-lg" />
+            {businessLogoSrc && (
+              <img src={businessLogoSrc} alt={business.name} className="w-14 h-14 rounded-lg object-cover shadow-lg" />
             )}
             <div>
               <h1 className="text-4xl md:text-5xl font-bold text-balance">{business.name}</h1>
@@ -254,6 +340,47 @@ export default function PublicBookingPage() {
                   </div>
                 )}
 
+                {/* Staff Selection Section (Optional) */}
+                {selectedService && staff.length > 0 && (
+                  <div className="border-t border-border pt-6 space-y-4">
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <Users className="w-4 h-4 text-primary" />
+                      Choose Your Preferred Staff <span className="text-xs font-normal text-muted-foreground">(Optional - We&apos;ll auto-assign if not selected)</span>
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {staff.map(staffMember => (
+                        <button
+                          key={staffMember.id}
+                          type="button"
+                          onClick={() => setSelectedStaff(selectedStaff === staffMember.id ? '' : staffMember.id)}
+                          className={`p-4 rounded-lg border-2 transition-all text-left ${
+                            selectedStaff === staffMember.id
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-primary/50 hover:bg-card/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {staffMember.avatar && (
+                              <img 
+                                src={staffMember.avatar} 
+                                alt={staffMember.firstName}
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            )}
+                            <div>
+                              <p className="font-medium text-foreground">{staffMember.firstName} {staffMember.lastName}</p>
+                              {staffMember.phone && (
+                                <p className="text-xs text-muted-foreground">{staffMember.phone}</p>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Personal Information Section */}
                 <div className="space-y-4">
                   <h3 className="font-semibold text-foreground flex items-center gap-2">
@@ -318,15 +445,39 @@ export default function PublicBookingPage() {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">Time *</label>
-                      <Input
-                        type="time"
-                        value={appointmentTime}
-                        onChange={(e) => setAppointmentTime(e.target.value)}
-                        className="bg-background border-border text-foreground"
-                        required
-                      />
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-foreground mb-3">Available Times *</label>
+                      {loadingTimeSlots ? (
+                        <div className="flex items-center justify-center p-4 bg-secondary/20 rounded-lg">
+                          <Loader className="w-4 h-4 mr-2 animate-spin" />
+                          <span className="text-sm text-muted-foreground">Loading available times...</span>
+                        </div>
+                      ) : availableTimeSlots.length === 0 ? (
+                        <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+                          <p className="text-sm text-destructive">No available time slots for this date</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                          {availableTimeSlots.map(slot => (
+                            <button
+                              key={slot.time}
+                              type="button"
+                              onClick={() => slot.isAvailable && setAppointmentTime(slot.time)}
+                              disabled={!slot.isAvailable}
+                              className={`p-3 rounded-lg border-2 font-medium text-sm transition-all ${
+                                appointmentTime === slot.time
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : slot.isAvailable
+                                  ? 'border-border hover:border-primary hover:bg-primary/5 text-foreground cursor-pointer'
+                                  : 'border-border/30 bg-muted/30 text-muted-foreground cursor-not-allowed opacity-50'
+                              }`}
+                              title={!slot.isAvailable ? (selectedStaff ? 'Staff not available' : 'No staff available') : ''}
+                            >
+                              {slot.time}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

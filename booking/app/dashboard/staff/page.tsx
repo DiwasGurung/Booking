@@ -115,27 +115,41 @@ export default function StaffPage() {
       setLoading(false)
     }
   }
-
-  const loadServices = async () => {
+const loadServices = async () => {
     if (!businessId) return
     try {
+      setLoading(true)
       const response = await servicesApi.getBusinessServices(businessId)
-      
-      // Handle various response formats
-      let servicesArray: any[] = []
-      if (response) {
-        if (Array.isArray(response.data)) {
-          servicesArray = response.data
-        } else if (Array.isArray(response)) {
-          servicesArray = response
-        }
-      }
-      
-      setServices(servicesArray)
+      const rawData = response as any
+
+      // API may return either an array or nested structure: { data: { data: Array } }
+      const servicesArray = Array.isArray(rawData)
+        ? rawData
+        : Array.isArray(rawData.data)
+        ? rawData.data
+        : Array.isArray(rawData.data?.data)
+        ? rawData.data.data
+        : []
+
+      const servicesData = servicesArray.map((service: any) => ({
+        id: service.id,
+        name: service.name,
+        description: service.description,
+        price: service.price,
+        offerPrice: service.offerPrice,
+        duration: service.duration,
+        isActive: service.isActive ?? true,
+        capacity: service.capacity ?? 1,
+      }))
+
+      setServices(servicesData)
+      setError(null)
     } catch (err: any) {
-      console.error('[Staff] Error loading services:', err?.message || err)
-      // Services load failed, but page can still function with subscription data
-      setServices([])
+      const errorMessage = err?.message || 'Unknown error'
+      setError(`Failed to load services: ${errorMessage}`)
+      console.error('[v0] Error loading services:', err)
+    } finally {
+      setLoading(false)
     }
   }
 

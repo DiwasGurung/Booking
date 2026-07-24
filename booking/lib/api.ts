@@ -109,6 +109,26 @@ export interface PaymentHistory {
   createdAt: string
 }
 
+export interface Staff {
+  id: string
+  firstName: string
+  lastName: string
+  email?: string
+  phone?: string
+  avatar?: string
+  businessId: string
+  emailVerified?: boolean
+}
+
+export interface BusinessHours {
+  id?: string
+  businessId?: string
+  dayOfWeek: number
+  openingTime: string
+  closingTime: string
+  isClosed: boolean
+}
+
 export async function apiCall<T>(
   endpoint: string,
   options?: RequestInit
