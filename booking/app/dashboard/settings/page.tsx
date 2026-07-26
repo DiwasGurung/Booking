@@ -118,6 +118,7 @@ export default function SettingsPage() {
       const data = await response.json()
       setFormData(prev => prev ? { ...prev, logo: data.logoUrl } : null)
       setLogoFile(null)
+      setLogoPreview(data.logoUrl)
       alert('Logo uploaded successfully!')
     } catch (error: any) {
       console.error('[v0] Logo upload error:', error)
@@ -132,8 +133,12 @@ export default function SettingsPage() {
     if (!formData?.logo) return
     
     try {
+      // Extract filename from logo URL
+      const filename = formData.logo.split('/').pop()
+      if (!filename) throw new Error('Invalid logo URL')
+      
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      const response = await fetch(`${API_URL}/api/businesses/current/logo`, {
+      const response = await fetch(`${API_URL}/api/upload/logo/${filename}`, {
         method: 'DELETE',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -199,19 +204,24 @@ export default function SettingsPage() {
     try {
       setLoading(true)
       const response = await businessApi.getSettings(businessId)
-      const settingsData = response.data ?? defaultSettings
-      setFormData(settingsData)
-      setProfileCompletion(calculateProfileCompletion(settingsData))
-      if (settingsData.logo) {
-        setLogoPreview(settingsData.logo)
+      const payload = response && typeof response === 'object' && 'data' in response ? (response as any).data : response
+      const settingsPayload = payload && typeof payload === 'object' && 'businessName' in payload ? payload as BusinessSettings : null
+      if (settingsPayload) {
+        setFormData(settingsPayload)
+        setProfileCompletion(calculateProfileCompletion(settingsPayload))
+        if (settingsPayload.logo) {
+          setLogoPreview(settingsPayload.logo)
+        }
       }
-      if (response.success && response.data) {
-        setSettings(response.data)
-        setFormData(response.data)
-      } else if (response.data) {
-        // Handle case where response.data directly contains settings
-        setSettings(response.data)
-        setFormData(response.data)
+      if (response && 'success' in response && (response as any).success && (response as any).data) {
+        setSettings((response as any).data)
+        setFormData((response as any).data)
+      } else if (response && 'data' in response && (response as any).data) {
+        setSettings((response as any).data)
+        setFormData((response as any).data)
+      } else if (settingsPayload) {
+        setSettings(settingsPayload)
+        setFormData(settingsPayload)
       } else {
         setSettings(defaultSettings)
         setFormData(defaultSettings)
@@ -347,6 +357,30 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Business Hours Setup Reminder */}
+        <Card className="mb-8 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border-amber-200 dark:border-amber-800">
+          <CardContent className="pt-6">
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-amber-900 dark:text-amber-100">Configure Business Hours</h3>
+                  <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
+                    Set up your operating hours to enable customers to book appointments. Without business hours configured, online booking won&apos;t be available.
+                  </p>
+                  <Button 
+                    onClick={() => router.push('/dashboard/business-hours')}
+                    className="mt-3 bg-amber-600 hover:bg-amber-700 text-white"
+                    size="sm"
+                  >
+                    Configure Hours →
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto">

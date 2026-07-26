@@ -414,7 +414,7 @@ const loadServices = async () => {
           </Card>
         )}
 
-        {/* Services Usage Card */}
+        {/* Services Usage Card
         {subscriptionUsage && (
           <Card className="mb-8 bg-gradient-to-br from-green-50 to-green-50/50 border-green-200">
             <CardHeader className="pb-3">
@@ -432,7 +432,7 @@ const loadServices = async () => {
               </div>
             </CardHeader>
           </Card>
-        )}
+        )} */}
 
         {error && (
           <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive">

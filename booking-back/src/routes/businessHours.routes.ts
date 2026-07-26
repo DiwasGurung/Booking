@@ -18,7 +18,7 @@ businessHoursRoutes.get(
 )
 
 // Update hours by ID
-businessHoursRoutes.put("/:id", BusinessHoursController.update)
+businessHoursRoutes.put("/business/:businessId", BusinessHoursController.update)
 
 // Delete hours by ID
 businessHoursRoutes.delete("/:id", BusinessHoursController.delete)

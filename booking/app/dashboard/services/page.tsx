@@ -113,19 +113,19 @@ export default function ServicesPage() {
     }
   }
 
-  const loadHours = async () => {
-    try {
-      const response = await fetch(`http://localhost:5001/api/business-hours/business/${businessId}`, {
-        credentials: 'include',
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setHours(data)
-      }
-    } catch (err) {
-      console.error('[v0] Error loading hours:', err)
-    }
-  }
+  // const loadHours = async () => {
+  //   try {
+  //     const response = await fetch(`http://localhost:5001/api/business-hours/business/${businessId}`, {
+  //       credentials: 'include',
+  //     })
+  //     if (response.ok) {
+  //       const data = await response.json()
+  //       setHours(data)
+  //     }
+  //   } catch (err) {
+  //     console.error('[v0] Error loading hours:', err)
+  //   }
+  // }
 
   const handleEditClick = (service: Service) => {
     setEditingServiceId(service.id)
@@ -196,27 +196,27 @@ export default function ServicesPage() {
     }
   }
 
-  const createHours = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      await fetch('http://localhost:5001/api/business-hours', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          businessId,
-          dayOfWeek: Number(dayOfWeek),
-          openTime,
-          closeTime,
-          isClosed,
-        }),
-      })
-      loadHours()
-    } catch (err) {
-      setError('Failed to save hours')
-      console.error('[v0] Error saving hours:', err)
-    }
-  }
+  // const createHours = async (e: React.FormEvent) => {
+  //   e.preventDefault()
+  //   try {
+  //     await fetch('http://localhost:5001/api/business-hours', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       credentials: 'include',
+  //       body: JSON.stringify({
+  //         businessId,
+  //         dayOfWeek: Number(dayOfWeek),
+  //         openTime,
+  //         closeTime,
+  //         isClosed,
+  //       }),
+  //     })
+  //     loadHours()
+  //   } catch (err) {
+  //     setError('Failed to save hours')
+  //     console.error('[v0] Error saving hours:', err)
+  //   }
+  // }
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(bookingUrl)
@@ -484,15 +484,15 @@ export default function ServicesPage() {
           </Card>
         </div>
 
-        {/* Business Hours Section */}
-        <Card>
+ 
+        {/* <Card>
           <CardHeader>
             <CardTitle>Business Hours</CardTitle>
             <CardDescription>Set your operating hours for each day</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-8 lg:grid-cols-3">
-              {/* Hours Form */}
+       
               <div className="p-4 rounded-lg bg-muted border border-border">
                 <h3 className="font-semibold mb-4">Add/Update Hours</h3>
                 <form onSubmit={createHours} className="space-y-4">
@@ -550,7 +550,7 @@ export default function ServicesPage() {
                 </form>
               </div>
 
-              {/* Hours List */}
+    
               <div className="lg:col-span-2">
                 <h3 className="font-semibold mb-4">Current Hours</h3>
                 {hours.length === 0 ? (
@@ -573,7 +573,7 @@ export default function ServicesPage() {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </main>
     </div>
   )

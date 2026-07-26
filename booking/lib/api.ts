@@ -254,13 +254,8 @@ export const servicesApi = {
 
 // Business Hours API - /api/business-hours prefix
 export const businessHoursApi = {
-  // Get business hours for a business
-  getBusinessHours: (businessId: string) =>
-    apiCall<any[]>(`/api/business-hours/business/${businessId}`),
 
-  // Get hours for a specific day
-  getHoursByDay: (businessId: string, dayOfWeek: number) =>
-    apiCall<any>(`/api/business-hours/business/${businessId}/${dayOfWeek}`),
+  
 
   // Create business hours
   create: (data: any) =>
@@ -269,11 +264,13 @@ export const businessHoursApi = {
       body: JSON.stringify(data),
     }),
 
-  // Update business hours
-  update: (id: string, data: any) =>
-    apiCall<any>(`/api/business-hours/${id}`, {
+
+
+  // Update business hours for all days
+  updateBusinessHours: (businessId: string, hours: any[]) =>
+    apiCall<any>(`/api/business-hours/business/${businessId}`, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ hours }),
     }),
 
   // Delete business hours
@@ -281,6 +278,25 @@ export const businessHoursApi = {
     apiCall<void>(`/api/business-hours/${id}`, {
       method: 'DELETE',
     }),
+
+    // Get all business hours for a business
+  getBusinessHours: (businessId: string) =>
+    apiCall<BusinessHours[]>(`/api/business-hours/business/${businessId}`),
+
+  // Set/Update business hours for a specific day (upsert)
+  setBusinessHours: (data: any) =>
+    apiCall<any>(`/api/business-hours`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Check if business is open
+  isBusinessOpen: (businessId: string) =>
+    apiCall<{ isOpen: boolean }>(`/api/business-hours/business/${businessId}/is-open`),
+
+  // Get hours for specific day
+  getHoursForDay: (businessId: string, dayOfWeek: number) =>
+    apiCall<BusinessHours>(`/api/business-hours/business/${businessId}/day/${dayOfWeek}`),
 }
 
 // Bookings API - /api/booking prefix

@@ -240,8 +240,26 @@ export default function PublicBookingPage() {
         </div>
       </div>
 
-      {/* Main Content */}
+
       <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
+        {/* Business Hours Warning */}
+        {businessHours.length === 0 && (
+          <div className="mb-8 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-lg">
+            <div className="flex gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-amber-900 mb-1">Bookings Not Available</h3>
+                <p className="text-sm text-amber-800 mb-2">
+                  The business hasn&apos;t set up their operating hours yet. Please contact them to enable online booking.
+                </p>
+                <p className="text-xs text-amber-700">
+                  <strong>Business Owner:</strong> Go to Settings → Business Hours to configure your availability.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-3 gap-8">
           {/* Business Info Sidebar */}
           <div className="md:col-span-1 space-y-6">

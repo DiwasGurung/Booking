@@ -13,12 +13,24 @@ export default function HomePage() {
 
   // Redirect authenticated business owners to their dashboard
   useEffect(() => {
-    if (!loading && user && user.role === 'BUSINESS_OWNER') {
+    if (loading) return
+    
+    if (!user) return
+
+    // Redirect business owners to their dashboard
+    if (user.role === 'BUSINESS_OWNER') {
       const businessId = user.business?.id || (user as any).businessId
       if (businessId) {
         router.replace(`/dashboard/${businessId}`)
       }
     }
+    
+    // Redirect customers to search/booking page
+    if (user.role === 'CUSTOMER') {
+      router.replace('/search')
+    }
+    
+   
   }, [user, loading, router])
 
   return (
