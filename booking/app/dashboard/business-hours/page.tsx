@@ -107,6 +107,32 @@ export default function BusinessHoursPage() {
     )
   }
 
+  function addClosedDate() {
+    if (!newClosedDate) {
+      setError('Please select a date')
+      return
+    }
+
+    // Check if date already exists
+    if (closedDates.some(d => d.date === newClosedDate)) {
+      setError('This date is already marked as closed')
+      return
+    }
+
+    setClosedDates([...closedDates, {
+      date: newClosedDate,
+      reason: newClosedDateReason
+    }])
+
+    setNewClosedDate('')
+    setNewClosedDateReason('')
+    setError(null)
+  }
+
+  function removeClosedDate(dateToRemove: string) {
+    setClosedDates(closedDates.filter(d => d.date !== dateToRemove))
+  }
+
   async function saveBusinessHours() {
     if (!businessId) return
 
@@ -115,6 +141,7 @@ export default function BusinessHoursPage() {
       setError(null)
       setSaveSuccess(false)
 
+      // Save operating hours
       const savePromises = dayHours.map(day =>
         businessHoursApi.setBusinessHours({
           businessId,
@@ -126,6 +153,9 @@ export default function BusinessHoursPage() {
       )
 
       await Promise.all(savePromises)
+
+      console.log('[v0] Business hours saved. Closed dates:', closedDates)
+
       setSaveSuccess(true)
       setTimeout(() => {
         router.push('/dashboard')
@@ -155,8 +185,7 @@ export default function BusinessHoursPage() {
     <AuthWrapper mode="business-only">
       <div className=" min-h-screen bg-background">
         <Sidebar />
-          <main className="md:ml-64 pt-6 px-4 md:px-8 py-8">
-
+           <main className="md:ml-64 pt-6 px-4 md:px-8 py-8">
             <Breadcrumbs
               items={[
                 { label: 'Dashboard', href: '/dashboard' },
@@ -325,7 +354,11 @@ export default function BusinessHoursPage() {
                                 />
                               </div>
                             </div>
-                            <Button className="w-full" size="sm">
+                            <Button 
+                              onClick={addClosedDate}
+                              className="w-full" 
+                              size="sm"
+                            >
                               Add Closed Date
                             </Button>
                           </div>
@@ -335,17 +368,31 @@ export default function BusinessHoursPage() {
                       {/* Closed Dates List */}
                       {closedDates.length > 0 && (
                         <div className="space-y-2">
+                          <p className="text-xs md:text-sm font-medium text-muted-foreground">
+                            {closedDates.length} closed date{closedDates.length !== 1 ? 's' : ''}
+                          </p>
                           {closedDates.map((date, idx) => (
                             <div key={idx} className="flex items-center justify-between p-3 bg-card border border-border rounded-lg">
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-sm md:text-base">{date.date}</p>
                                 {date.reason && <p className="text-xs md:text-sm text-muted-foreground">{date.reason}</p>}
                               </div>
-                              <Button variant="ghost" size="sm" className="ml-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="ml-2"
+                                onClick={() => removeClosedDate(date.date)}
+                              >
                                 <X className="w-4 h-4" />
                               </Button>
                             </div>
                           ))}
+                        </div>
+                      )}
+
+                      {closedDates.length === 0 && (
+                        <div className="p-4 text-center bg-muted/50 rounded-lg">
+                          <p className="text-sm text-muted-foreground">No closed dates set yet</p>
                         </div>
                       )}
                     </TabsContent>
@@ -398,11 +445,9 @@ export default function BusinessHoursPage() {
                   Back to Dashboard
                 </Button>
               </div>
-                  
-        </div>
-        </main>
+            </div>
+            </main>
       </div>
     </AuthWrapper>
   )
 }
-
