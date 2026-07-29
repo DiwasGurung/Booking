@@ -3,130 +3,144 @@ import PaymentService from "../services/payment.service"
 import { PaymentStatus } from "@prisma/client"
 
 class PaymentController {
-  /**
-   * Create payment
-   */
-  async create(req: Request, res: Response) {
+  
+
+   async getBusinessPayments(req: Request, res: Response) {
     try {
-      const payment = await PaymentService.createPayment(req.body)
-      res.status(201).json(payment)
-    } catch (error) {
-      res.status(500).json({ message: "Failed to create payment", error })
+      const { businessId } = req.params;
+      const { page = '1', limit = '10', status } = req.query;
+
+      const pageNum = Math.max(1, parseInt(page as string) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string) || 10));
+      const skip = (pageNum - 1) * limitNum;
+
+      const payments = await PaymentService.getBusinessPayments(businessId as string, {
+        skip,
+        limit: limitNum,
+        status: status as string
+      });
+
+      const total = await PaymentService.getBusinessPaymentsCount(businessId as string);
+
+      return res.json({
+        success: true,
+        data: payments,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum)
+        }
+      });
+    } catch (error: any) {
+      console.error('[Payment] Error fetching business payments:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Failed to fetch payments'
+      });
     }
   }
 
   /**
-   * Get payment by ID
+   * GET /api/payment/:paymentId
+   * Get payment details by ID with business verification
    */
   async getById(req: Request, res: Response) {
     try {
-      const { id } = req.params
-      const payment = await PaymentService.getPaymentById(id as string)
+      const { paymentId } = req.params;
+      const { businessId } = req.query;
 
-      if (!payment) {
-        return res.status(404).json({ message: "Payment not found" })
+      if (!businessId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Business ID is required'
+        });
       }
 
-      res.json(payment)
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch payment", error })
+      const payment = await PaymentService.getPaymentById(paymentId as string, businessId as string);
+
+      return res.json({
+        success: true,
+        data: payment
+      });
+    } catch (error: any) {
+      console.error('[Payment] Error fetching payment details:', error);
+      const statusCode = error.message.includes('Unauthorized') ? 403 : error.message.includes('not found') ? 404 : 500;
+      return res.status(statusCode).json({
+        success: false,
+        message: error.message || 'Failed to fetch payment'
+      });
     }
   }
 
   /**
-   * Get payment by booking ID
+   * PUT /api/payment/:paymentId/status
+   * Update payment status (admin only)
    */
-  async getByBookingId(req: Request, res: Response) {
+ async updateStatus(req: Request, res: Response) {
     try {
-      const { bookingId } = req.params
-      const payment = await PaymentService.getPaymentByBookingId(bookingId as string)
+      const { paymentId } = req.params;
+      const { status, businessId } = req.body;
 
-      if (!payment) {
-        return res.status(404).json({ message: "Payment not found" })
+      if (!status || !businessId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Status and Business ID are required'
+        });
       }
 
-      res.json(payment)
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch payment", error })
+      const updatedPayment = await PaymentService.updatePaymentStatus(paymentId as string, status, businessId);
+
+      return res.json({
+        success: true,
+        data: updatedPayment,
+        message: 'Payment status updated successfully'
+      });
+    } catch (error: any) {
+      console.error('[Payment] Error updating payment status:', error);
+      const statusCode = error.message.includes('Unauthorized') ? 403 : 500;
+      return res.status(statusCode).json({
+        success: false,
+        message: error.message || 'Failed to update payment status'
+      });
     }
   }
 
   /**
-   * Update payment status
-   */
-  async updateStatus(req: Request, res: Response) {
-    try {
-      const { id } = req.params
-      const { status } = req.body as { status: PaymentStatus }
-
-      const payment = await PaymentService.updatePaymentStatus(id as string, status)
-      res.json(payment)
-    } catch (error) {
-      res.status(500).json({ message: "Failed to update payment status", error })
-    }
-  }
-
-  /**
-   * Update payment
-   */
-  async update(req: Request, res: Response) {
-    try {
-      const { id } = req.params
-      const payment = await PaymentService.updatePayment(id as string, req.body)
-      res.json(payment)
-    } catch (error) {
-      res.status(500).json({ message: "Failed to update payment", error })
-    }
-  }
-
-  /**
-   * Get business payments
-   */
-  async getBusinessPayments(req: Request, res: Response) {
-    try {
-      const { businessId } = req.params
-      const page = Number(req.query.page) || 1
-      const limit = Number(req.query.limit) || 10
-      const status = req.query.status as PaymentStatus | undefined
-
-      const result = await PaymentService.getBusinessPayments(
-        businessId as string,
-        page,
-        limit,
-        status,
-      )
-
-      res.json(result)
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch payments", error })
-    }
-  }
-
-  /**
-   * Revenue analytics
-   */
-  async revenueAnalytics(req: Request, res: Response) {
-    try {
-      const { businessId } = req.params
-      const analytics = await PaymentService.getRevenueAnalytics(businessId as string)
-      res.json(analytics)
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch revenue analytics", error })
-    }
-  }
-
-  /**
+   * PUT /api/payment/:paymentId/refund
    * Refund payment
    */
-  async refund(req: Request, res: Response) {
-    try {
-      const { id } = req.params
-      const payment = await PaymentService.refundPayment(id as string)
-      res.json(payment)
-    } catch (error) {
-      res.status(500).json({ message: "Failed to refund payment", error })
-    }
-  }
+  //  async refund(req: Request, res: Response) {
+  //   try {
+  //     const { paymentId } = req.params;
+  //     const { businessId, reason } = req.body;
+
+  //     if (!businessId) {
+  //       return res.status(400).json({
+  //         success: false,
+  //         message: 'Business ID is required'
+  //       });
+  //     }
+
+  //     const refundedPayment = await PaymentService.refundPayment(paymentId as string, businessId as string, reason);
+
+  //     return res.json({
+  //       success: true,
+  //       data: refundedPayment,
+  //       message: 'Payment refunded successfully'
+  //     });
+  //   } catch (error: any) {
+  //     console.error('[Payment] Error refunding payment:', error);
+  //     const statusCode = error.message.includes('Unauthorized') ? 403 : error.message.includes('not found') ? 404 : 500;
+  //     return res.status(statusCode).json({
+  //       success: false,
+  //       message: error.message || 'Failed to refund payment'
+  //     });
+  //   }
+  // }
+
+  
+
 }
 
 export default new PaymentController()

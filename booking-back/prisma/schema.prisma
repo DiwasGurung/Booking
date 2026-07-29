@@ -128,7 +128,10 @@ model Business {
   payments  Payment[]
   reviews   Review[]
   hours     BusinessHours[]
+  closedDates ClosedDate[]
   customers Customer[]
+  timeOffs    TimeOff[]
+  holidays    StaffHoliday[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -169,6 +172,7 @@ model Staff {
 
   services  StaffService[]
   bookings  Booking[]
+  timeOffs  TimeOff[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -263,7 +267,6 @@ model Booking {
 
   status BookingStatus @default(PENDING)
 
-  payment       Payment?
   notifications Notification[] @relation("BookingNotifications")
 
   createdAt DateTime @default(now())
@@ -277,10 +280,6 @@ model Payment {
 
   businessId        String
   business          Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  // Booking payment (optional)
-  bookingId         String?  @unique
-  booking           Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   // Subscription payment (optional)
   subscriptionId    String?
@@ -460,3 +459,57 @@ model Subscription {
   @@map("subscriptions")
 }
 
+
+model TimeOff {
+  id        String   @id @default(cuid())
+  businessId String
+  business  Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  staffId   String?
+  staff     Staff?   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  
+  startDate DateTime
+  endDate   DateTime
+  reason    String?
+  type      String   @default("BREAK") // BREAK, SICK_LEAVE, VACATION, OTHER
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([staffId])
+  @@index([startDate])
+  @@map("time_offs")
+}
+
+model StaffHoliday {
+  id        String   @id @default(cuid())
+  businessId String
+  business  Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  date      DateTime
+  name      String
+  isRecurring Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([businessId, date])
+  @@index([businessId])
+  @@index([date])
+  @@map("staff_holidays")
+}
+model ClosedDate {
+  id         String @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  date   DateTime
+  reason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([businessId, date])
+  @@index([businessId])
+}

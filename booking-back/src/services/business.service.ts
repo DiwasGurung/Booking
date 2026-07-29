@@ -170,32 +170,6 @@ export class BusinessService {
   }
 
   /**
-   * Get monthly revenue
-   */
-  async getMonthlyRevenue(businessId: string, months = 6) {
-    const startDate = new Date()
-    startDate.setMonth(startDate.getMonth() - months)
-
-    const payments = await prisma.payment.findMany({
-      where: {
-        businessId,
-        status: "COMPLETED",
-        createdAt: { gte: startDate },
-      },
-      select: { amount: true, createdAt: true },
-    })
-
-    // Group by month
-    const monthlyData: Record<string, number> = {}
-    payments.forEach((payment: any) => {
-      const monthKey = payment.createdAt.toISOString().slice(0, 7)
-      monthlyData[monthKey] = (monthlyData[monthKey] || 0) + payment.amount
-    })
-
-    return monthlyData
-  }
-
-  /**
    * Search businesses
    */
   async searchBusinesses(query: string, limit = 10) {

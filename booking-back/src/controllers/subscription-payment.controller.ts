@@ -1,4 +1,5 @@
-
+// src/controllers/subscription-payment.controller.ts
+// Controller for handling subscription payments with eSewa
 
 import { Request, Response } from 'express';
 import  prisma  from '../lib/prisma';
@@ -31,13 +32,13 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
     // Import billing utility to calculate price
     const { getPriceForPeriod, getDurationDays } = require('../utils/billing');
     const priceNPR = getPriceForPeriod(
-      plan.priceNPR,
+      plan.priceMonthlyNPR,
       billingPeriod,
       {
-        monthly: plan.priceNPR,
-        quarterly: plan.priceNPR,
-        semiAnnual: plan.priceNPR,
-        annual: plan.priceNPR,
+        monthly: plan.priceMonthlyNPR,
+        quarterly: plan.priceQuarterlyNPR,
+        semiAnnual: plan.priceSemiAnnualNPR,
+        annual: plan.priceAnnualNPR,
       }
     );
 
@@ -66,19 +67,6 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
     // Generate unique transaction ID
     const transactionUuid = `SUB-${subscription.id}-${Date.now()}`;
 
-    // Create pending payment record
-    const payment = await prisma.payment.create({
-      data: {
-        businessId,
-        subscriptionId: subscription.id,
-        gateway: 'ESEWA',
-        transactionId: transactionUuid,
-        amount: priceNPR,
-        status: 'pending',
-        currency: 'NPR',
-      },
-    });
-
     // Generate eSewa payment form data
     const esewaResponse = await esewaService.initiatePayment({
       amount: priceNPR,
@@ -92,7 +80,6 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
     }
 
     console.log('[SubscriptionPayment] eSewa payment initiated:', {
-      paymentId: payment.id,
       transactionUuid,
       amount: priceNPR,
       billingPeriod,
@@ -101,7 +88,6 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      paymentId: payment.id,
       formData: esewaResponse.formData,
       paymentUrl: esewaResponse.paymentUrl,
       billingPeriod,
@@ -142,15 +128,16 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
       transactionCode: transaction_code,
     });
 
-    // Find the payment record
-    const payment = await prisma.payment.findUnique({
-      where: { transactionId: transaction_uuid },
-      include: { subscription: true },
+    // Find the subscription using the transaction UUID
+    const subscriptionId = transaction_uuid.split('-')[1];
+    const subscription = await prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+      include: { plan: true },
     });
 
-    if (!payment) {
-      console.error('[SubscriptionPayment] Payment not found:', transaction_uuid);
-      return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Payment not found`);
+    if (!subscription) {
+      console.error('[SubscriptionPayment] Subscription not found for transaction:', transaction_uuid);
+      return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Subscription not found`);
     }
 
     // Verify with eSewa server (server-to-server verification)
@@ -161,27 +148,24 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
 
     if (!verification.success) {
       console.error('[SubscriptionPayment] eSewa verification failed:', verification.message);
-      
-      await prisma.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: 'failed',
-          errorMessage: verification.message,
-        },
-      });
-
       return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Payment verification failed`);
     }
 
-    // Update payment record
-    await prisma.payment.update({
-      where: { id: payment.id },
+    // Create payment record AFTER successful verification
+    const payment = await prisma.payment.create({
       data: {
+        businessId: subscription.businessId,
+        subscriptionId: subscription.id,
+        gateway: 'ESEWA',
+        transactionId: transaction_uuid,
+        amount: Math.round(parseFloat(total_amount) * 100),
         status: 'completed',
         esewaRefId: transaction_code,
         esewaProductCode: esewaService.getProductCode(),
       },
     });
+
+    console.log('[SubscriptionPayment] Payment created after verification:', payment.id);
 
     // Activate subscription
     if (payment.subscriptionId) {
@@ -219,19 +203,8 @@ export const handleEsewaFailure = async (req: Request, res: Response) => {
 
     console.log('[SubscriptionPayment] eSewa failure callback:', { data });
 
-    if (data && typeof data === 'string') {
-      const decoded = esewaService.decodeEsewaResponse(data);
-      
-      if (decoded.data?.transaction_uuid) {
-        await prisma.payment.updateMany({
-          where: { transactionId: decoded.data.transaction_uuid },
-          data: {
-            status: 'failed',
-            errorMessage: 'Payment failed or cancelled by user',
-          },
-        });
-      }
-    }
+    // No need to update payment records since payments are only created after successful verification
+    // Failed transactions don't have payment records
 
     return res.redirect(`${FRONTEND_URL}/subscription?status=failed&message=Payment was cancelled or failed`);
   } catch (error: any) {
@@ -266,18 +239,18 @@ export const getSubscriptionUsage = async (req: Request, res: Response) => {
     const [appointmentsCount, staffCount, servicesCount, customersCount] = await Promise.all([
       prisma.booking.count({
         where: {
-          businessId: businessId as string,
+          businessId: id,
           createdAt: { gte: startOfMonth },
         },
       }),
       prisma.staff.count({
-        where: { businessId: businessId as string, isActive: true },
+        where: { businessId: id, isActive: true },
       }),
       prisma.service.count({
-        where: { businessId: businessId as string, isActive: true },
+        where: { businessId: id, isActive: true },
       }),
       prisma.customer.count({
-        where: { businessId: businessId as string },
+        where: { businessId: id },
       }),
     ]);
 
@@ -308,6 +281,7 @@ export const getSubscriptionUsage = async (req: Request, res: Response) => {
         customers: customersCount,
       },
       features: {
+      
         allowEmailNotifications: plan.allowEmailNotifications,
         allowOnlineBooking: plan.allowOnlineBooking,
         allowReports: plan.allowReports,
@@ -362,7 +336,7 @@ export const checkSubscriptionLimit = async (req: Request, res: Response) => {
           const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
           currentUsage = await prisma.booking.count({
             where: {
-              businessId: businessId as string  ,
+              businessId: id,
               createdAt: { gte: startOfMonth },
             },
           });
@@ -375,7 +349,7 @@ export const checkSubscriptionLimit = async (req: Request, res: Response) => {
       case 'add-staff':
         if (plan.maxStaff !== -1) {
           currentUsage = await prisma.staff.count({
-            where: { businessId: businessId as string, isActive: true },
+            where: { businessId: id, isActive: true },
           });
           limit = plan.maxStaff;
           allowed = currentUsage < limit;
@@ -386,7 +360,7 @@ export const checkSubscriptionLimit = async (req: Request, res: Response) => {
       case 'add-service':
         if (plan.maxServices !== -1) {
           currentUsage = await prisma.service.count({
-            where: { businessId: businessId as string, isActive: true },
+            where: { businessId: id, isActive: true },
           });
           limit = plan.maxServices;
           allowed = currentUsage < limit;
@@ -397,13 +371,14 @@ export const checkSubscriptionLimit = async (req: Request, res: Response) => {
       case 'add-customer':
         if (plan.maxCustomers !== -1) {
           currentUsage = await prisma.customer.count({
-            where: { businessId: businessId as string },
+            where: { businessId: id },
           });
           limit = plan.maxCustomers;
           allowed = currentUsage < limit;
           reason = allowed ? '' : `Customer limit reached (${limit})`;
         }
         break;
+
 
       case 'view-reports':
         allowed = plan.allowReports;

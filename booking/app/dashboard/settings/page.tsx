@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { useBusinessId } from '@/hooks/useBusinessId'
-import { businessApi } from '@/lib/api'
+import { businessHoursApi, businessApi } from '@/lib/api'
 import { Loader, AlertCircle, Save, Settings, Bell, Lock, Trash2, Copy, Check, Upload, X } from 'lucide-react'
 
 interface BusinessSettings {
@@ -60,6 +60,7 @@ export default function SettingsPage() {
   const [copied, setCopied] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [activeTab, setActiveTab] = useState('business')
+  const [hasBusinessHours, setHasBusinessHours] = useState(false)
 
   // Calculate profile completion percentage
   const calculateProfileCompletion = (data: BusinessSettings) => {
@@ -187,6 +188,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (businessId) {
       loadSettings()
+      checkBusinessHours()
     }
   }, [businessId])
 
@@ -197,6 +199,24 @@ export default function SettingsPage() {
     }
   }, [fetchingBusinessId, businessIdError, businessId, router])
 
+  const checkBusinessHours = async () => {
+    if (!businessId) {
+      return
+    }
+    try {
+      const response = await businessHoursApi.getBusinessHours(businessId )
+      // Check if business hours exist
+      const hours = response.data || response
+      setHasBusinessHours(
+        hours && 
+        (Array.isArray(hours) ? hours.length > 0 : Object.keys(hours).length > 0)
+      )
+    } catch (err) {
+      console.error('[v0] Error checking business hours:', err)
+      setHasBusinessHours(false)
+    }
+  }
+
   const loadSettings = async () => {
     if (!businessId) {
       return
@@ -204,24 +224,19 @@ export default function SettingsPage() {
     try {
       setLoading(true)
       const response = await businessApi.getSettings(businessId)
-      const payload = response && typeof response === 'object' && 'data' in response ? (response as any).data : response
-      const settingsPayload = payload && typeof payload === 'object' && 'businessName' in payload ? payload as BusinessSettings : null
-      if (settingsPayload) {
-        setFormData(settingsPayload)
-        setProfileCompletion(calculateProfileCompletion(settingsPayload))
-        if (settingsPayload.logo) {
-          setLogoPreview(settingsPayload.logo)
-        }
+      const settingsData = response.data ?? response
+      setFormData(settingsData)
+      setProfileCompletion(calculateProfileCompletion(settingsData as BusinessSettings))
+      if ((settingsData as BusinessSettings).logo) {
+        setLogoPreview((settingsData as BusinessSettings).logo ?? null)
       }
-      if (response && 'success' in response && (response as any).success && (response as any).data) {
-        setSettings((response as any).data)
-        setFormData((response as any).data)
-      } else if (response && 'data' in response && (response as any).data) {
-        setSettings((response as any).data)
-        setFormData((response as any).data)
-      } else if (settingsPayload) {
-        setSettings(settingsPayload)
-        setFormData(settingsPayload)
+      if (response.success && response.data) {
+        setSettings(response.data)
+        setFormData(response.data)
+      } else if (response.data) {
+        // Handle case where response.data directly contains settings
+        setSettings(response.data)
+        setFormData(response.data)
       } else {
         setSettings(defaultSettings)
         setFormData(defaultSettings)
@@ -358,29 +373,31 @@ export default function SettingsPage() {
           </Card>
         )}
 
-        {/* Business Hours Setup Reminder */}
-        <Card className="mb-8 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border-amber-200 dark:border-amber-800">
-          <CardContent className="pt-6">
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-amber-900 dark:text-amber-100">Configure Business Hours</h3>
-                  <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
-                    Set up your operating hours to enable customers to book appointments. Without business hours configured, online booking won&apos;t be available.
-                  </p>
-                  <Button 
-                    onClick={() => router.push('/dashboard/business-hours')}
-                    className="mt-3 bg-amber-600 hover:bg-amber-700 text-white"
-                    size="sm"
-                  >
-                    Configure Hours →
-                  </Button>
+        {/* Business Hours Setup Reminder - Only show if no hours configured */}
+        {!hasBusinessHours && (
+          <Card className="mb-8 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border-amber-200 dark:border-amber-800">
+            <CardContent className="pt-6">
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-amber-900 dark:text-amber-100">Configure Business Hours</h3>
+                    <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
+                      Set up your operating hours to enable customers to book appointments. Without business hours configured, online booking won&apos;t be available.
+                    </p>
+                    <Button 
+                      onClick={() => router.push('/dashboard/business-hours')}
+                      className="mt-3 bg-amber-600 hover:bg-amber-700 text-white"
+                      size="sm"
+                    >
+                      Configure Hours →
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto">

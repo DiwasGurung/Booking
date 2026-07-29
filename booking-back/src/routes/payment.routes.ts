@@ -1,29 +1,38 @@
-import { Router } from "express"
+import { Router, Request, Response } from "express"
 import PaymentController from "../controllers/payment.controller"
+import { auth } from "../middleware/auth.middleware"
 
 const paymentRoutes = Router()
 
-// Create payment
-paymentRoutes.post("/", PaymentController.create)
 
-// Get business payments
-paymentRoutes.get("/business/:businessId", PaymentController.getBusinessPayments)
 
-// Revenue analytics
-paymentRoutes.get("/business/:businessId/analytics", PaymentController.revenueAnalytics)
 
-// Get payment by booking ID
-paymentRoutes.get("/booking/:bookingId", PaymentController.getByBookingId)
+paymentRoutes.get('/business/:businessId', auth, (req: Request, res: Response) => {
+  PaymentController.getBusinessPayments(req, res);
+});
 
-// Get payment by ID
-paymentRoutes.get("/:id", PaymentController.getById)
-// Update payment
-paymentRoutes.put("/:id", PaymentController.update)
+/**
+ * GET /api/payment/:paymentId
+ * Get specific payment details (requires businessId query parameter for verification)
+ */
+paymentRoutes.get('/:paymentId', auth, (req: Request, res: Response) => {
+  PaymentController.getById(req, res);
+});
 
-// Update payment status
-paymentRoutes.put("/:id/status", PaymentController.updateStatus)
+/**
+ * PUT /api/payment/:paymentId/status
+ * Update payment status (admin only) - requires businessId in request body
+ */
+paymentRoutes.put('/:paymentId/status', auth, (req: Request, res: Response) => {
+  PaymentController.updateStatus(req, res);
+});
 
-// Refund payment
-paymentRoutes.put("/:id/refund", PaymentController.refund)
+/**
+ * PUT /api/payment/:paymentId/refund
+ * Refund a completed payment - requires businessId in request body
+ */
+// paymentRoutes.put('/:paymentId/refund', auth, (req: Request, res: Response) => {
+//   PaymentController.refund(req, res);
+// });
 
 export default paymentRoutes

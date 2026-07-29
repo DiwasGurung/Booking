@@ -1,22 +1,3 @@
-/**
- * Subscription Page with Plan Selection and Billing Period Options
- * 
- * Component Flow:
- * 1. SubscriptionPlanCard - Displays individual plan with features and pricing
- *    - Integrates BillingPeriodSelector for monthly/quarterly/6-month/yearly options
- *    - Calls onSelect callback with planId and billingPeriod
- * 
- * 2. BillingPeriodSelector - Inline component showing billing period options
- *    - Displays discount badges (-10%, -20%, -25%)
- *    - Calculates prices based on selected period
- *    - Emits selected period to parent (SubscriptionPlanCard)
- * 
- * 3. Payment Flow:
- *    - User clicks SubscriptionPlanCard -> onSelect called
- *    - handlePlanSelect captures billingPeriod and triggers trial or payment
- *    - Trial: Creates subscription with TRIAL status (15-day free period)
- *    - Payment: Redirects to eSewa with correct pricing for selected period
- */
 
 'use client'
 
@@ -99,16 +80,20 @@ export default function SubscriptionPlan() {
   const message = searchParams.get('message')
   const fromSetup = searchParams.get('from') === 'setup'
 
-  // Show payment status messages
-  useEffect(() => {
+   useEffect(() => {
     if (status === 'success') {
       toast.success(message || 'Payment successful! Your subscription is now active.')
+      // Redirect to dashboard after payment success
+      const redirectTimer = setTimeout(() => {
+        router.push('/dashboard')
+      }, 2000)
+      return () => clearTimeout(redirectTimer)
     } else if (status === 'failed') {
       toast.error(message || 'Payment failed. Please try again.')
     } else if (status === 'error') {
       toast.error(message || 'An error occurred during payment.')
     }
-  }, [status, message])
+  }, [status, message, router])
 
   // Check if trial has been used
   useEffect(() => {
@@ -399,62 +384,56 @@ export default function SubscriptionPlan() {
       setIsLoading(false)
     }
   }
+const handleEsewaPayment = async (planId: string, billingPeriod: BillingPeriod) => {
+  setIsLoading(true)
+  try {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
-  const handleEsewaPayment = async (planId: string, billingPeriod: BillingPeriod) => {
-    setIsLoading(true)
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+    // Get current business
+    const businessResponse = await fetch(`${API_URL}/api/businesses/current`, {
+      credentials: 'include',
+      headers: getAuthHeaders(),
+    })
 
-      // Get current business
-      const businessResponse = await fetch(`${API_URL}/api/businesses/current`, {
-        credentials: 'include',
-        headers: getAuthHeaders(),
-      })
-
-      if (!businessResponse.ok) {
-        const errorData = await businessResponse.json().catch(() => ({}))
-        throw new Error(errorData.error || errorData.message || 'Failed to get business information')
-      }
-
-      const businessData = await businessResponse.json()
-      const businessId = businessData.id || businessData.business?.id
-      
-      if (!businessId) {
-        throw new Error('Business ID not found')
-      }
-
-      // Initiate eSewa payment with billing period
-      const response = await fetch(`${API_URL}/api/subscription-payment/esewa/initiate`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          businessId,
-          planId,
-          billingPeriod,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
-        throw new Error(data.error || 'Failed to initiate payment')
-      }
-
-      const data = await response.json()
-
-      if (data.success && data.formData && data.paymentUrl) {
-        setEsewaPaymentUrl(data.paymentUrl)
-        setEsewaFormData(data.formData)
-        toast.info('Redirecting to eSewa...')
-      } else {
-        throw new Error('Invalid payment response')
-      }
-    } catch (error: any) {
-      console.error('[v0] eSewa payment error:', error)
-      toast.error(error.message || 'Failed to initiate payment')
-      setIsLoading(false)
+    if (!businessResponse.ok) {
+      const errorData = await businessResponse.json().catch(() => ({}))
+      throw new Error(errorData.error || errorData.message || 'Failed to get business information')
     }
+
+    const businessData = await businessResponse.json()
+    const businessId = businessData.id || businessData.business?.id
+
+    if (!businessId) {
+      throw new Error('Business ID not found')
+    }
+
+    const response = await fetch(`${API_URL}/api/subscription-payment/esewa/initiate`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ businessId, planId, billingPeriod }),
+    })
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      throw new Error(data.error || 'Failed to initiate payment')
+    }
+
+    const data = await response.json()
+
+    if (data.success && data.formData && data.paymentUrl) {
+      setEsewaPaymentUrl(data.paymentUrl)
+      setEsewaFormData(data.formData)
+      toast.info('Redirecting to eSewa...')
+    } else {
+      throw new Error('Invalid payment response')
+    }
+  } catch (error: any) {
+    console.error('[v0] eSewa payment error:', error)
+    toast.error(error.message || 'Failed to initiate payment')
+    setIsLoading(false)
   }
+}
 
 
 

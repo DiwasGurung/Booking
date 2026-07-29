@@ -9,7 +9,7 @@ const serviceRoutes = (0, express_1.Router)();
 // Create service
 serviceRoutes.post("/", service_controller_1.default.create);
 // Get services for a business
-serviceRoutes.get("/business/:businessId", service_controller_1.default.getBusinessServices);
+serviceRoutes.get("/business/:businessId", service_controller_1.default.getByBusinessId);
 // Get active services for a business
 serviceRoutes.get("/business/:businessId/active", service_controller_1.default.getActiveServices);
 // Get services with booking stats

@@ -15,7 +15,7 @@ businessHoursRoutes.get("/business/:businessId/is-open", businessHours_controlle
 // Get hours for specific day
 businessHoursRoutes.get("/business/:businessId/day/:dayOfWeek", businessHours_controller_1.default.getByDay);
 // Update hours by ID
-businessHoursRoutes.put("/:id", businessHours_controller_1.default.update);
+businessHoursRoutes.put("/business/:businessId", businessHours_controller_1.default.update);
 // Delete hours by ID
 businessHoursRoutes.delete("/:id", businessHours_controller_1.default.delete);
 exports.default = businessHoursRoutes;

@@ -55,7 +55,7 @@ export class EsewaPaymentService {
     this.productCode = process.env.ESEWA_PRODUCT_CODE || 'EPAYTEST';
     this.secretKey = process.env.ESEWA_SECRET_KEY || '8gBm/:&EnhH.1/q';
     
-    // eSewa ePay v2 URLs
+    // eSewa ePay v2 URLs - Official sandbox and production endpoints
     this.paymentUrl = isProduction
       ? 'https://epay.esewa.com.np/api/epay/main/v2/form'
       : 'https://rc-epay.esewa.com.np/api/epay/main/v2/form';

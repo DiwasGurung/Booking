@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const booking_controller_1 = __importDefault(require("../controllers/booking.controller"));
 const bookingRoutes = (0, express_1.Router)();
+bookingRoutes.post("/public", booking_controller_1.default.createPublicBooking);
 // Create a new booking - handle both /bookings and direct POST
 bookingRoutes.post("/bookings", booking_controller_1.default.createBooking);
 bookingRoutes.post("/", booking_controller_1.default.createBooking); // Alias for /api/booking/

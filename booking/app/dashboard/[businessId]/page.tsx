@@ -10,7 +10,7 @@ import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { AuthWrapper } from '@/components/AuthWrapper'
 import Link from 'next/link'
 import {
-  Loader, Calendar, DollarSign, CheckCircle, TrendingUp, AlertCircle,
+  Loader, Calendar, CheckCircle, TrendingUp, AlertCircle,
   ChevronRight, Eye, ArrowRight, BarChart3, TrendingDown, Users, Clock
 } from 'lucide-react'
 import { businessApi, bookingsApi, paymentApi } from '@/lib/api'
@@ -19,7 +19,6 @@ import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 
 interface BusinessStats {
   totalBookings: number
-  totalRevenue: number
   completedBookings: number
   averageRating: number
   conversionRate: number
@@ -85,7 +84,7 @@ export default function BusinessDashboardPage() {
       const [statsResponse, bookingsResponse, paymentsResponse] = await Promise.all([
         businessApi.getStats(businessId),
         bookingsApi.getBusinessBookings(businessId, 1, 5),
-        paymentApi.getUserPayments(businessId, 1, 5),
+        paymentApi.getBusinessPayments(businessId, 1, 5),
       ])
 
       if (statsResponse.data && typeof statsResponse.data === 'object') {
@@ -121,14 +120,6 @@ export default function BusinessDashboardPage() {
       color: 'text-blue-600',
       bg: 'bg-blue-50',
       href: '/dashboard/bookings'
-    },
-    {
-      title: 'Total Revenue',
-      value: `$${(stats?.totalRevenue ?? 0).toFixed(2)}`,
-      icon: DollarSign,
-      color: 'text-green-600',
-      bg: 'bg-green-50',
-      href: '/dashboard/payments'
     },
     {
       title: 'Completed',

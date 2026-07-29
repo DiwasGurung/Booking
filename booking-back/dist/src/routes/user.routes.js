@@ -16,4 +16,6 @@ router.post('/logout', auth_middleware_1.auth, user_controller_1.logoutUser);
 router.put('/role/:userId', auth_middleware_1.auth, user_controller_1.updateUserRole);
 router.put('/password', auth_middleware_1.auth, user_controller_1.changePassword);
 router.put('/profile', auth_middleware_1.auth, user_controller_1.updateProfile);
+router.post('/verify-email', user_controller_1.verifyEmail);
+router.post('/resend-verification', user_controller_1.resendVerificationEmail);
 exports.default = router;

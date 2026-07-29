@@ -1,126 +1,195 @@
 import  prisma  from "../lib/prisma"
 import type { Payment, PaymentStatus, Prisma } from "@prisma/client"
 export class PaymentService {
-  /**
-   * Create a new payment
-   */
-  async createPayment(data: {
-    bookingId: string
-    businessId: string
-    amount: number
-    method?: string
-    currency?: string
-    gateway?: string
-    transactionId?: string
-  }): Promise<Payment> {
-    return prisma.payment.create({
-      data: {
-        ...data,
-        currency: data.currency || "NPR",
-        gateway: data.gateway || "STRIPE",
-        transactionId: data.transactionId || "",
-      },
-    })
+  
+
+   async getBusinessPayments(
+    businessId: string,
+    options: {
+      skip: number;
+      limit: number;
+      status?: string;
+    } = { skip: 0, limit: 10 }
+  ) {
+    try {
+      const where: any = {
+        subscription: {
+          businessId
+        }
+      };
+
+      if (options.status) {
+        where.status = options.status;
+      }
+
+      const payments = await prisma.payment.findMany({
+        where,
+        include: {
+          subscription: {
+            include: { plan: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: options.skip,
+        take: options.limit
+      });
+
+      return payments;
+    } catch (error: any) {
+      console.error('[Payment] Error fetching business payments:', error);
+      return [];
+    }
   }
 
   /**
-   * Get payment by ID
+   * Get business payments count
    */
-  async getPaymentById(id: string): Promise<Payment | null> {
-    return prisma.payment.findUnique({
-      where: { id },
-      include: { booking: true },
-    })
+  async getBusinessPaymentsCount(businessId: string): Promise<number> {
+    try {
+      return await prisma.payment.count({
+        where: {
+          subscription: {
+            businessId
+          }
+        }
+      });
+    } catch (error: any) {
+      console.error('[Payment] Error counting business payments:', error);
+      return 0;
+    }
   }
 
   /**
-   * Get payment by booking ID
+   * Get payment by ID with ownership verification
    */
-  async getPaymentByBookingId(bookingId: string): Promise<Payment | null> {
-    return prisma.payment.findUnique({
-      where: { bookingId },
-    })
+  async getPaymentById(paymentId: string, businessId: string) {
+    try {
+      const payment = await prisma.payment.findUnique({
+        where: { id: paymentId },
+        include: {
+          subscription: {
+            include: { plan: true }
+          }
+        }
+      });
+
+      if (!payment) {
+        return null;
+      }
+
+      // Verify business ownership
+      if (payment.subscription?.businessId !== businessId) {
+        throw new Error('Unauthorized: This payment does not belong to your business');
+      }
+
+      return payment;
+    } catch (error: any) {
+      console.error('[Payment] Error fetching payment details:', error);
+      throw error;
+    }
   }
 
   /**
    * Update payment status
    */
-  async updatePaymentStatus(id: string, status: PaymentStatus): Promise<Payment> {
-    return prisma.payment.update({
-      where: { id },
-      data: { status },
-    })
-  }
+  async updatePaymentStatus(paymentId: string, status: string, businessId: string) {
+    try {
+      // Verify ownership first
+      const payment = await prisma.payment.findUnique({
+        where: { id: paymentId },
+        include: { subscription: true }
+      });
 
-  /**
-   * Update payment
-   */
-  async updatePayment(id: string, data: Prisma.PaymentUpdateInput): Promise<Payment> {
-    return prisma.payment.update({
-      where: { id },
-      data,
-    })
-  }
+      if (!payment) {
+        throw new Error('Payment not found');
+      }
 
-  /**
-   * Get all payments for a business
-   */
-  async getBusinessPayments(
-    businessId: string,
-    page = 1,
-    limit = 10,
-    status?: PaymentStatus,
-  ): Promise<{ payments: Payment[]; total: number }> {
-    const skip = (page - 1) * limit
+      if (payment.subscription?.businessId !== businessId) {
+        throw new Error('Unauthorized: This payment does not belong to your business');
+      }
 
-    const where: Prisma.PaymentWhereInput = { businessId }
-    if (status) where.status = status
+      const updatedPayment = await prisma.payment.update({
+        where: { id: paymentId },
+        data: { status },
+        include: { subscription: true }
+      });
 
-    const [payments, total] = await Promise.all([
-      prisma.payment.findMany({
-        where,
-        skip,
-        take: limit,
-        include: { booking: { include: { service: true } } },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.payment.count({ where }),
-    ])
-
-    return { payments, total }
-  }
-
-  /**
-   * Get revenue analytics
-   */
-  async getRevenueAnalytics(businessId: string) {
-    const payments = await prisma.payment.findMany({
-      where: {
-        businessId,
-        status: "COMPLETED",
-      },
-      select: { amount: true, createdAt: true },
-    })
-
-    const totalRevenue = payments.reduce((sum: any, p: any) => sum + p.amount, 0)
-    const averageTransaction = payments.length > 0 ? totalRevenue / payments.length : 0
-
-    return {
-      totalRevenue,
-      totalTransactions: payments.length,
-      averageTransaction,
+      await this.logPaymentAction(paymentId, 'STATUS_UPDATED', status);
+      return updatedPayment;
+    } catch (error: any) {
+      console.error('[Payment] Error updating payment status:', error);
+      throw error;
     }
   }
 
   /**
    * Refund payment
    */
-  async refundPayment(id: string): Promise<Payment> {
-    return prisma.payment.update({
-      where: { id },
-      data: { status: "REFUNDED" },
-    })
+  // async refundPayment(paymentId: string, businessId: string, reason?: string) {
+  //   try {
+  //     // Verify ownership first
+  //     const payment = await prisma.payment.findUnique({
+  //       where: { id: paymentId },
+  //       include: { subscription: true }
+  //     });
+
+  //     if (!payment) {
+  //       throw new Error('Payment not found');
+  //     }
+
+  //     if (payment.subscription?.businessId !== businessId) {
+  //       throw new Error('Unauthorized: This payment does not belong to your business');
+  //     }
+
+  //     if (payment.status !== 'COMPLETED') {
+  //       throw new Error('Only completed payments can be refunded');
+  //     }
+
+  //     const refundedPayment = await prisma.payment.update({
+  //       where: { id: paymentId },
+  //       data: {
+  //         status: 'REFUNDED',
+  //         refundedAt: new Date(),
+  //         refundReason: reason
+  //       },
+  //       include: { subscription: true }
+  //     });
+
+  //     await this.logPaymentAction(paymentId, 'REFUNDED', 'REFUNDED', { reason });
+
+  //     // Deactivate subscription if it was active
+  //     if (refundedPayment.subscriptionId) {
+  //       await prisma.subscription.update({
+  //         where: { id: refundedPayment.subscriptionId },
+  //         data: { status: 'CANCELLED' }
+  //       });
+  //     }
+
+  //     return refundedPayment;
+  //   } catch (error: any) {
+  //     console.error('[Payment] Error refunding payment:', error);
+  //     throw error;
+  //   }
+  // }
+
+
+  /**
+   * Log payment action
+   */
+  private async logPaymentAction(
+    paymentId: string,
+    action: string,
+    status: string,
+    metadata?: any
+  ) {
+    try {
+      console.log(`[Payment] Action: ${action} | Payment: ${paymentId} | Status: ${status}`, metadata || '');
+      // TODO: Implement payment audit logging if needed
+    } catch (error: any) {
+      console.error('[Payment] Error logging action:', error);
+    }
   }
+
 }
 
 export default new PaymentService()

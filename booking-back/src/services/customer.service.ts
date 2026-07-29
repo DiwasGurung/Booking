@@ -96,31 +96,27 @@ export class CustomerService {
     })
   }
 
-  /**
-   * Get customer statistics
-   */
-  async getCustomerStats(customerId: string) {
+ async getCustomerStats(customerId: string) {
     const customer = await prisma.customer.findUnique({
       where: { id: customerId },
       include: {
-        bookings: {
-          include: { payment: true },
-        },
+        bookings: true,
       },
-    })
+    });
 
-    if (!customer) throw new Error("Customer not found")
+    if (!customer) throw new Error('Customer not found');
 
-    const completedBookings = customer.bookings.filter((b: any) => b.status === "COMPLETED")
-    const totalSpent = completedBookings.reduce((sum: any, b: any) => sum + (b.payment?.amount || 0), 0)
+    const completedBookings = customer.bookings.filter((b: any) => b.status === 'COMPLETED');
+    const cancelledBookings = customer.bookings.filter((b: any) => b.status === 'CANCELLED');
+    const pendingBookings = customer.bookings.filter((b: any) => b.status === 'PENDING');
 
     return {
       totalBookings: customer.bookings.length,
       completedBookings: completedBookings.length,
-      totalSpent,
-      averageSpent: completedBookings.length > 0 ? totalSpent / completedBookings.length : 0,
+      pendingBookings: pendingBookings.length,
+      cancelledBookings: cancelledBookings.length,
       lastVisit: customer.lastVisit,
-    }
+    };
   }
 
   /**

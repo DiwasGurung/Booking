@@ -3,6 +3,9 @@ import { ReactNode } from "react"
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
 export type ApiResponse<T> = {
+  paymentId?: any
+  transactionId?: any
+  paymentUrl?: any
   data?: T
   error?: string
   message?: string
@@ -84,12 +87,16 @@ export interface PaymentResponse {
   message: string
   transactionId?: string
   paymentId?: string
+  formData?: Record<string, any>
+  paymentUrl?: string
+  redirectUrl?: string
   data?: Record<string, any> & {
     clientSecret?: string
     paymentIntentId?: string
+    formData?: Record<string, any>
+    paymentUrl?: string
   }
-  paymentUrl?: string
-  redirectUrl?: string
+
 }
 
 export interface VerifyPaymentRequest {
@@ -127,6 +134,13 @@ export interface BusinessHours {
   openingTime: string
   closingTime: string
   isClosed: boolean
+}
+
+export interface ClosedDate {
+  id?: string
+  businessId?: string
+  date: string
+  reason?: string
 }
 
 export async function apiCall<T>(
@@ -297,6 +311,40 @@ export const businessHoursApi = {
   // Get hours for specific day
   getHoursForDay: (businessId: string, dayOfWeek: number) =>
     apiCall<BusinessHours>(`/api/business-hours/business/${businessId}/day/${dayOfWeek}`),
+
+  // Get all closed dates for a business
+  getClosedDates: (businessId: string) =>
+    apiCall<ClosedDate[]>(`/api/business-hours/${businessId}/closed-dates`),
+
+  // Add a closed date
+  addClosedDate: (businessId: string, data: { date: string; reason?: string }) =>
+    apiCall<ClosedDate>(`/api/business-hours/${businessId}/closed-dates`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Remove a closed date
+  removeClosedDate: (businessId: string, dateId: string) =>
+    apiCall<void>(`/api/business-hours/${businessId}/closed-dates/${dateId}`, {
+      method: 'DELETE',
+    }),
+
+  // Add a holiday
+  addHoliday: (businessId: string, data: { date: string; name: string }) =>
+    apiCall<any>(`/api/business-hours/${businessId}/holidays`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Get all holidays for a business
+  getHolidays: (businessId: string) =>
+    apiCall<any[]>(`/api/business-hours/${businessId}/holidays`),
+
+  // Remove a holiday
+  removeHoliday: (businessId: string, dateId: string) =>
+    apiCall<void>(`/api/business-hours/${businessId}/holidays/${dateId}`, {
+      method: 'DELETE',
+    }),
 }
 
 // Bookings API - /api/booking prefix
@@ -482,70 +530,70 @@ export const notificationsApi = {
 export const paymentApi = {
   // Initiate payment with selected gateway (eSewa, Khalti, or Stripe)
   initiatePayment: (data: InitiatePaymentRequest) =>
-    apiCall<PaymentResponse>('/api/payment/initiate', {
+    apiCall<PaymentResponse>('/api/payments/initiate', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   // Verify Stripe payment after checkout
   verifyStripePayment: (paymentIntentId: string, paymentId: string) =>
-    apiCall<PaymentResponse>('/api/payment/stripe/verify', {
+    apiCall<PaymentResponse>('/api/payments/stripe/verify', {
       method: 'POST',
       body: JSON.stringify({ paymentIntentId, paymentId }),
     }),
 
   // Verify Khalti payment
   verifyKhaltiPayment: (token: string, amount: number) =>
-    apiCall<PaymentResponse>('/api/payment/khalti/verify', {
+    apiCall<PaymentResponse>('/api/payments/khalti/verify', {
       method: 'POST',
       body: JSON.stringify({ token, amount }),
     }),
 
   // Verify eSewa payment
   verifyEsewaPayment: (refId: string) =>
-    apiCall<PaymentResponse>('/api/payment/esewa/verify', {
+    apiCall<PaymentResponse>('/api/payments/esewa/verify', {
       method: 'POST',
       body: JSON.stringify({ refId }),
     }),
 
   // Get payment details
   getPaymentDetails: (paymentId: string) =>
-    apiCall<Payment>(`/api/payment/${paymentId}`),
+    apiCall<Payment>(`/api/payments/${paymentId}`),
 
   // Get payment status
   getPaymentStatus: (paymentId: string) =>
-    apiCall<{ status: string; message: string }>(`/api/payment/${paymentId}/status`),
+    apiCall<{ status: string; message: string }>(`/api/payments/${paymentId}/status`),
 
   // Get subscription payment history
   getPaymentHistory: (subscriptionId: string, page = 1, limit = 10) =>
     apiCall<PaymentHistory[] | { payments: PaymentHistory[] }>(
-      `/api/payment/subscription/${subscriptionId}/history?page=${page}&limit=${limit}`
+      `/api/payments/subscription/${subscriptionId}/history?page=${page}&limit=${limit}`
     ),
 
   // Get user's all payments
   getUserPayments: (userId: string, page = 1, limit = 10) =>
     apiCall<Payment[] | { payments: Payment[] }>(
-      `/api/payment/user/${userId}/payments?page=${page}&limit=${limit}`
+      `/api/payments/user/${userId}/payments?page=${page}&limit=${limit}`
+    ),
+
+  // Get business payments
+  getBusinessPayments: (businessId: string, page = 1, limit = 10) =>
+    apiCall<Payment[] | { payments: Payment[] }>(
+      `/api/payments/business/${businessId}?page=${page}&limit=${limit}`
     ),
 
   // Cancel pending payment
   cancelPayment: (paymentId: string) =>
-    apiCall<PaymentResponse>(`/api/payment/${paymentId}/cancel`, {
+    apiCall<PaymentResponse>(`/api/payments/${paymentId}/cancel`, {
       method: 'PATCH',
       body: JSON.stringify({ status: 'CANCELLED' }),
     }),
 
-  // Get payment gateway health status
-  getGatewayStatus: (gateway: 'ESEWA' | 'KHALTI' | 'STRIPE') =>
-    apiCall<{ status: string; available: boolean }>(`/api/payment/gateway/${gateway}/status`),
 
-  // Get supported currencies
-  getSupportedCurrencies: () =>
-    apiCall<{ esewa: string[]; khalti: string[]; stripe: string[] }>('/api/payment/currencies'),
-
+ 
   // Check if subscription is already paid
   checkSubscriptionPaymentStatus: (subscriptionId: string) =>
-    apiCall<{ paid: boolean; status: string; lastPayment?: Payment }>(`/api/payment/subscription/${subscriptionId}/status`),
+    apiCall<{ paid: boolean; status: string; lastPayment?: Payment }>(`/api/payments/subscription/${subscriptionId}/status`),
 }
 
 // Staff types

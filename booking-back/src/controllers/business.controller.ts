@@ -184,20 +184,7 @@ async create(req: Request, res: Response) {
     }
   }
 
-  /**
-   * Monthly revenue
-   */
-  async monthlyRevenue(req: Request, res: Response) {
-    try {
-      const { businessId } = req.params
-      const months = Number(req.query.months) || 6
 
-      const data = await BusinessService.getMonthlyRevenue(businessId as string, months)
-      res.json(data)
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch revenue", error })
-    }
-  }
 
   /**
    * Search businesses

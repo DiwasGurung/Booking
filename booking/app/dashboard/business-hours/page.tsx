@@ -46,6 +46,10 @@ export default function BusinessHoursPage() {
   const [newClosedDate, setNewClosedDate] = useState('')
   const [newClosedDateReason, setNewClosedDateReason] = useState('')
   
+  const [holidays, setHolidays] = useState<Array<{ id?: string; date: string; name: string }>>([])
+  const [newHolidayDate, setNewHolidayDate] = useState('')
+  const [newHolidayName, setNewHolidayName] = useState('')
+  
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -133,6 +137,32 @@ export default function BusinessHoursPage() {
     setClosedDates(closedDates.filter(d => d.date !== dateToRemove))
   }
 
+  function addHoliday() {
+    if (!newHolidayDate || !newHolidayName) {
+      setError('Please enter both date and holiday name')
+      return
+    }
+
+    // Check if date already exists
+    if (holidays.some(h => h.date === newHolidayDate)) {
+      setError('This date is already marked as a holiday')
+      return
+    }
+
+    setHolidays([...holidays, {
+      date: newHolidayDate,
+      name: newHolidayName
+    }])
+
+    setNewHolidayDate('')
+    setNewHolidayName('')
+    setError(null)
+  }
+
+  function removeHoliday(dateToRemove: string) {
+    setHolidays(holidays.filter(h => h.date !== dateToRemove))
+  }
+
   async function saveBusinessHours() {
     if (!businessId) return
 
@@ -142,7 +172,7 @@ export default function BusinessHoursPage() {
       setSaveSuccess(false)
 
       // Save operating hours
-      const savePromises = dayHours.map(day =>
+      const hoursPromises = dayHours.map(day =>
         businessHoursApi.setBusinessHours({
           businessId,
           dayOfWeek: day.dayOfWeek,
@@ -152,9 +182,25 @@ export default function BusinessHoursPage() {
         })
       )
 
-      await Promise.all(savePromises)
+      // Save closed dates
+      const closedDatesPromises = closedDates.map(closedDate =>
+        businessHoursApi.addClosedDate(businessId, {
+          date: closedDate.date,
+          reason: closedDate.reason,
+        })
+      )
 
-      console.log('[v0] Business hours saved. Closed dates:', closedDates)
+      // Save holidays
+      const holidaysPromises = holidays.map(holiday =>
+        businessHoursApi.addHoliday(businessId, {
+          date: holiday.date,
+          name: holiday.name,
+        })
+      )
+
+      await Promise.all([...hoursPromises, ...closedDatesPromises, ...holidaysPromises])
+
+      console.log('[v0] Business hours and closed dates saved successfully')
 
       setSaveSuccess(true)
       setTimeout(() => {
@@ -183,9 +229,11 @@ export default function BusinessHoursPage() {
 
   return (
     <AuthWrapper mode="business-only">
-      <div className=" min-h-screen bg-background">
+      <div className="flex min-h-screen bg-background">
         <Sidebar />
-           <main className="md:ml-64 pt-6 px-4 md:px-8 py-8">
+        <div className="flex-1 flex flex-col">
+          <div className="flex-1 overflow-auto">
+            <div className="p-4 md:p-8 max-w-6xl">
             <Breadcrumbs
               items={[
                 { label: 'Dashboard', href: '/dashboard' },
@@ -320,68 +368,69 @@ export default function BusinessHoursPage() {
                     <TabsContent value="holidays" className="space-y-4 mt-6">
                       <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 md:p-4">
                         <p className="text-xs md:text-sm text-amber-900 dark:text-amber-100">
-                          Add dates when your business is completely closed. Customers won&apos;t be able to book on these dates.
+                          Add company holidays when your business is completely closed. Customers won&apos;t be able to book on these dates.
                         </p>
                       </div>
 
-                      {/* Add Closed Date */}
+                      {/* Add Holiday */}
                       <Card className="border-dashed">
                         <CardContent className="pt-4 md:pt-6">
                           <div className="space-y-3">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <div>
-                                <Label htmlFor="closed-date" className="text-xs md:text-sm">
-                                  Date
+                                <Label htmlFor="holiday-date" className="text-xs md:text-sm">
+                                  Holiday Date
                                 </Label>
                                 <Input
-                                  id="closed-date"
+                                  id="holiday-date"
                                   type="date"
-                                  value={newClosedDate}
-                                  onChange={(e) => setNewClosedDate(e.target.value)}
+                                  value={newHolidayDate}
+                                  onChange={(e) => setNewHolidayDate(e.target.value)}
+                                  min={new Date().toISOString().split('T')[0]}
                                   className="w-full text-sm md:text-base"
                                 />
                               </div>
                               <div>
-                                <Label htmlFor="closed-reason" className="text-xs md:text-sm">
-                                  Reason (Optional)
+                                <Label htmlFor="holiday-name" className="text-xs md:text-sm">
+                                  Holiday Name
                                 </Label>
                                 <Input
-                                  id="closed-reason"
-                                  placeholder="e.g., Holiday, Maintenance"
-                                  value={newClosedDateReason}
-                                  onChange={(e) => setNewClosedDateReason(e.target.value)}
+                                  id="holiday-name"
+                                  placeholder="e.g., New Year, Dashain"
+                                  value={newHolidayName}
+                                  onChange={(e) => setNewHolidayName(e.target.value)}
                                   className="w-full text-sm md:text-base"
                                 />
                               </div>
                             </div>
                             <Button 
-                              onClick={addClosedDate}
+                              onClick={addHoliday}
                               className="w-full" 
                               size="sm"
                             >
-                              Add Closed Date
+                              Add Holiday
                             </Button>
                           </div>
                         </CardContent>
                       </Card>
 
-                      {/* Closed Dates List */}
-                      {closedDates.length > 0 && (
+                      {/* Holidays List */}
+                      {holidays.length > 0 && (
                         <div className="space-y-2">
                           <p className="text-xs md:text-sm font-medium text-muted-foreground">
-                            {closedDates.length} closed date{closedDates.length !== 1 ? 's' : ''}
+                            {holidays.length} holiday{holidays.length !== 1 ? 's' : ''}
                           </p>
-                          {closedDates.map((date, idx) => (
+                          {holidays.map((holiday, idx) => (
                             <div key={idx} className="flex items-center justify-between p-3 bg-card border border-border rounded-lg">
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm md:text-base">{date.date}</p>
-                                {date.reason && <p className="text-xs md:text-sm text-muted-foreground">{date.reason}</p>}
+                                <p className="font-medium text-sm md:text-base">{holiday.name}</p>
+                                <p className="text-xs md:text-sm text-muted-foreground">{holiday.date}</p>
                               </div>
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
                                 className="ml-2"
-                                onClick={() => removeClosedDate(date.date)}
+                                onClick={() => removeHoliday(holiday.date)}
                               >
                                 <X className="w-4 h-4" />
                               </Button>
@@ -390,9 +439,9 @@ export default function BusinessHoursPage() {
                         </div>
                       )}
 
-                      {closedDates.length === 0 && (
+                      {holidays.length === 0 && (
                         <div className="p-4 text-center bg-muted/50 rounded-lg">
-                          <p className="text-sm text-muted-foreground">No closed dates set yet</p>
+                          <p className="text-sm text-muted-foreground">No holidays set yet</p>
                         </div>
                       )}
                     </TabsContent>
@@ -401,8 +450,55 @@ export default function BusinessHoursPage() {
                     <TabsContent value="breaks" className="space-y-4 mt-6">
                       <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-3 md:p-4">
                         <p className="text-xs md:text-sm text-purple-900 dark:text-purple-100">
-                          Coming soon: Manage staff time off and break schedules.
+                          Manage staff time off, breaks, and leave periods. This affects availability for bookings when staff are not available.
                         </p>
+                      </div>
+
+                      <Card className="border-dashed">
+                        <CardContent className="pt-4 md:pt-6">
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <div>
+                                <Label htmlFor="timeoff-start" className="text-xs md:text-sm">
+                                  Start Date
+                                </Label>
+                                <Input
+                                  id="timeoff-start"
+                                  type="date"
+                                  className="w-full text-sm md:text-base"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="timeoff-end" className="text-xs md:text-sm">
+                                  End Date
+                                </Label>
+                                <Input
+                                  id="timeoff-end"
+                                  type="date"
+                                  className="w-full text-sm md:text-base"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="timeoff-reason" className="text-xs md:text-sm">
+                                  Reason
+                                </Label>
+                                <select className="w-full px-3 py-2 border border-border rounded-md text-sm md:text-base">
+                                  <option value="BREAK">Break</option>
+                                  <option value="VACATION">Vacation</option>
+                                  <option value="SICK_LEAVE">Sick Leave</option>
+                                  <option value="OTHER">Other</option>
+                                </select>
+                              </div>
+                            </div>
+                            <Button className="w-full" size="sm">
+                              Add Time Off
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <div className="p-4 text-center bg-muted/50 rounded-lg">
+                        <p className="text-sm text-muted-foreground">Time off periods will be listed here. Navigate to Staff section to manage individual staff availability.</p>
                       </div>
                     </TabsContent>
                   </Tabs>
@@ -446,7 +542,9 @@ export default function BusinessHoursPage() {
                 </Button>
               </div>
             </div>
-            </main>
+            </div>
+          </div>
+        </div>
       </div>
     </AuthWrapper>
   )

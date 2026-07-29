@@ -1,73 +1,139 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ServiceService = void 0;
-const prisma_1 = require("../lib/prisma");
+const prisma_1 = __importDefault(require("../lib/prisma"));
 class ServiceService {
     /**
-     * Create a new service
+     * Get all services
      */
-    async createService(data) {
-        return prisma_1.prisma.service.create({
-            data,
+    getAllServices() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield prisma_1.default.service.findMany({
+                include: {
+                    business: true,
+                },
+            });
         });
     }
     /**
      * Get service by ID
      */
-    async getServiceById(id) {
-        return prisma_1.prisma.service.findUnique({
-            where: { id },
+    getServiceById(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield prisma_1.default.service.findUnique({
+                where: { id },
+                include: {
+                    business: true,
+                },
+            });
         });
     }
     /**
-     * Get all services for a business
+     * Get services by business ID
      */
-    async getBusinessServices(businessId) {
-        return prisma_1.prisma.service.findMany({
-            where: { businessId },
-            orderBy: { createdAt: "desc" },
+    getServicesByBusinessId(businessId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield prisma_1.default.service.findMany({
+                where: { businessId },
+                include: {
+                    business: true,
+                },
+            });
+        });
+    }
+    /**
+     * Create service
+     */
+    createService(data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield prisma_1.default.service.create({
+                data,
+                include: {
+                    business: true,
+                },
+            });
         });
     }
     /**
      * Update service
      */
-    async updateService(id, data) {
-        return prisma_1.prisma.service.update({
-            where: { id },
-            data,
+    updateService(id, data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield prisma_1.default.service.update({
+                where: { id },
+                data,
+                include: {
+                    business: true,
+                },
+            });
         });
     }
     /**
      * Delete service
      */
-    async deleteService(id) {
-        return prisma_1.prisma.service.delete({
-            where: { id },
+    deleteService(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield prisma_1.default.service.delete({
+                where: { id },
+            });
         });
     }
     /**
-     * Get all active services for a business
-     */
-    async getActiveServices(businessId) {
-        return prisma_1.prisma.service.findMany({
-            where: { businessId, isActive: true },
-            orderBy: { name: "asc" },
-        });
-    }
-    /**
-     * Get services with booking stats
-     */
-    async getServicesWithStats(businessId) {
-        return prisma_1.prisma.service.findMany({
-            where: { businessId },
-            include: {
-                _count: {
-                    select: { bookings: true },
+       * Get active services for a business
+       */
+    getActiveServices(businessId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return yield prisma_1.default.service.findMany({
+                where: { businessId },
+                include: {
+                    business: true,
+                    staffServices: {
+                        include: {
+                            staff: true,
+                        },
+                    },
                 },
-            },
-            orderBy: { createdAt: "desc" },
+                orderBy: {
+                    createdAt: 'desc',
+                },
+            });
+        });
+    }
+    /**
+     * Get services with booking statistics for a business
+     */
+    getServicesWithStats(businessId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const services = yield prisma_1.default.service.findMany({
+                where: { businessId },
+                include: {
+                    business: true,
+                    _count: {
+                        select: {
+                            bookings: true,
+                            staffServices: true,
+                        },
+                    },
+                },
+            });
+            // Enrich with stats
+            return services.map(service => (Object.assign(Object.assign({}, service), { stats: {
+                    totalBookings: service._count.bookings,
+                    staffCount: service._count.staffServices,
+                    revenue: 0, // Can be calculated from bookings if needed
+                } })));
         });
     }
 }
-exports.ServiceService = ServiceService;
 exports.default = new ServiceService();

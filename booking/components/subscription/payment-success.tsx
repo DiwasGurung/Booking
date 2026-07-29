@@ -4,9 +4,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/Button';
 import { paymentApi } from '@/lib/api';
+import { processEsewaCallback, extractEsewaResponseFromParams } from '@/lib/esewa-response-handler';
 
 interface PaymentDetails {
   id: string;
@@ -19,29 +21,73 @@ interface PaymentDetails {
   };
 }
 
-export default function PaymentSuccess() {
+export default function PaymentSuccessPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const paymentId = searchParams.get('paymentId');
+  
   const [payment, setPayment] = useState<PaymentDetails | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchPaymentDetails = async () => {
-      if (paymentId) {
-        try {
-          const details = await paymentApi.getPaymentDetails(paymentId);
-          if (details) {
-            setPayment(details as unknown as PaymentDetails);
+      try {
+        // Handle eSewa callback response (Base64-encoded in 'data' parameter)
+        const esewaData = extractEsewaResponseFromParams(Object.fromEntries(searchParams));
+        if (esewaData) {
+          console.log('[eSewa] Processing callback response');
+          
+          // Process and verify the callback response
+          const secretKey = process.env.NEXT_PUBLIC_ESEWA_SECRET_KEY || '8gBm/:&EnhH.1/q';
+          const verification = processEsewaCallback(esewaData, secretKey);
+
+          if (verification.valid && verification.data) {
+            console.log('[eSewa] Payment verified successfully:', verification.data);
+            
+            // Only activate subscription if payment is COMPLETE
+            if (verification.data.status === 'COMPLETE') {
+              setPayment({
+                id: verification.data.transaction_code,
+                status: 'COMPLETED',
+                amount: verification.data.total_amount,
+                currency: 'NPR',
+                gateway: 'ESEWA',
+                subscription: {
+                  planName: 'Active Subscription'
+                }
+              });
+            } else {
+              console.warn('[eSewa] Payment not complete. Status:', verification.data.status);
+              router.push(`/subscription/payment-failed?reason=${verification.data.status}`);
+              return;
+            }
+          } else {
+            console.error('[eSewa] Payment verification failed:', verification.error);
+            router.push(`/subscription/payment-failed?reason=${encodeURIComponent(verification.error || 'Verification failed')}`);
+            return;
           }
-        } catch (error) {
-          console.error('Failed to fetch payment details:', error);
+          setLoading(false);
+          return;
         }
+
+        // Fetch real payment details by ID
+        if (paymentId) {
+          try {
+            const details = await paymentApi.getPaymentDetails(paymentId);
+            if (details) {
+              setPayment(details as PaymentDetails);
+            }
+          } catch (error) {
+            console.error('[v0] Failed to fetch payment details:', error);
+          }
+        }
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchPaymentDetails();
-  }, [paymentId]);
+  }, [paymentId, searchParams, router]);
 
   return (
     <div className="min-h-screen py-12 px-4 bg-background">
@@ -103,10 +149,18 @@ export default function PaymentSuccess() {
 
               {/* Action Buttons */}
               <div className="space-y-2">
-                <Button className="w-full" size="lg">
+                <Button 
+                  className="w-full" 
+                  size="lg"
+                  onClick={() => router.push('/dashboard')}
+                >
                   Go to Dashboard
                 </Button>
-                <Button variant="outline" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => router.push('/subscription/my-payments')}
+                >
                   View Subscription Details
                 </Button>
               </div>

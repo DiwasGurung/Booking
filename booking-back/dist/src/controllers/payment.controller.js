@@ -1,122 +1,115 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const payment_service_1 = __importDefault(require("../services/payment.service"));
 class PaymentController {
-    /**
-     * Create payment
-     */
-    async create(req, res) {
-        try {
-            const payment = await payment_service_1.default.createPayment(req.body);
-            res.status(201).json(payment);
-        }
-        catch (error) {
-            res.status(500).json({ message: "Failed to create payment", error });
-        }
-    }
-    /**
-     * Get payment by ID
-     */
-    async getById(req, res) {
-        try {
-            const { id } = req.params;
-            const payment = await payment_service_1.default.getPaymentById(id);
-            if (!payment) {
-                return res.status(404).json({ message: "Payment not found" });
+    getBusinessPayments(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { businessId } = req.params;
+                const { page = '1', limit = '10', status } = req.query;
+                const pageNum = Math.max(1, parseInt(page) || 1);
+                const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10));
+                const skip = (pageNum - 1) * limitNum;
+                const payments = yield payment_service_1.default.getBusinessPayments(businessId, {
+                    skip,
+                    limit: limitNum,
+                    status: status
+                });
+                const total = yield payment_service_1.default.getBusinessPaymentsCount(businessId);
+                return res.json({
+                    success: true,
+                    data: payments,
+                    pagination: {
+                        page: pageNum,
+                        limit: limitNum,
+                        total,
+                        pages: Math.ceil(total / limitNum)
+                    }
+                });
             }
-            res.json(payment);
-        }
-        catch (error) {
-            res.status(500).json({ message: "Failed to fetch payment", error });
-        }
-    }
-    /**
-     * Get payment by booking ID
-     */
-    async getByBookingId(req, res) {
-        try {
-            const { bookingId } = req.params;
-            const payment = await payment_service_1.default.getPaymentByBookingId(bookingId);
-            if (!payment) {
-                return res.status(404).json({ message: "Payment not found" });
+            catch (error) {
+                console.error('[Payment] Error fetching business payments:', error);
+                return res.status(500).json({
+                    success: false,
+                    message: error.message || 'Failed to fetch payments'
+                });
             }
-            res.json(payment);
-        }
-        catch (error) {
-            res.status(500).json({ message: "Failed to fetch payment", error });
-        }
+        });
     }
     /**
-     * Update payment status
+     * GET /api/payment/:paymentId
+     * Get payment details by ID with business verification
      */
-    async updateStatus(req, res) {
-        try {
-            const { id } = req.params;
-            const { status } = req.body;
-            const payment = await payment_service_1.default.updatePaymentStatus(id, status);
-            res.json(payment);
-        }
-        catch (error) {
-            res.status(500).json({ message: "Failed to update payment status", error });
-        }
+    getById(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { paymentId } = req.params;
+                const { businessId } = req.query;
+                if (!businessId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Business ID is required'
+                    });
+                }
+                const payment = yield payment_service_1.default.getPaymentById(paymentId, businessId);
+                return res.json({
+                    success: true,
+                    data: payment
+                });
+            }
+            catch (error) {
+                console.error('[Payment] Error fetching payment details:', error);
+                const statusCode = error.message.includes('Unauthorized') ? 403 : error.message.includes('not found') ? 404 : 500;
+                return res.status(statusCode).json({
+                    success: false,
+                    message: error.message || 'Failed to fetch payment'
+                });
+            }
+        });
     }
     /**
-     * Update payment
+     * PUT /api/payment/:paymentId/status
+     * Update payment status (admin only)
      */
-    async update(req, res) {
-        try {
-            const { id } = req.params;
-            const payment = await payment_service_1.default.updatePayment(id, req.body);
-            res.json(payment);
-        }
-        catch (error) {
-            res.status(500).json({ message: "Failed to update payment", error });
-        }
-    }
-    /**
-     * Get business payments
-     */
-    async getBusinessPayments(req, res) {
-        try {
-            const { businessId } = req.params;
-            const page = Number(req.query.page) || 1;
-            const limit = Number(req.query.limit) || 10;
-            const status = req.query.status;
-            const result = await payment_service_1.default.getBusinessPayments(businessId, page, limit, status);
-            res.json(result);
-        }
-        catch (error) {
-            res.status(500).json({ message: "Failed to fetch payments", error });
-        }
-    }
-    /**
-     * Revenue analytics
-     */
-    async revenueAnalytics(req, res) {
-        try {
-            const { businessId } = req.params;
-            const analytics = await payment_service_1.default.getRevenueAnalytics(businessId);
-            res.json(analytics);
-        }
-        catch (error) {
-            res.status(500).json({ message: "Failed to fetch revenue analytics", error });
-        }
-    }
-    /**
-     * Refund payment
-     */
-    async refund(req, res) {
-        try {
-            const { id } = req.params;
-            const payment = await payment_service_1.default.refundPayment(id);
-            res.json(payment);
-        }
-        catch (error) {
-            res.status(500).json({ message: "Failed to refund payment", error });
-        }
+    updateStatus(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { paymentId } = req.params;
+                const { status, businessId } = req.body;
+                if (!status || !businessId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Status and Business ID are required'
+                    });
+                }
+                const updatedPayment = yield payment_service_1.default.updatePaymentStatus(paymentId, status, businessId);
+                return res.json({
+                    success: true,
+                    data: updatedPayment,
+                    message: 'Payment status updated successfully'
+                });
+            }
+            catch (error) {
+                console.error('[Payment] Error updating payment status:', error);
+                const statusCode = error.message.includes('Unauthorized') ? 403 : 500;
+                return res.status(statusCode).json({
+                    success: false,
+                    message: error.message || 'Failed to update payment status'
+                });
+            }
+        });
     }
 }
 exports.default = new PaymentController();
