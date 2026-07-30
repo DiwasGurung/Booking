@@ -12,13 +12,14 @@ import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { AuthWrapper } from '@/components/AuthWrapper'
 import { businessHoursApi, type BusinessHours } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
-import { Loader, Clock, Copy, Save, AlertCircle, CheckCircle, X, Calendar, Coffee, ChevronDown } from 'lucide-react'
+import { Loader, Clock, Copy, Save, AlertCircle, CheckCircle, X, Calendar } from 'lucide-react'
 
 interface DayHours {
   dayOfWeek: number
   dayName: string
   openingTime: string
   closingTime: string
+  isOff?: boolean
 }
 
 interface ClosedDate {
@@ -44,11 +45,8 @@ export default function BusinessHoursPage() {
   const [dayHours, setDayHours] = useState<DayHours[]>([])
   const [closedDates, setClosedDates] = useState<ClosedDate[]>([])
   const [newClosedDate, setNewClosedDate] = useState('')
+  const [newClosedDateEnd, setNewClosedDateEnd] = useState('')
   const [newClosedDateReason, setNewClosedDateReason] = useState('')
-  
-  const [holidays, setHolidays] = useState<Array<{ id?: string; date: string; name: string }>>([])
-  const [newHolidayDate, setNewHolidayDate] = useState('')
-  const [newHolidayName, setNewHolidayName] = useState('')
   
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -67,17 +65,32 @@ export default function BusinessHoursPage() {
 
     try {
       setLoading(true)
-      const response = await businessHoursApi.getBusinessHours(businessId)
+      const [hoursResponse, closedDatesResponse] = await Promise.all([
+        businessHoursApi.getBusinessHours(businessId),
+        businessHoursApi.getClosedDates(businessId),
+      ])
 
-      if (response.success && Array.isArray(response.data)) {
-        const sortedHours = response.data.sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+      // Load business hours
+      if (hoursResponse.success && Array.isArray(hoursResponse.data)) {
+        const sortedHours = hoursResponse.data.sort((a, b) => a.dayOfWeek - b.dayOfWeek)
         const formattedHours = sortedHours.map(hour => ({
           dayOfWeek: hour.dayOfWeek,
           dayName: DAYS.find(d => d.id === hour.dayOfWeek)?.name || 'Unknown',
-          openingTime: hour.openingTime || '09:00',
-          closingTime: hour.closingTime || '18:00',
+          openingTime: hour.openingTime || hour.openingTime || '09:00',
+          closingTime: hour.closingTime || hour.closingTime || '18:00',
+          isOff: hour.isClosed || false,
         }))
         setDayHours(formattedHours)
+      }
+
+      // Load closed dates
+      if (closedDatesResponse.success && Array.isArray(closedDatesResponse.data)) {
+        const formattedClosedDates = closedDatesResponse.data.map(closedDate => ({
+          date: closedDate.date.split('T')[0], // Format date to YYYY-MM-DD
+          reason: closedDate.reason || '',
+          id: closedDate.id,
+        }))
+        setClosedDates(formattedClosedDates)
       }
     } catch (err) {
       console.error('[v0] Error loading business hours:', err)
@@ -113,22 +126,36 @@ export default function BusinessHoursPage() {
 
   function addClosedDate() {
     if (!newClosedDate) {
-      setError('Please select a date')
+      setError('Please enter start date')
       return
     }
 
-    // Check if date already exists
-    if (closedDates.some(d => d.date === newClosedDate)) {
-      setError('This date is already marked as closed')
+    if (!newClosedDateEnd) {
+      setError('Please enter end date')
       return
     }
 
-    setClosedDates([...closedDates, {
-      date: newClosedDate,
-      reason: newClosedDateReason
-    }])
+    if (new Date(newClosedDate) > new Date(newClosedDateEnd)) {
+      setError('End date must be after start date')
+      return
+    }
+
+    // Generate all dates in the range
+    const start = new Date(newClosedDate)
+    const end = new Date(newClosedDateEnd)
+    const datesInRange = []
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      datesInRange.push({
+        date: d.toISOString().split('T')[0],
+        reason: newClosedDateReason,
+      })
+    }
+
+    setClosedDates([...closedDates, ...datesInRange])
 
     setNewClosedDate('')
+    setNewClosedDateEnd('')
     setNewClosedDateReason('')
     setError(null)
   }
@@ -137,30 +164,12 @@ export default function BusinessHoursPage() {
     setClosedDates(closedDates.filter(d => d.date !== dateToRemove))
   }
 
-  function addHoliday() {
-    if (!newHolidayDate || !newHolidayName) {
-      setError('Please enter both date and holiday name')
-      return
-    }
-
-    // Check if date already exists
-    if (holidays.some(h => h.date === newHolidayDate)) {
-      setError('This date is already marked as a holiday')
-      return
-    }
-
-    setHolidays([...holidays, {
-      date: newHolidayDate,
-      name: newHolidayName
-    }])
-
-    setNewHolidayDate('')
-    setNewHolidayName('')
-    setError(null)
-  }
-
-  function removeHoliday(dateToRemove: string) {
-    setHolidays(holidays.filter(h => h.date !== dateToRemove))
+  function toggleDayOff(dayOfWeek: number) {
+    setDayHours(dayHours.map(day =>
+      day.dayOfWeek === dayOfWeek
+        ? { ...day, isOff: !day.isOff }
+        : day
+    ))
   }
 
   async function saveBusinessHours() {
@@ -176,9 +185,9 @@ export default function BusinessHoursPage() {
         businessHoursApi.setBusinessHours({
           businessId,
           dayOfWeek: day.dayOfWeek,
-          openTime: day.openingTime,
-          closeTime: day.closingTime,
-          isClosed: false,
+          openTime: day.isOff ? '00:00' : day.openingTime,
+          closeTime: day.isOff ? '00:00' : day.closingTime,
+          isClosed: day.isOff || false,
         })
       )
 
@@ -190,15 +199,7 @@ export default function BusinessHoursPage() {
         })
       )
 
-      // Save holidays
-      const holidaysPromises = holidays.map(holiday =>
-        businessHoursApi.addHoliday(businessId, {
-          date: holiday.date,
-          name: holiday.name,
-        })
-      )
-
-      await Promise.all([...hoursPromises, ...closedDatesPromises, ...holidaysPromises])
+      await Promise.all([...hoursPromises, ...closedDatesPromises])
 
       console.log('[v0] Business hours and closed dates saved successfully')
 
@@ -284,22 +285,18 @@ export default function BusinessHoursPage() {
                 <CardContent>
                   <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     {/* Tab List - Responsive */}
-                    <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 gap-2 md:gap-0 h-auto md:h-10">
+                    <TabsList className="grid w-full grid-cols-1 md:grid-cols-2 gap-2 md:gap-0 h-auto md:h-10">
                       <TabsTrigger value="hours" className="flex items-center gap-2 justify-center py-2 md:py-0">
                         <Clock className="w-4 h-4" />
                         <span className="hidden sm:inline">Operating Hours</span>
                         <span className="sm:hidden">Hours</span>
                       </TabsTrigger>
-                      <TabsTrigger value="holidays" className="flex items-center gap-2 justify-center py-2 md:py-0">
+                      <TabsTrigger value="closed" className="flex items-center gap-2 justify-center py-2 md:py-0">
                         <Calendar className="w-4 h-4" />
-                        <span className="hidden sm:inline">Holidays</span>
-                        <span className="sm:hidden">Days Off</span>
+                        <span className="hidden sm:inline">Closed Dates</span>
+                        <span className="sm:hidden">Closed</span>
                       </TabsTrigger>
-                      <TabsTrigger value="breaks" className="flex items-center gap-2 justify-center py-2 md:py-0">
-                        <Coffee className="w-4 h-4" />
-                        <span className="hidden sm:inline">Time Off</span>
-                        <span className="sm:hidden">Off</span>
-                      </TabsTrigger>
+
                     </TabsList>
 
                     {/* Operating Hours Tab */}
@@ -314,193 +311,224 @@ export default function BusinessHoursPage() {
                         {dayHours.map(day => (
                           <div 
                             key={day.dayOfWeek} 
-                            className="p-3 md:p-4 bg-card border border-border rounded-lg space-y-3"
+                            className={`p-3 md:p-4 border rounded-lg space-y-3 transition-colors ${
+                              day.isOff
+                                ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                                : 'bg-card border-border'
+                            }`}
                           >
-                            {/* Day Name */}
+                            {/* Day Name and Off Toggle */}
                             <div className="flex items-center justify-between">
-                              <Label className="text-sm md:text-base font-semibold">{day.dayName}</Label>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => copyHoursToAllDays(day.dayOfWeek)}
-                                title="Copy this day's hours to all other days"
-                                className="h-8 px-2 text-xs md:text-sm gap-1"
-                              >
-                                <Copy className="w-3 h-3 md:w-4 md:h-4" />
-                                <span className="hidden sm:inline">Copy</span>
-                              </Button>
+                              <div className="flex items-center gap-3">
+                                <Label className={`text-sm md:text-base font-semibold ${day.isOff ? 'text-red-700 dark:text-red-400' : ''}`}>
+                                  {day.dayName}
+                                </Label>
+                                {day.isOff && (
+                                  <span className="inline-block px-2 py-1 text-xs font-medium rounded-full bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200">
+                                    Closed
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex gap-2 items-center">
+                                {!day.isOff && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => copyHoursToAllDays(day.dayOfWeek)}
+                                    title="Copy this day's hours to all other days"
+                                    className="h-8 px-2 text-xs md:text-sm gap-1"
+                                  >
+                                    <Copy className="w-3 h-3 md:w-4 md:h-4" />
+                                    <span className="hidden sm:inline">Copy</span>
+                                  </Button>
+                                )}
+                                <Button
+                                  variant={day.isOff ? "destructive" : "outline"}
+                                  size="sm"
+                                  onClick={() => toggleDayOff(day.dayOfWeek)}
+                                  title={day.isOff ? "Mark as open" : "Mark as closed all day"}
+                                  className="h-8 px-2 text-xs md:text-sm gap-1"
+                                >
+                                  {day.isOff ? (
+                                    <>
+                                      <CheckCircle className="w-3 h-3 md:w-4 md:h-4" />
+                                      <span className="hidden sm:inline">Open</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <X className="w-3 h-3 md:w-4 md:h-4" />
+                                      <span className="hidden sm:inline">Close Day</span>
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
                             </div>
 
-                            {/* Time Inputs - Stacked on mobile */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div>
-                                <Label htmlFor={`open-${day.dayOfWeek}`} className="text-xs md:text-sm text-muted-foreground mb-1 block">
-                                  Opens
-                                </Label>
-                                <Input
-                                  id={`open-${day.dayOfWeek}`}
-                                  type="time"
-                                  value={day.openingTime}
-                                  onChange={e => updateDayHours(day.dayOfWeek, 'openingTime', e.target.value)}
-                                  className="w-full text-sm md:text-base"
-                                />
-                              </div>
+                            {/* Time Inputs - Only show if day is not off */}
+                            {!day.isOff && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <Label htmlFor={`open-${day.dayOfWeek}`} className="text-xs md:text-sm text-muted-foreground mb-1 block">
+                                    Opens
+                                  </Label>
+                                  <Input
+                                    id={`open-${day.dayOfWeek}`}
+                                    type="time"
+                                    value={day.openingTime}
+                                    onChange={e => updateDayHours(day.dayOfWeek, 'openingTime', e.target.value)}
+                                    className="w-full text-sm md:text-base"
+                                  />
+                                </div>
 
-                              <div>
-                                <Label htmlFor={`close-${day.dayOfWeek}`} className="text-xs md:text-sm text-muted-foreground mb-1 block">
-                                  Closes
-                                </Label>
-                                <Input
-                                  id={`close-${day.dayOfWeek}`}
-                                  type="time"
-                                  value={day.closingTime}
-                                  onChange={e => updateDayHours(day.dayOfWeek, 'closingTime', e.target.value)}
-                                  className="w-full text-sm md:text-base"
-                                />
+                                <div>
+                                  <Label htmlFor={`close-${day.dayOfWeek}`} className="text-xs md:text-sm text-muted-foreground mb-1 block">
+                                    Closes
+                                  </Label>
+                                  <Input
+                                    id={`close-${day.dayOfWeek}`}
+                                    type="time"
+                                    value={day.closingTime}
+                                    onChange={e => updateDayHours(day.dayOfWeek, 'closingTime', e.target.value)}
+                                    className="w-full text-sm md:text-base"
+                                  />
+                                </div>
                               </div>
-                            </div>
+                            )}
+                            
+                            {/* Show message when day is off */}
+                            {day.isOff && (
+                              <div className="text-sm text-red-700 dark:text-red-400 py-2">
+                                This day is marked as closed. Customers cannot book on {day.dayName}s.
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
                     </TabsContent>
 
-                    {/* Holidays & Closed Dates Tab */}
-                    <TabsContent value="holidays" className="space-y-4 mt-6">
+                    {/* Closed Dates Tab */}
+                    <TabsContent value="closed" className="space-y-4 mt-6">
                       <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 md:p-4">
                         <p className="text-xs md:text-sm text-amber-900 dark:text-amber-100">
-                          Add company holidays when your business is completely closed. Customers won&apos;t be able to book on these dates.
+                          Add specific dates when your business is completely closed. Customers won&apos;t be able to book on these dates.
                         </p>
                       </div>
 
-                      {/* Add Holiday */}
+                      {/* Add Closed Date Range */}
                       <Card className="border-dashed">
                         <CardContent className="pt-4 md:pt-6">
                           <div className="space-y-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <p className="text-xs text-muted-foreground font-medium">Select date range for closure</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                               <div>
-                                <Label htmlFor="holiday-date" className="text-xs md:text-sm">
-                                  Holiday Date
+                                <Label htmlFor="closed-start-date" className="text-xs md:text-sm">
+                                  Start Date
                                 </Label>
                                 <Input
-                                  id="holiday-date"
+                                  id="closed-start-date"
                                   type="date"
-                                  value={newHolidayDate}
-                                  onChange={(e) => setNewHolidayDate(e.target.value)}
+                                  value={newClosedDate}
+                                  onChange={(e) => setNewClosedDate(e.target.value)}
                                   min={new Date().toISOString().split('T')[0]}
                                   className="w-full text-sm md:text-base"
                                 />
                               </div>
                               <div>
-                                <Label htmlFor="holiday-name" className="text-xs md:text-sm">
-                                  Holiday Name
+                                <Label htmlFor="closed-end-date" className="text-xs md:text-sm">
+                                  End Date
                                 </Label>
                                 <Input
-                                  id="holiday-name"
-                                  placeholder="e.g., New Year, Dashain"
-                                  value={newHolidayName}
-                                  onChange={(e) => setNewHolidayName(e.target.value)}
+                                  id="closed-end-date"
+                                  type="date"
+                                  value={newClosedDateEnd}
+                                  onChange={(e) => setNewClosedDateEnd(e.target.value)}
+                                  min={newClosedDate || new Date().toISOString().split('T')[0]}
+                                  className="w-full text-sm md:text-base"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="closed-reason" className="text-xs md:text-sm">
+                                  Reason (Optional)
+                                </Label>
+                                <Input
+                                  id="closed-reason"
+                                  placeholder="e.g., Holiday, Maintenance"
+                                  value={newClosedDateReason}
+                                  onChange={(e) => setNewClosedDateReason(e.target.value)}
                                   className="w-full text-sm md:text-base"
                                 />
                               </div>
                             </div>
                             <Button 
-                              onClick={addHoliday}
+                              onClick={addClosedDate}
                               className="w-full" 
                               size="sm"
                             >
-                              Add Holiday
+                              Add Closed Dates
                             </Button>
                           </div>
                         </CardContent>
                       </Card>
 
-                      {/* Holidays List */}
-                      {holidays.length > 0 && (
+                      {/* Closed Dates List - Grouped by Range */}
+                      {closedDates.length > 0 && (
                         <div className="space-y-2">
-                          <p className="text-xs md:text-sm font-medium text-muted-foreground">
-                            {holidays.length} holiday{holidays.length !== 1 ? 's' : ''}
+                          <p className="text-sm font-medium text-muted-foreground">
+                            {closedDates.length} closed date{closedDates.length !== 1 ? 's' : ''} (grouped by range)
                           </p>
-                          {holidays.map((holiday, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-3 bg-card border border-border rounded-lg">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm md:text-base">{holiday.name}</p>
-                                <p className="text-xs md:text-sm text-muted-foreground">{holiday.date}</p>
+                          {(() => {
+                            // Group consecutive dates
+                            const sorted = [...closedDates].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                            const grouped = []
+                            let current = { start: sorted[0]?.date, end: sorted[0]?.date, reason: sorted[0]?.reason }
+
+                            for (let i = 1; i < sorted.length; i++) {
+                              const currentDate = new Date(sorted[i].date)
+                              const prevDate = new Date(sorted[i - 1].date)
+                              const diffDays = Math.floor((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24))
+
+                              if (diffDays === 1 && sorted[i].reason === current.reason) {
+                                current.end = sorted[i].date
+                              } else {
+                                grouped.push(current)
+                                current = { start: sorted[i].date, end: sorted[i].date, reason: sorted[i].reason }
+                              }
+                            }
+                            grouped.push(current)
+
+                            return grouped.map((range, idx) => (
+                              <div key={idx} className="p-3 bg-card border border-border rounded-lg flex items-start justify-between">
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm md:text-base">
+                                    {range.start === range.end ? range.start : `${range.start} to ${range.end}`}
+                                  </p>
+                                  {range.reason && <p className="text-xs md:text-sm text-muted-foreground">{range.reason}</p>}
+                                </div>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="ml-2"
+                                  onClick={() => {
+                                    // Remove all dates in this range
+                                    setClosedDates(closedDates.filter(d => !(d.date >= range.start && d.date <= range.end)))
+                                  }}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
                               </div>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="ml-2"
-                                onClick={() => removeHoliday(holiday.date)}
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
+                            ))
+                          })()}
                         </div>
                       )}
 
-                      {holidays.length === 0 && (
+                      {closedDates.length === 0 && (
                         <div className="p-4 text-center bg-muted/50 rounded-lg">
-                          <p className="text-sm text-muted-foreground">No holidays set yet</p>
+                          <p className="text-sm text-muted-foreground">No closed dates set yet</p>
                         </div>
                       )}
                     </TabsContent>
 
-                    {/* Time Off Tab */}
-                    <TabsContent value="breaks" className="space-y-4 mt-6">
-                      <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg p-3 md:p-4">
-                        <p className="text-xs md:text-sm text-purple-900 dark:text-purple-100">
-                          Manage staff time off, breaks, and leave periods. This affects availability for bookings when staff are not available.
-                        </p>
-                      </div>
 
-                      <Card className="border-dashed">
-                        <CardContent className="pt-4 md:pt-6">
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                              <div>
-                                <Label htmlFor="timeoff-start" className="text-xs md:text-sm">
-                                  Start Date
-                                </Label>
-                                <Input
-                                  id="timeoff-start"
-                                  type="date"
-                                  className="w-full text-sm md:text-base"
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="timeoff-end" className="text-xs md:text-sm">
-                                  End Date
-                                </Label>
-                                <Input
-                                  id="timeoff-end"
-                                  type="date"
-                                  className="w-full text-sm md:text-base"
-                                />
-                              </div>
-                              <div>
-                                <Label htmlFor="timeoff-reason" className="text-xs md:text-sm">
-                                  Reason
-                                </Label>
-                                <select className="w-full px-3 py-2 border border-border rounded-md text-sm md:text-base">
-                                  <option value="BREAK">Break</option>
-                                  <option value="VACATION">Vacation</option>
-                                  <option value="SICK_LEAVE">Sick Leave</option>
-                                  <option value="OTHER">Other</option>
-                                </select>
-                              </div>
-                            </div>
-                            <Button className="w-full" size="sm">
-                              Add Time Off
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      <div className="p-4 text-center bg-muted/50 rounded-lg">
-                        <p className="text-sm text-muted-foreground">Time off periods will be listed here. Navigate to Staff section to manage individual staff availability.</p>
-                      </div>
-                    </TabsContent>
                   </Tabs>
                 </CardContent>
               </Card>

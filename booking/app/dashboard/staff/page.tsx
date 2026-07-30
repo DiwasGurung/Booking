@@ -57,6 +57,7 @@ interface StaffFormData {
   workingHours: Record<string, { start: string; end: string; isWorking: boolean }>
   breakTimes: { start: string; end: string }[]
   serviceIds: string[]
+  timeOffs?: Array<{ id?: string; startDate: string; endDate: string; reason?: string; type?: string }>
 }
 
 const initialFormData: StaffFormData = {
@@ -68,6 +69,7 @@ const initialFormData: StaffFormData = {
   workingHours: DEFAULT_WORKING_HOURS,
   breakTimes: [],
   serviceIds: [],
+  timeOffs: [],
 }
 
 export default function StaffPage() {
@@ -85,6 +87,12 @@ export default function StaffPage() {
   const [saving, setSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
+  
+  // Time off management
+  const [newTimeOffStart, setNewTimeOffStart] = useState('')
+  const [newTimeOffEnd, setNewTimeOffEnd] = useState('')
+  const [newTimeOffReason, setNewTimeOffReason] = useState('')
+  const [newTimeOffType, setNewTimeOffType] = useState('VACATION')
 
   useEffect(() => {
     if (businessId) {
@@ -115,41 +123,27 @@ export default function StaffPage() {
       setLoading(false)
     }
   }
-const loadServices = async () => {
+
+  const loadServices = async () => {
     if (!businessId) return
     try {
-      setLoading(true)
       const response = await servicesApi.getBusinessServices(businessId)
-      const rawData = response as any
-
-      // API may return either an array or nested structure: { data: { data: Array } }
-      const servicesArray = Array.isArray(rawData)
-        ? rawData
-        : Array.isArray(rawData.data)
-        ? rawData.data
-        : Array.isArray(rawData.data?.data)
-        ? rawData.data.data
-        : []
-
-      const servicesData = servicesArray.map((service: any) => ({
-        id: service.id,
-        name: service.name,
-        description: service.description,
-        price: service.price,
-        offerPrice: service.offerPrice,
-        duration: service.duration,
-        isActive: service.isActive ?? true,
-        capacity: service.capacity ?? 1,
-      }))
-
-      setServices(servicesData)
-      setError(null)
+      
+      // Handle various response formats
+      let servicesArray: any[] = []
+      if (response) {
+        if (Array.isArray(response.data)) {
+          servicesArray = response.data
+        } else if (Array.isArray(response)) {
+          servicesArray = response
+        }
+      }
+      
+      setServices(servicesArray)
     } catch (err: any) {
-      const errorMessage = err?.message || 'Unknown error'
-      setError(`Failed to load services: ${errorMessage}`)
-      console.error('[v0] Error loading services:', err)
-    } finally {
-      setLoading(false)
+      console.error('[Staff] Error loading services:', err?.message || err)
+      // Services load failed, but page can still function with subscription data
+      setServices([])
     }
   }
 
@@ -184,10 +178,31 @@ const loadServices = async () => {
       setIsSubmitting(true)
       setSaving(true)
       
+      let staffId: string
       if (editingStaff) {
         await staffApi.update(editingStaff.id, formData)
+        staffId = editingStaff.id
       } else {
-        await staffApi.create({ ...formData, businessId })
+        const response = await staffApi.create({ ...formData, businessId })
+        staffId = response.data?.staff.id || response.id
+      }
+
+      // Save time off periods if any
+      if (formData.timeOffs && formData.timeOffs.length > 0 && staffId) {
+        await Promise.all(
+          formData.timeOffs.map(timeOff =>
+            fetch(`/api/staff/${staffId}/time-off`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                startDate: timeOff.startDate,
+                endDate: timeOff.endDate,
+                reason: timeOff.reason,
+                type: timeOff.type,
+              })
+            })
+          )
+        )
       }
 
       setIsModalOpen(false)
@@ -308,21 +323,59 @@ const loadServices = async () => {
     }))
   }
 
+  const addTimeOff = () => {
+    if (!newTimeOffStart || !newTimeOffEnd) {
+      setError('Please fill in all time off fields')
+      return
+    }
+
+    if (new Date(newTimeOffStart) > new Date(newTimeOffEnd)) {
+      setError('End date must be after or equal to start date')
+      return
+    }
+
+    // Create a single time off entry that covers the entire range
+    setFormData(prev => ({
+      ...prev,
+      timeOffs: [...(prev.timeOffs || []), {
+        startDate: newTimeOffStart,
+        endDate: newTimeOffEnd,
+        reason: newTimeOffReason,
+        type: newTimeOffType
+      }]
+    }))
+
+    setNewTimeOffStart('')
+    setNewTimeOffEnd('')
+    setNewTimeOffReason('')
+    setNewTimeOffType('VACATION')
+    setError(null)
+  }
+
+  const removeTimeOff = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      timeOffs: (prev.timeOffs || []).filter((_, i) => i !== index)
+    }))
+  }
+
   // Validation functions for each step
   const isStep1Valid = () => formData.firstName.trim() && formData.lastName.trim()
   const isStep2Valid = () => formData.serviceIds.length > 0
   const isStep3Valid = () => true // Schedule is optional
-  const isStep4Valid = () => true // Confirmation step
+  const isStep4Valid = () => true // Time off is optional
+  const isStep5Valid = () => true // Review step
 
   const canProceedToNext = () => {
     if (currentStep === 1) return isStep1Valid()
     if (currentStep === 2) return isStep2Valid()
     if (currentStep === 3) return isStep3Valid()
+    if (currentStep === 4) return isStep4Valid()
     return true
   }
 
   const goToNextStep = () => {
-    if (canProceedToNext() && currentStep < 4) {
+    if (canProceedToNext() && currentStep < 5) {
       setCurrentStep(currentStep + 1)
     }
   }
@@ -414,7 +467,7 @@ const loadServices = async () => {
           </Card>
         )}
 
-        {/* Services Usage Card
+        {/* Services Usage Card */}
         {subscriptionUsage && (
           <Card className="mb-8 bg-gradient-to-br from-green-50 to-green-50/50 border-green-200">
             <CardHeader className="pb-3">
@@ -432,7 +485,7 @@ const loadServices = async () => {
               </div>
             </CardHeader>
           </Card>
-        )} */}
+        )}
 
         {error && (
           <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive">
@@ -505,7 +558,7 @@ const loadServices = async () => {
                   )}
 
                   {/* Booking Link Info */}
-                  {(staff as any).staffCode && (
+                  {staff.staffCode && (
                     <div className="mt-3 pt-3 border-t">
                       <p className="text-xs text-muted-foreground mb-2">Booking Link:</p>
                       <div className="flex gap-2">
@@ -513,7 +566,7 @@ const loadServices = async () => {
                           variant="outline" 
                           size="sm" 
                           className="flex-1 text-xs"
-                          onClick={() => copyBookingLink((staff as any).staffCode, staff.firstName)}
+                          onClick={() => copyBookingLink(staff.staffcode as string, staff.firstName)}
                         >
                           <Copy className="w-3 h-3 mr-1" />
                           Copy Link
@@ -521,7 +574,8 @@ const loadServices = async () => {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => window.open(`/staff/${(staff as any).staffCode}/bookings`, '_blank')}
+                          onClick={() => router.push(`/staff/${staff.staffcode}/bookings`)}
+                
                         >
                           <Link className="w-3 h-3" />
                         </Button>
@@ -578,7 +632,7 @@ const loadServices = async () => {
                   <h2 className="text-lg font-semibold">
                     {editingStaff ? 'Edit Staff Member' : 'Add Staff Member'}
                   </h2>
-                  <p className="text-xs text-muted-foreground mt-1">Step {currentStep} of 4</p>
+                  <p className="text-xs text-muted-foreground mt-1">Step {currentStep} of 5</p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => setIsModalOpen(false)}>
                   <X className="w-4 h-4" />
@@ -587,7 +641,7 @@ const loadServices = async () => {
 
               {/* Progress Bar */}
               <div className="px-4 pt-4 flex gap-1">
-                {[1, 2, 3, 4].map((step) => (
+                {[1, 2, 3, 4, 5].map((step) => (
                   <div
                     key={step}
                     className={`flex-1 h-1 rounded-full transition-colors ${
@@ -735,7 +789,6 @@ const loadServices = async () => {
 
                 {currentStep === 3 && (
 
-      
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-medium">Break Times</h3>
@@ -773,8 +826,117 @@ const loadServices = async () => {
                 </div>
                 )}
 
-                {/* STEP 4: Review & Confirm */}
+                {/* STEP 4: Time Off */}
                 {currentStep === 4 && (
+                <div className="space-y-4 animate-in fade-in">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Time Off</h3>
+                    <p className="text-sm text-muted-foreground mb-6">Add scheduled time off periods when this staff member is unavailable. (Optional)</p>
+                  </div>
+
+                  <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                    <p className="text-xs text-blue-900 dark:text-blue-100">
+                      Staff on time off will not appear as available for new bookings during the specified dates.
+                    </p>
+                  </div>
+
+                  {/* Add Time Off Form */}
+                  <div className="space-y-3 p-4 border border-dashed rounded-lg">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="timeoff-start" className="text-sm">Start Date</Label>
+                        <Input
+                          id="timeoff-start"
+                          type="date"
+                          value={newTimeOffStart}
+                          onChange={(e) => setNewTimeOffStart(e.target.value)}
+                          className="w-full text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="timeoff-end" className="text-sm">End Date</Label>
+                        <Input
+                          id="timeoff-end"
+                          type="date"
+                          value={newTimeOffEnd}
+                          onChange={(e) => setNewTimeOffEnd(e.target.value)}
+                          className="w-full text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="timeoff-type" className="text-sm">Type</Label>
+                        <select 
+                          id="timeoff-type"
+                          value={newTimeOffType}
+                          onChange={(e) => setNewTimeOffType(e.target.value)}
+                          className="w-full px-3 py-2 border border-border rounded-md text-sm"
+                        >
+                          <option value="VACATION">Vacation</option>
+                          <option value="SICK_LEAVE">Sick Leave</option>
+                          <option value="BREAK">Break</option>
+                          <option value="OTHER">Other</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label htmlFor="timeoff-reason" className="text-sm">Reason (Optional)</Label>
+                        <Input
+                          id="timeoff-reason"
+                          placeholder="e.g., Holiday, Personal"
+                          value={newTimeOffReason}
+                          onChange={(e) => setNewTimeOffReason(e.target.value)}
+                          className="w-full text-sm"
+                        />
+                      </div>
+                    </div>
+                    <Button 
+                      type="button"
+                      onClick={addTimeOff}
+                      className="w-full"
+                      size="sm"
+                    >
+                      Add Time Off
+                    </Button>
+                  </div>
+
+                  {/* Time Off List */}
+                  {formData.timeOffs && formData.timeOffs.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {formData.timeOffs.length} time off period{formData.timeOffs.length !== 1 ? 's' : ''}
+                      </p>
+                      {formData.timeOffs.map((timeOff, index) => {
+                        const startDate = new Date(timeOff.startDate)
+                        const endDate = new Date(timeOff.endDate)
+                        const days = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+                        
+                        return (
+                          <div key={index} className="p-3 bg-card border border-border rounded-lg flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">{timeOff.startDate} to {timeOff.endDate}</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {timeOff.type || 'VACATION'} • {days} day{days !== 1 ? 's' : ''}{timeOff.reason ? ` - ${timeOff.reason}` : ''}
+                              </p>
+                            </div>
+                            <Button 
+                              type="button"
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => removeTimeOff(index)}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+                )}
+
+                {/* STEP 5: Review & Confirm */}
+                {currentStep === 5 && (
                 <div className="space-y-4 animate-in fade-in">
                   <div>
                     <h3 className="text-lg font-semibold mb-4">Review Information</h3>
@@ -845,7 +1007,7 @@ const loadServices = async () => {
                   >
                     Previous
                   </Button>
-                  {currentStep < 4 ? (
+                  {currentStep < 5 ? (
                     <Button onClick={goToNextStep} disabled={!canProceedToNext()}>
                       Next
                     </Button>

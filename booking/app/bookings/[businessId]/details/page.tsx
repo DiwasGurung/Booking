@@ -45,7 +45,6 @@ export default function BusinessDetailPage() {
       const businessData = businessRes.data ? {
         ...businessRes.data,
         logo: businessRes.data.logo || null,
-        reviewCount: businessRes.data.reviewCount || 0,
         address: String(businessRes.data.address || ''),
         city: String(businessRes.data.city || ''),
       } : null

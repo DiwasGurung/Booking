@@ -131,7 +131,7 @@ model Business {
   closedDates ClosedDate[]
   customers Customer[]
   timeOffs    TimeOff[]
-  holidays    StaffHoliday[]
+ 
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -482,23 +482,6 @@ model TimeOff {
   @@map("time_offs")
 }
 
-model StaffHoliday {
-  id        String   @id @default(cuid())
-  businessId String
-  business  Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  
-  date      DateTime
-  name      String
-  isRecurring Boolean @default(false)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([businessId, date])
-  @@index([businessId])
-  @@index([date])
-  @@map("staff_holidays")
-}
 model ClosedDate {
   id         String @id @default(cuid())
   businessId String

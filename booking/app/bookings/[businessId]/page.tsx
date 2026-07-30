@@ -33,9 +33,27 @@ function BookingPageContent() {
   const [customerEmail, setCustomerEmail] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [notes, setNotes] = useState('')
+
+  // Pre-fill customer info from logged-in user
+  useEffect(() => {
+    if (user) {
+      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim()
+      setCustomerName(fullName)
+      setCustomerEmail(user.email || '')
+      setCustomerPhone(user.phone || '')
+    }
+  }, [user])
   const [bookingSuccess, setBookingSuccess] = useState(false)
   const [bookingId, setBookingId] = useState('')
   const [error, setError] = useState('')
+
+  // Redirect unauthenticated users to public booking page
+  useEffect(() => {
+    if (!businessId) return
+    if (!user && !loading) {
+      router.push(`/book/${businessId}`)
+    }
+  }, [businessId, user, loading, router])
 
   useEffect(() => {
     if (!businessId) return
@@ -236,7 +254,19 @@ function BookingPageContent() {
     }
   }
 
-  if (!businessId) {
+  // Show loading during auth check
+  if (loading || !businessId) {
+    if (loading) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent mx-auto mb-4" />
+            <p className="text-lg text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
         <div className="mx-auto max-w-2xl text-center">

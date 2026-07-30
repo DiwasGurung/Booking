@@ -3,6 +3,7 @@ import { ReactNode } from "react"
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
 export type ApiResponse<T> = {
+  id?: any
   paymentId?: any
   transactionId?: any
   paymentUrl?: any
@@ -117,6 +118,7 @@ export interface PaymentHistory {
 }
 
 export interface Staff {
+  staffCode: import("react/jsx-runtime").JSX.Element
   id: string
   firstName: string
   lastName: string
@@ -125,6 +127,7 @@ export interface Staff {
   avatar?: string
   businessId: string
   emailVerified?: boolean
+  staffcode?: string
 }
 
 export interface BusinessHours {
@@ -266,34 +269,10 @@ export const servicesApi = {
     }),
 }
 
+
 // Business Hours API - /api/business-hours prefix
 export const businessHoursApi = {
-
-  
-
-  // Create business hours
-  create: (data: any) =>
-    apiCall<any>('/api/business-hours', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-
-
-
-  // Update business hours for all days
-  updateBusinessHours: (businessId: string, hours: any[]) =>
-    apiCall<any>(`/api/business-hours/business/${businessId}`, {
-      method: 'PUT',
-      body: JSON.stringify({ hours }),
-    }),
-
-  // Delete business hours
-  delete: (id: string) =>
-    apiCall<void>(`/api/business-hours/${id}`, {
-      method: 'DELETE',
-    }),
-
-    // Get all business hours for a business
+  // Get all business hours for a business
   getBusinessHours: (businessId: string) =>
     apiCall<BusinessHours[]>(`/api/business-hours/business/${businessId}`),
 
@@ -330,7 +309,7 @@ export const businessHoursApi = {
     }),
 
   // Add a holiday
-  addHoliday: (businessId: string, data: { date: string; name: string }) =>
+  addHoliday: (businessId: string, data: { date: string; name: string; isRecurring?: boolean }) =>
     apiCall<any>(`/api/business-hours/${businessId}/holidays`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -341,8 +320,25 @@ export const businessHoursApi = {
     apiCall<any[]>(`/api/business-hours/${businessId}/holidays`),
 
   // Remove a holiday
-  removeHoliday: (businessId: string, dateId: string) =>
-    apiCall<void>(`/api/business-hours/${businessId}/holidays/${dateId}`, {
+  removeHoliday: (businessId: string, date: string) =>
+    apiCall<void>(`/api/business-hours/${businessId}/holidays/${date}`, {
+      method: 'DELETE',
+    }),
+
+  // Add time off
+  addTimeOff: (businessId: string, data: { staffId?: string; startDate: string; endDate: string; reason?: string; type?: string }) =>
+    apiCall<any>(`/api/business-hours/${businessId}/time-off`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Get time off periods
+  getTimeOffs: (businessId: string, staffId?: string) =>
+    apiCall<any[]>(`/api/business-hours/${businessId}/time-off${staffId ? `?staffId=${staffId}` : ''}`),
+
+  // Remove time off
+  removeTimeOff: (timeOffId: string) =>
+    apiCall<void>(`/api/business-hours/time-off/${timeOffId}`, {
       method: 'DELETE',
     }),
 }

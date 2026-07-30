@@ -1,5 +1,5 @@
 import  prisma  from "../lib/prisma"
-import type { BusinessHours, Prisma } from "@prisma/client"
+import type { BusinessHours, Prisma, TimeOff, ClosedDate } from "@prisma/client"
 
 export class BusinessHoursService {
   /**
@@ -97,6 +97,111 @@ export class BusinessHoursService {
     const closeTime = closeHour * 60 + closeMin
 
     return currentTime >= openTime && currentTime < closeTime
+  }
+
+
+ 
+  /**
+   * Add staff time off
+   */
+  async addTimeOff(data: {
+    businessId: string
+    staffId?: string
+    startDate: string // YYYY-MM-DD format
+    endDate: string
+    reason?: string
+    type?: string
+  }): Promise<TimeOff> {
+    const startDate = new Date(data.startDate)
+    const endDate = new Date(data.endDate)
+
+    return prisma.timeOff.create({
+      data: {
+        businessId: data.businessId,
+        staffId: data.staffId,
+        startDate,
+        endDate,
+        reason: data.reason,
+        type: data.type || "BREAK",
+      },
+    })
+  }
+
+  /**
+   * Get time off periods for a business or staff
+   */
+  async getTimeOffs(businessId: string, staffId?: string): Promise<TimeOff[]> {
+    return prisma.timeOff.findMany({
+      where: {
+        businessId,
+        ...(staffId && { staffId }),
+      },
+      orderBy: { startDate: "asc" },
+    })
+  }
+
+  /**
+   * Remove time off
+   */
+  async removeTimeOff(timeOffId: string): Promise<TimeOff> {
+    return prisma.timeOff.delete({
+      where: { id: timeOffId },
+    })
+  }
+
+  
+
+  /**
+   * Check if staff is on time off on a date
+   */
+  async isStaffOnTimeOff(businessId: string, staffId: string, date: Date): Promise<boolean> {
+    const timeOff = await prisma.timeOff.findFirst({
+      where: {
+        businessId,
+        staffId,
+        startDate: { lte: date },
+        endDate: { gte: date },
+      },
+    })
+
+    return !!timeOff
+  }
+
+  
+  /**
+   * Get all closed dates for a business
+   */
+  async getClosedDates(businessId: string): Promise<ClosedDate[]> {
+    return prisma.closedDate.findMany({
+      where: { businessId },
+      orderBy: { date: "asc" },
+    })
+  }
+
+  /**
+   * Add a closed date
+   */
+  async addClosedDate(businessId: string, data: { date: string; reason?: string }): Promise<ClosedDate> {
+    const dateObj = new Date(data.date)
+    
+    return prisma.closedDate.create({
+      data: {
+        businessId,
+        date: dateObj,
+        reason: data.reason,
+      },
+    })
+  }
+
+  /**
+   * Remove a closed date
+   */
+  async removeClosedDate(businessId: string, closedDateId: string): Promise<ClosedDate> {
+    return prisma.closedDate.delete({
+      where: {
+        id: closedDateId,
+      },
+    })
   }
 }
 

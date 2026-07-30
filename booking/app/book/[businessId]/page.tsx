@@ -1,17 +1,39 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Loader, CheckCircle, AlertCircle, Calendar, Clock, User, Mail, Phone, MapPin, ArrowRight, Users } from 'lucide-react'
-import { businessApi, businessHoursApi, servicesApi, bookingsApi, staffApi, type Business, type BusinessHours, type Service, type Staff, type Booking } from '@/lib/api'
+import { businessApi, businessHoursApi, servicesApi, bookingsApi, staffApi, type Business, type Service, type Staff, type Booking, type BusinessHours } from '@/lib/api'
 import { getAvailableTimeSlots } from '@/lib/availability'
+import { useAuth } from '@/context/authContext'
+
+function getDefaultBusinessHours() {
+  return [
+    { dayOfWeek: 0, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Sunday
+    { dayOfWeek: 1, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Monday
+    { dayOfWeek: 2, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Tuesday
+    { dayOfWeek: 3, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Wednesday
+    { dayOfWeek: 4, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Thursday
+    { dayOfWeek: 5, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Friday
+    { dayOfWeek: 6, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Saturday
+  ]
+}
 
 export default function PublicBookingPage() {
   const params = useParams()
+  const router = useRouter()
   const businessId = params.businessId as string
+  const { user, loading: authLoading } = useAuth()
+
+  // Redirect authenticated users to the authenticated booking page
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push(`/bookings/${businessId}`)
+    }
+  }, [authLoading, user, businessId, router])
 
   const [business, setBusiness] = useState<Business | null>(null)
   const [services, setServices] = useState<Service[]>([])
@@ -40,7 +62,7 @@ export default function PublicBookingPage() {
 
   // Calculate available time slots when date or staff changes
   useEffect(() => {
-    if (!appointmentDate || !selectedService || businessHours.length === 0) {
+    if (!appointmentDate || !selectedService) {
       setAvailableTimeSlots([])
       return
     }
@@ -55,15 +77,31 @@ export default function PublicBookingPage() {
       return
     }
 
+    // Use provided business hours or default to 9 AM - 6 PM
+    const hoursToUse = businessHours.length > 0 ? businessHours : getDefaultBusinessHours()
+
+    console.log('[v0] Time slot calculation:', {
+      appointmentDate,
+      serviceName: selectedServiceData.name,
+      serviceDuration: selectedServiceData.duration,
+      selectedStaffId: selectedStaff || 'none',
+      businessHoursCount: hoursToUse.length,
+      businessHours: hoursToUse,
+      staffCount: staff.length,
+      bookingsCount: bookings.length,
+    })
+
     const slots = getAvailableTimeSlots(
       appointmentDate,
       selectedStaff || null,
       selectedServiceData.duration,
-      businessHours,
+      hoursToUse,
       bookings,
       staff,
       selectedStaffData || null
     )
+
+    console.log('[v0] Generated slots:', slots)
 
     setAvailableTimeSlots(slots)
     setLoadingTimeSlots(false)
@@ -82,30 +120,17 @@ export default function PublicBookingPage() {
       
       setBusiness(businessResponse.data)
 
-       const response = await servicesApi.getBusinessServices(businessId)
-      const rawData = response as any
-
-      // API may return either an array or nested structure: { data: { data: Array } }
-      const servicesArray = Array.isArray(rawData)
-        ? rawData
-        : Array.isArray(rawData.data)
-        ? rawData.data
-        : Array.isArray(rawData.data?.data)
-        ? rawData.data.data
-        : []
-
-      const servicesData = servicesArray.map((service: any) => ({
-        id: service.id,
-        name: service.name,
-        description: service.description,
-        price: service.price,
-        offerPrice: service.offerPrice,
-        duration: service.duration,
-        isActive: service.isActive ?? true,
-        capacity: service.capacity ?? 1,
-      }))
-
-      setServices(servicesData)
+      const servicesResponse = await servicesApi.getBusinessServices(businessId)
+      
+      if (servicesResponse.success && Array.isArray(servicesResponse.data)) {
+        setServices(servicesResponse.data)
+      } else if (servicesResponse.success && servicesResponse.data) {
+        // Handle case where data exists but isn't an array
+        console.log('[v0] Services data is not an array:', servicesResponse.data)
+        setServices([])
+      } else {
+        setServices([])
+      }
 
       // Fetch staff members
       const staffResponse = await staffApi.getBusinessStaff(businessId)
@@ -121,9 +146,17 @@ export default function PublicBookingPage() {
       }
 
       // Fetch business hours
-      const hoursResponse = await businessHoursApi.getBusinessHours(businessId)
-      if (hoursResponse.success && Array.isArray(hoursResponse.data)) {
-        setBusinessHours(hoursResponse.data)
+      try {
+        const hoursResponse = await businessHoursApi.getBusinessHours(businessId)
+        if (hoursResponse.success && Array.isArray(hoursResponse.data) && hoursResponse.data.length > 0) {
+          setBusinessHours(hoursResponse.data)
+        } else {
+          console.log('[v0] No business hours found, using default hours')
+          setBusinessHours([])
+        }
+      } catch (hoursErr) {
+        console.log('[v0] Error fetching business hours:', hoursErr)
+        setBusinessHours([])
       }
 
       // Fetch bookings for availability checking
@@ -163,7 +196,7 @@ export default function PublicBookingPage() {
       const bookingResponse = await bookingsApi.createBooking({
         businessId,
         serviceId: selectedService,
-        staffId: selectedStaff || undefined, // Optional - auto-assign if not selected
+        staffId: selectedStaff || undefined,
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         customerName,
@@ -195,6 +228,18 @@ export default function PublicBookingPage() {
     }
   }
 
+  // Show loading during auth check
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center">
+          <Loader className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-foreground text-lg">Checking your access...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -218,17 +263,19 @@ export default function PublicBookingPage() {
     )
   }
 
-  const businessLogoSrc = typeof business.logo === 'string' ? business.logo : undefined
-
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-primary to-primary/90 text-primary-foreground py-12 md:py-16 px-4">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-4 mb-4">
-            {businessLogoSrc && (
-              <img src={businessLogoSrc} alt={business.name} className="w-14 h-14 rounded-lg object-cover shadow-lg" />
-            )}
+            {business.logo && typeof business.logo === 'string' ? (
+              <img src={business.logo} alt={business.name} className="w-14 h-14 rounded-lg object-cover shadow-lg" />
+            ) : business.logo ? (
+              <div className="w-14 h-14 rounded-lg overflow-hidden shadow-lg">
+                {business.logo}
+              </div>
+            ) : null}
             <div>
               <h1 className="text-4xl md:text-5xl font-bold text-balance">{business.name}</h1>
               <p className="text-primary-foreground/85 text-lg mt-1">{business.category}</p>
@@ -240,7 +287,7 @@ export default function PublicBookingPage() {
         </div>
       </div>
 
-
+      {/* Main Content */}
       <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
         {/* Business Hours Warning */}
         {businessHours.length === 0 && (
@@ -330,7 +377,16 @@ export default function PublicBookingPage() {
                 <p className="text-primary-foreground/80 mt-2">No registration required. We&apos;ll send you a confirmation email.</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              <form onSubmit={handleSubmit} className={`p-8 space-y-6 ${businessHours.length === 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+                {/* Business Hours Not Configured Message */}
+                {businessHours.length === 0 && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-900">
+                      <strong>Notice:</strong> Booking is currently unavailable. The business hasn&apos;t configured their operating hours yet.
+                    </p>
+                  </div>
+                )}
+
                 {/* Success Message */}
                 {bookingSuccess && (
                   <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-start gap-3">
