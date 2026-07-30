@@ -20,6 +20,7 @@ interface DayHours {
   openingTime: string
   closingTime: string
   isOff?: boolean
+  isClosed?: boolean
 }
 
 interface ClosedDate {
@@ -76,9 +77,10 @@ export default function BusinessHoursPage() {
         const formattedHours = sortedHours.map(hour => ({
           dayOfWeek: hour.dayOfWeek,
           dayName: DAYS.find(d => d.id === hour.dayOfWeek)?.name || 'Unknown',
-          openingTime: hour.openingTime || hour.openingTime || '09:00',
-          closingTime: hour.closingTime || hour.closingTime || '18:00',
+          openingTime: hour.openTime || hour.openTime || '09:00',
+          closingTime: hour.closeTime || hour.closeTime || '18:00',
           isOff: hour.isClosed || false,
+          isClosed: hour.isClosed || false,
         }))
         setDayHours(formattedHours)
       }
@@ -124,7 +126,7 @@ export default function BusinessHoursPage() {
     )
   }
 
-  function addClosedDate() {
+  async function addClosedDate() {
     if (!newClosedDate) {
       setError('Please enter start date')
       return
@@ -140,28 +142,60 @@ export default function BusinessHoursPage() {
       return
     }
 
-    // Generate all dates in the range
-    const start = new Date(newClosedDate)
-    const end = new Date(newClosedDateEnd)
-    const datesInRange = []
+    try {
+      setSaving(true)
+      setError(null)
 
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      datesInRange.push({
-        date: d.toISOString().split('T')[0],
-        reason: newClosedDateReason,
-      })
+      // Generate all dates in the range
+      const start = new Date(newClosedDate)
+      const end = new Date(newClosedDateEnd)
+      const datesInRange = []
+
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        datesInRange.push({
+          date: d.toISOString().split('T')[0],
+          reason: newClosedDateReason,
+        })
+      }
+
+      // Save each closed date to database
+      for (const closedDate of datesInRange) {
+        await businessHoursApi.addClosedDate(businessId as string, {
+          date: closedDate.date,
+          reason: closedDate.reason,
+        })
+      }
+
+      // Update local state
+      setClosedDates([...closedDates, ...datesInRange])
+      setNewClosedDate('')
+      setNewClosedDateEnd('')
+      setNewClosedDateReason('')
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 2000)
+    } catch (err) {
+      setError('Failed to add closed date')
+      console.error('[v0] Error adding closed date:', err)
+    } finally {
+      setSaving(false)
     }
-
-    setClosedDates([...closedDates, ...datesInRange])
-
-    setNewClosedDate('')
-    setNewClosedDateEnd('')
-    setNewClosedDateReason('')
-    setError(null)
   }
 
-  function removeClosedDate(dateToRemove: string) {
-    setClosedDates(closedDates.filter(d => d.date !== dateToRemove))
+  async function removeClosedDate(dateToRemove: string) {
+    try {
+      setSaving(true)
+      const datesToRemove = closedDates.filter(d => d.date >= dateToRemove && d.date <= dateToRemove)
+      
+      // Note: You would need to implement a delete method in your API
+      // For now, just update local state
+      setClosedDates(closedDates.filter(d => !(d.date >= dateToRemove && d.date <= dateToRemove)))
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 2000)
+    } catch (err) {
+      setError('Failed to remove closed date')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function toggleDayOff(dayOfWeek: number) {
@@ -187,7 +221,7 @@ export default function BusinessHoursPage() {
           dayOfWeek: day.dayOfWeek,
           openTime: day.isOff ? '00:00' : day.openingTime,
           closeTime: day.isOff ? '00:00' : day.closingTime,
-          isClosed: day.isOff || false,
+          isClosed: day.isClosed !== undefined ? day.isClosed : (day.isOff || false),
         })
       )
 
@@ -230,11 +264,9 @@ export default function BusinessHoursPage() {
 
   return (
     <AuthWrapper mode="business-only">
-      <div className="flex min-h-screen bg-background">
+      <div className=" min-h-screen bg-background">
         <Sidebar />
-        <div className="flex-1 flex flex-col">
-          <div className="flex-1 overflow-auto">
-            <div className="p-4 md:p-8 max-w-6xl">
+        <main className="md:ml-64 pt-6 px-4 md:px-8 py-8">
             <Breadcrumbs
               items={[
                 { label: 'Dashboard', href: '/dashboard' },
@@ -461,10 +493,23 @@ export default function BusinessHoursPage() {
                             </div>
                             <Button 
                               onClick={addClosedDate}
+                              disabled={saving}
                               className="w-full" 
                               size="sm"
                             >
-                              Add Closed Dates
+                              {saving ? (
+                                <>
+                                  <Loader className="w-4 h-4 mr-2 animate-spin" />
+                                  Adding...
+                                </>
+                              ) : saveSuccess ? (
+                                <>
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Added!
+                                </>
+                              ) : (
+                                'Add Closed Dates'
+                              )}
                             </Button>
                           </div>
                         </CardContent>
@@ -478,9 +523,11 @@ export default function BusinessHoursPage() {
                           </p>
                           {(() => {
                             // Group consecutive dates
+                            if (!closedDates || closedDates.length === 0) return []
+                            
                             const sorted = [...closedDates].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                             const grouped = []
-                            let current = { start: sorted[0]?.date, end: sorted[0]?.date, reason: sorted[0]?.reason }
+                            let current = { start: sorted[0].date, end: sorted[0].date, reason: sorted[0].reason }
 
                             for (let i = 1; i < sorted.length; i++) {
                               const currentDate = new Date(sorted[i].date)
@@ -570,10 +617,9 @@ export default function BusinessHoursPage() {
                 </Button>
               </div>
             </div>
-            </div>
-          </div>
-        </div>
-      </div>
+            
+         </main>
+         </div>
     </AuthWrapper>
   )
 }

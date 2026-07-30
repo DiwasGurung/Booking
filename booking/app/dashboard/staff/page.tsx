@@ -32,6 +32,8 @@ import { useToast } from '@/hooks/use-toast'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionUsage } from '@/hooks/useSusbcriptionUsage'
 
+
+const today = new Date().toISOString().split('T')[0];
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 const DAY_LABELS: Record<string, string> = {
   monday: 'Monday',
@@ -57,7 +59,7 @@ interface StaffFormData {
   workingHours: Record<string, { start: string; end: string; isWorking: boolean }>
   breakTimes: { start: string; end: string }[]
   serviceIds: string[]
-  timeOffs?: Array<{ id?: string; startDate: string; endDate: string; reason?: string; type?: string }>
+
 }
 
 const initialFormData: StaffFormData = {
@@ -69,7 +71,7 @@ const initialFormData: StaffFormData = {
   workingHours: DEFAULT_WORKING_HOURS,
   breakTimes: [],
   serviceIds: [],
-  timeOffs: [],
+
 }
 
 export default function StaffPage() {
@@ -87,13 +89,11 @@ export default function StaffPage() {
   const [saving, setSaving] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
+  const [showTimeOffModal, setShowTimeOffModal] = useState(false)
+  const [selectedStaffForTimeOff, setSelectedStaffForTimeOff] = useState<Staff | null>(null)
+  const [timeOffFormData, setTimeOffFormData] = useState({ startDate: '', endDate: '', type: 'VACATION', reason: '' })
+  const [timeOffSaving, setTimeOffSaving] = useState(false)
   
-  // Time off management
-  const [newTimeOffStart, setNewTimeOffStart] = useState('')
-  const [newTimeOffEnd, setNewTimeOffEnd] = useState('')
-  const [newTimeOffReason, setNewTimeOffReason] = useState('')
-  const [newTimeOffType, setNewTimeOffType] = useState('VACATION')
-
   useEffect(() => {
     if (businessId) {
       loadStaff()
@@ -124,29 +124,43 @@ export default function StaffPage() {
     }
   }
 
-  const loadServices = async () => {
+ const loadServices = async () => {
     if (!businessId) return
     try {
+      setLoading(true)
       const response = await servicesApi.getBusinessServices(businessId)
-      
-      // Handle various response formats
-      let servicesArray: any[] = []
-      if (response) {
-        if (Array.isArray(response.data)) {
-          servicesArray = response.data
-        } else if (Array.isArray(response)) {
-          servicesArray = response
-        }
-      }
-      
-      setServices(servicesArray)
+      const rawData = response as any
+
+      // API may return either an array or nested structure: { data: { data: Array } }
+      const servicesArray = Array.isArray(rawData)
+        ? rawData
+        : Array.isArray(rawData.data)
+        ? rawData.data
+        : Array.isArray(rawData.data?.data)
+        ? rawData.data.data
+        : []
+
+      const servicesData = servicesArray.map((service: any) => ({
+        id: service.id,
+        name: service.name,
+        description: service.description,
+        price: service.price,
+        offerPrice: service.offerPrice,
+        duration: service.duration,
+        isActive: service.isActive ?? true,
+        capacity: service.capacity ?? 1,
+      }))
+
+      setServices(servicesData)
+      setError(null)
     } catch (err: any) {
-      console.error('[Staff] Error loading services:', err?.message || err)
-      // Services load failed, but page can still function with subscription data
-      setServices([])
+      const errorMessage = err?.message || 'Unknown error'
+      setError(`Failed to load services: ${errorMessage}`)
+      console.error('[v0] Error loading services:', err)
+    } finally {
+      setLoading(false)
     }
   }
-
   const openAddModal = () => {
     setEditingStaff(null)
     setFormData(initialFormData)
@@ -164,7 +178,7 @@ export default function StaffPage() {
       role: staff.role,
       workingHours: staff.workingHours || DEFAULT_WORKING_HOURS,
       breakTimes: staff.breakTimes || [],
-      serviceIds: staff.services?.map(s => s.service.id) || [],
+      serviceIds: staff.services?.map(s => s.serviceId) || [],
     })
     setCurrentStep(1)
     setIsModalOpen(true)
@@ -185,24 +199,6 @@ export default function StaffPage() {
       } else {
         const response = await staffApi.create({ ...formData, businessId })
         staffId = response.data?.staff.id || response.id
-      }
-
-      // Save time off periods if any
-      if (formData.timeOffs && formData.timeOffs.length > 0 && staffId) {
-        await Promise.all(
-          formData.timeOffs.map(timeOff =>
-            fetch(`/api/staff/${staffId}/time-off`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                startDate: timeOff.startDate,
-                endDate: timeOff.endDate,
-                reason: timeOff.reason,
-                type: timeOff.type,
-              })
-            })
-          )
-        )
       }
 
       setIsModalOpen(false)
@@ -256,8 +252,18 @@ export default function StaffPage() {
   }
 
   const copyBookingLink = (staffCode: string, staffName: string) => {
+    const normalizedStaffCode = staffCode?.trim()
+    if (!normalizedStaffCode) {
+      toast({
+        title: 'Failed to copy',
+        description: 'No booking code available',
+        variant: 'destructive',
+      })
+      return
+    }
+
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-    const bookingLink = `${baseUrl}/staff/${staffCode}/book`
+    const bookingLink = `${baseUrl}/staff/${normalizedStaffCode}/book`
     
     navigator.clipboard.writeText(bookingLink).then(() => {
       toast({
@@ -323,59 +329,21 @@ export default function StaffPage() {
     }))
   }
 
-  const addTimeOff = () => {
-    if (!newTimeOffStart || !newTimeOffEnd) {
-      setError('Please fill in all time off fields')
-      return
-    }
-
-    if (new Date(newTimeOffStart) > new Date(newTimeOffEnd)) {
-      setError('End date must be after or equal to start date')
-      return
-    }
-
-    // Create a single time off entry that covers the entire range
-    setFormData(prev => ({
-      ...prev,
-      timeOffs: [...(prev.timeOffs || []), {
-        startDate: newTimeOffStart,
-        endDate: newTimeOffEnd,
-        reason: newTimeOffReason,
-        type: newTimeOffType
-      }]
-    }))
-
-    setNewTimeOffStart('')
-    setNewTimeOffEnd('')
-    setNewTimeOffReason('')
-    setNewTimeOffType('VACATION')
-    setError(null)
-  }
-
-  const removeTimeOff = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      timeOffs: (prev.timeOffs || []).filter((_, i) => i !== index)
-    }))
-  }
-
   // Validation functions for each step
   const isStep1Valid = () => formData.firstName.trim() && formData.lastName.trim()
   const isStep2Valid = () => formData.serviceIds.length > 0
   const isStep3Valid = () => true // Schedule is optional
-  const isStep4Valid = () => true // Time off is optional
-  const isStep5Valid = () => true // Review step
 
   const canProceedToNext = () => {
     if (currentStep === 1) return isStep1Valid()
     if (currentStep === 2) return isStep2Valid()
     if (currentStep === 3) return isStep3Valid()
-    if (currentStep === 4) return isStep4Valid()
+    if (currentStep === 4) return true // Review step, always valid
     return true
   }
 
   const goToNextStep = () => {
-    if (canProceedToNext() && currentStep < 5) {
+    if (canProceedToNext() && currentStep < 4) {
       setCurrentStep(currentStep + 1)
     }
   }
@@ -383,6 +351,39 @@ export default function StaffPage() {
   const goToPreviousStep = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
+    }
+  }
+
+  const saveTimeOff = async () => {
+    if (!selectedStaffForTimeOff || !timeOffFormData.startDate || !timeOffFormData.endDate) {
+      toast({ title: 'Error', description: 'Please fill in all required fields', variant: 'destructive' })
+      return
+    }
+
+    if (new Date(timeOffFormData.startDate) > new Date(timeOffFormData.endDate)) {
+      toast({ title: 'Error', description: 'End date must be after start date', variant: 'destructive' })
+      return
+    }
+
+    try {
+      setTimeOffSaving(true)
+      const response = await staffApi.addTimeOff(selectedStaffForTimeOff.id, {
+        startDate: timeOffFormData.startDate,
+        endDate: timeOffFormData.endDate,
+        type: timeOffFormData.type,
+        reason: timeOffFormData.reason,
+      })
+
+      if (!response.success) throw new Error('Failed to save time off')
+      
+      toast({ title: 'Success', description: 'Time off added successfully' })
+      setShowTimeOffModal(false)
+      setSelectedStaffForTimeOff(null)
+      setTimeOffFormData({ startDate: '', endDate: '', type: 'VACATION', reason: '' })
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to add time off', variant: 'destructive' })
+    } finally {
+      setTimeOffSaving(false)
     }
   }
 
@@ -421,69 +422,44 @@ export default function StaffPage() {
           </div>
         </div>
 
-        {/* Subscription Usage Card */}
+        {/* Usage Stats - Minimal Design */}
         {subscriptionUsage && (
-          <Card className="mb-8 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
+          <Card className="border mb-8">
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between mb-4">
                 <div>
-                  <CardTitle className="text-sm">Staff Limit</CardTitle>
-                  <CardDescription className="mt-1">
-                    {subscriptionUsage.staffUnlimited ? 'Unlimited staff' : `${subscriptionUsage.staffCurrent} of ${subscriptionUsage.staffLimit} staff members`}
-                  </CardDescription>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Staff Members</p>
+                  <p className="text-2xl font-bold">
+                    {subscriptionUsage.staffUnlimited ? '∞' : subscriptionUsage.staffCurrent}
+                  </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  {!subscriptionUsage.staffUnlimited && (
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary">{subscriptionUsage.staffCurrent}/{subscriptionUsage.staffLimit}</p>
-                      <p className="text-xs text-muted-foreground">{subscriptionUsage.staffUsagePercent}% used</p>
-                    </div>
-                  )}
-                  {!subscriptionUsage.staffUnlimited && subscriptionUsage.staffUsagePercent >= 80 && (
-                    <Button size="sm" variant="outline" onClick={() => router.push('/subscription')}>
-                      <Zap className="w-4 h-4 mr-2" />
-                      Upgrade
-                    </Button>
-                  )}
-                </div>
+                {!subscriptionUsage.staffUnlimited && subscriptionUsage.staffUsagePercent >= 80 && (
+                  <Button size="sm" onClick={() => router.push('/subscription')} className="gap-1 h-8">
+                    <Zap className="w-3 h-3" />
+                    <span className="text-xs">Upgrade</span>
+                  </Button>
+                )}
               </div>
-            </CardHeader>
-            {!subscriptionUsage.staffUnlimited && (
-              <CardContent>
-                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                  <div
-                    className={`h-full transition-all ${
-                      subscriptionUsage.staffUsagePercent >= 100
-                        ? 'bg-destructive'
-                        : subscriptionUsage.staffUsagePercent >= 80
-                        ? 'bg-yellow-500'
-                        : 'bg-primary'
-                    }`}
-                    style={{ width: `${Math.min(subscriptionUsage.staffUsagePercent, 100)}%` }}
-                  />
-                </div>
-              </CardContent>
-            )}
-          </Card>
-        )}
-
-        {/* Services Usage Card */}
-        {subscriptionUsage && (
-          <Card className="mb-8 bg-gradient-to-br from-green-50 to-green-50/50 border-green-200">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm">Services Available</CardTitle>
-                  <CardDescription className="mt-1">
-                    {subscriptionUsage.serviceUnlimited ? 'Unlimited services' : `${subscriptionUsage.serviceCurrent} service available`}
-                  </CardDescription>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-green-600">{subscriptionUsage.serviceCurrent}</p>
-                  <p className="text-xs text-muted-foreground">Service{subscriptionUsage.serviceCurrent !== 1 ? 's' : ''}</p>
-                </div>
-              </div>
-            </CardHeader>
+              {!subscriptionUsage.staffUnlimited && (
+                <>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {subscriptionUsage.staffCurrent} of {subscriptionUsage.staffLimit}
+                  </p>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${
+                        subscriptionUsage.staffUsagePercent >= 100
+                          ? 'bg-destructive'
+                          : subscriptionUsage.staffUsagePercent >= 80
+                          ? 'bg-amber-500'
+                          : 'bg-primary'
+                      }`}
+                      style={{ width: `${Math.min(subscriptionUsage.staffUsagePercent, 100)}%` }}
+                    />
+                  </div>
+                </>
+              )}
+            </CardContent>
           </Card>
         )}
 
@@ -545,7 +521,7 @@ export default function StaffPage() {
                       <div className="flex flex-wrap gap-1">
                         {staff.services.slice(0, 3).map((s) => (
                           <Badge key={s.id} variant="outline" className="text-xs">
-                            {s.service.name}
+                            {s.service?.name}
                           </Badge>
                         ))}
                         {staff.services.length > 3 && (
@@ -558,7 +534,7 @@ export default function StaffPage() {
                   )}
 
                   {/* Booking Link Info */}
-                  {staff.staffCode && (
+                  {staff.staffCode&& (
                     <div className="mt-3 pt-3 border-t">
                       <p className="text-xs text-muted-foreground mb-2">Booking Link:</p>
                       <div className="flex gap-2">
@@ -566,7 +542,7 @@ export default function StaffPage() {
                           variant="outline" 
                           size="sm" 
                           className="flex-1 text-xs"
-                          onClick={() => copyBookingLink(staff.staffcode as string, staff.firstName)}
+                          onClick={() => copyBookingLink(String(staff.staffCode), String(staff.firstName))}
                         >
                           <Copy className="w-3 h-3 mr-1" />
                           Copy Link
@@ -574,8 +550,8 @@ export default function StaffPage() {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => router.push(`/staff/${staff.staffcode}/bookings`)}
-                
+                          onClick={() => router.push(`/staff/${staff.staffCode}/bookings`)}
+                  
                         >
                           <Link className="w-3 h-3" />
                         </Button>
@@ -595,6 +571,18 @@ export default function StaffPage() {
                       </span>
                     </div>
                     <div className="flex gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => {
+                          setSelectedStaffForTimeOff(staff)
+                          setTimeOffFormData({ startDate: '', endDate: '', type: 'VACATION', reason: '' })
+                          setShowTimeOffModal(true)
+                        }}
+                        title="Manage time off"
+                      >
+                        <Calendar className="w-4 h-4" />
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => openEditModal(staff)}>
                         <Edit className="w-4 h-4" />
                       </Button>
@@ -786,9 +774,10 @@ export default function StaffPage() {
                   </div>
                 </div>
                 )}
+{/* 
+                {currentStep === 4 && (
 
-                {currentStep === 3 && (
-
+    
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-medium">Break Times</h3>
@@ -824,119 +813,10 @@ export default function StaffPage() {
                     </div>
                   )}
                 </div>
-                )}
+                )} */}
 
-                {/* STEP 4: Time Off */}
+                {/* STEP 4: Review & Confirm */}
                 {currentStep === 4 && (
-                <div className="space-y-4 animate-in fade-in">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Time Off</h3>
-                    <p className="text-sm text-muted-foreground mb-6">Add scheduled time off periods when this staff member is unavailable. (Optional)</p>
-                  </div>
-
-                  <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                    <p className="text-xs text-blue-900 dark:text-blue-100">
-                      Staff on time off will not appear as available for new bookings during the specified dates.
-                    </p>
-                  </div>
-
-                  {/* Add Time Off Form */}
-                  <div className="space-y-3 p-4 border border-dashed rounded-lg">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor="timeoff-start" className="text-sm">Start Date</Label>
-                        <Input
-                          id="timeoff-start"
-                          type="date"
-                          value={newTimeOffStart}
-                          onChange={(e) => setNewTimeOffStart(e.target.value)}
-                          className="w-full text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="timeoff-end" className="text-sm">End Date</Label>
-                        <Input
-                          id="timeoff-end"
-                          type="date"
-                          value={newTimeOffEnd}
-                          onChange={(e) => setNewTimeOffEnd(e.target.value)}
-                          className="w-full text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor="timeoff-type" className="text-sm">Type</Label>
-                        <select 
-                          id="timeoff-type"
-                          value={newTimeOffType}
-                          onChange={(e) => setNewTimeOffType(e.target.value)}
-                          className="w-full px-3 py-2 border border-border rounded-md text-sm"
-                        >
-                          <option value="VACATION">Vacation</option>
-                          <option value="SICK_LEAVE">Sick Leave</option>
-                          <option value="BREAK">Break</option>
-                          <option value="OTHER">Other</option>
-                        </select>
-                      </div>
-                      <div>
-                        <Label htmlFor="timeoff-reason" className="text-sm">Reason (Optional)</Label>
-                        <Input
-                          id="timeoff-reason"
-                          placeholder="e.g., Holiday, Personal"
-                          value={newTimeOffReason}
-                          onChange={(e) => setNewTimeOffReason(e.target.value)}
-                          className="w-full text-sm"
-                        />
-                      </div>
-                    </div>
-                    <Button 
-                      type="button"
-                      onClick={addTimeOff}
-                      className="w-full"
-                      size="sm"
-                    >
-                      Add Time Off
-                    </Button>
-                  </div>
-
-                  {/* Time Off List */}
-                  {formData.timeOffs && formData.timeOffs.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">
-                        {formData.timeOffs.length} time off period{formData.timeOffs.length !== 1 ? 's' : ''}
-                      </p>
-                      {formData.timeOffs.map((timeOff, index) => {
-                        const startDate = new Date(timeOff.startDate)
-                        const endDate = new Date(timeOff.endDate)
-                        const days = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
-                        
-                        return (
-                          <div key={index} className="p-3 bg-card border border-border rounded-lg flex items-start justify-between">
-                            <div className="flex-1">
-                              <p className="text-sm font-medium">{timeOff.startDate} to {timeOff.endDate}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {timeOff.type || 'VACATION'} • {days} day{days !== 1 ? 's' : ''}{timeOff.reason ? ` - ${timeOff.reason}` : ''}
-                              </p>
-                            </div>
-                            <Button 
-                              type="button"
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => removeTimeOff(index)}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-                )}
-
-                {/* STEP 5: Review & Confirm */}
-                {currentStep === 5 && (
                 <div className="space-y-4 animate-in fade-in">
                   <div>
                     <h3 className="text-lg font-semibold mb-4">Review Information</h3>
@@ -1030,6 +910,107 @@ export default function StaffPage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Time Off Modal */}
+        {showTimeOffModal && selectedStaffForTimeOff && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Add Time Off</CardTitle>
+                  <CardDescription>{selectedStaffForTimeOff.firstName} {selectedStaffForTimeOff.lastName}</CardDescription>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowTimeOffModal(false)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Start Date */}
+                <div>
+                  <Label htmlFor="start-date" className="text-sm">Start Date</Label>
+                  <Input
+                              id="start-date"
+          type="date"
+          value={timeOffFormData.startDate}
+          onChange={(e) => setTimeOffFormData(prev => ({ ...prev, startDate: e.target.value }))}
+          className="mt-1"
+          min={today}
+        />
+                </div>
+
+                {/* End Date */}
+                <div>
+                  <Label htmlFor="end-date" className="text-sm">End Date</Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={timeOffFormData.endDate}
+                    onChange={(e) => setTimeOffFormData(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="mt-1"
+                    min={timeOffFormData.startDate}
+                  />
+                </div>
+
+                {/* Type */}
+                <div>
+                  <Label htmlFor="type" className="text-sm">Type</Label>
+                  <select 
+                    id="type"
+                    value={timeOffFormData.type}
+                    onChange={(e) => setTimeOffFormData(prev => ({ ...prev, type: e.target.value }))}
+                    className="w-full px-3 py-2 border border-border rounded-md text-sm mt-1"
+                  >
+                    <option value="VACATION">Vacation</option>
+                    <option value="SICK_LEAVE">Sick Leave</option>
+                    <option value="BREAK">Break</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+
+                {/* Reason */}
+                <div>
+                  <Label htmlFor="reason" className="text-sm">Reason (Optional)</Label>
+                  <Input
+                    id="reason"
+                    placeholder="e.g., Holiday, Personal"
+                    value={timeOffFormData.reason}
+                    onChange={(e) => setTimeOffFormData(prev => ({ ...prev, reason: e.target.value }))}
+                    className="mt-1"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-4">
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowTimeOffModal(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={saveTimeOff}
+                    disabled={timeOffSaving}
+                    className="flex-1"
+                  >
+                    {timeOffSaving ? (
+                      <>
+                        <Loader className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Add Time Off'
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </main>

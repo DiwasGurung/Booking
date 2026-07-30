@@ -38,25 +38,6 @@ export interface Business {
   location?: string
 }
 
-export interface Booking {
-  id: string
-  serviceId: string
-  businessId: string
-  staffId?: string
-  startTime: string
-  endTime: string
-  customerName: string
-  customerEmail: string
-  customerPhone: string
-  status: string
-  notes?: string
-  staff?: {
-    id: string
-    firstName: string
-    lastName: string
-    avatar?: string
-  }
-}
 
 // Payment types
 export interface Payment {
@@ -120,22 +101,62 @@ export interface PaymentHistory {
 export interface Staff {
   staffCode: import("react/jsx-runtime").JSX.Element
   id: string
+  businessId: string
   firstName: string
   lastName: string
   email?: string
   phone?: string
   avatar?: string
-  businessId: string
+  role: string
+  isActive: boolean
+
   emailVerified?: boolean
-  staffcode?: string
+  verificationToken?: string
+  verificationTokenExpiresAt?: string
+  password?: string
+  passwordResetToken?: string
+  passwordResetExpiresAt?: string
+  workingHours?: Record<string, { start: string; end: string; isWorking: boolean }>
+  breakTimes?: { start: string; end: string }[]
+  services?: StaffService[]
+  bookings?: Booking[]
+  timeOffs?: TimeOff[]
+  _count?: { bookings: number }
+  createdAt: string
+  updatedAt: string
+
+}
+
+export interface StaffService {
+  id: string
+  staffId: string
+  staff?: Staff
+  serviceId: string
+  service?: Service
+  createdAt: string
+}
+
+export interface TimeOff {
+  id: string
+  businessId: string
+  business?: Business
+  staffId?: string
+  staff?: Staff
+  startDate: string
+  endDate: string
+  reason?: string
+  type: string
+  date?: string // For compatibility with date-based queries
+  createdAt: string
+  updatedAt: string
 }
 
 export interface BusinessHours {
   id?: string
   businessId?: string
   dayOfWeek: number
-  openingTime: string
-  closingTime: string
+  openTime: string
+  closeTime: string
   isClosed: boolean
 }
 
@@ -144,6 +165,26 @@ export interface ClosedDate {
   businessId?: string
   date: string
   reason?: string
+}
+
+export interface Booking {
+  id: string
+  serviceId: string
+  businessId: string
+  staffId?: string
+  startTime: string
+  endTime: string
+  customerName: string
+  customerEmail: string
+  customerPhone: string
+  status: string
+  notes?: string
+  staff?: {
+    id: string
+    firstName: string
+    lastName: string
+    avatar?: string
+  }
 }
 
 export async function apiCall<T>(
@@ -592,24 +633,7 @@ export const paymentApi = {
     apiCall<{ paid: boolean; status: string; lastPayment?: Payment }>(`/api/payments/subscription/${subscriptionId}/status`),
 }
 
-// Staff types
-export interface Staff {
-  id: string
-  businessId: string
-  firstName: string
-  lastName: string
-  email?: string
-  phone?: string
-  avatar?: string
-  role: string
-  isActive: boolean
-  workingHours?: Record<string, { start: string; end: string; isWorking: boolean }>
-  breakTimes?: { start: string; end: string }[]
-  services?: { id: string; service: Service }[]
-  _count?: { bookings: number }
-  createdAt: string
-  updatedAt: string
-}
+
 
 export interface CreateStaffData {
   businessId: string
@@ -691,6 +715,13 @@ export const staffApi = {
     }
     return apiCall<{ stats: any }>(url)
   },
+
+  // Add time off for staff member
+  addTimeOff: (staffId: string, data: { startDate: string; endDate: string; type: string; reason?: string }) =>
+    apiCall<{ success: boolean; message: string }>(`/api/staff/${staffId}/time-off`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 }
 
 // SMS API - /api/sms prefix

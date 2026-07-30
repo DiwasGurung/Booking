@@ -7,8 +7,8 @@ export class BusinessHoursService {
    */
   async setBusinessHours(data: {
     businessId: string
-    dayOfWeek: number // 0-6, Monday-Sunday
-    openTime: string // HH:MM format
+    dayOfWeek: number 
+    openTime: string 
     closeTime: string
     isClosed?: boolean
   }): Promise<BusinessHours> {

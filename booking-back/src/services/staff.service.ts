@@ -395,11 +395,16 @@ export class StaffService {
       businessId: staff.business.id,
       businessName: staff.business.name,
       services: staff.services.map(ss => ({
-        id: ss.service.id,
-        name: ss.service.name,
-        duration: ss.service.duration,
-        price: ss.service.price,
-        description: ss.service.description,
+       id: ss.id,
+        staffId: ss.staffId,
+        serviceId: ss.serviceId,
+        service: {
+          id: ss.service.id,
+          name: ss.service.name,
+          duration: ss.service.duration,
+          price: ss.service.price,
+          description: ss.service.description,
+        },
       })),
     }
   }
@@ -459,6 +464,67 @@ export class StaffService {
       })),
     }
   }
+
+  // Inside your StaffService class
+async getBookingsByStaffCodeAndDate(staffCode: string, date: Date) {
+  const startOfDay = new Date(date)
+  startOfDay.setHours(0, 0, 0, 0)
+
+  const endOfDay = new Date(date)
+  endOfDay.setHours(23, 59, 59, 999)
+
+  const staff = await prisma.staff.findUnique({
+    where: { staffCode },
+    include: {
+      bookings: {
+        where: {
+          status: 'CONFIRMED',
+          startTime: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
+        },
+        include: {
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+          service: {
+            select: {
+              id: true,
+              name: true,
+              duration: true,
+              price: true,
+            },
+          },
+        },
+        orderBy: {
+          startTime: 'asc',
+        },
+      },
+    },
+  })
+
+  if (!staff) return null
+
+  return {
+    staffName: `${staff.firstName} ${staff.lastName}`,
+    staffCode: staff.staffCode,
+    bookings: staff.bookings.map(booking => ({
+      id: booking.id,
+      customer: booking.customer,
+      service: booking.service,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      status: booking.status,
+      notes: booking.notes,
+    })),
+  }
+}
 }
 
 export default new StaffService()

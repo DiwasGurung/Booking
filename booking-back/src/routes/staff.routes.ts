@@ -12,6 +12,9 @@ import {
   getStaffStats,
   getStaffByCode,
   getStaffBookings,
+  addTimeOff,
+  getTimeOff,
+  getStaffBookingsByDate
 } from "../controllers/staff.controller"
 
 const router = Router()
@@ -92,5 +95,23 @@ router.get("/code/:staffCode", getStaffByCode)
  * @access Public
  */
 router.get("/code/:staffCode/bookings", getStaffBookings)
+
+
+/**
+ * @route GET /api/staff/:staffId/time-off
+ * @desc Get time off for a staff member
+ * @access Public
+ */
+router.get("/:staffId/time-off", getTimeOff)
+
+/**
+ * @route POST /api/staff/:staffId/time-off
+ * @desc Add time off for a staff member
+ * @access Private (Business Owner)
+ */
+router.post("/:staffId/time-off", auth, addTimeOff)
+
+// In your routes file
+router.get("/code/:staffCode/bookings/date", getStaffBookingsByDate)
 
 export default router
