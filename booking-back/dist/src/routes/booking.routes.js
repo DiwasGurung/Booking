@@ -8,8 +8,7 @@ const booking_controller_1 = __importDefault(require("../controllers/booking.con
 const bookingRoutes = (0, express_1.Router)();
 bookingRoutes.post("/public", booking_controller_1.default.createPublicBooking);
 // Create a new booking - handle both /bookings and direct POST
-bookingRoutes.post("/bookings", booking_controller_1.default.createBooking);
-bookingRoutes.post("/", booking_controller_1.default.createBooking); // Alias for /api/booking/
+bookingRoutes.post("/create", booking_controller_1.default.createBooking);
 // Get a single booking by its ID
 bookingRoutes.get("/bookings/:id", booking_controller_1.default.getBookingById);
 // Update a booking's information

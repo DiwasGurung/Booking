@@ -188,22 +188,6 @@ class BusinessController {
         });
     }
     /**
-     * Monthly revenue
-     */
-    monthlyRevenue(req, res) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const { businessId } = req.params;
-                const months = Number(req.query.months) || 6;
-                const data = yield business_service_1.default.getMonthlyRevenue(businessId, months);
-                res.json(data);
-            }
-            catch (error) {
-                res.status(500).json({ message: "Failed to fetch revenue", error });
-            }
-        });
-    }
-    /**
      * Search businesses
      */
     search(req, res) {

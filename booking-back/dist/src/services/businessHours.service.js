@@ -108,6 +108,100 @@ class BusinessHoursService {
             return currentTime >= openTime && currentTime < closeTime;
         });
     }
+    /**
+     * Add staff time off
+     */
+    addTimeOff(data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const startDate = new Date(data.startDate);
+            const endDate = new Date(data.endDate);
+            return prisma_1.default.timeOff.create({
+                data: {
+                    businessId: data.businessId,
+                    staffId: data.staffId,
+                    startDate,
+                    endDate,
+                    reason: data.reason,
+                    type: data.type || "BREAK",
+                },
+            });
+        });
+    }
+    /**
+     * Get time off periods for a business or staff
+     */
+    getTimeOffs(businessId, staffId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return prisma_1.default.timeOff.findMany({
+                where: Object.assign({ businessId }, (staffId && { staffId })),
+                orderBy: { startDate: "asc" },
+            });
+        });
+    }
+    /**
+     * Remove time off
+     */
+    removeTimeOff(timeOffId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return prisma_1.default.timeOff.delete({
+                where: { id: timeOffId },
+            });
+        });
+    }
+    /**
+     * Check if staff is on time off on a date
+     */
+    isStaffOnTimeOff(businessId, staffId, date) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const timeOff = yield prisma_1.default.timeOff.findFirst({
+                where: {
+                    businessId,
+                    staffId,
+                    startDate: { lte: date },
+                    endDate: { gte: date },
+                },
+            });
+            return !!timeOff;
+        });
+    }
+    /**
+     * Get all closed dates for a business
+     */
+    getClosedDates(businessId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return prisma_1.default.closedDate.findMany({
+                where: { businessId },
+                orderBy: { date: "asc" },
+            });
+        });
+    }
+    /**
+     * Add a closed date
+     */
+    addClosedDate(businessId, data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const dateObj = new Date(data.date);
+            return prisma_1.default.closedDate.create({
+                data: {
+                    businessId,
+                    date: dateObj,
+                    reason: data.reason,
+                },
+            });
+        });
+    }
+    /**
+     * Remove a closed date
+     */
+    removeClosedDate(businessId, closedDateId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return prisma_1.default.closedDate.delete({
+                where: {
+                    id: closedDateId,
+                },
+            });
+        });
+    }
 }
 exports.BusinessHoursService = BusinessHoursService;
 exports.default = new BusinessHoursService();

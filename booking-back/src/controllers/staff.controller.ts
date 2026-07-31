@@ -422,84 +422,58 @@ export const getTimeOff = async (req: AuthRequest, res: Response) => {
 
   
 }
-// In your controller file
+/**
+ * Get bookings for a staff member on a specific date
+ */
 export const getStaffBookingsByDate = async (req: Request, res: Response) => {
   try {
     const staffCode = req.params.staffCode as string
-    const dateStr = req.query.date as string
+    const date = req.query.date as string // Format: YYYY-MM-DD
 
-    if (!staffCode) {
-      return res.status(400).json({ error: "Staff code is required" })
+    if (!staffCode || !date) {
+      return res.status(400).json({ error: "Staff code and date are required" })
     }
 
-    if (!dateStr) {
-      return res.status(400).json({ error: "Date query parameter is required" })
-    }
-
-    const date = new Date(dateStr)
-    if (isNaN(date.getTime())) {
-      return res.status(400).json({ error: "Invalid date format" })
-    }
-
-    const startOfDay = new Date(date)
-    startOfDay.setHours(0, 0, 0, 0)
-
-    const endOfDay = new Date(date)
-    endOfDay.setHours(23, 59, 59, 999)
-
+    // Verify staff exists
     const staff = await prisma.staff.findUnique({
       where: { staffCode },
-      include: {
-        bookings: {
-          where: {
-            startTime: {
-              gte: startOfDay,
-              lte: endOfDay,
-            },
-            status: 'CONFIRMED',
-          },
-          include: {
-            customer: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true,
-              },
-            },
-            service: {
-              select: {
-                id: true,
-                name: true,
-                duration: true,
-                price: true,
-              },
-            },
-          },
-          orderBy: {
-            startTime: 'asc',
-          },
+    })
+
+    if (!staff) {
+      return res.status(404).json({ error: "Staff member not found" })
+    }
+
+    // Parse the date
+    const selectedDate = new Date(date)
+    const dayStart = new Date(selectedDate)
+    dayStart.setHours(0, 0, 0, 0)
+    
+    const dayEnd = new Date(selectedDate)
+    dayEnd.setHours(23, 59, 59, 999)
+
+    // Fetch bookings for this staff member on the specified date
+    // Include both PENDING and CONFIRMED bookings to block time slots for guests
+    const bookings = await prisma.booking.findMany({
+      where: {
+        staffId: staff.id,
+        startTime: {
+          gte: dayStart,
+          lte: dayEnd,
+        },
+        status: {
+          in: ["PENDING", "CONFIRMED"], // Include both PENDING and CONFIRMED
         },
       },
+      include: {
+        service: true,
+        customer: true,
+      },
+      orderBy: { startTime: "asc" },
     })
 
-    if (!staff) return res.status(404).json({ error: "Staff member not found" })
-
-    res.json({
-      staffName: `${staff.firstName} ${staff.lastName}`,
-      staffCode: staff.staffCode,
-      bookings: staff.bookings.map(booking => ({
-        id: booking.id,
-        customer: booking.customer,
-        service: booking.service,
-        startTime: booking.startTime,
-        endTime: booking.endTime,
-        status: booking.status,
-        notes: booking.notes,
-      })),
-    })
-  } catch (error) {
-    console.error("[Staff Controller] Get bookings by date error:", error)
-    res.status(500).json({ error: "Failed to get bookings for the date" })
+    res.status(200).json(bookings)
+  } catch (error: any) {
+    console.error("[Staff Controller] Get bookings by date error:", error.message)
+    res.status(500).json({ error: "Failed to fetch bookings" })
   }
 }

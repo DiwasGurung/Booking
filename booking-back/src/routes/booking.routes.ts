@@ -6,8 +6,8 @@ const bookingRoutes = Router();
 
 bookingRoutes.post("/public", BookingController.createPublicBooking);
 // Create a new booking - handle both /bookings and direct POST
-bookingRoutes.post("/bookings", BookingController.createBooking);
-bookingRoutes.post("/", BookingController.createBooking); // Alias for /api/booking/
+bookingRoutes.post("/create", BookingController.createBooking);
+
 
 // Get a single booking by its ID
 bookingRoutes.get("/bookings/:id", BookingController.getBookingById);

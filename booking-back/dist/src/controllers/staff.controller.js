@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getStaffAuthenticatedBookings = exports.getStaffBookings = exports.getStaffByCode = exports.getStaffStats = exports.getStaffAvailability = exports.toggleStaffStatus = exports.deleteStaff = exports.updateStaff = exports.getStaffForService = exports.getBusinessStaff = exports.getStaffById = exports.createStaff = void 0;
+exports.getStaffBookingsByDate = exports.addTimeOff = exports.getTimeOff = exports.getStaffAuthenticatedBookings = exports.getStaffBookings = exports.getStaffByCode = exports.getStaffStats = exports.getStaffAvailability = exports.toggleStaffStatus = exports.deleteStaff = exports.updateStaff = exports.getStaffForService = exports.getBusinessStaff = exports.getStaffById = exports.createStaff = void 0;
 const staff_service_1 = __importDefault(require("../services/staff.service"));
 const validators_1 = require("../validators");
 const subscription_service_1 = __importDefault(require("../services/subscription.service"));
@@ -284,3 +284,181 @@ const getStaffAuthenticatedBookings = (req, res) => __awaiter(void 0, void 0, vo
     }
 });
 exports.getStaffAuthenticatedBookings = getStaffAuthenticatedBookings;
+const getTimeOff = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const staffId = req.params.staffId;
+        const month = req.query.month; // Format: YYYY-MM
+        if (!staffId) {
+            return res.status(400).json({ error: "Staff ID is required" });
+        }
+        // Verify staff exists
+        const staff = yield prisma_1.default.staff.findUnique({
+            where: { id: staffId },
+        });
+        if (!staff) {
+            return res.status(404).json({ error: "Staff member not found" });
+        }
+        let whereClause = { staffId };
+        // If month is provided, filter by month
+        if (month) {
+            const [year, monthNum] = month.split('-').map(Number);
+            const monthStart = new Date(year, monthNum - 1, 1);
+            const monthEnd = new Date(year, monthNum, 0, 23, 59, 59);
+            // Find time-off records that overlap with the requested month
+            whereClause.AND = [
+                {
+                    startDate: {
+                        lte: monthEnd, // Time-off starts before or on the last day of month
+                    },
+                },
+                {
+                    endDate: {
+                        gte: monthStart, // Time-off ends on or after the first day of month
+                    },
+                },
+            ];
+        }
+        const timeOffs = yield prisma_1.default.timeOff.findMany({
+            where: whereClause,
+            orderBy: { startDate: "asc" },
+        });
+        // Transform the response to include individual dates for compatibility with frontend
+        const expandedTimeOffs = timeOffs.flatMap((timeOff) => {
+            const dates = [];
+            const start = new Date(timeOff.startDate);
+            const end = new Date(timeOff.endDate);
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                dates.push(Object.assign(Object.assign({}, timeOff), { date: new Date(d).toISOString().split('T')[0] }));
+            }
+            return dates;
+        });
+        res.status(200).json(expandedTimeOffs);
+    }
+    catch (error) {
+        console.error("[Staff Controller] Get time off error:", error.message);
+        res.status(500).json({ error: "Failed to fetch time off" });
+    }
+});
+exports.getTimeOff = getTimeOff;
+const addTimeOff = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const staffId = req.params.staffId;
+        const { startDate, endDate, type, reason } = req.body;
+        if (!staffId || !startDate || !endDate) {
+            return res.status(400).json({ error: "Staff ID, start date, and end date are required" });
+        }
+        // Verify staff exists
+        const staff = yield prisma_1.default.staff.findUnique({
+            where: { id: staffId },
+        });
+        if (!staff) {
+            return res.status(404).json({ error: "Staff member not found" });
+        }
+        // Create time off records for each day in the range
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const timeOffs = [];
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            // Prisma TimeOffCreateManyInput expects businessId, startDate and endDate
+            timeOffs.push({
+                staffId,
+                businessId: staff.businessId,
+                startDate: new Date(d),
+                endDate: new Date(d),
+                type: type || "VACATION",
+                reason: reason || null,
+            });
+        }
+        // Use createMany for bulk insert
+        const result = yield prisma_1.default.timeOff.createMany({
+            data: timeOffs,
+            skipDuplicates: true,
+        });
+        res.status(201).json({
+            success: true,
+            message: `Time off added for ${result.count} day(s)`,
+            count: result.count,
+        });
+    }
+    catch (error) {
+        console.error("[Staff Controller] Add time off error:", error.message);
+        res.status(500).json({ error: "Failed to add time off" });
+    }
+});
+exports.addTimeOff = addTimeOff;
+// In your controller file
+const getStaffBookingsByDate = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const staffCode = req.params.staffCode;
+        const dateStr = req.query.date;
+        if (!staffCode) {
+            return res.status(400).json({ error: "Staff code is required" });
+        }
+        if (!dateStr) {
+            return res.status(400).json({ error: "Date query parameter is required" });
+        }
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) {
+            return res.status(400).json({ error: "Invalid date format" });
+        }
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
+        const staff = yield prisma_1.default.staff.findUnique({
+            where: { staffCode },
+            include: {
+                bookings: {
+                    where: {
+                        startTime: {
+                            gte: startOfDay,
+                            lte: endOfDay,
+                        },
+                        status: 'CONFIRMED',
+                    },
+                    include: {
+                        customer: {
+                            select: {
+                                id: true,
+                                name: true,
+                                email: true,
+                                phone: true,
+                            },
+                        },
+                        service: {
+                            select: {
+                                id: true,
+                                name: true,
+                                duration: true,
+                                price: true,
+                            },
+                        },
+                    },
+                    orderBy: {
+                        startTime: 'asc',
+                    },
+                },
+            },
+        });
+        if (!staff)
+            return res.status(404).json({ error: "Staff member not found" });
+        res.json({
+            staffName: `${staff.firstName} ${staff.lastName}`,
+            staffCode: staff.staffCode,
+            bookings: staff.bookings.map(booking => ({
+                id: booking.id,
+                customer: booking.customer,
+                service: booking.service,
+                startTime: booking.startTime,
+                endTime: booking.endTime,
+                status: booking.status,
+                notes: booking.notes,
+            })),
+        });
+    }
+    catch (error) {
+        console.error("[Staff Controller] Get bookings by date error:", error);
+        res.status(500).json({ error: "Failed to get bookings for the date" });
+    }
+});
+exports.getStaffBookingsByDate = getStaffBookingsByDate;

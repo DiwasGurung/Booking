@@ -255,8 +255,8 @@ model Booking {
   customerId String?
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
-  userId String
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String?
+  user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   startTime     DateTime
   endTime       DateTime

@@ -70,4 +70,18 @@ router.get("/code/:staffCode", staff_controller_1.getStaffByCode);
  * @access Public
  */
 router.get("/code/:staffCode/bookings", staff_controller_1.getStaffBookings);
+/**
+ * @route GET /api/staff/:staffId/time-off
+ * @desc Get time off for a staff member
+ * @access Public
+ */
+router.get("/:staffId/time-off", staff_controller_1.getTimeOff);
+/**
+ * @route POST /api/staff/:staffId/time-off
+ * @desc Add time off for a staff member
+ * @access Private (Business Owner)
+ */
+router.post("/:staffId/time-off", auth_middleware_1.auth, staff_controller_1.addTimeOff);
+// In your routes file
+router.get("/code/:staffCode/bookings/date", staff_controller_1.getStaffBookingsByDate);
 exports.default = router;

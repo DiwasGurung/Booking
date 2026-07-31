@@ -8,17 +8,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __rest = (this && this.__rest) || function (s, e) {
-    var t = {};
-    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
-        t[p] = s[p];
-    if (s != null && typeof Object.getOwnPropertySymbols === "function")
-        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
-            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
-                t[p[i]] = s[p[i]];
-        }
-    return t;
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -64,21 +53,7 @@ class BookingController {
                     });
                     return;
                 }
-                const startTime = new Date(bodyValidation.data.appointmentDate);
-                if (Number.isNaN(startTime.getTime())) {
-                    res.status(400).json({ message: 'Invalid appointment date format' });
-                    return;
-                }
-                const service = yield prisma_1.default.service.findUnique({
-                    where: { id: bodyValidation.data.serviceId }
-                });
-                if (!service) {
-                    res.status(404).json({ message: 'Service not found' });
-                    return;
-                }
-                const _c = bodyValidation.data, { appointmentDate } = _c, bookingFields = __rest(_c, ["appointmentDate"]);
-                const bookingData = Object.assign(Object.assign({}, bookingFields), { userId,
-                    startTime, endTime: new Date(startTime.getTime() + service.duration * 60000) });
+                const bookingData = Object.assign(Object.assign({}, bodyValidation.data), { userId });
                 const booking = yield booking_service_1.default.createBooking(bookingData);
                 console.log('[v0] Booking created successfully:', booking);
                 // Send email notification to business owner
@@ -122,88 +97,7 @@ class BookingController {
                     // Don't fail the booking if email fails
                     console.error('[v0] Failed to send email notification to owner:', emailError);
                 }
-                // // Send SMS notification to business owner
-                // try {
-                //   // Get business with owner user info
-                //   const business = await prisma.business.findUnique({
-                //     where: { id: booking.businessId },
-                //     include: {
-                //       user: true,
-                //       subscription: true
-                //     }
-                //   })
-                //   if (business?.user?.phone && business.user.phone.length > 0) {
-                //     // Check SMS quota
-                //     const quotaCheck = await SubscriptionSmsService.checkSmsQuota(booking.businessId)
-                //     if (!quotaCheck.available) {
-                //       console.warn('[v0] SMS quota exceeded for business:', booking.businessId)
-                //       console.warn('[v0] Remaining SMS:', quotaCheck.remaining, 'Limit:', quotaCheck.limit)
-                //     } else {
-                //       // Get service and staff details
-                //       const service = await prisma.service.findUnique({
-                //         where: { id: booking.serviceId }
-                //       })
-                //       let staffName: string | undefined
-                //       if (booking.staffId) {
-                //         const staff = await prisma.staff.findUnique({
-                //           where: { id: booking.staffId }
-                //         })
-                //         if (staff) {
-                //           staffName = `${staff.firstName} ${staff.lastName}`
-                //         }
-                //       }
-                //       const formattedDate = booking.startTime.toLocaleDateString('en-US', {
-                //         month: 'short',
-                //         day: 'numeric',
-                //         year: 'numeric',
-                //       })
-                //       const formattedTime = booking.startTime.toLocaleTimeString('en-US', {
-                //         hour: '2-digit',
-                //         minute: '2-digit',
-                //       })
-                //       const smsResult = await SparrowSMSService.sendOwnerNotification(business.user.phone, {
-                //         customerName: booking.customerName,
-                //         customerPhone: booking.customerPhone,
-                //         serviceName: service?.name || 'Service',
-                //         staffName,
-                //         date: formattedDate,
-                //         time: formattedTime,
-                //         businessName: business.name,
-                //       })
-                //       if (smsResult.success) {
-                //         // Increment SMS usage
-                //         await SubscriptionSmsService.incrementSmsUsage(booking.businessId, 1, business.subscription?.id)
-                //         console.log('[v0] SMS notification sent to business owner:', business.user.phone)
-                //         // Log SMS attempt
-                //         await SubscriptionSmsService.logSmsAttempt({
-                //           businessId: booking.businessId,
-                //           subscriptionId: business.subscription?.id,
-                //           phoneNumber: business.user.phone,
-                //           message: `New booking from ${booking.customerName}`,
-                //           type: 'owner_notification',
-                //           status: 'SENT',
-                //           messageId: smsResult.messageId,
-                //         })
-                //       } else {
-                //         console.error('[v0] Failed to send SMS notification:', smsResult.error)
-                //         // Log failed SMS attempt
-                //         await SubscriptionSmsService.logSmsAttempt({
-                //           businessId: booking.businessId,
-                //           subscriptionId: business.subscription?.id,
-                //           phoneNumber: business.user.phone,
-                //           message: `New booking from ${booking.customerName}`,
-                //           type: 'owner_notification',
-                //           status: 'FAILED',
-                //           errorMessage: smsResult.error,
-                //         })
-                //       }
-                //     }
-                //   }
-                // } catch (smsError) {
-                //   // Don't fail the booking if SMS fails
-                //   console.error('[v0] Failed to send SMS notification to owner:', smsError)
-                // }
-                // res.status(201).json(booking)
+                res.status(201).json(booking);
             }
             catch (error) {
                 console.error('[v0] Error creating booking:', error instanceof Error ? error.message : String(error));
@@ -437,16 +331,12 @@ class BookingController {
             }
         });
     }
-    /**
-     * Create a public booking (no authentication required)
-     * Used for guest customers to book services without creating an account
-     */
     createPublicBooking(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a;
             try {
                 console.log('[v0] createPublicBooking called with body:', req.body);
-                const { businessId, serviceId, startTime, endTime, customerName, customerEmail, customerPhone, notes } = req.body;
+                const { businessId, staffId, serviceId, startTime, endTime, customerName, customerEmail, customerPhone, notes } = req.body;
                 // Validate required fields
                 if (!businessId || !serviceId || !customerName || !customerEmail || !customerPhone) {
                     res.status(400).json({
@@ -478,23 +368,89 @@ class BookingController {
                     });
                     return;
                 }
-                // Create a guest booking without user authentication
+                // Verify staff exists if provided
+                if (staffId) {
+                    const staff = yield prisma_1.default.staff.findUnique({
+                        where: { id: staffId },
+                    });
+                    if (!staff || staff.businessId !== businessId) {
+                        res.status(404).json({
+                            success: false,
+                            message: "Staff member not found"
+                        });
+                        return;
+                    }
+                }
+                let customer;
+                try {
+                    // Try to create a new customer
+                    customer = yield prisma_1.default.customer.create({
+                        data: {
+                            businessId,
+                            name: customerName,
+                            email: customerEmail,
+                            phone: customerPhone,
+                            notes: notes || '',
+                        },
+                    });
+                    console.log('[v0] Guest customer created:', customer.id);
+                }
+                catch (err) {
+                    // If customer already exists with this email, use the existing one
+                    if (err.code === 'P2002') {
+                        console.log('[v0] Customer with this email already exists, using existing customer');
+                        customer = yield prisma_1.default.customer.findUnique({
+                            where: {
+                                businessId_email: {
+                                    businessId,
+                                    email: customerEmail,
+                                },
+                            },
+                        });
+                        if (!customer) {
+                            res.status(500).json({
+                                success: false,
+                                message: "Failed to create or retrieve customer",
+                                error: err.message,
+                            });
+                            return;
+                        }
+                    }
+                    else {
+                        console.error('[v0] Error creating customer:', err);
+                        res.status(500).json({
+                            success: false,
+                            message: "Failed to create customer",
+                            error: err.message,
+                        });
+                        return;
+                    }
+                }
+                console.log('[v0] Guest customer created:', customer.id);
+                // Create a guest booking with the customer
+                const bookingData = {
+                    startTime: new Date(startTime),
+                    endTime: new Date(endTime),
+                    customerName,
+                    customerEmail,
+                    customerPhone,
+                    notes: notes || '',
+                    status: 'PENDING',
+                    service: { connect: { id: serviceId } },
+                    business: { connect: { id: businessId } },
+                    customer: { connect: { id: customer.id } }, // Associate with guest customer
+                };
+                // Add staffId if provided
+                if (staffId) {
+                    bookingData.staff = { connect: { id: staffId } };
+                }
                 const booking = yield prisma_1.default.booking.create({
-                    data: {
-                        startTime: new Date(startTime),
-                        endTime: new Date(endTime),
-                        customerName,
-                        customerEmail,
-                        customerPhone,
-                        notes: notes || '',
-                        status: 'PENDING',
-                        service: { connect: { id: serviceId } },
-                        business: { connect: { id: businessId } },
-                        user: { connect: { id: business.userId } }, // Associate with business owner
-                    },
+                    data: bookingData,
                     include: {
                         service: true,
                         business: true,
+                        staff: true,
+                        user: true,
                     },
                 });
                 console.log('[v0] Public booking created:', booking.id);

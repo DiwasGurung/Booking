@@ -18,8 +18,6 @@ businessRoutes.get("/search", business_controller_1.default.search);
 businessRoutes.get("/user/:userId", business_controller_1.default.getByUserId);
 // Business statistics (specific route before /:id)
 businessRoutes.get("/:businessId/stats", business_controller_1.default.stats);
-// Monthly revenue (specific route before /:id)
-businessRoutes.get("/:businessId/revenue", business_controller_1.default.monthlyRevenue);
 // Get business settings (specific route before /:id)
 businessRoutes.get('/:businessId/settings', auth_middleware_1.auth, business_controller_1.default.getSettings);
 // Update business settings (specific route before /:id)

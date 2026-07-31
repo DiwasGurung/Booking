@@ -106,5 +106,117 @@ class BusinessHoursController {
             }
         });
     }
+    /**
+     * Add staff time off
+     */
+    addTimeOff(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { businessId } = req.params;
+                const { staffId, startDate, endDate, reason, type } = req.body;
+                if (!startDate || !endDate) {
+                    return res.status(400).json({ message: "Start date and end date are required" });
+                }
+                const timeOff = yield businessHours_service_1.default.addTimeOff({
+                    businessId: businessId,
+                    staffId,
+                    startDate,
+                    endDate,
+                    reason,
+                    type,
+                });
+                res.status(201).json({ success: true, data: timeOff });
+            }
+            catch (error) {
+                console.error("[BusinessHours] Error adding time off:", error);
+                res.status(500).json({ message: "Failed to add time off", error: error.message });
+            }
+        });
+    }
+    /**
+     * Get time off for a business or staff
+     */
+    getTimeOffs(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { businessId } = req.params;
+                const { staffId } = req.query;
+                const timeOffs = yield businessHours_service_1.default.getTimeOffs(businessId, staffId);
+                res.json({ success: true, data: timeOffs });
+            }
+            catch (error) {
+                console.error("[BusinessHours] Error fetching time offs:", error);
+                res.status(500).json({ message: "Failed to fetch time offs", error: error.message });
+            }
+        });
+    }
+    /**
+     * Remove time off
+     */
+    removeTimeOff(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { timeOffId } = req.params;
+                const timeOff = yield businessHours_service_1.default.removeTimeOff(timeOffId);
+                res.json({ success: true, data: timeOff });
+            }
+            catch (error) {
+                console.error("[BusinessHours] Error removing time off:", error);
+                res.status(500).json({ message: "Failed to remove time off", error: error.message });
+            }
+        });
+    }
+    /**
+     * Get all closed dates for a business
+     */
+    getClosedDates(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { businessId } = req.params;
+                const closedDates = yield businessHours_service_1.default.getClosedDates(businessId);
+                res.json({ success: true, data: closedDates });
+            }
+            catch (error) {
+                console.error("[BusinessHours] Error fetching closed dates:", error);
+                res.status(500).json({ message: "Failed to fetch closed dates", error: error.message });
+            }
+        });
+    }
+    /**
+     * Add a closed date
+     */
+    addClosedDate(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { businessId } = req.params;
+                const { date, reason } = req.body;
+                if (!date) {
+                    return res.status(400).json({ message: "Date is required" });
+                }
+                const closedDate = yield businessHours_service_1.default.addClosedDate(businessId, { date, reason });
+                res.status(201).json({ success: true, data: closedDate });
+            }
+            catch (error) {
+                console.error("[BusinessHours] Error adding closed date:", error);
+                res.status(500).json({ message: "Failed to add closed date", error: error.message });
+            }
+        });
+    }
+    /**
+     * Remove a closed date
+     */
+    removeClosedDate(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { businessId, dateId } = req.params;
+                const closedDate = yield businessHours_service_1.default.removeClosedDate(businessId, dateId);
+                res.json({ success: true, data: closedDate });
+            }
+            catch (error) {
+                console.error("[BusinessHours] Error removing closed date:", error);
+                res.status(500).json({ message: "Failed to remove closed date", error: error.message });
+            }
+        });
+    }
 }
 exports.default = new BusinessHoursController();

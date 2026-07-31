@@ -163,30 +163,6 @@ class BusinessService {
         });
     }
     /**
-     * Get monthly revenue
-     */
-    getMonthlyRevenue(businessId_1) {
-        return __awaiter(this, arguments, void 0, function* (businessId, months = 6) {
-            const startDate = new Date();
-            startDate.setMonth(startDate.getMonth() - months);
-            const payments = yield prisma_1.default.payment.findMany({
-                where: {
-                    businessId,
-                    status: "COMPLETED",
-                    createdAt: { gte: startDate },
-                },
-                select: { amount: true, createdAt: true },
-            });
-            // Group by month
-            const monthlyData = {};
-            payments.forEach((payment) => {
-                const monthKey = payment.createdAt.toISOString().slice(0, 7);
-                monthlyData[monthKey] = (monthlyData[monthKey] || 0) + payment.amount;
-            });
-            return monthlyData;
-        });
-    }
-    /**
      * Search businesses
      */
     searchBusinesses(query_1) {

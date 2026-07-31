@@ -7,26 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { AlertCircle, Calendar, Clock, MapPin, Loader } from 'lucide-react'
+import { AlertCircle, Calendar, Clock, MapPin, Loader, TimerOff } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { getAvailableTimeSlots } from '@/lib/availability'
 import { Staff } from '@/lib/api'
-
-interface StaffService {
-  id: string
-  name: string
-  duration: number
-  price: number
-  description?: string
-}
 
 interface TimeSlot {
   time: string
   isAvailable: boolean
-}
-
-interface StaffTimeOff {
-  date: string
 }
 
 interface FormData {
@@ -51,8 +38,6 @@ export default function StaffDirectBookPage() {
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([])
   const [staffTimeOff, setStaffTimeOff] = useState<Set<string>>(new Set())
-  const [businessHours, setBusinessHours] = useState<any[]>([])
-  const [bookings, setBookings] = useState<any[]>([])
   const [formData, setFormData] = useState<FormData>({
     customerName: '',
     email: '',
@@ -63,7 +48,7 @@ export default function StaffDirectBookPage() {
     notes: '',
   })
 
-  // Fetch staff info and time-off data
+  // Fetch staff info
   useEffect(() => {
     const fetchStaffInfo = async () => {
       try {
@@ -95,105 +80,116 @@ export default function StaffDirectBookPage() {
     fetchStaffInfo()
   }, [staffCode])
 
-  // Fetch availability data (time-off and bookings) when date changes
+  // Generate time slots (30-minute intervals)
+  const generateTimeSlots = (openingTime: string, closingTime: string): TimeSlot[] => {
+    const slots: TimeSlot[] = []
+    const [openHour, openMin] = openingTime.split(':').map(Number)
+    const [closeHour, closeMin] = closingTime.split(':').map(Number)
+
+    let currentHour = openHour
+    let currentMin = openMin
+
+    while (currentHour < closeHour || (currentHour === closeHour && currentMin < closeMin)) {
+      const timeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMin).padStart(2, '0')}`
+      slots.push({
+        time: timeStr,
+        isAvailable: true,
+      })
+
+      currentMin += 30
+      if (currentMin >= 60) {
+        currentMin = 0
+        currentHour += 1
+      }
+    }
+
+    return slots
+  }
+
+  // Fetch availability data when date changes
   const loadAvailableSlots = async (selectedDate: string, selectedServiceId: string) => {
     if (!staff || !selectedDate) return
-    
+
     try {
       setLoadingSlots(true)
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      
-      let timeOffData: StaffTimeOff[] = []
-      let hoursData: any[] = []
-      let bookingsData: any[] = []
-      
-      // Fetch staff time-off for this month
+
+      // Fetch time-off data for this month
       try {
         const timeOffRes = await fetch(`${API_URL}/api/staff/${staff.id}/time-off?month=${selectedDate.substring(0, 7)}`)
         if (timeOffRes.ok) {
           const contentType = timeOffRes.headers.get('content-type')
           if (contentType?.includes('application/json')) {
-            timeOffData = await timeOffRes.json()
+            const timeOffData = await timeOffRes.json()
+            const timeOffSet = new Set<string>(timeOffData.map((to: any) => to.date.split('T')[0]))
+            setStaffTimeOff(timeOffSet)
+
+            // Check if date is a time-off day
+            if (timeOffSet.has(selectedDate)) {
+              setAvailableSlots([])
+              setLoadingSlots(false)
+              return
+            }
           }
         }
       } catch (err) {
         console.error('[v0] Error fetching time-off:', err)
       }
-      
-      const timeOffSet = new Set(timeOffData.map((to: StaffTimeOff) => to.date.split('T')[0]))
-      setStaffTimeOff(timeOffSet)
-      
-      // Check if date is a time-off day
-      if (timeOffSet.has(selectedDate)) {
-        setAvailableSlots([])
-        return
-      }
-      
-      // Fetch business hours
+
+      // Fetch bookings for this staff member on the selected date
+      let bookedTimes: Set<string> = new Set()
       try {
-        if (staff.businessId) {
-          const hoursRes = await fetch(`${API_URL}/api/business-hours/business/${staff.businessId}`)
-          if (hoursRes.ok) {
-            const contentType = hoursRes.headers.get('content-type')
-            if (contentType?.includes('application/json')) {
-              hoursData = await hoursRes.json()
-              console.log(hoursData)
-            }
+        const bookingsRes = await fetch(`${API_URL}/api/staff/code/${staff.staffCode}/bookings/date?date=${selectedDate}`)
+        if (bookingsRes.ok) {
+          const contentType = bookingsRes.headers.get('content-type')
+          if (contentType?.includes('application/json')) {
+            const data = await bookingsRes.json()
+            const bookings = Array.isArray(data) ? data : data.bookings ? data.bookings : []
+
+            // Extract booked times from the date-filtered bookings
+            // Block all time slots during the entire service duration
+            bookings.forEach((booking: any) => {
+              if (booking.startTime && booking.endTime) {
+                const startDate = new Date(booking.startTime)
+                const endDate = new Date(booking.endTime)
+
+                // Generate all 30-minute slots between start and end time
+                let currentTime = new Date(startDate)
+                while (currentTime < endDate) {
+                  const timeStr = `${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`
+                  bookedTimes.add(timeStr)
+                  currentTime.setMinutes(currentTime.getMinutes() + 30)
+                }
+              }
+            })
           }
         }
       } catch (err) {
-        console.error('[v0] Error fetching business hours:', err)
+        console.error('[v0] Error fetching bookings:', err)
       }
-      
-      // Fetch existing bookings for this staff
-     try {
- const response = await fetch(`${API_URL}/api/staff/code/${staff.staffCode}/bookings/date?date=${selectedDate}`)
-  
-  if (response.ok) {
-    const contentType = response.headers.get('content-type')
-    if (contentType && contentType.includes('application/json')) {
-      const data = await response.json()
-      
-      // Safely extract bookings array
-      bookingsData = Array.isArray(data) 
-        ? data 
-        : data.bookings 
-          ? data.bookings 
-          : []
-    } else {
-      // Handle unexpected content type
-      console.error('Unexpected content-type:', contentType)
-    }
-  } else {
-    // Handle non-OK response
-    console.error('Response not OK:', response.status)
-  }
-} catch (error) {
-  console.error('Fetch error:', error)
-}
-   
-      
-      setBusinessHours(hoursData)
-      setBookings(bookingsData)
-      
-      // Get selected service from StaffService join table
-      const selectedStaffService = staff.services?.find((ss: any) => ss.serviceId === selectedServiceId)
-      if (!selectedStaffService || !selectedStaffService.service) return
-      
-      const duration = selectedStaffService.service.duration || 60 // Default 60 minutes
-      
-      // Calculate available slots
-      const slots = getAvailableTimeSlots(
-        selectedDate,
-        staff.id,
-        duration,
-        hoursData,
-        bookingsData,
-        [staff],
-        staff
-      )
-      
-      setAvailableSlots(slots)
+
+      // Generate available slots (9 AM to 6 PM, 30-min intervals)
+      const dayOfWeek = new Date(selectedDate).getDay()
+      let openingTime = '09:00'
+      let closingTime = '18:00'
+
+      // Adjust for Sunday (closed) and Saturday (10 AM - 4 PM)
+      if (dayOfWeek === 0) {
+        setAvailableSlots([])
+        setLoadingSlots(false)
+        return
+      } else if (dayOfWeek === 6) {
+        openingTime = '10:00'
+        closingTime = '16:00'
+      }
+
+      const allSlots = generateTimeSlots(openingTime, closingTime)
+      const availableSlotsList = allSlots.map((slot) => ({
+        ...slot,
+        isAvailable: !bookedTimes.has(slot.time),
+      }))
+
+      setAvailableSlots(availableSlotsList)
     } catch (err) {
       console.error('[v0] Error loading available slots:', err)
       setAvailableSlots([])
@@ -204,7 +200,7 @@ export default function StaffDirectBookPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    
+
     // Check if date is a time-off date
     if (name === 'date' && staffTimeOff.has(value)) {
       toast({
@@ -214,9 +210,9 @@ export default function StaffDirectBookPage() {
       })
       return
     }
-    
+
     setFormData((prev) => ({ ...prev, [name]: value }))
-    
+
     // Load available slots when date or service changes
     if (name === 'date' || name === 'serviceId') {
       const newFormData = { ...formData, [name]: value }
@@ -242,25 +238,35 @@ export default function StaffDirectBookPage() {
       setSubmitting(true)
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
-      const response = await fetch(`${API_URL}/api/booking/create`, {
+      // Create booking with customer details
+      const startDateTime = new Date(`${formData.date}T${formData.time}`)
+      const endDateTime = new Date(startDateTime)
+
+      // Get service duration
+      const selectedStaffService = staff?.services?.find((ss: any) => ss.serviceId === formData.serviceId)
+      const duration = selectedStaffService?.service?.duration || 60
+      endDateTime.setMinutes(endDateTime.getMinutes() + duration)
+
+      
+
+      const bookingRes = await fetch(`${API_URL}/api/booking/public`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           staffId: staff?.id,
-          businessId: staff?.id, // Will be derived from staff
-          customerId: '', // New customer
+          businessId: staff?.businessId,
           serviceId: formData.serviceId,
           customerName: formData.customerName,
           customerEmail: formData.email,
           customerPhone: formData.phone,
-          startTime: `${formData.date}T${formData.time}`,
+          startTime: startDateTime.toISOString(),
+          endTime: endDateTime.toISOString(),
           notes: formData.notes,
-          source: 'direct-staff-booking',
         }),
-        credentials: 'include',
       })
 
-      if (response.ok) {
+
+      if (bookingRes.ok) {
         toast({
           title: 'Booking Confirmed!',
           description: 'Your appointment has been scheduled successfully',
@@ -269,13 +275,13 @@ export default function StaffDirectBookPage() {
           customerName: '',
           email: '',
           phone: '',
-          serviceId: staff?.services?.[0]?.id || '',
+          serviceId: staff?.services?.[0]?.serviceId || '',
           date: '',
           time: '',
           notes: '',
         })
       } else {
-        const error = await response.json()
+        const error = await bookingRes.json()
         toast({
           title: 'Booking Failed',
           description: error.message || 'Failed to create booking',
@@ -330,10 +336,10 @@ export default function StaffDirectBookPage() {
         {/* Staff Header */}
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle className="text-2xl">
-              Book an Appointment
-            </CardTitle>
-            <CardDescription>Schedule an appointment with {staff.firstName} {staff.lastName} at your convenience</CardDescription>
+            <CardTitle className="text-2xl">Book an Appointment</CardTitle>
+            <CardDescription>
+              Schedule an appointment with {staff.firstName} {staff.lastName} at your convenience
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -417,7 +423,6 @@ export default function StaffDirectBookPage() {
                   >
                     <option value="">Select a service</option>
                     {staff.services?.map((staffService: any) => {
-                      // staffService is from StaffService join table
                       const svc = staffService.service
                       if (!svc) return null
                       return (
@@ -466,7 +471,7 @@ export default function StaffDirectBookPage() {
                           <button
                             key={slot.time}
                             type="button"
-                            onClick={() => setFormData(prev => ({ ...prev, time: slot.time }))}
+                            onClick={() => setFormData((prev) => ({ ...prev, time: slot.time }))}
                             disabled={!slot.isAvailable}
                             className={`px-3 py-2 text-sm rounded-md border transition-all ${
                               formData.time === slot.time && slot.isAvailable
