@@ -1,14 +1,16 @@
-'use client'
+  'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { AlertCircle, Calendar, Clock, MapPin, Loader, TimerOff } from 'lucide-react'
+import { AlertCircle, Calendar, Clock, MapPin, Loader } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { getCurrentUser } from '@/lib/auth'
+
 import { Staff } from '@/lib/api'
 
 interface TimeSlot {
@@ -26,8 +28,9 @@ interface FormData {
   notes: string
 }
 
-export default function StaffDirectBookPage() {
+export default function StaffBookPage() {
   const params = useParams()
+  const router = useRouter()
   const { toast } = useToast()
   const staffCode = params.staffCode as string
 
@@ -38,6 +41,11 @@ export default function StaffDirectBookPage() {
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([])
   const [staffTimeOff, setStaffTimeOff] = useState<Set<string>>(new Set())
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set())
+  const [closedReason, setClosedReason] = useState<string | null>(null)
+  const [closedDates, setClosedDates] = useState<Map<string, string>>(new Map())
+  const [businessHours, setBusinessHours] = useState<any[]>([])
   const [formData, setFormData] = useState<FormData>({
     customerName: '',
     email: '',
@@ -48,11 +56,16 @@ export default function StaffDirectBookPage() {
     notes: '',
   })
 
-  // Fetch staff info
+  // Fetch staff info and check user authentication
   useEffect(() => {
     const fetchStaffInfo = async () => {
       try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+        
+        // Check if user is authenticated
+        const user = await getCurrentUser()
+        setCurrentUser(user)
+        
         const response = await fetch(`${API_URL}/api/staff/code/${staffCode}`)
 
         if (!response.ok) {
@@ -69,6 +82,42 @@ export default function StaffDirectBookPage() {
         // Set the first service's serviceId (from the join table)
         if (data.services && data.services.length > 0) {
           setFormData((prev) => ({ ...prev, serviceId: data.services[0].serviceId }))
+        }
+        
+        // Pre-fill customer info if user is authenticated
+        if (user) {
+          setFormData((prev) => ({
+            ...prev,
+            customerName: user.name || '',
+            email: user.email || '',
+            phone: user.phone || '',
+          }))
+        }
+        
+        // Fetch business hours and closed dates for the business
+        try {
+          // Fetch business hours
+          const hoursRes = await fetch(`${API_URL}/api/business-hours/business/${data.businessId}`)
+          if (hoursRes.ok) {
+            const hoursData = await hoursRes.json()
+            setBusinessHours(hoursData)
+          }
+          
+          // Fetch closed dates
+          const closedDatesRes = await fetch(`${API_URL}/api/business-hours/${data.businessId}/closed-dates`)
+          if (closedDatesRes.ok) {
+            const closedDatesData = await closedDatesRes.json()
+            const closedDatesMap = new Map<string, string>()
+            if (closedDatesData.success && closedDatesData.data) {
+              closedDatesData.data.forEach((cd: any) => {
+                const dateStr = new Date(cd.date).toISOString().split('T')[0]
+                closedDatesMap.set(dateStr, cd.reason || 'Business is closed')
+              })
+            }
+            setClosedDates(closedDatesMap)
+          }
+        } catch (err) {
+          console.error('Error fetching business hours or closed dates:', err)
         }
       } catch (err: any) {
         setError(err.message || 'An error occurred')
@@ -121,7 +170,7 @@ export default function StaffDirectBookPage() {
           const contentType = timeOffRes.headers.get('content-type')
           if (contentType?.includes('application/json')) {
             const timeOffData = await timeOffRes.json()
-            const timeOffSet = new Set<string>(timeOffData.map((to: any) => to.date.split('T')[0]))
+            const timeOffSet: Set<string> = new Set(timeOffData.map((to: any) => to.date.split('T')[0]))
             setStaffTimeOff(timeOffSet)
 
             // Check if date is a time-off day
@@ -156,7 +205,9 @@ export default function StaffDirectBookPage() {
                 // Generate all 30-minute slots between start and end time
                 let currentTime = new Date(startDate)
                 while (currentTime < endDate) {
-                  const timeStr = `${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`
+                  const hours = String(currentTime.getHours()).padStart(2, '0')
+                  const minutes = String(currentTime.getMinutes()).padStart(2, '0')
+                  const timeStr = `${hours}:${minutes}`
                   bookedTimes.add(timeStr)
                   currentTime.setMinutes(currentTime.getMinutes() + 30)
                 }
@@ -169,27 +220,77 @@ export default function StaffDirectBookPage() {
       }
 
       // Generate available slots (9 AM to 6 PM, 30-min intervals)
-      const dayOfWeek = new Date(selectedDate).getDay()
-      let openingTime = '09:00'
-      let closingTime = '18:00'
-
-      // Adjust for Sunday (closed) and Saturday (10 AM - 4 PM)
-      if (dayOfWeek === 0) {
+      const selectedDateObj = new Date(selectedDate)
+      const dayOfWeek = selectedDateObj.getDay()
+      const now = new Date()
+      const isToday = selectedDateObj.toISOString().split('T')[0] === now.toISOString().split('T')[0]
+      
+      // Check if date is in closed dates from database
+      if (closedDates.has(selectedDate)) {
         setAvailableSlots([])
+        setClosedReason(closedDates.get(selectedDate) || 'Business is closed')
         setLoadingSlots(false)
         return
-      } else if (dayOfWeek === 6) {
-        openingTime = '10:00'
-        closingTime = '16:00'
+      }
+      
+      // Get business hours for this day of week from database
+      // Note: dayOfWeek from Date is 0-6 (Sun-Sat), but our business hours uses 0-6 (Mon-Sun)
+      // So we need to adjust: 0 (Sun) -> 6, 1 (Mon) -> 0, ..., 6 (Sat) -> 5
+      const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+      const dayHours = businessHours.find((bh: any) => bh.dayOfWeek === adjustedDayOfWeek)
+      
+      if (!dayHours || dayHours.isClosed) {
+        setAvailableSlots([])
+        setClosedReason(dayHours ? 'Business is closed on this day' : 'Business hours not found')
+        setLoadingSlots(false)
+        return
       }
 
+      const openingTime = dayHours.openTime
+      const closingTime = dayHours.closeTime
+
+      // Parse closing time to check if business is closed for today
+      if (isToday) {
+        const [closingHour, closingMin] = closingTime.split(':').map(Number)
+        const closingDateTime = new Date(selectedDateObj)
+        closingDateTime.setHours(closingHour, closingMin, 0, 0)
+        
+        if (now > closingDateTime) {
+          setAvailableSlots([])
+          setClosedReason('Business is closed for today')
+          setLoadingSlots(false)
+          return
+        }
+      }
+      
+      // Clear closed reason if business is open
+      setClosedReason(null)
+
       const allSlots = generateTimeSlots(openingTime, closingTime)
-      const availableSlotsList = allSlots.map((slot) => ({
-        ...slot,
-        isAvailable: !bookedTimes.has(slot.time),
-      }))
+      
+      // Filter slots: remove past times for today and booked times
+      const availableSlotsList = allSlots.map((slot) => {
+        let isAvailable = !bookedTimes.has(slot.time)
+        
+        // For today, filter out past times
+        if (isToday && isAvailable) {
+          const [slotHour, slotMin] = slot.time.split(':').map(Number)
+          const slotDateTime = new Date(selectedDateObj)
+          slotDateTime.setHours(slotHour, slotMin, 0, 0)
+          
+          if (now > slotDateTime) {
+            isAvailable = false
+          }
+        }
+        
+        return {
+          ...slot,
+          isAvailable,
+        }
+      })
 
       setAvailableSlots(availableSlotsList)
+      setLoadingSlots(false)
     } catch (err) {
       console.error('[v0] Error loading available slots:', err)
       setAvailableSlots([])
@@ -225,14 +326,60 @@ export default function StaffDirectBookPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.customerName || !formData.email || !formData.serviceId || !formData.date || !formData.time) {
+    // Validate required fields
+    const errors = new Set<string>()
+    const missingFields: string[] = []
+
+    if (!formData.customerName) {
+      errors.add('customerName')
+      missingFields.push('Name')
+    }
+    if (!formData.email) {
+      errors.add('email')
+      missingFields.push('Email')
+    }
+    if (!formData.phone) {
+      errors.add('phone')
+      missingFields.push('Phone')
+    }
+    if (!formData.serviceId) {
+      errors.add('serviceId')
+      missingFields.push('Service')
+    }
+    if (!formData.date) {
+      errors.add('date')
+      missingFields.push('Date')
+    }
+    if (!formData.time) {
+      errors.add('time')
+      missingFields.push('Time')
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (formData.email && !emailRegex.test(formData.email)) {
+      errors.add('email')
+      missingFields.push('Valid email')
+    }
+
+    // Validate phone format (basic validation - at least 10 digits)
+    const phoneRegex = /^\d{10,}$/
+    if (formData.phone && !phoneRegex.test(formData.phone.replace(/\D/g, ''))) {
+      errors.add('phone')
+      missingFields.push('Valid phone number')
+    }
+
+    if (errors.size > 0) {
+      setValidationErrors(errors)
       toast({
-        title: 'Missing Fields',
-        description: 'Please fill in all required fields',
+        title: 'Missing or Invalid Fields',
+        description: `Please fill in: ${missingFields.join(', ')}`,
         variant: 'destructive',
       })
       return
     }
+
+    setValidationErrors(new Set())
 
     try {
       setSubmitting(true)
@@ -247,39 +394,68 @@ export default function StaffDirectBookPage() {
       const duration = selectedStaffService?.service?.duration || 60
       endDateTime.setMinutes(endDateTime.getMinutes() + duration)
 
-      
+      // Use public booking endpoint for guests, authenticated booking for logged-in users
+      const endpoint = currentUser ? '/api/booking' : '/api/booking/public'
+      const bookingPayload: any = {
+        businessId: staff?.businessId,
+        staffId: staff?.id,
+        serviceId: formData.serviceId,
+        startTime: startDateTime.toISOString(),
+        endTime: endDateTime.toISOString(),
+        notes: formData.notes,
+      }
 
-      const bookingRes = await fetch(`${API_URL}/api/booking/public`, {
+      // Add business ID and customer details only for public bookings
+      if (!currentUser) {
+        bookingPayload.businessId = staff?.businessId
+        bookingPayload.customerName = formData.customerName
+        bookingPayload.customerEmail = formData.email
+        bookingPayload.customerPhone = formData.phone
+      }
+
+      const bookingRes = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          staffId: staff?.id,
-          businessId: staff?.businessId,
-          serviceId: formData.serviceId,
-          customerName: formData.customerName,
-          customerEmail: formData.email,
-          customerPhone: formData.phone,
-          startTime: startDateTime.toISOString(),
-          endTime: endDateTime.toISOString(),
-          notes: formData.notes,
-        }),
+        headers: { 'Content-Type': 'application/json',
+         },
+         credentials: currentUser ? 'include' : 'omit', // Include credentials only for authenticated users
+        body: JSON.stringify(bookingPayload),
+        
       })
 
-
       if (bookingRes.ok) {
-        toast({
-          title: 'Booking Confirmed!',
-          description: 'Your appointment has been scheduled successfully',
-        })
-        setFormData({
-          customerName: '',
-          email: '',
-          phone: '',
-          serviceId: staff?.services?.[0]?.serviceId || '',
-          date: '',
-          time: '',
-          notes: '',
-        })
+        const bookingData = await bookingRes.json()
+        
+        // Create appointment details message
+        const serviceName = staff?.services?.find((s: any) => s.serviceId === formData.serviceId)?.service?.name || 'Service'
+        const appointmentDetails = `${serviceName} on ${formData.date} at ${formData.time}`
+        
+        if (bookingData.warnings && bookingData.warnings.length > 0) {
+          toast({
+            title: 'Booking Created with Warnings',
+            description: bookingData.warnings.join('\n') || bookingData.message,
+            variant: 'default',
+          })
+        } else {
+          toast({
+            title: 'Booking Confirmed!',
+            description: `Your appointment for ${appointmentDetails} has been scheduled successfully`,
+          })
+        }
+        
+        // Redirect after a short delay
+        setTimeout(() => {
+          if (currentUser.role === 'CUSTOMER') {
+            // Redirect authenticated users to dashboard
+            router.push('/search')
+          }else if (currentUser.role === 'BUSINESS_OWNER') {
+            // Redirect business owners to their dashboard
+            router.push('/dashboard')
+          } 
+          else {
+            // Redirect guests back to staff page
+            router.push("/")
+          }
+        }, 2000)
       } else {
         const error = await bookingRes.json()
         toast({
@@ -368,43 +544,62 @@ export default function StaffDirectBookPage() {
               <div className="space-y-4">
                 <h3 className="font-semibold text-sm">Your Information</h3>
 
-                <div>
-                  <Label htmlFor="customerName">Full Name *</Label>
-                  <Input
-                    id="customerName"
-                    name="customerName"
-                    value={formData.customerName}
-                    onChange={handleInputChange}
-                    placeholder="John Doe"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="email">Email *</Label>
+                    <Label htmlFor="customerName" className={validationErrors.has('customerName') ? 'text-red-600' : ''}>
+                      Name *
+                    </Label>
                     <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
+                      id="customerName"
+                      name="customerName"
+                      type="text"
+                      placeholder="Your full name"
+                      value={formData.customerName}
                       onChange={handleInputChange}
-                      placeholder="john@example.com"
+                      disabled={submitting}
+                      className={validationErrors.has('customerName') ? 'border-red-500 focus:border-red-500' : ''}
                       required
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="email" className={validationErrors.has('email') ? 'text-red-600' : ''}>
+                      Email *
+                    </Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      placeholder="Your email address"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      disabled={submitting}
+                      className={validationErrors.has('email') ? 'border-red-500 focus:border-red-500' : ''}
+                      required
+                    />
+                    {validationErrors.has('email') && (
+                      <p className="text-xs text-red-600 mt-1">Please enter a valid email address</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="phone" className={validationErrors.has('phone') ? 'text-red-600' : ''}>
+                      Phone *
+                    </Label>
                     <Input
                       id="phone"
                       name="phone"
+                      type="tel"
+                      placeholder="Your phone number"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      placeholder="+1234567890"
+                      disabled={submitting}
+                      className={validationErrors.has('phone') ? 'border-red-500 focus:border-red-500' : ''}
+                      required
                     />
+                    {validationErrors.has('phone') && (
+                      <p className="text-xs text-red-600 mt-1">Please enter a valid phone number (at least 10 digits)</p>
+                    )}
                   </div>
-                </div>
               </div>
 
               {/* Service Selection */}
@@ -441,7 +636,9 @@ export default function StaffDirectBookPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="date">Date *</Label>
+                    <Label htmlFor="date" className={validationErrors.has('date') ? 'text-red-600' : ''}>
+                      Date *
+                    </Label>
                     <Input
                       id="date"
                       name="date"
@@ -449,6 +646,7 @@ export default function StaffDirectBookPage() {
                       value={formData.date}
                       onChange={handleInputChange}
                       min={new Date().toISOString().split('T')[0]}
+                      className={validationErrors.has('date') ? 'border-red-500 focus:border-red-500' : ''}
                       required
                     />
                   </div>
@@ -466,14 +664,14 @@ export default function StaffDirectBookPage() {
                         <span className="text-sm text-amber-600">Staff unavailable on this date</span>
                       </div>
                     ) : availableSlots.length > 0 ? (
-                      <div className="grid grid-cols-4 md:grid-cols-6 gap-2 mt-2">
+                      <div className="flex flex-wrap gap-2 mt-2">
                         {availableSlots.map((slot) => (
                           <button
                             key={slot.time}
                             type="button"
                             onClick={() => setFormData((prev) => ({ ...prev, time: slot.time }))}
                             disabled={!slot.isAvailable}
-                            className={`px-3 py-2 text-sm rounded-md border transition-all ${
+                            className={`w-20 px-3 py-2 text-sm rounded-md border transition-all text-center ${
                               formData.time === slot.time && slot.isAvailable
                                 ? 'bg-primary text-primary-foreground border-primary'
                                 : slot.isAvailable
@@ -488,7 +686,9 @@ export default function StaffDirectBookPage() {
                     ) : formData.date ? (
                       <div className="flex items-center justify-center py-6 border border-input rounded-md bg-red-50 border-red-200">
                         <AlertCircle className="w-4 h-4 mr-2 text-red-600" />
-                        <span className="text-sm text-red-600">No available times on this date</span>
+                        <span className="text-sm text-red-600">
+                          {closedReason || 'No available times on this date'}
+                        </span>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center py-6 border border-input rounded-md bg-muted">

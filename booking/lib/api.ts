@@ -36,6 +36,7 @@ export interface Business {
   phone: string
   email: string
   location?: string
+  createdAt: string
 }
 
 

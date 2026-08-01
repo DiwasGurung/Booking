@@ -444,12 +444,11 @@ export const getStaffBookingsByDate = async (req: Request, res: Response) => {
     }
 
     // Parse the date
-    const selectedDate = new Date(date)
-    const dayStart = new Date(selectedDate)
-    dayStart.setHours(0, 0, 0, 0)
-    
-    const dayEnd = new Date(selectedDate)
-    dayEnd.setHours(23, 59, 59, 999)
+     // Parse the date string (format: YYYY-MM-DD)
+    // Create dates treating the input as a local date, not UTC
+    const [year, month, day] = date.split('-').map(Number)
+    const dayStart = new Date(year, month - 1, day, 0, 0, 0, 0)
+    const dayEnd = new Date(year, month - 1, day, 23, 59, 59, 999)
 
     // Fetch bookings for this staff member on the specified date
     // Include both PENDING and CONFIRMED bookings to block time slots for guests

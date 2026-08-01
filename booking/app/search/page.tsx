@@ -298,7 +298,7 @@ export default function SearchPage() {
                 >
                   <div className="p-4 md:p-6 flex-1 flex flex-col">
                     {/* Logo */}
-                    {business.logo && (
+                    {typeof business.logo === 'string' && business.logo && (
                       <div className="mb-3 md:mb-4 flex justify-center">
                         <div className="w-16 md:w-20 h-16 md:h-20 bg-muted rounded-lg flex items-center justify-center border border-border overflow-hidden">
                           <img 

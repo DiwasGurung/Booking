@@ -12,13 +12,13 @@ import { useAuth } from '@/context/authContext'
 
 function getDefaultBusinessHours() {
   return [
-    { dayOfWeek: 0, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Sunday
-    { dayOfWeek: 1, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Monday
-    { dayOfWeek: 2, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Tuesday
-    { dayOfWeek: 3, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Wednesday
-    { dayOfWeek: 4, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Thursday
-    { dayOfWeek: 5, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Friday
-    { dayOfWeek: 6, openingTime: '09:00', closingTime: '18:00', isClosed: false }, // Saturday
+    { dayOfWeek: 0, openTime: '09:00', closeTime: '18:00', isClosed: false }, // Sunday
+    { dayOfWeek: 1, openTime: '09:00', closeTime: '18:00', isClosed: false }, // Monday
+    { dayOfWeek: 2, openTime: '09:00', closeTime: '18:00', isClosed: false }, // Tuesday
+    { dayOfWeek: 3, openTime: '09:00', closeTime: '18:00', isClosed: false }, // Wednesday
+    { dayOfWeek: 4, openTime: '09:00', closeTime: '18:00', isClosed: false }, // Thursday
+    { dayOfWeek: 5, openTime: '09:00', closeTime: '18:00', isClosed: false }, // Friday
+    { dayOfWeek: 6, openTime: '09:00', closeTime: '18:00', isClosed: false }, // Saturday
   ]
 }
 

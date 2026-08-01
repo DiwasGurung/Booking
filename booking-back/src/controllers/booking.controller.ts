@@ -10,100 +10,186 @@ import type { BookingStatus } from "@prisma/client";
 
 class BookingController {
   /**
-   * Create a new booking
+   * Create a new booking for authenticated users
    */
   async createBooking(req: Request, res: Response): Promise<void> {
     try {
       console.log('[v0] createBooking called with body:', req.body)
       
-      // Get userId from authenticated user or request body
-      const userId = (req as any).user?.id || req.body.userId
+      // Get userId from authenticated user
+      const userId = (req as any).user?.id
       
       if (!userId) {
-     
-        res.status(400).json({ 
+       res.status(401).json({ 
+          success: false,
           message: "User ID is required. Please log in to create a booking."
         })
         return
       }
 
-      // Validate request body
-      const bodyValidation = parseAndValidate(CreateBookingSchema, req.body)
-      if (!bodyValidation.success) {
-         res.status(400).json({ message: bodyValidation.error })
-         return
-      } 
-      
+      const { businessId, staffId, serviceId, appointmentDate, customerName, customerEmail, customerPhone, notes } = req.body
+
+      // Validate required fields
+      if (!businessId || !serviceId || !appointmentDate || !customerName || !customerEmail || !customerPhone) {
+         res.status(400).json({ 
+          success: false,
+          message: "Missing required fields: businessId, serviceId, appointmentDate, customerName, customerEmail, customerPhone"
+        })
+        return
+      }
+
       // Check subscription and feature gating
-      const { businessId } = bodyValidation.data
       const appointmentLimit = await SubscriptionService.canAddAppointment(businessId)
       
       if (!appointmentLimit.allowed) {
         console.warn('[v0] Booking limit exceeded for business:', businessId)
          res.status(429).json({
+          success: false,
           message: appointmentLimit.reason || 'Booking limit reached. Please upgrade your subscription.',
           error: 'LIMIT_EXCEEDED',
         })
         return
       }
-      
-      const bookingData = {
-        ...bodyValidation.data,
-        userId
+
+      // Verify business exists
+      const business = await prisma.business.findUnique({
+        where: { id: businessId },
+        include: { user: true },
+      })
+
+      if (!business) {
+        res.status(404).json({
+          success: false,
+          message: "Business not found"
+        })
+        return
       }
-      
-      const booking = await BookingService.createBooking(bookingData as any)
-      console.log('[v0] Booking created successfully:', booking)
+
+      // Verify service exists and belongs to this business
+      const service = await prisma.service.findUnique({
+        where: { id: serviceId },
+      })
+
+      if (!service || service.businessId !== businessId) {
+         res.status(404).json({
+          success: false,
+          message: "Service not found"
+        })
+         return 
+      }
+
+      // Verify staff exists if provided
+      if (staffId) {
+        const staff = await prisma.staff.findUnique({
+          where: { id: staffId },
+        })
+
+        if (!staff || staff.businessId !== businessId) {
+           res.status(404).json({
+            success: false,
+            message: "Staff member not found"
+          })
+          return
+        }
+      }
+
+      // Calculate start and end times based on service duration
+      const startTime = new Date(appointmentDate)
+      const endTime = new Date(startTime.getTime() + (service.duration || 60) * 60000) // duration is in minutes
+
+      // Create booking for authenticated user (linked to userId, not customerId)
+      const bookingData: any = {
+        startTime,
+        endTime,
+        customerName,
+        customerEmail,
+        customerPhone,
+        notes: notes || '',
+        status: 'PENDING',
+        userId, // Link to authenticated user
+        service: { connect: { id: serviceId } },
+        business: { connect: { id: businessId } },
+      }
+
+      // Add staffId if provided
+      if (staffId) {
+        bookingData.staff = { connect: { id: staffId } }
+      }
+
+      const booking = await prisma.booking.create({
+        data: bookingData,
+        include: {
+          service: true,
+          business: true,
+          staff: true,
+          user: true,
+        },
+      })
+
+      console.log('[v0] Authenticated booking created:', booking.id)
+
+      const emailWarnings: string[] = []
 
       // Send email notification to business owner
       try {
-        // Get business with owner user info
-        const business = await prisma.business.findUnique({
-          where: { id: booking.businessId },
-          include: {
-            user: true,
-          }
-        })
-
-        if (business?.user?.email) {
-          // Get service and staff details
-          const service = await prisma.service.findUnique({
-            where: { id: booking.serviceId }
-          })
-
+        if (business.user?.email) {
           let staffName: string | undefined
-          if (booking.staffId) {
-            const staff = await prisma.staff.findUnique({
-              where: { id: booking.staffId }
-            })
-            if (staff) {
-              staffName = `${staff.firstName} ${staff.lastName}`
-            }
+          if (booking.staff) {
+            staffName = `${booking.staff.firstName} ${booking.staff.lastName}`
           }
 
           await emailService.sendNewBookingNotification(business.user.email, {
-            customerName: booking.customerName,
-            customerEmail: booking.customerEmail,
-            customerPhone: booking.customerPhone,
-            serviceName: service?.name || 'Service',
+            customerName,
+            customerEmail,
+            customerPhone,
+            serviceName: service.name,
             staffName,
             startTime: booking.startTime,
             endTime: booking.endTime,
             businessName: business.name,
             notes: booking.notes || undefined,
           })
-
-          console.log('[v0] Email notification sent to business owner:', business.user.email)
+          console.log('[v0] Owner notification email sent to:', business.user.email)
         }
-      } catch (emailError) {
-        // Don't fail the booking if email fails
-        console.error('[v0] Failed to send email notification to owner:', emailError)
+      } catch (emailError: any) {
+        console.error('[v0] Failed to send email to owner:', emailError)
+        emailWarnings.push('Unable to notify business owner due to email delivery issue')
       }
 
-      res.status(201).json(booking)
+      // Send confirmation email to customer
+      try {
+        await emailService.sendBookingConfirmationToCustomer(customerEmail, {
+          customerName,
+          serviceName: service.name,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          businessName: business.name,
+          businessPhone: business.phone || '',
+          businessAddress: business.address || '',
+        })
+        console.log('[v0] Customer confirmation email sent to:', customerEmail)
+      } catch (emailError: any) {
+        console.error('[v0] Failed to send confirmation email to customer:', emailError)
+        emailWarnings.push('Confirmation email could not be sent to ' + customerEmail)
+      }
+
+      res.status(201).json({
+        success: true,
+        message: emailWarnings.length > 0 
+          ? 'Booking created successfully, but there were issues sending emails. Please contact the business directly.'
+          : 'Booking created successfully. Check your email for confirmation.',
+        warnings: emailWarnings.length > 0 ? emailWarnings : undefined,
+        booking: {
+          id: booking.id,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          status: booking.status,
+        }
+      })
     } catch (error) {
-      console.error('[v0] Error creating booking:', error instanceof Error ? error.message : String(error))
+      console.error('[v0] Error creating authenticated booking:', error instanceof Error ? error.message : String(error))
       res.status(500).json({ 
+        success: false,
         message: "Error creating booking", 
         error: error instanceof Error ? error.message : String(error)
       })
@@ -175,11 +261,11 @@ class BookingController {
       const booking = await BookingService.getBookingById(Array.isArray(id) ? id[0] : id)
 
       if (!booking) {
-        res.status(404).json({
+     res.status(404).json({
           success: false,
           message: 'Booking not found',
         })
-        return
+         return 
       }
 
       // Update the booking status
@@ -342,10 +428,12 @@ class BookingController {
     }
   }
 
+  /**
+   * Create a public booking (no authentication required)
+   * Used for guest customers to book services without creating an account
+   */
   async createPublicBooking(req: Request, res: Response): Promise<void> {
     try {
-      console.log('[v0] createPublicBooking called with body:', req.body)
-      
       const { businessId, staffId, serviceId, startTime, endTime, customerName, customerEmail, customerPhone, notes } = req.body
 
       // Validate required fields
@@ -364,11 +452,11 @@ class BookingController {
       })
 
       if (!business) {
-       res.status(404).json({
+         res.status(404).json({
           success: false,
           message: "Business not found"
         })
-          return
+        return
       }
 
       // Verify service exists and belongs to this business
@@ -380,11 +468,8 @@ class BookingController {
          res.status(404).json({
           success: false,
           message: "Service not found"
-
-        
         })
-
-        return
+         return 
       }
 
       // Verify staff exists if provided
@@ -398,46 +483,54 @@ class BookingController {
             success: false,
             message: "Staff member not found"
           })
+           return 
+        }
+      }
+
+      // Create or get existing customer record for the guest
+      let customer
+      try {
+        // Try to create a new customer
+        customer = await prisma.customer.create({
+          data: {
+            businessId,
+            name: customerName,
+            email: customerEmail,
+            phone: customerPhone,
+            notes: notes || '',
+          },
+        })
+        console.log('[v0] Guest customer created:', customer.id)
+      } catch (err: any) {
+        // If customer already exists with this email, use the existing one
+        if (err.code === 'P2002') {
+          console.log('[v0] Customer with this email already exists, using existing customer')
+          customer = await prisma.customer.findUnique({
+            where: {
+              businessId_email: {
+                businessId,
+                email: customerEmail,
+              },
+            },
+          })
+          if (!customer) {
+            res.status(500).json({
+              success: false,
+              message: "Failed to create or retrieve customer",
+              error: err.message,
+            })
+             return 
+          }
+        } else {
+          console.error('[v0] Error creating customer:', err)
+         res.status(500).json({
+            success: false,
+            message: "Failed to create customer",
+            error: err.message,
+          })
             return
         }
       }
-let customer;
-try {
-  // Try to create a new customer
-  customer = await prisma.customer.create({
-    data: {
-      businessId,
-      name: customerName,
-      email: customerEmail,
-      phone: customerPhone,
-      notes: notes || '',
-    },
-  });
-  console.log('[v0] Guest customer created:', customer.id);
-} catch (err: any) {
-  if (err.code === 'P2002') {
-    // Customer with this email already exists, retrieve it
-    console.log('[v0] Customer with this email already exists, retrieving...');
-    customer = await prisma.customer.findUnique({
-      where: {
-        businessId_email: {
-          businessId,
-          email: customerEmail,
-        },
-      },
-    });
-    if (!customer) {
-      res.status(500).json({ message: "Failed to retrieve existing customer." });
-      return;
-    }
-  } else {
-    console.error('[v0] Error creating customer:', err);
-    res.status(500).json({ message: "Failed to create customer", error: err.message });
-    return;
-  }
-}
-
-      console.log('[v0] Guest customer created:', customer.id)
 
       // Create a guest booking with the customer
       const bookingData: any = {
@@ -470,6 +563,8 @@ try {
 
       console.log('[v0] Public booking created:', booking.id)
 
+      const emailWarnings: string[] = []
+
       // Send email notification to business owner
       try {
         if (business.user?.email) {
@@ -485,9 +580,9 @@ try {
           })
           console.log('[v0] Owner notification email sent to:', business.user.email)
         }
-      } catch (emailError) {
+      } catch (emailError: any) {
         console.error('[v0] Failed to send email to owner:', emailError)
-        // Don't fail the booking if email fails
+        emailWarnings.push('Unable to notify business owner due to email delivery issue')
       }
 
       // Send confirmation email to customer
@@ -502,14 +597,17 @@ try {
           businessAddress: business.address || '',
         })
         console.log('[v0] Customer confirmation email sent to:', customerEmail)
-      } catch (emailError) {
+      } catch (emailError: any) {
         console.error('[v0] Failed to send confirmation email to customer:', emailError)
-        // Don't fail the booking if email fails
+        emailWarnings.push('Confirmation email could not be sent to ' + customerEmail)
       }
 
       res.status(201).json({
         success: true,
-        message: 'Booking created successfully. Check your email for confirmation.',
+        message: emailWarnings.length > 0 
+          ? 'Booking created successfully, but there were issues sending emails. Please contact the business directly.'
+          : 'Booking created successfully. Check your email for confirmation.',
+        warnings: emailWarnings.length > 0 ? emailWarnings : undefined,
         booking: {
           id: booking.id,
           startTime: booking.startTime,
@@ -526,7 +624,6 @@ try {
       })
     }
   }
-
 
   /**
    * Get booking trends
