@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+import { validate } from 'deep-email-validator'
 
 const emailUser = process.env.EMAIL_USER || 'your-email@gmail.com'
 const emailPassword = process.env.EMAIL_PASSWORD || 'your-app-password'
@@ -32,6 +33,85 @@ const initializeTransporter = () => {
 }
 
 export const emailService = {
+
+  /**
+   * Validate email address using SMTP verification
+   * Checks if the email server accepts this address
+   */
+  /**
+   * Validate email address using deep-email-validator
+   * Checks if the email exists and is deliverable via SMTP/MX records
+   */
+ /**
+   * Validate email address using deep-email-validator
+   * Checks format, typo, disposable status, and MX records
+   * Skips SMTP since Gmail rate limits verification attempts
+   */
+  async validateEmailAddress(email: string): Promise<{ isValid: boolean; reason?: string }> {
+    try {
+      console.log('[Email Service] Validating email:', email)
+      
+      const validateWithTimeout = (promise: Promise<any>, ms: number | undefined) => {
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms));
+      return Promise.race([promise, timeout]);
+    };
+
+    const result = await validateWithTimeout(
+      validate({ email, sender: emailUser, validateSMTP: true }),
+      4000 // 4 seconds timeout
+    );
+
+      console.log('[Email Service] Email validation result:', {
+        email,
+        valid: result.valid,
+        validators: result.validators,
+        reason: result.reason,
+      })
+
+      // Accept email if:
+      // 1. It passes all validators (valid: true), OR
+      // 2. Format is correct, no typo, not disposable, and MX records exist (even if SMTP times out)
+      const hasValidFormat = result.validators?.regex?.valid === true
+      const noTypo = result.validators?.typo?.valid === true
+      const notDisposable = result.validators?.disposable?.valid === true
+      const hasValidMX = result.validators?.mx?.valid === true
+
+      // Accept if basic checks pass and MX records exist
+      const isAcceptable = hasValidFormat && noTypo && notDisposable && hasValidMX
+
+      if (result.valid || isAcceptable) {
+        console.log('[Email Service] Email validation SUCCESSFUL for:', email)
+        return { isValid: true }
+      } else {
+        console.warn('[Email Service] Email validation FAILED for:', email, 'Reason:', result.reason)
+        return { 
+          isValid: false, 
+          reason: result.reason || 'invalid'
+        }
+      }
+    } catch (error: any) {
+      console.error('[Email Service] Email validation exception:', error.message)
+      
+      // Determine the reason for failure
+      let reason = 'unknown'
+      const errorMsg = error.message?.toLowerCase() || ''
+      
+      if (errorMsg.includes('timeout') || errorMsg.includes('enotfound')) {
+        // Timeout or DNS issues - allow the booking since it's a temporary issue
+        console.log('[Email Service] Email validation timeout/network error - allowing booking')
+        return { isValid: true }
+      } else if (errorMsg.includes('invalid') || errorMsg.includes('malformed')) {
+        reason = 'invalid_format'
+      } else {
+        reason = 'unknown_error'
+      }
+
+      return { 
+        isValid: false, 
+        reason 
+      }
+    }
+  },
   /**
    * Send email verification code
    */

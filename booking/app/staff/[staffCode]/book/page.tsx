@@ -1,4 +1,4 @@
-  'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { AlertCircle, Calendar, Clock, MapPin, Loader } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { getCurrentUser } from '@/lib/auth'
+
 
 import { Staff } from '@/lib/api'
 
@@ -444,10 +445,11 @@ export default function StaffBookPage() {
         
         // Redirect after a short delay
         setTimeout(() => {
-          if (currentUser.role === 'CUSTOMER') {
+          if (currentUser && currentUser.role === 'CUSTOMER' ) {
+            
             // Redirect authenticated users to dashboard
             router.push('/search')
-          }else if (currentUser.role === 'BUSINESS_OWNER') {
+          }else if (currentUser && currentUser.role === 'BUSINESS_OWNER') {
             // Redirect business owners to their dashboard
             router.push('/dashboard')
           } 
@@ -457,12 +459,48 @@ export default function StaffBookPage() {
           }
         }, 2000)
       } else {
-        const error = await bookingRes.json()
+     
+        
+        let error
+        try {
+          error = await bookingRes.json()
+        
+        } catch (parseErr) {
+   
+          error = { message: 'Failed to parse error response' }
+        }
+        
+        let errorTitle = 'Booking Failed'
+        let errorMessage = error.message || 'Failed to create booking'
+        
+    
+        
+        if (bookingRes.status === 401) {
+          errorTitle = 'Session Expired'
+          errorMessage = 'Your session has expired. Please log in again to complete your booking.'
+        } else if (bookingRes.status === 400) {
+          // For email validation errors, show both message and reason
+          if (error.reason) {
+            errorTitle = 'Invalid Email Address'
+            errorMessage = `${error.message}\n• Issue: Email validation`
+          } else if (error.reason) {
+            errorMessage = `${error.message}\n• Reason: ${error.reason}`
+          } else {
+            errorMessage = error.message || 'Please fill in all required fields correctly'
+          }
+        } else if (bookingRes.status === 429) {
+          errorTitle = 'Booking Limit Reached'
+          errorMessage = error.message || 'Booking limit reached. Please upgrade your subscription.'
+        }
+      
+        
         toast({
-          title: 'Booking Failed',
-          description: error.message || 'Failed to create booking',
+          title: errorTitle,
+          description: errorMessage,
           variant: 'destructive',
         })
+        
+        setSubmitting(false)
       }
     } catch (err: any) {
       toast({

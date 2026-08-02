@@ -14,6 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.emailService = void 0;
 const nodemailer_1 = __importDefault(require("nodemailer"));
+const deep_email_validator_1 = require("deep-email-validator");
 const emailUser = process.env.EMAIL_USER || 'your-email@gmail.com';
 const emailPassword = process.env.EMAIL_PASSWORD || 'your-app-password';
 // Verify transporter configuration on startup
@@ -42,6 +43,67 @@ const initializeTransporter = () => {
     return transporter;
 };
 exports.emailService = {
+    /**
+     * Validate email address using SMTP verification
+     * Checks if the email server accepts this address
+     */
+    /**
+     * Validate email address using deep-email-validator
+     * Checks if the email exists and is deliverable via SMTP/MX records
+     */
+    validateEmailAddress(email) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            try {
+                console.log('[Email Service] Validating email:', email);
+                // Validate using deep-email-validator which checks SMTP and MX records
+                const result = yield (0, deep_email_validator_1.validate)({
+                    email,
+                    sender: emailUser,
+                    // Check SMTP connection to verify email exists
+                    validateSMTP: true,
+                });
+                console.log('[Email Service] Email validation result:', {
+                    email,
+                    valid: result.valid,
+                    validators: result.validators,
+                    reason: result.reason,
+                });
+                if (result.valid) {
+                    console.log('[Email Service] Email validation SUCCESSFUL for:', email);
+                    return { isValid: true };
+                }
+                else {
+                    console.warn('[Email Service] Email validation FAILED for:', email, 'Reason:', result.reason);
+                    return {
+                        isValid: false,
+                        reason: result.reason || 'smtp'
+                    };
+                }
+            }
+            catch (error) {
+                console.error('[Email Service] Email validation exception:', error.message);
+                // Determine the reason for failure
+                let reason = 'unknown';
+                const errorMsg = ((_a = error.message) === null || _a === void 0 ? void 0 : _a.toLowerCase()) || '';
+                if (errorMsg.includes('timeout') || errorMsg.includes('enotfound')) {
+                    // Timeout or DNS issues - allow the booking since it's a temporary issue
+                    console.log('[Email Service] Email validation timeout/network error - allowing booking');
+                    return { isValid: true };
+                }
+                else if (errorMsg.includes('invalid') || errorMsg.includes('malformed')) {
+                    reason = 'invalid_format';
+                }
+                else {
+                    reason = 'smtp';
+                }
+                return {
+                    isValid: false,
+                    reason
+                };
+            }
+        });
+    },
     /**
      * Send email verification code
      */

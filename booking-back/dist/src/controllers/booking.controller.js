@@ -18,90 +18,171 @@ const notification_sse_service_1 = __importDefault(require("../services/notifica
 const email_service_1 = require("../services/email.service");
 const subscription_service_1 = __importDefault(require("../services/subscription.service"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
-const validators_1 = require("../validators");
 class BookingController {
     /**
-     * Create a new booking
+     * Create a new booking for authenticated users
      */
     createBooking(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, _b;
             try {
                 console.log('[v0] createBooking called with body:', req.body);
-                // Get userId from authenticated user or request body
-                const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || req.body.userId;
+                // Get userId from authenticated user
+                const userId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id;
                 if (!userId) {
-                    res.status(400).json({
+                    res.status(401).json({
+                        success: false,
                         message: "User ID is required. Please log in to create a booking."
                     });
                     return;
                 }
-                // Validate request body
-                const bodyValidation = (0, validators_1.parseAndValidate)(validators_1.CreateBookingSchema, req.body);
-                if (!bodyValidation.success) {
-                    res.status(400).json({ message: bodyValidation.error });
+                const { businessId, staffId, serviceId, appointmentDate, customerName, customerEmail, customerPhone, notes } = req.body;
+                // Validate required fields
+                if (!businessId || !serviceId || !appointmentDate || !customerName || !customerEmail || !customerPhone) {
+                    res.status(400).json({
+                        success: false,
+                        message: "Missing required fields: businessId, serviceId, appointmentDate, customerName, customerEmail, customerPhone"
+                    });
                     return;
                 }
                 // Check subscription and feature gating
-                const { businessId } = bodyValidation.data;
                 const appointmentLimit = yield subscription_service_1.default.canAddAppointment(businessId);
                 if (!appointmentLimit.allowed) {
                     console.warn('[v0] Booking limit exceeded for business:', businessId);
                     res.status(429).json({
+                        success: false,
                         message: appointmentLimit.reason || 'Booking limit reached. Please upgrade your subscription.',
                         error: 'LIMIT_EXCEEDED',
                     });
                     return;
                 }
-                const bookingData = Object.assign(Object.assign({}, bodyValidation.data), { userId });
-                const booking = yield booking_service_1.default.createBooking(bookingData);
-                console.log('[v0] Booking created successfully:', booking);
+                // Verify business exists
+                const business = yield prisma_1.default.business.findUnique({
+                    where: { id: businessId },
+                    include: { user: true },
+                });
+                if (!business) {
+                    res.status(404).json({
+                        success: false,
+                        message: "Business not found"
+                    });
+                    return;
+                }
+                // Verify service exists and belongs to this business
+                const service = yield prisma_1.default.service.findUnique({
+                    where: { id: serviceId },
+                });
+                if (!service || service.businessId !== businessId) {
+                    res.status(404).json({
+                        success: false,
+                        message: "Service not found"
+                    });
+                    return;
+                }
+                // Verify staff exists if provided
+                if (staffId) {
+                    const staff = yield prisma_1.default.staff.findUnique({
+                        where: { id: staffId },
+                    });
+                    if (!staff || staff.businessId !== businessId) {
+                        res.status(404).json({
+                            success: false,
+                            message: "Staff member not found"
+                        });
+                        return;
+                    }
+                }
+                // Calculate start and end times based on service duration
+                const startTime = new Date(appointmentDate);
+                const endTime = new Date(startTime.getTime() + (service.duration || 60) * 60000); // duration is in minutes
+                // Create booking for authenticated user (linked to userId, not customerId)
+                const bookingData = {
+                    startTime,
+                    endTime,
+                    customerName,
+                    customerEmail,
+                    customerPhone,
+                    notes: notes || '',
+                    status: 'PENDING',
+                    userId, // Link to authenticated user
+                    service: { connect: { id: serviceId } },
+                    business: { connect: { id: businessId } },
+                };
+                // Add staffId if provided
+                if (staffId) {
+                    bookingData.staff = { connect: { id: staffId } };
+                }
+                const booking = yield prisma_1.default.booking.create({
+                    data: bookingData,
+                    include: {
+                        service: true,
+                        business: true,
+                        staff: true,
+                        user: true,
+                    },
+                });
+                console.log('[v0] Authenticated booking created:', booking.id);
+                const emailWarnings = [];
                 // Send email notification to business owner
                 try {
-                    // Get business with owner user info
-                    const business = yield prisma_1.default.business.findUnique({
-                        where: { id: booking.businessId },
-                        include: {
-                            user: true,
-                        }
-                    });
-                    if ((_b = business === null || business === void 0 ? void 0 : business.user) === null || _b === void 0 ? void 0 : _b.email) {
-                        // Get service and staff details
-                        const service = yield prisma_1.default.service.findUnique({
-                            where: { id: booking.serviceId }
-                        });
+                    if ((_b = business.user) === null || _b === void 0 ? void 0 : _b.email) {
                         let staffName;
-                        if (booking.staffId) {
-                            const staff = yield prisma_1.default.staff.findUnique({
-                                where: { id: booking.staffId }
-                            });
-                            if (staff) {
-                                staffName = `${staff.firstName} ${staff.lastName}`;
-                            }
+                        if (booking.staff) {
+                            staffName = `${booking.staff.firstName} ${booking.staff.lastName}`;
                         }
                         yield email_service_1.emailService.sendNewBookingNotification(business.user.email, {
-                            customerName: booking.customerName,
-                            customerEmail: booking.customerEmail,
-                            customerPhone: booking.customerPhone,
-                            serviceName: (service === null || service === void 0 ? void 0 : service.name) || 'Service',
+                            customerName,
+                            customerEmail,
+                            customerPhone,
+                            serviceName: service.name,
                             staffName,
                             startTime: booking.startTime,
                             endTime: booking.endTime,
                             businessName: business.name,
                             notes: booking.notes || undefined,
                         });
-                        console.log('[v0] Email notification sent to business owner:', business.user.email);
+                        console.log('[v0] Owner notification email sent to:', business.user.email);
                     }
                 }
                 catch (emailError) {
-                    // Don't fail the booking if email fails
-                    console.error('[v0] Failed to send email notification to owner:', emailError);
+                    console.error('[v0] Failed to send email to owner:', emailError);
+                    emailWarnings.push('Unable to notify business owner due to email delivery issue');
                 }
-                res.status(201).json(booking);
+                // Send confirmation email to customer
+                try {
+                    yield email_service_1.emailService.sendBookingConfirmationToCustomer(customerEmail, {
+                        customerName,
+                        serviceName: service.name,
+                        startTime: booking.startTime,
+                        endTime: booking.endTime,
+                        businessName: business.name,
+                        businessPhone: business.phone || '',
+                        businessAddress: business.address || '',
+                    });
+                    console.log('[v0] Customer confirmation email sent to:', customerEmail);
+                }
+                catch (emailError) {
+                    console.error('[v0] Failed to send confirmation email to customer:', emailError);
+                    emailWarnings.push('Confirmation email could not be sent to ' + customerEmail);
+                }
+                res.status(201).json({
+                    success: true,
+                    message: emailWarnings.length > 0
+                        ? 'Booking created successfully, but there were issues sending emails. Please contact the business directly.'
+                        : 'Booking created successfully. Check your email for confirmation.',
+                    warnings: emailWarnings.length > 0 ? emailWarnings : undefined,
+                    booking: {
+                        id: booking.id,
+                        startTime: booking.startTime,
+                        endTime: booking.endTime,
+                        status: booking.status,
+                    }
+                });
             }
             catch (error) {
-                console.error('[v0] Error creating booking:', error instanceof Error ? error.message : String(error));
+                console.error('[v0] Error creating authenticated booking:', error instanceof Error ? error.message : String(error));
                 res.status(500).json({
+                    success: false,
                     message: "Error creating booking",
                     error: error instanceof Error ? error.message : String(error)
                 });
@@ -331,11 +412,14 @@ class BookingController {
             }
         });
     }
+    /**
+     * Create a public booking (no authentication required)
+     * Used for guest customers to book services without creating an account
+     */
     createPublicBooking(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a;
             try {
-                console.log('[v0] createPublicBooking called with body:', req.body);
                 const { businessId, staffId, serviceId, startTime, endTime, customerName, customerEmail, customerPhone, notes } = req.body;
                 // Validate required fields
                 if (!businessId || !serviceId || !customerName || !customerEmail || !customerPhone) {
@@ -354,6 +438,16 @@ class BookingController {
                     res.status(404).json({
                         success: false,
                         message: "Business not found"
+                    });
+                    return;
+                }
+                const emailValidation = yield email_service_1.emailService.validateEmailAddress(customerEmail);
+                if (!emailValidation.isValid) {
+                    console.warn('[v0] Customer email validation failed:', emailValidation.reason);
+                    res.status(400).json({
+                        success: false,
+                        message: `The email address (${customerEmail}) is invalid or does not exist. Please provide a valid email address.`,
+                        reason: emailValidation.reason
                     });
                     return;
                 }
@@ -381,6 +475,7 @@ class BookingController {
                         return;
                     }
                 }
+                // Create or get existing customer record for the guest
                 let customer;
                 try {
                     // Try to create a new customer
@@ -426,7 +521,6 @@ class BookingController {
                         return;
                     }
                 }
-                console.log('[v0] Guest customer created:', customer.id);
                 // Create a guest booking with the customer
                 const bookingData = {
                     startTime: new Date(startTime),
@@ -450,10 +544,11 @@ class BookingController {
                         service: true,
                         business: true,
                         staff: true,
-                        user: true,
+                        customer: true,
                     },
                 });
                 console.log('[v0] Public booking created:', booking.id);
+                const emailWarnings = [];
                 // Send email notification to business owner
                 try {
                     if ((_a = business.user) === null || _a === void 0 ? void 0 : _a.email) {
@@ -472,7 +567,7 @@ class BookingController {
                 }
                 catch (emailError) {
                     console.error('[v0] Failed to send email to owner:', emailError);
-                    // Don't fail the booking if email fails
+                    emailWarnings.push('Unable to notify business owner due to email delivery issue');
                 }
                 // Send confirmation email to customer
                 try {
@@ -489,11 +584,14 @@ class BookingController {
                 }
                 catch (emailError) {
                     console.error('[v0] Failed to send confirmation email to customer:', emailError);
-                    // Don't fail the booking if email fails
+                    emailWarnings.push('Confirmation email could not be sent to ' + customerEmail);
                 }
                 res.status(201).json({
                     success: true,
-                    message: 'Booking created successfully. Check your email for confirmation.',
+                    message: emailWarnings.length > 0
+                        ? 'Booking created successfully, but there were issues sending emails. Please contact the business directly.'
+                        : 'Booking created successfully. Check your email for confirmation.',
+                    warnings: emailWarnings.length > 0 ? emailWarnings : undefined,
                     booking: {
                         id: booking.id,
                         startTime: booking.startTime,

@@ -6,7 +6,7 @@ import { emailService } from "../services/email.service";
 import SubscriptionService from "../services/subscription.service";
 import prisma from "../lib/prisma";
 import { CreateBookingSchema, parseAndValidate } from "../validators";
-import type { BookingStatus } from "@prisma/client";
+import type { BookingStatus } from "@prisma/client"
 
 class BookingController {
   /**
@@ -64,6 +64,7 @@ class BookingController {
         })
         return
       }
+      
 
       // Verify service exists and belongs to this business
       const service = await prisma.service.findUnique({
@@ -455,6 +456,18 @@ class BookingController {
          res.status(404).json({
           success: false,
           message: "Business not found"
+        })
+        return
+      }
+
+      const emailValidation = await emailService.validateEmailAddress(customerEmail)
+      
+      if (!emailValidation.isValid) {
+        console.warn('[v0] Customer email validation failed:', emailValidation.reason)
+      res.status(400).json({
+          success: false,
+          message: `The email address (${customerEmail}) is invalid or does not exist. Please provide a valid email address.`,
+          reason: emailValidation.reason
         })
         return
       }

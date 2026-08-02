@@ -386,79 +386,53 @@ const addTimeOff = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     }
 });
 exports.addTimeOff = addTimeOff;
-// In your controller file
+/**
+ * Get bookings for a staff member on a specific date
+ */
 const getStaffBookingsByDate = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const staffCode = req.params.staffCode;
-        const dateStr = req.query.date;
-        if (!staffCode) {
-            return res.status(400).json({ error: "Staff code is required" });
+        const date = req.query.date; // Format: YYYY-MM-DD
+        if (!staffCode || !date) {
+            return res.status(400).json({ error: "Staff code and date are required" });
         }
-        if (!dateStr) {
-            return res.status(400).json({ error: "Date query parameter is required" });
-        }
-        const date = new Date(dateStr);
-        if (isNaN(date.getTime())) {
-            return res.status(400).json({ error: "Invalid date format" });
-        }
-        const startOfDay = new Date(date);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(date);
-        endOfDay.setHours(23, 59, 59, 999);
+        // Verify staff exists
         const staff = yield prisma_1.default.staff.findUnique({
             where: { staffCode },
-            include: {
-                bookings: {
-                    where: {
-                        startTime: {
-                            gte: startOfDay,
-                            lte: endOfDay,
-                        },
-                        status: 'CONFIRMED',
-                    },
-                    include: {
-                        customer: {
-                            select: {
-                                id: true,
-                                name: true,
-                                email: true,
-                                phone: true,
-                            },
-                        },
-                        service: {
-                            select: {
-                                id: true,
-                                name: true,
-                                duration: true,
-                                price: true,
-                            },
-                        },
-                    },
-                    orderBy: {
-                        startTime: 'asc',
-                    },
+        });
+        if (!staff) {
+            return res.status(404).json({ error: "Staff member not found" });
+        }
+        // Parse the date
+        // Parse the date string (format: YYYY-MM-DD)
+        // Create dates treating the input as a local date, not UTC
+        const [year, month, day] = date.split('-').map(Number);
+        const dayStart = new Date(year, month - 1, day, 0, 0, 0, 0);
+        const dayEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
+        // Fetch bookings for this staff member on the specified date
+        // Include both PENDING and CONFIRMED bookings to block time slots for guests
+        const bookings = yield prisma_1.default.booking.findMany({
+            where: {
+                staffId: staff.id,
+                startTime: {
+                    gte: dayStart,
+                    lte: dayEnd,
+                },
+                status: {
+                    in: ["PENDING", "CONFIRMED"], // Include both PENDING and CONFIRMED
                 },
             },
+            include: {
+                service: true,
+                customer: true,
+            },
+            orderBy: { startTime: "asc" },
         });
-        if (!staff)
-            return res.status(404).json({ error: "Staff member not found" });
-        res.json({
-            staffName: `${staff.firstName} ${staff.lastName}`,
-            staffCode: staff.staffCode,
-            bookings: staff.bookings.map(booking => ({
-                id: booking.id,
-                customer: booking.customer,
-                service: booking.service,
-                startTime: booking.startTime,
-                endTime: booking.endTime,
-                status: booking.status,
-                notes: booking.notes,
-            })),
-        });
+        res.status(200).json(bookings);
     }
     catch (error) {
-        console.error("[Staff Controller] Get bookings by date error:", error);
-        res.status(500).json({ error: "Failed to get bookings for the date" });
+        console.error("[Staff Controller] Get bookings by date error:", error.message);
+        res.status(500).json({ error: "Failed to fetch bookings" });
     }
 });
 exports.getStaffBookingsByDate = getStaffBookingsByDate;

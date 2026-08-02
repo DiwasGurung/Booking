@@ -3,12 +3,14 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
-import { Toaster } from 'sonner'
+import { ToasterProvider } from "@/components/providers/toast-provider"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { AuthProvider } from "@/context/authContext"
 import LayoutClient from "@/components/LayoutClient"
 import { GoogleAuthProvider } from "@/components/GoogleAuthProvider"
+
+
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
@@ -45,12 +47,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body suppressHydrationWarning>
+
         <AuthProvider>
           <GoogleAuthProvider>
             <LayoutClient>
               <Header />
-              <main className="flex-1">
-                <Toaster />
+              <main className="flex-1">    
                 {children}
               </main>
               <Footer />
@@ -58,6 +60,7 @@ export default function RootLayout({
           </GoogleAuthProvider>
         </AuthProvider>
         <Analytics />
+        <ToasterProvider />
       </body>
     </html>
   )

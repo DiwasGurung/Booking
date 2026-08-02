@@ -85,6 +85,7 @@ export default function StaffBookingsPage() {
     toast({
       title: 'Copied!',
       description: 'Booking link copied to clipboard',
+      variant: 'default',
     })
   }
 

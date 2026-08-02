@@ -7,8 +7,8 @@
     "prisma": "prisma",
     "build": "tsc",
     "start": "node dist/index.ts",
-    "dev": "ts-node src/index.ts",
-    "clean": "rmdir -rf dist node_modules/.cache"
+    "dev": "tsx src/index.ts",
+    "clean": "rimraf dist node_modules/.cache"
   },
   "prisma": {
     "seed": "tsx scripts/seed-plans.ts"
@@ -23,6 +23,7 @@
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
+    "deep-email-validator": "^0.1.27",
     "express": "^5.2.1",
     "firebase": "^12.12.1",
     "firebase-admin": "^13.8.0",
@@ -36,7 +37,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@esbuild/win32-x64": "^0.28.1",
     "@prisma/client": "^7.8.0",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
@@ -48,10 +48,12 @@
     "@types/nodemailer": "^8.0.0",
     "@types/pg": "^8.20.0",
     "@types/web-push": "^3.6.4",
+    "cross-env": "^7.0.3",
     "dotenv": "^17.4.2",
     "esbuild": "^0.28.1",
     "nodemon": "^3.1.11",
     "prisma": "^7.8.0",
+    "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.23.1",
