@@ -30,6 +30,7 @@ enum BillingPeriod {
 }
 
 enum BookingStatus {
+   UNVERIFIED
   PENDING
   CONFIRMED
   COMPLETED
@@ -266,6 +267,11 @@ model Booking {
   notes         String?
 
   status BookingStatus @default(PENDING)
+
+  // Email verification for public bookings
+  verificationToken String? @unique
+  verificationTokenExpires DateTime?
+  isEmailVerified Boolean @default(false)
 
   notifications Notification[] @relation("BookingNotifications")
 

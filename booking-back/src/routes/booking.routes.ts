@@ -1,34 +1,38 @@
 import { Router } from "express";
 import BookingController from "../controllers/booking.controller";
+import { auth } from "../middleware/auth.middleware";
 
 const bookingRoutes = Router();
 
 
 bookingRoutes.post("/public", BookingController.createPublicBooking);
 // Create a new booking - handle both /bookings and direct POST
-bookingRoutes.post("/", BookingController.createBooking);
+bookingRoutes.post("/", auth, BookingController.createBooking);
 
 
 // Get a single booking by its ID
-bookingRoutes.get("/bookings/:id", BookingController.getBookingById);
+bookingRoutes.get("/bookings/:id", auth, BookingController.getBookingById);
 
 // Update a booking's information
-bookingRoutes.put("/bookings/:id", BookingController.updateBooking);
+bookingRoutes.put("/bookings/:id", auth, BookingController.updateBooking);
 
 // Update a booking's status
-bookingRoutes.patch("/bookings/:id/status", BookingController.updateBookingStatus);
+bookingRoutes.patch("/bookings/:id/status", auth, BookingController.updateBookingStatus);
+
+// Verify email and confirm public booking - no authentication required
+bookingRoutes.post("/verify-email/:token", BookingController.verifyBookingEmail);
 
 // Cancel a booking
-bookingRoutes.patch("/bookings/:id/cancel", BookingController.cancelBooking);
+bookingRoutes.patch("/bookings/:id/cancel", auth, BookingController.cancelBooking);
 
 // Delete a booking
-bookingRoutes.delete("/bookings/:id", BookingController.deleteBooking);
+bookingRoutes.delete("/bookings/:id", auth, BookingController.deleteBooking);
 
 // Get all bookings for a specific business
-bookingRoutes.get("/businesses/:businessId/bookings", BookingController.getBusinessBookings);
+bookingRoutes.get("/businesses/:businessId/bookings", auth, BookingController.getBusinessBookings);
 
 // Get booking trends for a business
-bookingRoutes.get("/businesses/:businessId/booking-trends", BookingController.getBookingTrends);
+bookingRoutes.get("/businesses/:businessId/booking-trends", auth, BookingController.getBookingTrends);
 
 // Get available slots for a service at a business
 bookingRoutes.get(
@@ -37,6 +41,6 @@ bookingRoutes.get(
 );
 
 // Get all bookings for a specific user/customer
-bookingRoutes.get("/users/:userId/bookings", BookingController.getCustomerBookings);
+bookingRoutes.get("/users/:userId/bookings", auth, BookingController.getCustomerBookings);
 
 export default bookingRoutes;

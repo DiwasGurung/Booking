@@ -269,7 +269,11 @@ export const usersApi = {
 
   // Get current user info
   getCurrentUser: () =>
-    apiCall<any>('/api/users/me'),
+    apiCall<any>('/api/users/me', {
+  method: 'GET',
+
+  credentials: 'include', // ensures cookies are sent
+})
 }
 
 // Services API - /api/services prefix

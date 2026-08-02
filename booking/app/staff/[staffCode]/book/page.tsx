@@ -331,18 +331,38 @@ export default function StaffBookPage() {
     const errors = new Set<string>()
     const missingFields: string[] = []
 
-    if (!formData.customerName) {
-      errors.add('customerName')
-      missingFields.push('Name')
+    // For public users: validate name, email, phone
+    // For authenticated users: skip these (come from backend)
+    if (!currentUser) {
+      if (!formData.customerName) {
+        errors.add('customerName')
+        missingFields.push('Name')
+      }
+      if (!formData.email) {
+        errors.add('email')
+        missingFields.push('Email')
+      }
+      if (!formData.phone) {
+        errors.add('phone')
+        missingFields.push('Phone')
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (formData.email && !emailRegex.test(formData.email)) {
+        errors.add('email')
+        missingFields.push('Valid email')
+      }
+
+      // Validate phone format (basic validation - at least 10 digits)
+      const phoneRegex = /^\d{10,}$/
+      if (formData.phone && !phoneRegex.test(formData.phone.replace(/\D/g, ''))) {
+        errors.add('phone')
+        missingFields.push('Valid phone number')
+      }
     }
-    if (!formData.email) {
-      errors.add('email')
-      missingFields.push('Email')
-    }
-    if (!formData.phone) {
-      errors.add('phone')
-      missingFields.push('Phone')
-    }
+
+    // Always validate service, date, time
     if (!formData.serviceId) {
       errors.add('serviceId')
       missingFields.push('Service')
@@ -354,20 +374,6 @@ export default function StaffBookPage() {
     if (!formData.time) {
       errors.add('time')
       missingFields.push('Time')
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (formData.email && !emailRegex.test(formData.email)) {
-      errors.add('email')
-      missingFields.push('Valid email')
-    }
-
-    // Validate phone format (basic validation - at least 10 digits)
-    const phoneRegex = /^\d{10,}$/
-    if (formData.phone && !phoneRegex.test(formData.phone.replace(/\D/g, ''))) {
-      errors.add('phone')
-      missingFields.push('Valid phone number')
     }
 
     if (errors.size > 0) {
@@ -451,7 +457,7 @@ export default function StaffBookPage() {
             router.push('/search')
           }else if (currentUser && currentUser.role === 'BUSINESS_OWNER') {
             // Redirect business owners to their dashboard
-            router.push('/dashboard')
+            router.push('/')
           } 
           else {
             // Redirect guests back to staff page
@@ -503,12 +509,19 @@ export default function StaffBookPage() {
         setSubmitting(false)
       }
     } catch (err: any) {
+      console.error('[v0] Booking error:', err)
+      let errorMessage = err.message || 'An error occurred while booking'
+      if (err.name === 'AbortError') {
+        errorMessage = 'Booking request timed out. Please check your connection and try again.'
+      }
       toast({
         title: 'Error',
-        description: err.message || 'An error occurred while booking',
+        description: errorMessage,
         variant: 'destructive',
       })
-    } finally {
+      setSubmitting(false)
+    } 
+    finally {
       setSubmitting(false)
     }
   }
@@ -584,7 +597,7 @@ export default function StaffBookPage() {
 
                   <div>
                     <Label htmlFor="customerName" className={validationErrors.has('customerName') ? 'text-red-600' : ''}>
-                      Name *
+                      Name * {currentUser && <span className="text-xs text-primary">(verified)</span>}
                     </Label>
                     <Input
                       id="customerName"
@@ -593,15 +606,15 @@ export default function StaffBookPage() {
                       placeholder="Your full name"
                       value={formData.customerName}
                       onChange={handleInputChange}
-                      disabled={submitting}
-                      className={validationErrors.has('customerName') ? 'border-red-500 focus:border-red-500' : ''}
+                      disabled={submitting || !!currentUser}
+                      className={`${validationErrors.has('customerName') ? 'border-red-500 focus:border-red-500' : ''} ${currentUser ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
                       required
                     />
                   </div>
 
                   <div>
                     <Label htmlFor="email" className={validationErrors.has('email') ? 'text-red-600' : ''}>
-                      Email *
+                      Email * {currentUser && <span className="text-xs text-primary">(verified)</span>}
                     </Label>
                     <Input
                       id="email"
@@ -610,8 +623,8 @@ export default function StaffBookPage() {
                       placeholder="Your email address"
                       value={formData.email}
                       onChange={handleInputChange}
-                      disabled={submitting}
-                      className={validationErrors.has('email') ? 'border-red-500 focus:border-red-500' : ''}
+                      disabled={submitting || !!currentUser}
+                      className={`${validationErrors.has('email') ? 'border-red-500 focus:border-red-500' : ''} ${currentUser ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
                       required
                     />
                     {validationErrors.has('email') && (
@@ -631,7 +644,7 @@ export default function StaffBookPage() {
                       value={formData.phone}
                       onChange={handleInputChange}
                       disabled={submitting}
-                      className={validationErrors.has('phone') ? 'border-red-500 focus:border-red-500' : ''}
+                      className={`${validationErrors.has('phone') ? 'border-red-500 focus:border-red-500' : ''}`}
                       required
                     />
                     {validationErrors.has('phone') && (

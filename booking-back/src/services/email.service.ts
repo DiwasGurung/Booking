@@ -35,81 +35,72 @@ const initializeTransporter = () => {
 export const emailService = {
 
   /**
-   * Validate email address using SMTP verification
-   * Checks if the email server accepts this address
+   * Send verification email to customer for public booking
    */
-  /**
-   * Validate email address using deep-email-validator
-   * Checks if the email exists and is deliverable via SMTP/MX records
-   */
- /**
-   * Validate email address using deep-email-validator
-   * Checks format, typo, disposable status, and MX records
-   * Skips SMTP since Gmail rate limits verification attempts
-   */
-  async validateEmailAddress(email: string): Promise<{ isValid: boolean; reason?: string }> {
+  async sendVerificationCustomerEmail(email: string, verificationToken: string, bookingDetails: {
+    customerName: string
+    serviceName: string
+    date: string
+    time: string
+    staffName?: string
+  }): Promise<boolean> {
     try {
-      console.log('[Email Service] Validating email:', email)
-      
-      const validateWithTimeout = (promise: Promise<any>, ms: number | undefined) => {
-      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms));
-      return Promise.race([promise, timeout]);
-    };
+      console.log('[Email Service] Sending verification email to:', email)
+      const transporter = initializeTransporter()
 
-    const result = await validateWithTimeout(
-      validate({ email, sender: emailUser, validateSMTP: true }),
-      4000 // 4 seconds timeout
-    );
+      const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/book/verify/${verificationToken}`
 
-      console.log('[Email Service] Email validation result:', {
-        email,
-        valid: result.valid,
-        validators: result.validators,
-        reason: result.reason,
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="color: #333; margin: 0;">Verify Your Booking</h2>
+          </div>
+
+          <p style="color: #555; font-size: 16px;">Hi ${bookingDetails.customerName},</p>
+
+          <p style="color: #555; line-height: 1.6;">
+            Thank you for booking with us! To confirm your appointment, please verify your email address by clicking the button below.
+          </p>
+
+          <div style="margin: 30px 0; text-align: center;">
+            <a href="${verificationLink}" style="background-color: #007bff; color: white; padding: 12px 32px; text-decoration: none; border-radius: 4px; font-size: 16px; display: inline-block;">
+              Verify Email & Confirm Booking
+            </a>
+          </div>
+
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <p style="color: #333; font-weight: bold; margin: 0 0 10px 0;">Booking Details:</p>
+            <ul style="margin: 0; padding-left: 20px; color: #555;">
+              <li><strong>Service:</strong> ${bookingDetails.serviceName}</li>
+              <li><strong>Date:</strong> ${bookingDetails.date}</li>
+              <li><strong>Time:</strong> ${bookingDetails.time}</li>
+              ${bookingDetails.staffName ? `<li><strong>Staff:</strong> ${bookingDetails.staffName}</li>` : ''}
+            </ul>
+          </div>
+
+          <p style="color: #777; font-size: 14px; margin-top: 20px;">
+            This link will expire in 24 hours. If you did not make this booking, please ignore this email.
+          </p>
+
+          <p style="color: #777; font-size: 12px; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+            BookFlow - Appointment Booking System<br>
+            ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}
+          </p>
+        </div>
+      `
+
+      const result = await transporter.sendMail({
+        from: emailUser,
+        to: email,
+        subject: `Verify Your Booking - ${bookingDetails.serviceName}`,
+        html,
       })
 
-      // Accept email if:
-      // 1. It passes all validators (valid: true), OR
-      // 2. Format is correct, no typo, not disposable, and MX records exist (even if SMTP times out)
-      const hasValidFormat = result.validators?.regex?.valid === true
-      const noTypo = result.validators?.typo?.valid === true
-      const notDisposable = result.validators?.disposable?.valid === true
-      const hasValidMX = result.validators?.mx?.valid === true
-
-      // Accept if basic checks pass and MX records exist
-      const isAcceptable = hasValidFormat && noTypo && notDisposable && hasValidMX
-
-      if (result.valid || isAcceptable) {
-        console.log('[Email Service] Email validation SUCCESSFUL for:', email)
-        return { isValid: true }
-      } else {
-        console.warn('[Email Service] Email validation FAILED for:', email, 'Reason:', result.reason)
-        return { 
-          isValid: false, 
-          reason: result.reason || 'invalid'
-        }
-      }
+      console.log('[Email Service] Verification email sent successfully')
+      return true
     } catch (error: any) {
-      console.error('[Email Service] Email validation exception:', error.message)
-      
-      // Determine the reason for failure
-      let reason = 'unknown'
-      const errorMsg = error.message?.toLowerCase() || ''
-      
-      if (errorMsg.includes('timeout') || errorMsg.includes('enotfound')) {
-        // Timeout or DNS issues - allow the booking since it's a temporary issue
-        console.log('[Email Service] Email validation timeout/network error - allowing booking')
-        return { isValid: true }
-      } else if (errorMsg.includes('invalid') || errorMsg.includes('malformed')) {
-        reason = 'invalid_format'
-      } else {
-        reason = 'unknown_error'
-      }
-
-      return { 
-        isValid: false, 
-        reason 
-      }
+      console.error('[Email Service] Failed to send verification email:', error.message)
+      return false
     }
   },
   /**

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { randomBytes } from "crypto";
 import BookingService from "../services/booking.service";
 import NotificationService from "../services/notification.service";
 import NotificationSSEService from "../services/notification-sse.service";
@@ -6,34 +7,35 @@ import { emailService } from "../services/email.service";
 import SubscriptionService from "../services/subscription.service";
 import prisma from "../lib/prisma";
 import { CreateBookingSchema, parseAndValidate } from "../validators";
-import type { BookingStatus } from "@prisma/client"
+import type { BookingStatus } from "@prisma/client";
 
 class BookingController {
-  /**
-   * Create a new booking for authenticated users
-   */
-  async createBooking(req: Request, res: Response): Promise<void> {
+   async createBooking(req: Request, res: Response): Promise<void> {
     try {
       console.log('[v0] createBooking called with body:', req.body)
       
       // Get userId from authenticated user
-      const userId = (req as any).user?.id
+      const userId = (req as any).userId
       
       if (!userId) {
-       res.status(401).json({ 
+         res.status(401).json({ 
           success: false,
           message: "User ID is required. Please log in to create a booking."
         })
         return
       }
 
-      const { businessId, staffId, serviceId, appointmentDate, customerName, customerEmail, customerPhone, notes } = req.body
+      const { businessId, staffId, serviceId, startTime: bodyStartTime, endTime: bodyEndTime, notes } = req.body
+
+      // Parse dates
+      const startTime = bodyStartTime ? new Date(bodyStartTime) : null
+      const endTime = bodyEndTime ? new Date(bodyEndTime) : null
 
       // Validate required fields
-      if (!businessId || !serviceId || !appointmentDate || !customerName || !customerEmail || !customerPhone) {
+      if (!businessId || !serviceId || !startTime) {
          res.status(400).json({ 
           success: false,
-          message: "Missing required fields: businessId, serviceId, appointmentDate, customerName, customerEmail, customerPhone"
+          message: "Missing required fields: businessId, serviceId, startTime"
         })
         return
       }
@@ -58,13 +60,23 @@ class BookingController {
       })
 
       if (!business) {
-        res.status(404).json({
+         res.status(404).json({
           success: false,
           message: "Business not found"
         })
         return
       }
-      
+
+      // Validate business owner's email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(business.user.email)) {
+          res.status(400).json({
+          success: false,
+          message: `The business owner's email has an invalid format. Please contact the business.`,
+          reason: 'invalid_email_format'
+        })
+        return
+      }
 
       // Verify service exists and belongs to this business
       const service = await prisma.service.findUnique({
@@ -76,7 +88,7 @@ class BookingController {
           success: false,
           message: "Service not found"
         })
-         return 
+        return
       }
 
       // Verify staff exists if provided
@@ -92,22 +104,37 @@ class BookingController {
           })
           return
         }
+    
       }
 
-      // Calculate start and end times based on service duration
-      const startTime = new Date(appointmentDate)
-      const endTime = new Date(startTime.getTime() + (service.duration || 60) * 60000) // duration is in minutes
+      // Get authenticated user details for booking
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      })
 
-      // Create booking for authenticated user (linked to userId, not customerId)
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          message: "User not found"
+        })
+        return
+
+      }
+
+      // Calculate end time if not provided
+      const finalEndTime = endTime || new Date(startTime.getTime() + (service.duration || 60) * 60000)
+
+      // Create booking for authenticated user with CONFIRMED status (no email verification needed)
       const bookingData: any = {
         startTime,
-        endTime,
-        customerName,
-        customerEmail,
-        customerPhone,
+        endTime: finalEndTime,
+        customerName: user.firstName + ' ' + user.lastName || 'Guest',
+        customerEmail: user.email,
+        customerPhone: user.phone || '',
         notes: notes || '',
-        status: 'PENDING',
-        userId, // Link to authenticated user
+        status: 'CONFIRMED', // Authenticated users are immediately confirmed
+        isEmailVerified: true, // Already verified since user is authenticated
+        user: { connect: { id: userId } }, 
         service: { connect: { id: serviceId } },
         business: { connect: { id: businessId } },
       }
@@ -127,22 +154,19 @@ class BookingController {
         },
       })
 
-      console.log('[v0] Authenticated booking created:', booking.id)
+      console.log('[v0] Authenticated booking created (CONFIRMED):', booking.id)
 
       const emailWarnings: string[] = []
 
       // Send email notification to business owner
       try {
         if (business.user?.email) {
-          let staffName: string | undefined
-          if (booking.staff) {
-            staffName = `${booking.staff.firstName} ${booking.staff.lastName}`
-          }
+          const staffName = booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined
 
           await emailService.sendNewBookingNotification(business.user.email, {
-            customerName,
-            customerEmail,
-            customerPhone,
+            customerName: booking.customerName,
+            customerEmail: booking.customerEmail,
+            customerPhone: booking.customerPhone,
             serviceName: service.name,
             staffName,
             startTime: booking.startTime,
@@ -157,10 +181,10 @@ class BookingController {
         emailWarnings.push('Unable to notify business owner due to email delivery issue')
       }
 
-      // Send confirmation email to customer
+      // Send confirmation email to authenticated user
       try {
-        await emailService.sendBookingConfirmationToCustomer(customerEmail, {
-          customerName,
+        await emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
+          customerName: booking.customerName,
           serviceName: service.name,
           startTime: booking.startTime,
           endTime: booking.endTime,
@@ -168,10 +192,10 @@ class BookingController {
           businessPhone: business.phone || '',
           businessAddress: business.address || '',
         })
-        console.log('[v0] Customer confirmation email sent to:', customerEmail)
+        console.log('[v0] Customer confirmation email sent to:', booking.customerEmail)
       } catch (emailError: any) {
         console.error('[v0] Failed to send confirmation email to customer:', emailError)
-        emailWarnings.push('Confirmation email could not be sent to ' + customerEmail)
+        emailWarnings.push('Confirmation email could not be sent to ' + booking.customerEmail)
       }
 
       res.status(201).json({
@@ -196,7 +220,6 @@ class BookingController {
       })
     }
   }
-
   /**
    * Get booking by ID
    */
@@ -262,11 +285,12 @@ class BookingController {
       const booking = await BookingService.getBookingById(Array.isArray(id) ? id[0] : id)
 
       if (!booking) {
-     res.status(404).json({
+         res.status(404).json({
           success: false,
           message: 'Booking not found',
         })
-         return 
+        return
+
       }
 
       // Update the booking status
@@ -446,6 +470,18 @@ class BookingController {
         return
       }
 
+      // Validate customer email format (basic check only)
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(customerEmail)) {
+         res.status(400).json({
+          success: false,
+          message: "Please provide a valid email address",
+          reason: 'invalid_email_format'
+        })
+        return
+      }
+      // Note: Full email validation will happen after customer verifies email
+
       // Verify business exists
       const business = await prisma.business.findUnique({
         where: { id: businessId },
@@ -460,14 +496,21 @@ class BookingController {
         return
       }
 
-      const emailValidation = await emailService.validateEmailAddress(customerEmail)
-      
-      if (!emailValidation.isValid) {
-        console.warn('[v0] Customer email validation failed:', emailValidation.reason)
-      res.status(400).json({
+      // Validate business owner's email exists and is valid format
+      if (!business.user?.email) {
+         res.status(400).json({
           success: false,
-          message: `The email address (${customerEmail}) is invalid or does not exist. Please provide a valid email address.`,
-          reason: emailValidation.reason
+          message: "Business owner email is not configured. Please contact the business to update their contact information."
+        })
+        return
+      }
+
+      // Validate business owner's email format (basic validation only)
+      if (!emailRegex.test(business.user.email)) {
+         res.status(400).json({
+          success: false,
+          message: `The business owner's email (${business.user.email}) has an invalid format. The business owner needs to update their email address. Please contact the business to complete this setup.`,
+          reason: 'invalid_email_format'
         })
         return
       }
@@ -482,7 +525,7 @@ class BookingController {
           success: false,
           message: "Service not found"
         })
-         return 
+        return
       }
 
       // Verify staff exists if provided
@@ -496,7 +539,7 @@ class BookingController {
             success: false,
             message: "Staff member not found"
           })
-           return 
+          return
         }
       }
 
@@ -527,25 +570,29 @@ class BookingController {
             },
           })
           if (!customer) {
-            res.status(500).json({
+             res.status(500).json({
               success: false,
               message: "Failed to create or retrieve customer",
               error: err.message,
             })
-             return 
+            return
           }
         } else {
           console.error('[v0] Error creating customer:', err)
-         res.status(500).json({
+           res.status(500).json({
             success: false,
             message: "Failed to create customer",
             error: err.message,
           })
-            return
+          return
         }
       }
 
-      // Create a guest booking with the customer
+      // Generate verification token (24 hours validity)
+      const verificationToken = randomBytes(32).toString('hex')
+      const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
+
+      // Create a guest booking with UNVERIFIED status pending email confirmation
       const bookingData: any = {
         startTime: new Date(startTime),
         endTime: new Date(endTime),
@@ -553,7 +600,10 @@ class BookingController {
         customerEmail,
         customerPhone,
         notes: notes || '',
-        status: 'PENDING',
+        status: 'UNVERIFIED',
+        verificationToken,
+        verificationTokenExpires,
+        isEmailVerified: false,
         service: { connect: { id: serviceId } },
         business: { connect: { id: businessId } },
         customer: { connect: { id: customer.id } }, // Associate with guest customer
@@ -574,7 +624,7 @@ class BookingController {
         },
       })
 
-      console.log('[v0] Public booking created:', booking.id)
+      console.log('[v0] Public booking created (UNVERIFIED):', booking.id)
 
       const emailWarnings: string[] = []
 
@@ -598,28 +648,32 @@ class BookingController {
         emailWarnings.push('Unable to notify business owner due to email delivery issue')
       }
 
-      // Send confirmation email to customer
+      // Send verification email to customer (public booking requires email verification before confirming)
       try {
-        await emailService.sendBookingConfirmationToCustomer(customerEmail, {
+        const staffName = booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined
+        const verificationSent = await emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
           customerName,
           serviceName: service.name,
-          startTime: booking.startTime,
-          endTime: booking.endTime,
-          businessName: business.name,
-          businessPhone: business.phone || '',
-          businessAddress: business.address || '',
+          date: booking.startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+          time: booking.startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          staffName,
         })
-        console.log('[v0] Customer confirmation email sent to:', customerEmail)
+        
+        if (!verificationSent) {
+          emailWarnings.push('Verification email could not be sent. Please check your email spam folder or contact the business.')
+        } else {
+          console.log('[v0] Customer verification email sent to:', customerEmail)
+        }
       } catch (emailError: any) {
-        console.error('[v0] Failed to send confirmation email to customer:', emailError)
-        emailWarnings.push('Confirmation email could not be sent to ' + customerEmail)
+        console.error('[v0] Failed to send verification email to customer:', emailError)
+        emailWarnings.push('Verification email could not be sent to ' + customerEmail)
       }
 
       res.status(201).json({
         success: true,
         message: emailWarnings.length > 0 
-          ? 'Booking created successfully, but there were issues sending emails. Please contact the business directly.'
-          : 'Booking created successfully. Check your email for confirmation.',
+          ? 'Booking created! Please verify your email to confirm your appointment.'
+          : 'Booking created! Check your email to verify and confirm your appointment.',
         warnings: emailWarnings.length > 0 ? emailWarnings : undefined,
         booking: {
           id: booking.id,
@@ -633,6 +687,109 @@ class BookingController {
       res.status(500).json({
         success: false,
         message: "Error creating booking",
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+  }
+
+  /**
+   * Verify booking email and confirm the booking
+   * Called when customer clicks verification link in email
+   */
+  async verifyBookingEmail(req: Request, res: Response): Promise<void> {
+    try {
+      const { token } = req.params
+      // req.params types can be string | string[]; normalize to single string or undefined
+      const verificationToken: string | undefined = Array.isArray(token) ? token[0] : token
+
+      if (!token) {
+         res.status(400).json({
+          success: false,
+          message: "Verification token is required"
+        })
+          return
+      }
+
+      // Find booking by verification token
+      const booking = await prisma.booking.findUnique({
+        where: { verificationToken: verificationToken },
+        include: { service: true, business: true }
+      })
+
+      if (!booking) {
+         res.status(404).json({
+          success: false,
+          message: "Booking not found. The verification link may be invalid or expired."
+        })
+        return
+      }
+
+      // Check if token has expired
+      if (booking.verificationTokenExpires && booking.verificationTokenExpires < new Date()) {
+         res.status(400).json({
+          success: false,
+          message: "Verification link has expired. Please create a new booking."
+        })
+        return
+      }
+
+      // Check if already verified
+      if (booking.isEmailVerified) {
+         res.status(400).json({
+          success: false,
+          message: "This booking has already been verified."
+        })
+        return
+      }
+
+      // Update booking to CONFIRMED status and mark email as verified
+      const confirmedBooking = await prisma.booking.update({
+        where: { id: booking.id },
+        data: {
+          status: 'CONFIRMED',
+          isEmailVerified: true,
+          verificationToken: null, // Clear token after verification
+          verificationTokenExpires: null,
+        },
+        include: { service: true, business: true, customer: true }
+      })
+
+      console.log('[v0] Booking verified and confirmed:', booking.id)
+
+      // Send confirmation email to customer
+      try {
+        await emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
+          customerName: booking.customerName,
+          serviceName: confirmedBooking.service.name,
+          startTime: confirmedBooking.startTime,
+          endTime: confirmedBooking.endTime,
+          businessName: confirmedBooking.business.name,
+          businessPhone: confirmedBooking.business.phone || '',
+          businessAddress: confirmedBooking.business.address || '',
+        })
+        console.log('[v0] Confirmation email sent to:', booking.customerEmail)
+      } catch (emailError: any) {
+        console.error('[v0] Failed to send confirmation email:', emailError)
+        // Don't fail the verification if email send fails - booking is already confirmed
+      }
+
+       res.status(200).json({
+        success: true,
+        message: 'Email verified! Your booking is now confirmed. Check your email for booking details.',
+        booking: {
+          id: confirmedBooking.id,
+          startTime: confirmedBooking.startTime,
+          endTime: confirmedBooking.endTime,
+          status: confirmedBooking.status,
+        }
+      
+      })
+      return
+    } catch (error) {
+      console.error('[v0] Error verifying booking email:', error instanceof Error ? error.message : String(error))
+      res.status(500).json({
+        success: false,
+        message: "Error verifying booking",
         error: error instanceof Error ? error.message : String(error)
       })
     }
