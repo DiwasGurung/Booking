@@ -104,11 +104,6 @@ export default function HomePage() {
               description="Manage multiple staff members, assign appointments, and track team performance."
             />
             <FeatureCard
-              icon={Zap}
-              title="Instant Notifications"
-              description="Automated SMS and email reminders reduce no-shows by up to 40%."
-            />
-            <FeatureCard
               icon={TrendingUp}
               title="Business Analytics"
               description="Track bookings, revenue, and customer insights with detailed reports."

@@ -123,12 +123,12 @@ class SubscriptionService {
                     console.log(`[v0] Trial subscription has expired`);
                     return false;
                 }
-                if (subscription.status === 'ACTIVE') {
+                if (subscription.status === 'ACTIVE' || subscription.status === 'CANCELLED') {
                     if (subscription.endDate && subscription.endDate > now) {
-                        console.log(`[v0] Active subscription is valid`);
+                        console.log(`[v0] ${subscription.status} subscription is still valid until ${subscription.endDate}`);
                         return true;
                     }
-                    console.log(`[v0] Active subscription has expired`);
+                    console.log(`[v0] ${subscription.status} subscription has expired`);
                     return false;
                 }
                 console.log(`[v0] Subscription status is: ${subscription.status}`);

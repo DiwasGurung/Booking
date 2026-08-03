@@ -14,7 +14,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.emailService = void 0;
 const nodemailer_1 = __importDefault(require("nodemailer"));
-const deep_email_validator_1 = require("deep-email-validator");
 const emailUser = process.env.EMAIL_USER || 'your-email@gmail.com';
 const emailPassword = process.env.EMAIL_PASSWORD || 'your-app-password';
 // Verify transporter configuration on startup
@@ -44,63 +43,64 @@ const initializeTransporter = () => {
 };
 exports.emailService = {
     /**
-     * Validate email address using SMTP verification
-     * Checks if the email server accepts this address
+     * Send verification email to customer for public booking
      */
-    /**
-     * Validate email address using deep-email-validator
-     * Checks if the email exists and is deliverable via SMTP/MX records
-     */
-    validateEmailAddress(email) {
+    sendVerificationCustomerEmail(email, verificationToken, bookingDetails) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
             try {
-                console.log('[Email Service] Validating email:', email);
-                // Validate using deep-email-validator which checks SMTP and MX records
-                const result = yield (0, deep_email_validator_1.validate)({
-                    email,
-                    sender: emailUser,
-                    // Check SMTP connection to verify email exists
-                    validateSMTP: true,
+                console.log('[Email Service] Sending verification email to:', email);
+                const transporter = initializeTransporter();
+                const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/book/verify/${verificationToken}`;
+                const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="color: #333; margin: 0;">Verify Your Booking</h2>
+          </div>
+
+          <p style="color: #555; font-size: 16px;">Hi ${bookingDetails.customerName},</p>
+
+          <p style="color: #555; line-height: 1.6;">
+            Thank you for booking with us! To confirm your appointment, please verify your email address by clicking the button below.
+          </p>
+
+          <div style="margin: 30px 0; text-align: center;">
+            <a href="${verificationLink}" style="background-color: #007bff; color: white; padding: 12px 32px; text-decoration: none; border-radius: 4px; font-size: 16px; display: inline-block;">
+              Verify Email & Confirm Booking
+            </a>
+          </div>
+
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <p style="color: #333; font-weight: bold; margin: 0 0 10px 0;">Booking Details:</p>
+            <ul style="margin: 0; padding-left: 20px; color: #555;">
+              <li><strong>Service:</strong> ${bookingDetails.serviceName}</li>
+              <li><strong>Date:</strong> ${bookingDetails.date}</li>
+              <li><strong>Time:</strong> ${bookingDetails.time}</li>
+              ${bookingDetails.staffName ? `<li><strong>Staff:</strong> ${bookingDetails.staffName}</li>` : ''}
+            </ul>
+          </div>
+
+          <p style="color: #777; font-size: 14px; margin-top: 20px;">
+            This link will expire in 24 hours. If you did not make this booking, please ignore this email.
+          </p>
+
+          <p style="color: #777; font-size: 12px; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+            BookFlow - Appointment Booking System<br>
+            ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}
+          </p>
+        </div>
+      `;
+                const result = yield transporter.sendMail({
+                    from: emailUser,
+                    to: email,
+                    subject: `Verify Your Booking - ${bookingDetails.serviceName}`,
+                    html,
                 });
-                console.log('[Email Service] Email validation result:', {
-                    email,
-                    valid: result.valid,
-                    validators: result.validators,
-                    reason: result.reason,
-                });
-                if (result.valid) {
-                    console.log('[Email Service] Email validation SUCCESSFUL for:', email);
-                    return { isValid: true };
-                }
-                else {
-                    console.warn('[Email Service] Email validation FAILED for:', email, 'Reason:', result.reason);
-                    return {
-                        isValid: false,
-                        reason: result.reason || 'smtp'
-                    };
-                }
+                console.log('[Email Service] Verification email sent successfully');
+                return true;
             }
             catch (error) {
-                console.error('[Email Service] Email validation exception:', error.message);
-                // Determine the reason for failure
-                let reason = 'unknown';
-                const errorMsg = ((_a = error.message) === null || _a === void 0 ? void 0 : _a.toLowerCase()) || '';
-                if (errorMsg.includes('timeout') || errorMsg.includes('enotfound')) {
-                    // Timeout or DNS issues - allow the booking since it's a temporary issue
-                    console.log('[Email Service] Email validation timeout/network error - allowing booking');
-                    return { isValid: true };
-                }
-                else if (errorMsg.includes('invalid') || errorMsg.includes('malformed')) {
-                    reason = 'invalid_format';
-                }
-                else {
-                    reason = 'smtp';
-                }
-                return {
-                    isValid: false,
-                    reason
-                };
+                console.error('[Email Service] Failed to send verification email:', error.message);
+                return false;
             }
         });
     },

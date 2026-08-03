@@ -391,11 +391,25 @@ export const businessHoursApi = {
 
 // Bookings API - /api/booking prefix
 export const bookingsApi = {
-  // Create a new booking
+  // ==================== STAFF INDIVIDUAL BOOKING ====================
+  // Create a new booking for authenticated users (staff individual booking)
   createBooking: (data: {
     serviceId: string
     businessId: string
-    userId?: string
+    staffId?: string
+    startTime: string
+    endTime: string
+    notes?: string
+  }) =>
+    apiCall<any>('/api/booking', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Create a public booking for guests (staff individual booking)
+  createPublicBooking: (data: {
+    serviceId: string
+    businessId: string
     staffId?: string
     startTime: string
     endTime: string
@@ -404,9 +418,48 @@ export const bookingsApi = {
     customerPhone: string
     notes?: string
   }) =>
-    apiCall<Booking>('/api/booking/bookings', {
+    apiCall<any>('/api/booking/public', {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+
+  // ==================== BUSINESS BOOKING ====================
+  // Create a business booking for authenticated users
+  createBusinessBooking: (data: {
+    serviceId: string
+    businessId: string
+    staffId?: string
+    startTime: string
+    endTime: string
+    notes?: string
+  }) =>
+    apiCall<any>('/api/booking/business', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Create a public business booking for guests
+  createBusinessPublicBooking: (data: {
+    serviceId: string
+    businessId: string
+    staffId?: string
+    startTime: string
+    endTime: string
+    customerName: string
+    customerEmail: string
+    customerPhone: string
+    notes?: string
+  }) =>
+    apiCall<any>('/api/booking/business/public', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // ==================== SHARED METHODS ====================
+  // Verify booking email (confirm booking)
+  verifyBooking: (token: string) =>
+    apiCall<any>(`/api/booking/verify?token=${token}`, {
+      method: 'POST',
     }),
 
   // Get a single booking by ID
@@ -420,17 +473,18 @@ export const bookingsApi = {
       body: JSON.stringify(data),
     }),
 
-  // Update booking status
-  updateBookingStatus: (bookingId: string, status: string) =>
+  // Update booking status with optional reason
+  updateBookingStatus: (bookingId: string, status: string, reason?: string) =>
     apiCall<Booking>(`/api/booking/bookings/${bookingId}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, reason }),
     }),
 
-  // Cancel a booking
-  cancelBooking: (bookingId: string) =>
+  // Cancel a booking with optional reason
+  cancelBooking: (bookingId: string, reason?: string) =>
     apiCall<Booking>(`/api/booking/bookings/${bookingId}/cancel`, {
       method: 'PATCH',
+      body: JSON.stringify({ reason }),
     }),
 
   // Delete a booking
@@ -452,16 +506,27 @@ export const bookingsApi = {
   getBookingTrends: (businessId: string) =>
     apiCall<any>(`/api/booking/businesses/${businessId}/booking-trends`),
 
-  // Get available slots for a service at a business
-  getAvailableSlots: (businessId: string, serviceId: string, date: string) =>
-    apiCall<string[] | { slots: string[] }>(
-      `/api/booking/businesses/${businessId}/services/${serviceId}/available-slots?date=${date}`
-    ),
+  // Get available slots for STAFF individual bookings (original method)
+  getAvailableSlots: (businessId: string, serviceId: string, date: string, staffId?: string) => {
+    let url = `/api/booking/businesses/${businessId}/services/${serviceId}/available-slots?date=${date}`
+    if (staffId) {
+      url += `&staffId=${staffId}`
+    }
+    return apiCall<string[]>(url)
+  },
+
+  // Get available slots for BUSINESS bookings (checks staff availability and timeoffs)
+  getBusinessAvailableSlots: (businessId: string, serviceId: string, date: string, staffId?: string) => {
+    let url = `/api/booking/business/businesses/${businessId}/services/${serviceId}/available-slots?date=${date}`
+    if (staffId) {
+      url += `&staffId=${staffId}`
+    }
+    return apiCall<string[]>(url)
+  },
 
   // Get all bookings for a specific user/customer
   getCustomerBookings: (userId: string) =>
     apiCall<Booking[]>(`/api/booking/users/${userId}/bookings`),
-
 }
 
 // Business API - /api/businesses prefix
