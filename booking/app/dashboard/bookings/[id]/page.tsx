@@ -1,245 +1,350 @@
 'use client'
 
-import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Sidebar } from '@/components/Sidebar'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
-import { Loader, Calendar, Clock, User, Mail, Phone, AlertCircle, ArrowLeft } from 'lucide-react'
 import { bookingsApi } from '@/lib/api'
-import { format } from 'date-fns'
+import { Calendar, Loader, AlertCircle, Eye, Plus } from 'lucide-react'
+import Link from 'next/link'
+import { useBusinessId } from '@/hooks/useBusinessId'
 
-interface BookingDetail {
+interface Booking {
   id: string
-  serviceId: string
-  businessId: string
-  startTime: string
-  endTime: string
   customerName: string
   customerEmail: string
   customerPhone: string
-  notes?: string
+  serviceId: string
+  service?: { name: string; price: number; duration?: number }
+  startTime: string
+  endTime: string
   status: string
-  service?: {
-    name: string
-    duration: number
-    price: number
-    description?: string
-  }
-  business?: {
-    name: string
-    phone: string
-    address: string
-    city: string
-  }
+  isEmailVerified?: boolean
+  notes?: string
+  staff?: { firstName: string; lastName: string }
 }
 
-export default function BookingDetailPage() {
-  const params = useParams()
+export default function BookingsPage() {
   const router = useRouter()
-  const bookingId = params.id as string
-
-  const [booking, setBooking] = useState<BookingDetail | null>(null)
+  const { businessId, loading: fetchingBusinessId } = useBusinessId()
+  const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [filterStatus, setFilterStatus] = useState('ALL')
+  const [page, setPage] = useState(1)
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
+  const [newStatus, setNewStatus] = useState<string | null>(null)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [updateError, setUpdateError] = useState('')
 
   useEffect(() => {
-    loadBooking()
-  }, [bookingId])
+    if (businessId) {
+      loadBookings()
+    }
+  }, [page, filterStatus, businessId])
 
-  async function loadBooking() {
+  if (fetchingBusinessId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+        <Sidebar userRole="BUSINESS_OWNER" />
+        <main className="md:ml-64 pt-6 px-4 md:px-8 py-8 flex items-center justify-center h-screen">
+          <Loader className="w-8 h-8 animate-spin text-blue-600" />
+        </main>
+      </div>
+    )
+  }
+
+  if (!businessId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+        <Sidebar userRole="BUSINESS_OWNER" />
+        <main className="md:ml-64 pt-6 px-4 md:px-8 py-8">
+          <Card className="p-8 text-center">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <p className="text-slate-900 text-lg font-medium">Unable to load business information</p>
+            <p className="text-slate-500 text-sm">Please try again or contact support</p>
+          </Card>
+        </main>
+      </div>
+    )
+  }
+
+  const loadBookings = async () => {
+    if (!businessId) return
     try {
       setLoading(true)
+      console.log('[v0] loadBookings called with filterStatus:', filterStatus, 'page:', page, 'businessId:', businessId)
+      const response = await bookingsApi.getBusinessBookings(
+        businessId, 
+        page, 
+        10,
+        filterStatus !== 'ALL' ? filterStatus : undefined
+      )
+      console.log('[v0] API response:', response)
+      const data = Array.isArray(response.data) ? response.data : response.data?.bookings || []
+      console.log('[v0] Extracted bookings data:', data, 'count:', data.length)
+      setBookings(data)
       setError(null)
-      const response = await bookingsApi.getBookingById(bookingId)
-      if (response.data) {
-        setBooking({
-          ...response.data,
-          status: response.data.status ?? 'PENDING', // or map appropriately if status is named differently
-        })
-      } else {
-        setError('Booking not found')
-      }
     } catch (err) {
-      console.error('[v0] Failed to load booking:', err)
-      setError('Failed to load booking details')
+      setError('Failed to load bookings')
+      console.error('[v0] Error loading bookings:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  const statusColors: Record<string, { badge: string; bg: string }> = {
-    PENDING: { badge: 'bg-yellow-100 text-yellow-800', bg: 'bg-yellow-50' },
-    CONFIRMED: { badge: 'bg-blue-100 text-blue-800', bg: 'bg-blue-50' },
-    COMPLETED: { badge: 'bg-green-100 text-green-800', bg: 'bg-green-50' },
-    CANCELLED: { badge: 'bg-red-100 text-red-800', bg: 'bg-red-50' },
+  const handleUpdateStatus = async () => {
+    if (!selectedBookingId || !newStatus) return
+
+    try {
+      setUpdatingStatus(true)
+      setUpdateError('')
+      const response = await bookingsApi.updateBookingStatus(selectedBookingId, newStatus)
+      
+      if (response.success) {
+        // Update the booking in the list
+        setBookings(bookings.map(b => 
+          b.id === selectedBookingId ? { ...b, status: newStatus } : b
+        ))
+        setSelectedBookingId(null)
+        setNewStatus(null)
+      } else {
+        setUpdateError(response.error || 'Failed to update booking status')
+      }
+    } catch (err) {
+      setUpdateError('Error updating booking status')
+      console.error('[v0] Error updating status:', err)
+    } finally {
+      setUpdatingStatus(false)
+    }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-        <div className="flex items-center justify-center h-screen">
-          <Loader className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      </div>
-    )
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+      PENDING: 'bg-yellow-100 text-yellow-800',
+      CONFIRMED: 'bg-blue-100 text-blue-800',
+      COMPLETED: 'bg-green-100 text-green-800',
+      CANCELLED: 'bg-red-100 text-red-800',
+    }
+    return colors[status] || 'bg-gray-100 text-gray-800'
   }
-
-  if (error || !booking) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-        <div className="mx-auto max-w-2xl">
-          <Button variant="outline" className="mb-6 bg-transparent" onClick={() => router.back()}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <Card className="border border-border shadow-lg p-8">
-            <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-            <p className="text-center text-lg font-semibold text-foreground">{error || 'Booking not found'}</p>
-          </Card>
-        </div>
-      </div>
-    )
-  }
-
-  const startDate = new Date(booking.startTime)
-  const endDate = new Date(booking.endTime)
-  const colors = statusColors[booking.status]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-      <div className="mx-auto max-w-3xl">
-        <Button variant="outline" className="mb-6 bg-transparent" onClick={() => router.back()}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Bookings
-        </Button>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+      <Sidebar userRole="BUSINESS_OWNER" />
 
-        <Card className="border border-border shadow-lg overflow-hidden">
-          {/* Header */}
-          <div className={`${colors.bg} p-6 border-b border-border`}>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">{booking.service?.name}</h1>
-                <Badge className={`mt-2 ${colors.badge}`}>{booking.status}</Badge>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Total Price</p>
-                <p className="text-3xl font-bold text-foreground">${(booking.service?.price || 0).toFixed(2)}</p>
-              </div>
+      <main className="md:ml-64 pt-6 px-4 md:px-8 py-8">
+        {/* Page Title */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-slate-900">Bookings</h1>
+          <p className="text-slate-600 mt-1">Manage all customer bookings</p>
+        </div>
+
+        {/* New Booking Button */}
+        <div className="mb-6">
+          <Link href="/dashboard/bookings/new">
+            <Button className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="w-4 h-4 mr-2" />
+              New Booking
+            </Button>
+          </Link>
+        </div>
+
+        {/* Filters */}
+        <div className="mb-6 flex gap-2">
+          {['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'].map((status) => (
+            <Button
+              key={status}
+              variant={filterStatus === status ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                console.log('[v0] Filter clicked:', status)
+                setFilterStatus(status)
+                setPage(1)
+              }}
+            >
+              {status}
+            </Button>
+          ))}
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-red-900">{error}</p>
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <Loader className="w-8 h-8 animate-spin text-blue-600" />
+          </div>
+        ) : bookings.length === 0 ? (
+          <Card className="p-12 text-center">
+            <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-600 text-lg font-medium">No bookings found</p>
+            <p className="text-slate-500 text-sm">Start by creating your first booking</p>
+          </Card>
+        ) : (
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Customer</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Phone</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Service</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Date & Time</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Status</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Verified</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Amount</th>
+                    <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {bookings.map((booking) => (
+                    <tr key={booking.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-medium text-slate-900">{booking.customerName}</p>
+                          <p className="text-sm text-slate-500 truncate">{booking.customerEmail}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-slate-900 text-sm">{booking.customerPhone || 'N/A'}</td>
+                      <td className="px-6 py-4 text-slate-900">{booking.service?.name || 'N/A'}</td>
+                      <td className="px-6 py-4 text-slate-900">
+                        {new Date(booking.startTime).toLocaleDateString()}
+                        <br />
+                        <span className="text-sm text-slate-500">
+                          {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge className={
+                          booking.status === 'UNVERIFIED'
+                            ? 'bg-orange-100 text-orange-800'
+                            : getStatusColor(booking.status)
+                        }>
+                          {booking.status}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge className={booking.isEmailVerified ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'}>
+                          {booking.isEmailVerified ? 'Yes' : 'Pending'}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 font-semibold text-slate-900">
+                        ${booking.service?.price || 0}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2 items-center">
+                          <Link href={`/dashboard/bookings/${booking.id}`}>
+                            <Button size="sm" variant="ghost" title="View details">
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </Link>
+                          {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
+                            <>
+                              <Button 
+                                size="sm" 
+                                className="bg-blue-600 hover:bg-blue-700 text-white"
+                                onClick={() => {
+                                  setSelectedBookingId(booking.id)
+                                  setNewStatus(booking.status === 'PENDING' ? 'CONFIRMED' : booking.status === 'CONFIRMED' ? 'COMPLETED' : null)
+                                }}
+                                title={booking.status === 'PENDING' ? 'Confirm booking' : 'Mark as completed'}
+                              >
+                                {booking.status === 'PENDING' ? 'Confirm' : booking.status === 'CONFIRMED' ? 'Complete' : 'Done'}
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="destructive"
+                                onClick={() => {
+                                  setSelectedBookingId(booking.id)
+                                  setNewStatus('CANCELLED')
+                                }}
+                                title="Cancel booking"
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          </Card>
+        )}
+
+        {/* Pagination */}
+        {!loading && bookings.length > 0 && (
+          <div className="mt-6 flex justify-between items-center">
+            <Button
+              variant="outline"
+              disabled={page === 1}
+              onClick={() => setPage(p => p - 1)}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-slate-600">Page {page}</span>
+            <Button
+              variant="outline"
+              onClick={() => setPage(p => p + 1)}
+            >
+              Next
+            </Button>
           </div>
+        )}
 
-          {/* Content */}
-          <div className="p-8">
-            {/* Appointment Details */}
-            <section className="mb-8">
-              <h2 className="text-xl font-semibold text-foreground mb-4">Appointment Details</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-start gap-4">
-                  <Calendar className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Date</p>
-                    <p className="text-foreground font-medium">{format(startDate, 'EEEE, MMMM dd, yyyy')}</p>
-                  </div>
+        {/* Status Update Confirmation Modal */}
+        {selectedBookingId && newStatus && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <Card className="w-full max-w-md p-6">
+              <h2 className="text-lg font-bold text-slate-900 mb-4">Update Booking Status</h2>
+              
+              {updateError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-900">
+                  {updateError}
                 </div>
-                <div className="flex items-start gap-4">
-                  <Clock className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Time</p>
-                    <p className="text-foreground font-medium">
-                      {format(startDate, 'h:mm a')} - {format(endDate, 'h:mm a')}
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Duration</p>
-                  <p className="text-foreground font-medium">{booking.service?.duration} minutes</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Service ID</p>
-                  <p className="text-foreground font-mono text-sm">{booking.serviceId}</p>
-                </div>
+              )}
+              
+              <p className="text-slate-600 mb-6">
+                Are you sure you want to change the status to <strong>{newStatus}</strong>?
+                <br />
+                The customer will be notified via email and SMS.
+              </p>
+              
+              <div className="flex gap-2 justify-end">
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedBookingId(null)
+                    setNewStatus(null)
+                    setUpdateError('')
+                  }}
+                  disabled={updatingStatus}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={handleUpdateStatus}
+                  disabled={updatingStatus}
+                >
+                  {updatingStatus ? 'Updating...' : 'Confirm'}
+                </Button>
               </div>
-            </section>
-
-            <div className="border-t border-border my-8" />
-
-            {/* Customer Information */}
-            <section className="mb-8">
-              <h2 className="text-xl font-semibold text-foreground mb-4">Customer Information</h2>
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <User className="w-5 h-5 text-primary" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Name</p>
-                    <p className="text-foreground font-medium">{booking.customerName}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Mail className="w-5 h-5 text-primary" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <a href={`mailto:${booking.customerEmail}`} className="text-primary hover:underline font-medium">
-                      {booking.customerEmail}
-                    </a>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Phone className="w-5 h-5 text-primary" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Phone</p>
-                    <a href={`tel:${booking.customerPhone}`} className="text-primary hover:underline font-medium">
-                      {booking.customerPhone}
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {booking.notes && (
-              <>
-                <div className="border-t border-border my-8" />
-                <section className="mb-8">
-                  <h2 className="text-xl font-semibold text-foreground mb-4">Notes</h2>
-                  <div className="p-4 bg-secondary/30 rounded-lg border border-border">
-                    <p className="text-foreground whitespace-pre-wrap">{booking.notes}</p>
-                  </div>
-                </section>
-              </>
-            )}
-
-            {/* Business Information */}
-            {booking.business && (
-              <>
-                <div className="border-t border-border my-8" />
-                <section className="mb-8">
-                  <h2 className="text-xl font-semibold text-foreground mb-4">Business Information</h2>
-                  <div className="space-y-3 p-4 bg-secondary/20 rounded-lg">
-                    <p className="text-foreground font-medium">{booking.business.name}</p>
-                    <p className="text-sm text-muted-foreground">{booking.business.address}, {booking.business.city}</p>
-                    <a href={`tel:${booking.business.phone}`} className="text-primary hover:underline text-sm">
-                      {booking.business.phone}
-                    </a>
-                  </div>
-                </section>
-              </>
-            )}
-
-            {/* Actions */}
-            {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
-              <>
-                <div className="border-t border-border my-8" />
-                <div className="flex gap-3">
-                  <Button className="flex-1 h-11 bg-primary text-primary-foreground hover:bg-primary/90">Reschedule</Button>
-                  <Button variant="destructive" className="flex-1 h-11">
-                    Cancel Booking
-                  </Button>
-                </div>
-              </>
-            )}
+            </Card>
           </div>
-        </Card>
-      </div>
+        )}
+      </main>
     </div>
   )
 }

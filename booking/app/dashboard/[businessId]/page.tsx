@@ -11,7 +11,7 @@ import { AuthWrapper } from '@/components/AuthWrapper'
 import Link from 'next/link'
 import {
   Loader, Calendar, CheckCircle, TrendingUp, AlertCircle,
-  ChevronRight, Eye, ArrowRight, BarChart3, TrendingDown, Users, Clock
+  Eye, ArrowRight, BarChart3
 } from 'lucide-react'
 import { businessApi, bookingsApi, paymentApi } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
@@ -28,11 +28,21 @@ interface Booking {
   id: string
   serviceId: string
   startTime: string
+  endTime: string
   customerName: string
+  customerEmail: string
+  customerPhone: string
   status: string
+  isEmailVerified: boolean
+  notes?: string
   service?: {
     name: string
     price: number
+    duration?: number
+  }
+  staff?: {
+    firstName: string
+    lastName: string
   }
 }
 
@@ -247,9 +257,9 @@ export default function BusinessDashboardPage() {
                 })}
               </div>
 
-              {/* Conversion Rate & Payment Info Grid */}
+              {/* Analytics Grid: Conversion Rate & Payments */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-8 mb-6 md:mb-8">
-                {/* Conversion Rate */}
+                {/* Conversion Rate Analytics */}
                 {stats && (
                   <Card className="border border-slate-200 shadow-sm p-4 md:p-6 bg-white">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
@@ -309,10 +319,8 @@ export default function BusinessDashboardPage() {
                 )}
               </div>
 
-              {/* Recent Bookings & Performance Overview */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-8">
-                {/* Recent Bookings */}
-                <div className="lg:col-span-2">
+              {/* Recent Bookings & Analytics Overview */}
+              <div className="grid grid-cols-1 gap-3 md:gap-8">
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                       <Calendar className="w-5 h-5 text-blue-600" />
@@ -336,30 +344,46 @@ export default function BusinessDashboardPage() {
                       <div className="divide-y divide-slate-200">
                         {recentBookings.map((booking) => (
                           <div key={booking.id} className="p-4 hover:bg-slate-50 transition-colors">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <p className="font-semibold text-slate-900">{booking.customerName}</p>
-                                <p className="text-sm text-slate-500">{booking.service?.name || 'Service'}</p>
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-slate-900 truncate">{booking.customerName}</p>
+                                <p className="text-xs text-slate-500 truncate">{booking.customerEmail}</p>
+                                {booking.customerPhone && (
+                                  <p className="text-xs text-slate-500 truncate">{booking.customerPhone}</p>
+                                )}
                               </div>
-                              <Badge
-                                className={
-                                  booking.status === 'COMPLETED'
-                                    ? 'bg-green-100 text-green-800'
-                                    : booking.status === 'PENDING'
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : booking.status === 'CONFIRMED'
-                                        ? 'bg-blue-100 text-blue-800'
-                                        : 'bg-slate-100 text-slate-800'
-                                }
-                              >
-                                {booking.status}
-                              </Badge>
+                              <div className="flex gap-1 flex-shrink-0">
+                                <Badge
+                                  className={
+                                    booking.status === 'COMPLETED'
+                                      ? 'bg-green-100 text-green-800 text-xs'
+                                      : booking.status === 'UNVERIFIED'
+                                        ? 'bg-orange-100 text-orange-800 text-xs'
+                                      : booking.status === 'PENDING'
+                                        ? 'bg-yellow-100 text-yellow-800 text-xs'
+                                        : booking.status === 'CONFIRMED'
+                                          ? 'bg-blue-100 text-blue-800 text-xs'
+                                          : 'bg-slate-100 text-slate-800 text-xs'
+                                  }
+                                >
+                                  {booking.status}
+                                </Badge>
+                                {!booking.isEmailVerified && booking.status === 'UNVERIFIED' && (
+                                  <Badge className="bg-orange-100 text-orange-800 text-xs">
+                                    Verify Email
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
-                              <span className="text-xs text-slate-500">
-                                {new Date(booking.startTime).toLocaleDateString()}
-                              </span>
-                              <span className="text-sm font-semibold text-slate-900">
+                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
+                              <div className="space-y-0.5">
+                                <p><span className="font-medium">Service:</span> {booking.service?.name || 'N/A'}</p>
+                                {booking.staff && (
+                                  <p><span className="font-medium">Staff:</span> {booking.staff.firstName} {booking.staff.lastName}</p>
+                                )}
+                                <p>{new Date(booking.startTime).toLocaleDateString()} {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                              </div>
+                              <span className="text-sm font-semibold text-slate-900 flex-shrink-0">
                                 ${(booking.service?.price || 0).toFixed(2)}
                               </span>
                             </div>
@@ -369,85 +393,6 @@ export default function BusinessDashboardPage() {
                     </Card>
                   )}
                 </div>
-
-                {/* Quick Stats */}
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-purple-600" />
-                    Quick Actions
-                  </h2>
-
-                  <div className="space-y-3">
-                    <Link href="/dashboard/bookings" className="block">
-                      <Card className="border border-slate-200 shadow-sm p-4 bg-white hover:shadow-md transition-shadow cursor-pointer">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="bg-blue-50 p-3 rounded-lg">
-                              <Calendar className="w-5 h-5 text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">Bookings</p>
-                              <p className="text-xs text-slate-500">Manage appointments</p>
-                            </div>
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-slate-400" />
-                        </div>
-                      </Card>
-                    </Link>
-
-                    <Link href="/dashboard/services" className="block">
-                      <Card className="border border-slate-200 shadow-sm p-4 bg-white hover:shadow-md transition-shadow cursor-pointer">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="bg-purple-50 p-3 rounded-lg">
-                              <BarChart3 className="w-5 h-5 text-purple-600" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">Services</p>
-                              <p className="text-xs text-slate-500">Manage offerings</p>
-                            </div>
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-slate-400" />
-                        </div>
-                      </Card>
-                    </Link>
-
-                    <Link href="/dashboard/staff" className="block">
-                      <Card className="border border-slate-200 shadow-sm p-4 bg-white hover:shadow-md transition-shadow cursor-pointer">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="bg-green-50 p-3 rounded-lg">
-                              <Users className="w-5 h-5 text-green-600" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">Staff</p>
-                              <p className="text-xs text-slate-500">Manage team</p>
-                            </div>
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-slate-400" />
-                        </div>
-                      </Card>
-                    </Link>
-
-                    <Link href="/dashboard/analytics" className="block">
-                      <Card className="border border-slate-200 shadow-sm p-4 bg-white hover:shadow-md transition-shadow cursor-pointer">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="bg-orange-50 p-3 rounded-lg">
-                              <TrendingUp className="w-5 h-5 text-orange-600" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">Analytics</p>
-                              <p className="text-xs text-slate-500">View insights</p>
-                            </div>
-                          </div>
-                          <ChevronRight className="w-5 h-5 text-slate-400" />
-                        </div>
-                      </Card>
-                    </Link>
-                  </div>
-                </div>
-              </div>
             </>
           )}
         </main>
