@@ -338,8 +338,7 @@ export default function StaffPage() {
     if (currentStep === 1) return isStep1Valid()
     if (currentStep === 2) return isStep2Valid()
     if (currentStep === 3) return isStep3Valid()
-    if (currentStep === 4) return true // Review step, always valid
-    return true
+    if (currentStep === 4) return true 
   }
 
   const goToNextStep = () => {
@@ -620,7 +619,7 @@ export default function StaffPage() {
                   <h2 className="text-lg font-semibold">
                     {editingStaff ? 'Edit Staff Member' : 'Add Staff Member'}
                   </h2>
-                  <p className="text-xs text-muted-foreground mt-1">Step {currentStep} of 5</p>
+                  <p className="text-xs text-muted-foreground mt-1">Step {currentStep} of 4</p>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => setIsModalOpen(false)}>
                   <X className="w-4 h-4" />
@@ -629,7 +628,7 @@ export default function StaffPage() {
 
               {/* Progress Bar */}
               <div className="px-4 pt-4 flex gap-1">
-                {[1, 2, 3, 4, 5].map((step) => (
+                {[1, 2, 3, 4].map((step) => (
                   <div
                     key={step}
                     className={`flex-1 h-1 rounded-full transition-colors ${
@@ -887,7 +886,7 @@ export default function StaffPage() {
                   >
                     Previous
                   </Button>
-                  {currentStep < 5 ? (
+                  {currentStep < 4 ? (
                     <Button onClick={goToNextStep} disabled={!canProceedToNext()}>
                       Next
                     </Button>

@@ -57,14 +57,14 @@ class StaffVerificationService {
   /**
    * Verify staff email with token
    */
-  async verifyEmail(token: string, staffId: string) {
+  async verifyEmail(token: string, staffId?: string) {
     try {
-      const staff = await prisma.staff.findUnique({
-        where: { id: staffId },
-      })
+      const staff = staffId
+        ? await prisma.staff.findUnique({ where: { id: staffId } })
+        : await prisma.staff.findUnique({ where: { verificationToken: token } })
 
       if (!staff) {
-        throw new Error('Staff not found')
+        throw new Error('Invalid verification link')
       }
 
       if (staff.verificationToken !== token) {
@@ -75,18 +75,15 @@ class StaffVerificationService {
         throw new Error('Verification token expired')
       }
 
-      // Mark email as verified
+      // Keep the token until the password is set. The set-password endpoint
+      // uses this same token to authorize the first password creation.
       await prisma.staff.update({
-        where: { id: staffId },
-        data: {
-          emailVerified: true,
-          verificationToken: null,
-          verificationTokenExpiresAt: null,
-        },
+        where: { id: staff.id },
+        data: { emailVerified: true },
       })
 
-      console.log(`[v0] Email verified for staff ${staffId}`)
-      return { success: true, message: 'Email verified successfully' }
+      console.log(`[v0] Email verified for staff ${staff.id}`)
+      return { success: true, staffId: staff.id, message: 'Email verified successfully' }
     } catch (error: any) {
       console.error('[v0] Error verifying email:', error)
       throw error
@@ -96,36 +93,24 @@ class StaffVerificationService {
   /**
    * Resend verification email
    */
-  async resendVerificationEmail(staffId: string) {
+  async resendVerificationEmail(staffId?: string, token?: string) {
     try {
-      const staff = await prisma.staff.findUnique({
-        where: { id: staffId },
-        include: { business: true },
-      })
+      const staff = staffId
+        ? await prisma.staff.findUnique({ where: { id: staffId } })
+        : token
+          ? await prisma.staff.findUnique({ where: { verificationToken: token } })
+          : null
 
       if (!staff) {
-        throw new Error('Staff not found')
+        throw new Error('Staff not found for this verification link')
       }
 
       if (staff.emailVerified) {
         throw new Error('Email already verified')
       }
 
-      // Check if token exists and is still valid (not expired)
-      if (staff.verificationToken && staff.verificationTokenExpiresAt && staff.verificationTokenExpiresAt > new Date()) {
-        console.log('[v0] Using existing verification token for resend')
-        // Send using the existing token
-        await emailService.sendStaffVerificationEmail(
-          staff.email,
-          staff.firstName,
-          staff.verificationToken,
-          staff.business.name
-        )
-      } else {
-        // Generate new token and send
-        await this.sendVerificationEmail(staffId, staff.email, staff.firstName, staff.businessId)
-      }
-
+      // Always rotate the token so an expired or rejected link gets replaced.
+      await this.sendVerificationEmail(staff.id, staff.email, staff.firstName, staff.businessId)
       return { success: true, message: 'Verification email resent' }
     } catch (error: any) {
       console.error('[v0] Error resending verification email:', error)

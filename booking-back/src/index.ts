@@ -21,6 +21,7 @@ import staffRoutes from "./routes/staff.routes"
 import subscriptionPaymentRoutes from "./routes/subscription-payment.routes"
 import uploadRoutes from "./routes/upload.routes"
 import StaffAuthRoutes from "./routes/staff-auth.routes"
+import staffVerificationRoutes from "./routes/staff-verification.routes"
 
 
 dotenv.config();
@@ -79,6 +80,8 @@ app.use("/api/services", serviceRoutes);
 app.use('/api/push-subscriptions', pushSubscriptionRoutes)
 
 app.use("/api/staff", staffRoutes)
+
+app.use("/api/staff-verification", staffVerificationRoutes)
 
 app.use("/api/staff-auth", StaffAuthRoutes)
 

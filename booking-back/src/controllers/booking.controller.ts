@@ -937,7 +937,8 @@ class BookingController {
    */
   async verifyBookingEmail(req: Request, res: Response): Promise<Response | void> {
     try {
-      const { token } = req.params
+      const tokenParam = req.params.token
+      const token = Array.isArray(tokenParam) ? tokenParam[0] : tokenParam
 
       if (!token) {
         return res.status(400).json({

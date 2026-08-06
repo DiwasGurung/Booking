@@ -18,36 +18,39 @@ export default function VerifyEmailPage() {
       const token = searchParams.get('token')
       const id = searchParams.get('staffId')
 
-      if (!token || !id) {
+      if (!token) {
         setStatus('error')
         setMessage('Invalid verification link')
         return
       }
 
-      setStaffId(id)
+      setStaffId(id || '')
 
       try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
         const response = await fetch(`${API_URL}/api/staff-verification/verify`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, staffId: id }),
+          body: JSON.stringify(id ? { token, staffId: id } : { token }),
         })
 
         if (response.ok) {
+          const data = await response.json()
+          const resolvedStaffId = id || data.staffId
+          if (resolvedStaffId) setStaffId(resolvedStaffId)
           setStatus('success')
           setMessage('Email verified successfully! Please set your password to continue.')
           setTimeout(() => {
-            router.push(`/staff/set-password?staffId=${id}&token=${token}`)
+            router.push(`/staff/set-password?staffId=${resolvedStaffId}&token=${encodeURIComponent(token)}`)
           }, 2000)
         } else {
           const error = await response.json()
           setStatus('error')
           setMessage(error.message || 'Failed to verify email')
         }
-      } catch (error: any) {
+      } catch {
         setStatus('error')
-        setMessage(error.message || 'An error occurred during verification')
+        setMessage('Unable to reach the verification server. Make sure the backend is running and try again.')
       }
     }
 
@@ -55,7 +58,11 @@ export default function VerifyEmailPage() {
   }, [searchParams, router])
 
   const handleResend = async () => {
-    if (!staffId) return
+    const token = searchParams.get('token')
+    if (!staffId && !token) {
+      setMessage('This verification link does not contain enough information to resend.')
+      return
+    }
 
     try {
       setStatus('loading')
@@ -63,7 +70,10 @@ export default function VerifyEmailPage() {
       const response = await fetch(`${API_URL}/api/staff-verification/resend`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ staffId }),
+        body: JSON.stringify({
+          ...(staffId ? { staffId } : {}),
+          ...(token ? { token } : {}),
+        }),
       })
 
       if (response.ok) {
@@ -74,9 +84,9 @@ export default function VerifyEmailPage() {
         setStatus('error')
         setMessage(error.message || 'Failed to resend email')
       }
-    } catch (error: any) {
+    } catch {
       setStatus('error')
-      setMessage(error.message || 'An error occurred')
+      setMessage('Unable to reach the verification server. Make sure the backend is running and try again.')
     }
   }
 
@@ -101,7 +111,7 @@ export default function VerifyEmailPage() {
               <div>
                 <h3 className="font-semibold text-green-700 mb-2">Email Verified!</h3>
                 <p className="text-sm text-muted-foreground mb-4">{message}</p>
-                <p className="text-xs text-muted-foreground">Redirecting to your booking page...</p>
+                <p className="text-xs text-muted-foreground">Redirecting to password setup...</p>
               </div>
             </div>
           )}

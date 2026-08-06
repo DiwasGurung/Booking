@@ -8,11 +8,14 @@ const staffVerificationRoutes = express.Router()
 // Validation schemas
 const VerifyEmailSchema = z.object({
   token: z.string().min(1, 'Verification token is required'),
-  staffId: z.string().min(1, 'Staff ID is required'),
+  staffId: z.string().min(1).optional(),
 })
 
 const ResendVerificationSchema = z.object({
-  staffId: z.string().min(1, 'Staff ID is required'),
+  staffId: z.string().min(1).optional(),
+  token: z.string().min(1).optional(),
+}).refine((value) => value.staffId || value.token, {
+  message: 'Staff ID or verification token is required',
 })
 
 const VerificationStatusSchema = z.object({
@@ -51,9 +54,9 @@ staffVerificationRoutes.post('/resend', async (req: Request, res: Response) => {
       return res.status(400).json({ message: validation.error })
     }
 
-    const { staffId } = validation.data
+    const { staffId, token } = validation.data
 
-    const result = await staffVerificationService.resendVerificationEmail(staffId)
+    const result = await staffVerificationService.resendVerificationEmail(staffId, token)
     res.json(result)
   } catch (error: any) {
     console.error('[v0] Error resending verification email:', error)

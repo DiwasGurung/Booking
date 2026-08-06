@@ -120,8 +120,8 @@ class BookingService {
         });
     }
     /**
-   * Get available slots for a service on a specific date
-   */
+    * Get available slots for a service on a specific date
+    */
     getAvailableSlots(serviceId, businessId, date, staffId) {
         return __awaiter(this, void 0, void 0, function* () {
             const service = yield prisma_1.default.service.findUnique({
@@ -149,38 +149,45 @@ class BookingService {
             // Parse opening hours
             const [openHour, openMin] = businessHours.openTime.split(":").map(Number);
             const [closeHour, closeMin] = businessHours.closeTime.split(":").map(Number);
-            // Get staff for this service
-            let staffList;
+            // Get staff for this service through StaffService join table
+            let staffStaffServices;
             if (staffId) {
-                // If specific staff is selected, check only that staff's availability
-                staffList = yield prisma_1.default.staff.findMany({
+                // If specific staff is selected, verify they're assigned to this service
+                staffStaffServices = yield prisma_1.default.staffService.findMany({
                     where: {
-                        id: staffId,
-                        services: {
-                            some: { staffId: serviceId }
-                        }
+                        staffId: staffId,
+                        serviceId: serviceId
+                    },
+                    include: {
+                        staff: true
                     }
                 });
-                if (staffList.length === 0) {
+                if (staffStaffServices.length === 0) {
                     throw new Error("Staff not found or not assigned to this service");
                 }
             }
             else {
-                // If no staff selected, get all staff for this service
-                staffList = yield prisma_1.default.staff.findMany({
+                // If no staff selected, get all staff for this service and business
+                // First get all StaffService records for this service
+                const allStaffServices = yield prisma_1.default.staffService.findMany({
                     where: {
-                        business: {
-                            id: businessId
-                        },
-                        services: {
-                            some: { staffId: serviceId }
-                        }
+                        serviceId: serviceId
+                    },
+                    include: {
+                        staff: true
                     }
                 });
-                if (staffList.length === 0) {
-                    throw new Error("No staff assigned to this service");
+                console.log('[v0] All staff services for service:', { serviceId, count: allStaffServices.length });
+                // Filter to only active staff from this business
+                staffStaffServices = allStaffServices.filter((ss) => ss.staff.businessId === businessId && ss.staff.isActive);
+                console.log('[v0] Active staff for business:', { businessId, serviceId, staffCount: staffStaffServices.length });
+                if (staffStaffServices.length === 0) {
+                    console.error('[v0] No staff found for service:', { businessId, serviceId });
+                    throw new Error(`No staff members are assigned to this service. Please contact the business.`);
                 }
             }
+            // Extract staff list
+            const staffList = staffStaffServices.map((ss) => ss.staff);
             // Get all CONFIRMED bookings for the service on this date
             const bookings = yield prisma_1.default.booking.findMany({
                 where: {
@@ -191,27 +198,49 @@ class BookingService {
                     },
                     status: "CONFIRMED",
                 },
-                include: { staff: true }
+            });
+            // Get timeoffs for all staff on this date
+            const timeOffs = yield prisma_1.default.timeOff.findMany({
+                where: {
+                    staffId: {
+                        in: staffList.map((s) => s.id)
+                    },
+                    startDate: {
+                        lte: endOfDay
+                    },
+                    endDate: {
+                        gte: startOfDay
+                    }
+                }
             });
             const slots = [];
             const slotDuration = service.duration;
+            const SLOT_INTERVAL = 15; // 15-minute intervals
+            // Generate slots in 15-minute intervals
             for (let hour = openHour; hour < closeHour; hour++) {
-                for (let min = hour === openHour ? openMin : 0; min < 60; min += slotDuration) {
+                for (let min = hour === openHour ? openMin : 0; min < 60; min += SLOT_INTERVAL) {
                     const slotStart = new Date(startOfDay);
                     slotStart.setHours(hour, min, 0, 0);
                     const slotEnd = new Date(slotStart);
                     slotEnd.setMinutes(slotEnd.getMinutes() + slotDuration);
-                    if (slotEnd.getHours() > closeHour)
+                    // Check if slot end time is past closing time
+                    if (slotEnd > new Date(startOfDay.getTime() + closeHour * 60 * 60 * 1000))
                         break;
                     // Check if at least one staff member is available for this slot
                     const isSlotAvailable = staffList.some((staff) => {
                         // Check if this staff has any conflicting bookings
-                        const hasConflict = bookings.some((booking) => {
+                        const hasBookingConflict = bookings.some((booking) => {
                             return booking.staffId === staff.id &&
                                 slotStart < booking.endTime &&
                                 slotEnd > booking.startTime;
                         });
-                        return !hasConflict;
+                        // Check if this staff has timeoff on this date
+                        const hasTimeOff = timeOffs.some((timeOff) => {
+                            return timeOff.staffId === staff.id &&
+                                slotStart < new Date(timeOff.endDate) &&
+                                slotEnd > new Date(timeOff.startDate);
+                        });
+                        return !hasBookingConflict && !hasTimeOff;
                     });
                     if (isSlotAvailable) {
                         // Format as HH:MM string

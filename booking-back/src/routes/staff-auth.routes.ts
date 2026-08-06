@@ -64,21 +64,28 @@ router.post('/set-password', async (req: AuthRequest, res: Response) => {
     // Verify the token is valid
     const staff = await prisma.staff.findUnique({
       where: { id: staffId },
-      select: { verificationToken: true, emailVerified: true },
+      select: {
+        verificationToken: true,
+        verificationTokenExpiresAt: true,
+        emailVerified: true,
+      },
     })
 
     if (!staff) {
       return res.status(404).json({ error: 'Staff member not found' })
     }
 
-    if (staff.emailVerified) {
-      return res.status(400).json({ error: 'Email already verified' })
-    }
-
     if (staff.verificationToken !== verificationToken) {
       return res.status(400).json({ error: 'Invalid verification token' })
     }
 
+    if (!staff.verificationTokenExpiresAt || staff.verificationTokenExpiresAt <= new Date()) {
+      return res.status(400).json({ error: 'Verification token expired. Please request a new email.' })
+    }
+
+    // Email verification and password setup are two steps. The verification
+    // page marks the email verified; this endpoint consumes the still-valid
+    // token to authorize the initial password creation.
     // Set password
     const updatedStaff = await staffAuthService.setPassword(staffId, password)
 
@@ -216,6 +223,7 @@ router.get('/verify', async (req: AuthRequest, res: Response) => {
         avatar: true,
         role: true,
         businessId: true,
+        staffCode: true,
       },
     })
 

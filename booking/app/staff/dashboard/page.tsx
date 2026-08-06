@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { AlertCircle, Calendar, Clock, LogOut, Copy, Link as LinkIcon, User, Mail, Phone, Loader } from 'lucide-react'
+import { AlertCircle, Calendar, CheckCircle, Clock, Copy, Link as LinkIcon, User, Mail, Loader } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { StaffSidebar } from '@/components/StaffSidebar'
 
 interface Staff {
   id: string
@@ -16,6 +17,7 @@ interface Staff {
   avatar?: string
   role: string
   businessId: string
+  staffCode: string
 }
 
 interface Booking {
@@ -62,30 +64,47 @@ export default function StaffDashboard() {
         }
 
         const verifyData = await verifyResponse.json()
-        setStaff(verifyData.staff)
+        const authenticatedStaff = verifyData.staff as Staff
+        setStaff(authenticatedStaff)
 
-        // Get staff code for booking link
-        const staffResponse = await fetch(`${API_URL}/api/staff/code/${verifyData.staff.id}`, {
-          credentials: 'include',
-        })
-
-        if (staffResponse.ok) {
-          const staffData = await staffResponse.json()
-          setStaffCode(staffData.staffCode)
+        // Prefer the auth response, with a correctly addressed ID lookup as a
+        // compatibility fallback for an already-running backend process.
+        let resolvedStaffCode = authenticatedStaff.staffCode
+        if (!resolvedStaffCode) {
+          const staffResponse = await fetch(`${API_URL}/api/staff/${authenticatedStaff.id}`, {
+            credentials: 'include',
+          })
+          if (staffResponse.ok) {
+            const staffData = await staffResponse.json()
+            resolvedStaffCode = staffData.staffCode || staffData.staff?.staffCode || ''
+          }
         }
+        setStaffCode(resolvedStaffCode)
 
         // Get bookings
-        const bookingsResponse = await fetch(
-          `${API_URL}/api/staff/${verifyData.staff.id}/bookings`,
-          {
-            credentials: 'include',
-          }
+        // Use the public staff-code route first because it is available on
+        // both the current and older backend processes.
+        let bookingsResponse = await fetch(
+          resolvedStaffCode
+            ? `${API_URL}/api/staff/code/${resolvedStaffCode}/bookings`
+            : `${API_URL}/api/staff/${authenticatedStaff.id}/bookings`,
+          { credentials: 'include' }
         )
 
-        if (bookingsResponse.ok) {
-          const bookingsData = await bookingsResponse.json()
-          setBookings(Array.isArray(bookingsData) ? bookingsData : bookingsData.bookings || [])
+        // Fall back to the authenticated endpoint when the code route is unavailable.
+        if (!bookingsResponse.ok && resolvedStaffCode) {
+          bookingsResponse = await fetch(
+            `${API_URL}/api/staff/${authenticatedStaff.id}/bookings`,
+            { credentials: 'include' }
+          )
         }
+
+        if (!bookingsResponse.ok) {
+          throw new Error('Failed to load staff bookings')
+        }
+
+        const bookingsData = await bookingsResponse.json()
+        setBookings(Array.isArray(bookingsData) ? bookingsData : bookingsData.bookings || [])
       } catch (err: any) {
         console.error('Error loading dashboard:', err)
         setError('Failed to load dashboard data')
@@ -128,6 +147,10 @@ export default function StaffDashboard() {
     })
   }
 
+  const upcomingBookings = bookings.filter((booking) => !['COMPLETED', 'CANCELLED'].includes(booking.status)).length
+  const completedBookings = bookings.filter((booking) => booking.status === 'COMPLETED').length
+  const pendingBookings = bookings.filter((booking) => ['PENDING', 'UNVERIFIED'].includes(booking.status)).length
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -158,19 +181,10 @@ export default function StaffDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Staff Dashboard</h1>
-            <p className="text-muted-foreground mt-1">Welcome, {staff.firstName}!</p>
-          </div>
-          <Button variant="outline" onClick={handleLogout} className="gap-2">
-            <LogOut className="w-4 h-4" />
-            Logout
-          </Button>
-        </div>
+    <div className="min-h-screen bg-background">
+      <StaffSidebar staff={staff} staffCode={staffCode} onLogout={handleLogout} />
+      <main className="min-w-0 px-4 pb-10 pt-20 md:ml-72 md:px-8 md:pt-10">
+        <div className="mx-auto max-w-5xl">
 
         {error && (
           <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex gap-2">
@@ -179,8 +193,42 @@ export default function StaffDashboard() {
           </div>
         )}
 
+        {/* Overview */}
+        <div className="mb-8 flex items-end justify-between gap-4 pl-12 md:pl-0">
+          <div>
+            <p className="text-sm font-medium text-primary">Staff workspace</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="mt-2 text-muted-foreground">Track your appointments and share your booking page.</p>
+          </div>
+          <Button asChild className="hidden sm:flex">
+            <Link href={staffCode ? `/staff/${staffCode}/bookings` : '/staff/dashboard'}>
+              View bookings
+            </Link>
+          </Button>
+        </div>
+
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: 'Total bookings', value: bookings.length, icon: Calendar, tone: 'bg-primary/10 text-primary' },
+            { label: 'Upcoming', value: upcomingBookings, icon: Clock, tone: 'bg-blue-500/10 text-blue-700' },
+            { label: 'Completed', value: completedBookings, icon: CheckCircle, tone: 'bg-emerald-500/10 text-emerald-700' },
+            { label: 'Needs attention', value: pendingBookings, icon: AlertCircle, tone: 'bg-amber-500/10 text-amber-700' },
+          ].map((stat) => {
+            const Icon = stat.icon
+            return (
+              <Card key={stat.label} className="border-border bg-card p-5 shadow-sm">
+                <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl ${stat.tone}`}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <p className="text-sm text-muted-foreground">{stat.label}</p>
+                <p className="mt-1 text-3xl font-bold tracking-tight">{stat.value}</p>
+              </Card>
+            )
+          })}
+        </div>
+
         {/* Profile Card */}
-        <Card className="mb-8 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+        <Card id="profile" className="mb-8 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
           <CardHeader>
             <CardTitle>Your Profile</CardTitle>
           </CardHeader>
@@ -225,22 +273,34 @@ export default function StaffDashboard() {
                   <LinkIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="text-sm text-muted-foreground truncate">
-                      {typeof window !== 'undefined'
+                      {staffCode && typeof window !== 'undefined'
                         ? `${window.location.origin}/staff/${staffCode}/book`
-                        : 'Loading...'}
+                        : 'Booking link is loading...'}
                     </p>
                   </div>
                 </div>
-                <Button size="sm" variant="outline" onClick={copyBookingLink} className="ml-2 flex-shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={copyBookingLink}
+                  disabled={!staffCode}
+                  className="ml-2 flex-shrink-0"
+                >
                   <Copy className="w-4 h-4" />
                 </Button>
               </div>
               <div className="space-y-2">
-                <Button className="w-full" asChild>
-                  <Link href={`/staff/${staffCode}/bookings`}>
-                    View Your Bookings
-                  </Link>
-                </Button>
+                {staffCode ? (
+                  <Button className="w-full" asChild>
+                    <Link href={`/staff/${staffCode}/bookings`}>
+                      View Your Bookings
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button className="w-full" disabled>
+                    Loading booking code...
+                  </Button>
+                )}
               </div>
             </div>
           </CardContent>
@@ -310,7 +370,8 @@ export default function StaffDashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </main>
     </div>
   )
 }

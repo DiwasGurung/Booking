@@ -26,14 +26,14 @@ router.post('/esewa/initiate', auth, initiateEsewaPayment);
  * @desc Handle eSewa payment success callback
  * @access Public (eSewa redirects here)
  */
-router.get('/esewa/success', handleEsewaSuccess);
+router.get('/esewa/success',auth, handleEsewaSuccess);
 
 /**
  * @route GET /api/subscription-payment/esewa/failure
  * @desc Handle eSewa payment failure callback
  * @access Public (eSewa redirects here)
  */
-router.get('/esewa/failure', handleEsewaFailure);
+router.get('/esewa/failure',auth, handleEsewaFailure);
 
 /**
  * @route GET /api/subscription-payment/usage/:businessId

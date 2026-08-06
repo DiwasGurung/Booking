@@ -17,7 +17,8 @@ export default function LayoutClient({
     const isDashboard = pathname?.startsWith('/dashboard') || pathname?.startsWith('/bookings') || pathname?.startsWith('/subscription')
     const isAuthPage = pathname === '/login' || pathname === '/signup'  || pathname === '/staff/login'
     const isPublicBooking = pathname?.startsWith('/book/')
-    const headerHidden = isDashboard || isAuthPage || isPublicBooking
+    const isStaff = pathname?.startsWith('/staff/') 
+    const headerHidden = isDashboard || isAuthPage || isPublicBooking || isStaff
 
     const body = document.body
     

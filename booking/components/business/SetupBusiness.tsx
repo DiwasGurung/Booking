@@ -386,7 +386,7 @@ export const SetupBusinessForm = () => {
       </div>
     </div>
 
-    {/* Zip / Postal Code */}
+    {/* Zip / Postal Code
     <div className="space-y-2">
       <Label htmlFor="zipCode" className="text-sm font-medium">
         Zip / Postal Code *
@@ -399,7 +399,7 @@ export const SetupBusinessForm = () => {
         placeholder="12345"
         required
       />
-    </div>
+    </div> */}
 
     
   </div>

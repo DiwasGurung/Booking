@@ -23,6 +23,7 @@ export const Header = () => {
   const isDashboard = pathname?.startsWith('/dashboard') || pathname?.startsWith('/bookings') || pathname?.startsWith('/subscription')
   const isAuthPage = pathname === '/login' || pathname === '/signup' || pathname === '/staff/login'
   const isPublicBooking = pathname?.startsWith('/book/')
+  const isStaff = pathname?.startsWith('/staff/')
 
   const handleLogout = async () => {
     try {
@@ -44,7 +45,7 @@ export const Header = () => {
     return null
   }
 
-  if (isDashboard || isAuthPage || isPublicBooking) {
+  if (isDashboard || isAuthPage || isPublicBooking || isStaff) {
     return null
   }
 

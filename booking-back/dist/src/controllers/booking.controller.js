@@ -153,7 +153,7 @@ class BookingController {
                         customerEmail,
                         customerPhone: customerPhone || '',
                         notes: notes || '',
-                        BookingStatus: 'UNVERIFIED',
+                        status: 'UNVERIFIED',
                         isEmailVerified: false,
                         verificationToken,
                         verificationTokenExpires,
@@ -804,7 +804,7 @@ class BookingController {
                     emailWarnings.push('Unable to notify business owner due to email delivery issue');
                 }
                 // Send verification email only for NEW customers (existing customers are auto-confirmed)
-                if (isNewCustomer) {
+                if (isNewCustomer && verificationToken) {
                     try {
                         const staffName = booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined;
                         const verificationSent = yield email_service_1.emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
@@ -863,7 +863,8 @@ class BookingController {
     verifyBookingEmail(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const { token } = req.params;
+                const tokenParam = req.params.token;
+                const token = Array.isArray(tokenParam) ? tokenParam[0] : tokenParam;
                 if (!token) {
                     return res.status(400).json({
                         success: false,
