@@ -1,6 +1,7 @@
 // constants/businessCategories.ts
 export const BUSINESS_CATEGORIES = [
-  "Salon",
+  "Hair Salon",
+  "Nails Salon",
   "Spa",
   "Gym",
   "Fitness Trainer",

@@ -31,6 +31,16 @@ interface BusinessFormData {
   website: string
   description: string
 }
+const NEPAL_DISTRICTS = [
+  'Kathmandu', 'Bhaktapur', 'Lalitpur', 'Pokhara', 'Biratnagar', 'Janakpur', 'Butwal', 'Nepalgunj',
+  'Dharan', 'Itahari', 'Birgunj', 'Chitwan', 'Jhapa', 'Morang', 'Sunsari', 'Illam', 'Panchthar',
+  'Taplejung', 'Dhankuta', 'Khotang', 'Udayapur', 'Okhaldhunga', 'Sindhuli', 'Ramechhap', 'Dolakha',
+  'Nuwakot', 'Rasuwa', 'Sindhpalchok', 'Kavre', 'Makwanpur', 'Rautahat', 'Bara', 'Parsa', 'Saptari',
+  'Sarlahi', 'Mahottari', 'Dhanusa', 'Banke', 'Bardiya', 'Kailali', 'Kanchanpur', 'Doti', 'Achham',
+  'Baitadi', 'Dadeldhura', 'Bajhang', 'Bajura', 'Humla', 'Jumla', 'Kalikot', 'Mugu', 'Gorkha',
+  'Lamjung', 'Tanahu', 'Syangja', 'Palpa', 'Nawalparasi', 'Rupandehi', 'Arghakhanchi', 'Gulmi',
+  'Pyuthan', 'Baglung', 'Myagdi', 'Parbat', 'Dolpa', 'Mustang', 'Manang',
+]
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
 
@@ -51,7 +61,7 @@ export const SetupBusinessForm = () => {
     city: "",
     state: "",
     zipCode: "",
-    country: "",
+    country: "Nepal",
     website: "",
     description: "",
   })
@@ -309,87 +319,91 @@ export const SetupBusinessForm = () => {
             </div>
           )}
 
-          {/* STEP 2: Location */}
           {currentStep === "location" && (
-            <div className="bg-card/50 border border-border rounded-lg p-6 space-y-4">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground mb-1">Business Location</h2>
-                <p className="text-sm text-muted-foreground">Where is your business located?</p>
-              </div>
+  <div className="bg-card/50 border border-border rounded-lg p-6 space-y-4">
+    <div>
+      <h2 className="text-lg font-semibold text-foreground mb-1">Business Location</h2>
+      <p className="text-sm text-muted-foreground">Where is your business located?</p>
+    </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="address" className="text-sm font-medium">
-                  Street Address *
-                </Label>
-                <Input
-                  id="address"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  placeholder="123 Business Street"
-                  required
-                />
-              </div>
+    <div className="space-y-2">
+      <Label htmlFor="address" className="text-sm font-medium">
+        Street Address *
+      </Label>
+      <Input
+        id="address"
+        name="address"
+        value={formData.address}
+        onChange={handleChange}
+        placeholder="123 Business Street"
+        required
+      />
+    </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="city" className="text-sm font-medium">
-                    City *
-                  </Label>
-                  <Input
-                    id="city"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                    placeholder="City"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="state" className="text-sm font-medium">
-                    State / Province *
-                  </Label>
-                  <Input
-                    id="state"
-                    name="state"
-                    value={formData.state}
-                    onChange={handleChange}
-                    placeholder="State"
-                    required
-                  />
-                </div>
-              </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* City Dropdown */}
+      <div className="space-y-2">
+        <Label htmlFor="city" className="text-sm font-medium">
+          City *
+        </Label>
+        <Select
+          value={formData.city}
+          onValueChange={(value) => setFormData((prev) => ({ ...prev, city: value }))}
+        >
+          <SelectTrigger id="city">
+            <SelectValue placeholder="Select a city" />
+          </SelectTrigger>
+          <SelectContent>
+            {NEPAL_DISTRICTS.map((district) => (
+              <SelectItem key={district} value={district}>
+                {district}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="zipCode" className="text-sm font-medium">
-                    Zip / Postal Code *
-                  </Label>
-                  <Input
-                    id="zipCode"
-                    name="zipCode"
-                    value={formData.zipCode}
-                    onChange={handleChange}
-                    placeholder="12345"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="country" className="text-sm font-medium">
-                    Country *
-                  </Label>
-                  <Input
-                    id="country"
-                    name="country"
-                    value={formData.country}
-                    onChange={handleChange}
-                    placeholder="Country"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+      {/* State Dropdown */}
+      <div className="space-y-2">
+        <Label htmlFor="state" className="text-sm font-medium">
+          State / Province *
+        </Label>
+        <Select
+          value={formData.state}
+          onValueChange={(value) => setFormData((prev) => ({ ...prev, state: value }))}
+        >
+          <SelectTrigger id="state">
+            <SelectValue placeholder="Select a state" />
+          </SelectTrigger>
+          <SelectContent>
+            {NEPAL_DISTRICTS.map((district) => (
+              <SelectItem key={district} value={district}>
+                {district}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+
+    {/* Zip / Postal Code */}
+    <div className="space-y-2">
+      <Label htmlFor="zipCode" className="text-sm font-medium">
+        Zip / Postal Code *
+      </Label>
+      <Input
+        id="zipCode"
+        name="zipCode"
+        value={formData.zipCode}
+        onChange={handleChange}
+        placeholder="12345"
+        required
+      />
+    </div>
+
+    
+  </div>
+)}
 
           {/* STEP 3: Additional Details */}
           {currentStep === "details" && (
@@ -475,10 +489,6 @@ export const SetupBusinessForm = () => {
                   <div>
                     <p className="text-muted-foreground">Zip Code</p>
                     <p className="font-medium">{formData.zipCode || "—"}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Country</p>
-                    <p className="font-medium">{formData.country || "—"}</p>
                   </div>
                 </div>
 
