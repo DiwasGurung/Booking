@@ -22,6 +22,32 @@ const VerificationStatusSchema = z.object({
   staffId: z.string().min(1, 'Staff ID is required'),
 })
 
+const RequestVerificationSchema = z.object({
+  email: z.string().email('A valid email is required'),
+})
+
+/**
+ * Request a first-login verification email
+ */
+staffVerificationRoutes.post('/request', async (req: Request, res: Response) => {
+  try {
+    const validation = parseAndValidate(RequestVerificationSchema, req.body)
+    if (isValidationError(validation)) {
+      return res.status(400).json({ message: validation.error })
+    }
+
+    const result = await staffVerificationService.requestVerificationEmail(validation.data.email)
+    return res.status(result.status === 'not_found' ? 404 : 200).json(result)
+  } catch (error: any) {
+    console.error('[v0] Error requesting verification email:', error)
+    return res.status(500).json({
+      success: false,
+      status: 'error',
+      message: 'Unable to send the verification email right now. Please try again.',
+    })
+  }
+})
+
 /**
  * Verify staff email with token
  */

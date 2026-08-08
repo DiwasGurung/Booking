@@ -186,9 +186,12 @@ export function StaffLoginForm() {
         <div className="text-center text-sm">
           <p className="text-muted-foreground">
             First time logging in?{" "}
-            <Link href="/staff/verify-email" className="text-primary hover:underline font-medium">
-              Verify your email
-            </Link>
+            <Link
+                href={formData.email ? `/staff/verify-email?email=${encodeURIComponent(formData.email)}` : '/staff/verify-email'}
+                className="text-primary hover:underline font-medium"
+              >
+                Verify your email
+              </Link>
           </p>
         </div>
 

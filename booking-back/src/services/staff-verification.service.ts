@@ -55,6 +55,26 @@ class StaffVerificationService {
   }
 
   /**
+   * Send a fresh first-login verification link by email.
+   */
+  async requestVerificationEmail(email: string) {
+    const staff = await prisma.staff.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    })
+
+    if (!staff) {
+      return { success: false, status: 'not_found' as const, message: 'No staff account was found for this email address.' }
+    }
+
+    if (staff.emailVerified) {
+      return { success: true, status: 'already_verified' as const, message: 'This email address is already verified. You can log in or reset your password.' }
+    }
+
+    await this.sendVerificationEmail(staff.id, staff.email, staff.firstName, staff.businessId)
+    return { success: true, status: 'sent' as const, message: 'Verification email sent. Please check your inbox.' }
+  }
+
+  /**
    * Verify staff email with token
    */
   async verifyEmail(token: string, staffId?: string) {

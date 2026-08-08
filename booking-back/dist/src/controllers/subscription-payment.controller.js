@@ -18,14 +18,25 @@ exports.getSubscriptionPlans = exports.checkSubscriptionLimit = exports.getSubsc
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const esewa_service_1 = __importDefault(require("../services/esewa.service"));
 const subscription_service_1 = __importDefault(require("../services/subscription.service"));
+const billing_1 = require("../utils/billing");
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+function getExpectedSubscriptionAmount(subscription, plan) {
+    var _a, _b, _c, _d, _e;
+    return (0, billing_1.getPriceForPeriod)((_a = plan.priceMonthlyNPR) !== null && _a !== void 0 ? _a : 0, subscription.billingPeriod, {
+        monthly: (_b = plan.priceMonthlyNPR) !== null && _b !== void 0 ? _b : undefined,
+        quarterly: (_c = plan.priceQuarterlyNPR) !== null && _c !== void 0 ? _c : undefined,
+        semiAnnual: (_d = plan.priceSemiAnnualNPR) !== null && _d !== void 0 ? _d : undefined,
+        annual: (_e = plan.priceAnnualNPR) !== null && _e !== void 0 ? _e : undefined,
+    });
+}
 /**
  * Initiate subscription payment with eSewa
  */
 const initiateEsewaPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d, _e;
     try {
-        const { businessId, planId, billingPeriod = 'MONTHLY' } = req.body;
+        const { businessId, planId, billingPeriod = billing_1.BillingPeriod.MONTHLY } = req.body;
         if (!businessId || !planId) {
             return res.status(400).json({ error: 'Business ID and Plan ID are required' });
         }
@@ -36,13 +47,12 @@ const initiateEsewaPayment = (req, res) => __awaiter(void 0, void 0, void 0, fun
         if (!plan) {
             return res.status(404).json({ error: 'Subscription plan not found' });
         }
-        // Import billing utility to calculate price
-        const { getPriceForPeriod, getDurationDays } = require('../utils/billing');
-        const priceNPR = getPriceForPeriod(plan.priceMonthlyNPR, billingPeriod, {
-            monthly: plan.priceMonthlyNPR,
-            quarterly: plan.priceQuarterlyNPR,
-            semiAnnual: plan.priceSemiAnnualNPR,
-            annual: plan.priceAnnualNPR,
+        const { getDurationDays } = require('../utils/billing');
+        const priceNPR = (0, billing_1.getPriceForPeriod)((_a = plan.priceMonthlyNPR) !== null && _a !== void 0 ? _a : 0, billingPeriod, {
+            monthly: (_b = plan.priceMonthlyNPR) !== null && _b !== void 0 ? _b : undefined,
+            quarterly: (_c = plan.priceQuarterlyNPR) !== null && _c !== void 0 ? _c : undefined,
+            semiAnnual: (_d = plan.priceSemiAnnualNPR) !== null && _d !== void 0 ? _d : undefined,
+            annual: (_e = plan.priceAnnualNPR) !== null && _e !== void 0 ? _e : undefined,
         });
         // Get or create subscription
         let subscription = yield prisma_1.default.subscription.findUnique({
@@ -113,15 +123,26 @@ const handleEsewaSuccess = (req, res) => __awaiter(void 0, void 0, void 0, funct
             console.error('[SubscriptionPayment] Failed to decode eSewa response');
             return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Invalid response signature`);
         }
-        const { transaction_uuid, status, total_amount, transaction_code } = decoded.data;
+        const { transaction_uuid, status, total_amount, transaction_code, product_code } = decoded.data;
+        const parsedTotalAmount = Number.parseFloat(total_amount);
+        if (status !== 'COMPLETE' || !Number.isFinite(parsedTotalAmount) || parsedTotalAmount <= 0) {
+            return res.redirect(`${FRONTEND_URL}/subscription?status=failed&message=Payment was not completed`);
+        }
+        if (product_code !== esewa_service_1.default.getProductCode()) {
+            return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Invalid product code`);
+        }
         console.log('[SubscriptionPayment] eSewa success callback:', {
             transactionUuid: transaction_uuid,
             status,
-            totalAmount: total_amount,
+            totalAmount: parsedTotalAmount,
             transactionCode: transaction_code,
         });
-        // Find the subscription using the transaction UUID
-        const subscriptionId = transaction_uuid.split('-')[1];
+        // Find the subscription using the transaction UUID format SUB-{subscriptionId}-{timestamp}
+        const transactionPrefix = 'SUB-';
+        if (!transaction_uuid.startsWith(transactionPrefix)) {
+            return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Invalid transaction reference`);
+        }
+        const subscriptionId = transaction_uuid.slice(transactionPrefix.length).replace(/-\d+$/, '');
         const subscription = yield prisma_1.default.subscription.findUnique({
             where: { id: subscriptionId },
             include: { plan: true },
@@ -131,12 +152,24 @@ const handleEsewaSuccess = (req, res) => __awaiter(void 0, void 0, void 0, funct
             return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Subscription not found`);
         }
         // Verify with eSewa server (server-to-server verification)
-        const verification = yield esewa_service_1.default.verifyPayment(transaction_uuid, parseFloat(total_amount));
+        const verification = yield esewa_service_1.default.verifyPayment(transaction_uuid, parsedTotalAmount);
         if (!verification.success) {
             console.error('[SubscriptionPayment] eSewa verification failed:', verification.message);
             return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Payment verification failed`);
         }
-        // Create payment record AFTER successful verification
+        if (verification.productCode !== product_code || verification.totalAmount !== parsedTotalAmount) {
+            return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Payment amount verification failed`);
+        }
+        const expectedAmount = getExpectedSubscriptionAmount(subscription, subscription.plan);
+        if (expectedAmount !== parsedTotalAmount) {
+            console.error('[SubscriptionPayment] Amount mismatch:', { expectedAmount, parsedTotalAmount });
+            return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Payment amount does not match the selected plan`);
+        }
+        // Create payment record AFTER successful verification; transactionId is unique.
+        const existingPayment = yield prisma_1.default.payment.findUnique({ where: { transactionId: transaction_uuid } });
+        if (existingPayment) {
+            return res.redirect(`${FRONTEND_URL}/subscription?status=success&message=Payment already processed`);
+        }
         const payment = yield prisma_1.default.payment.create({
             data: {
                 businessId: subscription.businessId,
@@ -212,18 +245,18 @@ const getSubscriptionUsage = (req, res) => __awaiter(void 0, void 0, void 0, fun
         const [appointmentsCount, staffCount, servicesCount, customersCount] = yield Promise.all([
             prisma_1.default.booking.count({
                 where: {
-                    businessId: id,
+                    businessId,
                     createdAt: { gte: startOfMonth },
                 },
             }),
             prisma_1.default.staff.count({
-                where: { businessId: id, isActive: true },
+                where: { businessId, isActive: true },
             }),
             prisma_1.default.service.count({
-                where: { businessId: id, isActive: true },
+                where: { businessId, isActive: true },
             }),
             prisma_1.default.customer.count({
-                where: { businessId: id },
+                where: { businessId },
             }),
         ]);
         const plan = subscription.plan;
@@ -299,7 +332,7 @@ const checkSubscriptionLimit = (req, res) => __awaiter(void 0, void 0, void 0, f
                     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
                     currentUsage = yield prisma_1.default.booking.count({
                         where: {
-                            businessId: id,
+                            businessId,
                             createdAt: { gte: startOfMonth },
                         },
                     });
@@ -311,7 +344,7 @@ const checkSubscriptionLimit = (req, res) => __awaiter(void 0, void 0, void 0, f
             case 'add-staff':
                 if (plan.maxStaff !== -1) {
                     currentUsage = yield prisma_1.default.staff.count({
-                        where: { businessId: id, isActive: true },
+                        where: { businessId, isActive: true },
                     });
                     limit = plan.maxStaff;
                     allowed = currentUsage < limit;
@@ -321,7 +354,7 @@ const checkSubscriptionLimit = (req, res) => __awaiter(void 0, void 0, void 0, f
             case 'add-service':
                 if (plan.maxServices !== -1) {
                     currentUsage = yield prisma_1.default.service.count({
-                        where: { businessId: id, isActive: true },
+                        where: { businessId, isActive: true },
                     });
                     limit = plan.maxServices;
                     allowed = currentUsage < limit;
@@ -331,7 +364,7 @@ const checkSubscriptionLimit = (req, res) => __awaiter(void 0, void 0, void 0, f
             case 'add-customer':
                 if (plan.maxCustomers !== -1) {
                     currentUsage = yield prisma_1.default.customer.count({
-                        where: { businessId: id },
+                        where: { businessId },
                     });
                     limit = plan.maxCustomers;
                     allowed = currentUsage < limit;

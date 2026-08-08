@@ -63,17 +63,24 @@ router.post('/set-password', (req, res) => __awaiter(void 0, void 0, void 0, fun
         // Verify the token is valid
         const staff = yield prisma_1.default.staff.findUnique({
             where: { id: staffId },
-            select: { verificationToken: true, emailVerified: true },
+            select: {
+                verificationToken: true,
+                verificationTokenExpiresAt: true,
+                emailVerified: true,
+            },
         });
         if (!staff) {
             return res.status(404).json({ error: 'Staff member not found' });
         }
-        if (staff.emailVerified) {
-            return res.status(400).json({ error: 'Email already verified' });
-        }
         if (staff.verificationToken !== verificationToken) {
             return res.status(400).json({ error: 'Invalid verification token' });
         }
+        if (!staff.verificationTokenExpiresAt || staff.verificationTokenExpiresAt <= new Date()) {
+            return res.status(400).json({ error: 'Verification token expired. Please request a new email.' });
+        }
+        // Email verification and password setup are two steps. The verification
+        // page marks the email verified; this endpoint consumes the still-valid
+        // token to authorize the initial password creation.
         // Set password
         const updatedStaff = yield staff_auth_service_1.staffAuthService.setPassword(staffId, password);
         // Clear verification token
@@ -197,6 +204,7 @@ router.get('/verify', (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 avatar: true,
                 role: true,
                 businessId: true,
+                staffCode: true,
             },
         });
         if (!staff) {

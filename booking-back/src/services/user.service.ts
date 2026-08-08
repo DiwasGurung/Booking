@@ -1,5 +1,7 @@
 import prisma  from "../lib/prisma"
 import bcrypt from "bcrypt"
+import { emailService } from "./email.service"
+import crypto from "crypto"
 
 
 export const userService = {
@@ -265,6 +267,40 @@ export const userService = {
       include: {
         business: true,
       },
+    })
+  },
+
+  async requestPasswordReset(email: string) {
+    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } })
+    const message = 'If an account exists, a reset link has been sent to the email'
+    if (!user) return { message }
+
+    const resetToken = crypto.randomBytes(32).toString('hex')
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: resetToken,
+        passwordResetExpiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      },
+    })
+
+    await emailService.sendPasswordResetEmail(user.email, resetToken, 'business')
+    return { message }
+  },
+
+  async resetPassword(resetToken: string, newPassword: string) {
+    if (newPassword.length < 8) throw new Error('Password must be at least 8 characters long')
+    const user = await prisma.user.findFirst({
+
+      where: ({ passwordResetToken: resetToken, passwordResetExpiresAt: { gt: new Date() } } as any),
+    })
+    if (!user) throw new Error('Invalid or expired reset token')
+
+    const password = await bcrypt.hash(newPassword, 10)
+    return prisma.user.update({
+      where: { id: user.id },
+      data: { password, passwordResetToken: null, passwordResetExpiresAt: null },
+      select: { id: true, email: true, firstName: true },
     })
   },
 

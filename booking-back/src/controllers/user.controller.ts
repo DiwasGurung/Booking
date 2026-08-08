@@ -13,7 +13,6 @@ export const createUser = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' })
     }
 
-    console.log('[Register] Creating user:', email)
 
     // Check if user already exists
     const existingUser = await userService.findByEmail(email)
@@ -79,12 +78,12 @@ export const loginUser = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Email and password required' })
     }
 
-    console.log('[Login] Authenticating user:', email)
+ 
 
     const user = await userService.findByEmail(email)
     if (!user) {
-      console.log('[Login] User not found:', email)
-      return res.status(401).json({ error: 'Invalid email or password' })
+    
+      return res.status(401).json({ error: 'Email not found.' })
     }
 
     // Check if email is verified
@@ -105,11 +104,10 @@ export const loginUser = async (req: AuthRequest, res: Response) => {
 
     console.log('[Login] Comparing password...')
     const isPasswordValid = await comparePassword(password, user.password)
-    console.log('[Login] Password valid:', isPasswordValid)
+ 
     
     if (!isPasswordValid) {
-      console.log('[Login] Invalid password for user:', email)
-      return res.status(401).json({ error: 'Invalid email or password' })
+      return res.status(401).json({ error: 'Invalid password' })
     }
 
     const token = generateToken(user.id)
@@ -139,7 +137,32 @@ export const loginUser = async (req: AuthRequest, res: Response) => {
     })
   } catch (error: any) {
     console.error('[Login Error]', error.message)
-    res.status(500).json({ error: 'Login failed' })
+    res.status(500).json({ error: 'Invalid email or password.' })
+  }
+}
+export const requestPasswordReset = async (req: AuthRequest, res: Response) => {
+  const message = 'If an account exists, a reset link has been sent to the email'
+  try {
+    const email = String(req.body.email || '').trim().toLowerCase()
+    if (!email) return res.status(400).json({ error: 'Email is required' })
+    await userService.requestPasswordReset(email)
+    return res.json({ success: true, message })
+  } catch (error) {
+    console.error('[User Auth] Password reset request failed:', error)
+    return res.json({ success: true, message })
+  }
+}
+
+export const resetPassword = async (req: AuthRequest, res: Response) => {
+  try {
+    const { resetToken, password, passwordConfirm } = req.body
+    if (!resetToken || !password || password !== passwordConfirm) {
+      return res.status(400).json({ error: 'Valid token and matching passwords are required' })
+    }
+    await userService.resetPassword(resetToken, password)
+    return res.json({ success: true, message: 'Password reset successfully' })
+  } catch (error: any) {
+    return res.status(400).json({ error: error.message || 'Failed to reset password' })
   }
 }
 

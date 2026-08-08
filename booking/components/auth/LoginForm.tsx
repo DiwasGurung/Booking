@@ -39,7 +39,6 @@ export const LoginForm = () => {
         return
       }
 
-      console.log("[v0] Attempting login for:", email)
 
       // Call the centralized login function from auth.ts
       const result = await login(email, password)
@@ -55,7 +54,7 @@ export const LoginForm = () => {
           return
         }
 
-        console.log("[v0] Login failed:", result.message)
+      
         setError(result.message || "Invalid email or password")
         setIsLoading(false)
         return
@@ -69,8 +68,7 @@ export const LoginForm = () => {
       // Small delay to ensure context updates before navigation
       await new Promise(resolve => setTimeout(resolve, 500))
 
-      console.log("[v0] Login completed, determining redirect path...")
-      console.log("[v0] User:", user, "User role:", result.user?.role, "returnTo:", returnTo)
+
 
       // If returnTo is specified (e.g., from home page "Setup Business" button), use it
       if (returnTo) {
@@ -268,6 +266,12 @@ export const LoginForm = () => {
 
           <div className="mt-6 pt-6 border-t border-border space-y-4">
             <p className="text-xs text-muted-foreground text-center">🔒 Your data is secure and encrypted</p>
+
+            <div className="text-center">
+              <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+                Forgot your password?
+              </Link>
+            </div>
 
             <div className="text-center text-sm">
               <p className="text-muted-foreground">

@@ -17,13 +17,13 @@ router.post('/esewa/initiate', auth_middleware_1.auth, subscription_payment_cont
  * @desc Handle eSewa payment success callback
  * @access Public (eSewa redirects here)
  */
-router.get('/esewa/success', subscription_payment_controller_1.handleEsewaSuccess);
+router.get('/esewa/success', auth_middleware_1.auth, subscription_payment_controller_1.handleEsewaSuccess);
 /**
  * @route GET /api/subscription-payment/esewa/failure
  * @desc Handle eSewa payment failure callback
  * @access Public (eSewa redirects here)
  */
-router.get('/esewa/failure', subscription_payment_controller_1.handleEsewaFailure);
+router.get('/esewa/failure', auth_middleware_1.auth, subscription_payment_controller_1.handleEsewaFailure);
 /**
  * @route GET /api/subscription-payment/usage/:businessId
  * @desc Get subscription usage and limits

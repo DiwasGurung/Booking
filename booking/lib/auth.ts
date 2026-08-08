@@ -46,7 +46,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
           user: { email } as any
         }
       }
-      return { success: false, message: data.message || 'Login failed' }
+      return { success: false, message: data.error || 'Login failed' }
     }
 
     return { success: true, user: data.user || data.data }

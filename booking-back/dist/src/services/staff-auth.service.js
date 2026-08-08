@@ -17,6 +17,7 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const crypto_1 = __importDefault(require("crypto"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
+const email_service_1 = require("./email.service");
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const SALT_ROUNDS = 10;
 class StaffAuthService {
@@ -158,8 +159,7 @@ class StaffAuthService {
                     passwordResetExpiresAt: resetTokenExpiry,
                 },
             });
-            // TODO: Send password reset email
-            console.log('[v0] Password reset token generated for:', email);
+            yield email_service_1.emailService.sendPasswordResetEmail(staff.email, resetToken, 'staff');
             return { message: 'If an account exists, a reset link has been sent' };
         });
     }

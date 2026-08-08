@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resendVerificationEmail = exports.verifyEmail = exports.getCurrentUser = exports.updateProfile = exports.changePassword = exports.logoutUser = exports.updateUserRole = exports.loginUser = exports.createUser = void 0;
+exports.resendVerificationEmail = exports.verifyEmail = exports.getCurrentUser = exports.updateProfile = exports.changePassword = exports.logoutUser = exports.updateUserRole = exports.resetPassword = exports.requestPasswordReset = exports.loginUser = exports.createUser = void 0;
 const user_service_1 = require("../services/user.service");
 const auth_1 = require("../utils/auth");
 const email_service_1 = require("../services/email.service");
@@ -19,7 +19,6 @@ const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         if (!email || !password || !firstName || !lastName) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
-        console.log('[Register] Creating user:', email);
         // Check if user already exists
         const existingUser = yield user_service_1.userService.findByEmail(email);
         if (existingUser) {
@@ -79,11 +78,9 @@ const loginUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password required' });
         }
-        console.log('[Login] Authenticating user:', email);
         const user = yield user_service_1.userService.findByEmail(email);
         if (!user) {
-            console.log('[Login] User not found:', email);
-            return res.status(401).json({ error: 'Invalid email or password' });
+            return res.status(401).json({ error: 'Email not found.' });
         }
         // Check if email is verified
         if (!user.isEmailVerified) {
@@ -100,10 +97,8 @@ const loginUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         }
         console.log('[Login] Comparing password...');
         const isPasswordValid = yield (0, auth_1.comparePassword)(password, user.password);
-        console.log('[Login] Password valid:', isPasswordValid);
         if (!isPasswordValid) {
-            console.log('[Login] Invalid password for user:', email);
-            return res.status(401).json({ error: 'Invalid email or password' });
+            return res.status(401).json({ error: 'Invalid password' });
         }
         const token = (0, auth_1.generateToken)(user.id);
         console.log('[Login] Setting auth cookie with token:', token.substring(0, 20) + '...');
@@ -132,10 +127,39 @@ const loginUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     }
     catch (error) {
         console.error('[Login Error]', error.message);
-        res.status(500).json({ error: 'Login failed' });
+        res.status(500).json({ error: 'Invalid email or password.' });
     }
 });
 exports.loginUser = loginUser;
+const requestPasswordReset = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const message = 'If an account exists, a reset link has been sent to the email';
+    try {
+        const email = String(req.body.email || '').trim().toLowerCase();
+        if (!email)
+            return res.status(400).json({ error: 'Email is required' });
+        yield user_service_1.userService.requestPasswordReset(email);
+        return res.json({ success: true, message });
+    }
+    catch (error) {
+        console.error('[User Auth] Password reset request failed:', error);
+        return res.json({ success: true, message });
+    }
+});
+exports.requestPasswordReset = requestPasswordReset;
+const resetPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { resetToken, password, passwordConfirm } = req.body;
+        if (!resetToken || !password || password !== passwordConfirm) {
+            return res.status(400).json({ error: 'Valid token and matching passwords are required' });
+        }
+        yield user_service_1.userService.resetPassword(resetToken, password);
+        return res.json({ success: true, message: 'Password reset successfully' });
+    }
+    catch (error) {
+        return res.status(400).json({ error: error.message || 'Failed to reset password' });
+    }
+});
+exports.resetPassword = resetPassword;
 const updateUserRole = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;

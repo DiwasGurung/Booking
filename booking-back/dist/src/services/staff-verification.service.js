@@ -60,16 +60,34 @@ class StaffVerificationService {
         });
     }
     /**
+     * Send a fresh first-login verification link by email.
+     */
+    requestVerificationEmail(email) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const staff = yield prisma_1.default.staff.findUnique({
+                where: { email: email.trim().toLowerCase() },
+            });
+            if (!staff) {
+                return { success: false, status: 'not_found', message: 'No staff account was found for this email address.' };
+            }
+            if (staff.emailVerified) {
+                return { success: true, status: 'already_verified', message: 'This email address is already verified. You can log in or reset your password.' };
+            }
+            yield this.sendVerificationEmail(staff.id, staff.email, staff.firstName, staff.businessId);
+            return { success: true, status: 'sent', message: 'Verification email sent. Please check your inbox.' };
+        });
+    }
+    /**
      * Verify staff email with token
      */
     verifyEmail(token, staffId) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const staff = yield prisma_1.default.staff.findUnique({
-                    where: { id: staffId },
-                });
+                const staff = staffId
+                    ? yield prisma_1.default.staff.findUnique({ where: { id: staffId } })
+                    : yield prisma_1.default.staff.findUnique({ where: { verificationToken: token } });
                 if (!staff) {
-                    throw new Error('Staff not found');
+                    throw new Error('Invalid verification link');
                 }
                 if (staff.verificationToken !== token) {
                     throw new Error('Invalid verification token');
@@ -77,17 +95,14 @@ class StaffVerificationService {
                 if (!staff.verificationTokenExpiresAt || staff.verificationTokenExpiresAt < new Date()) {
                     throw new Error('Verification token expired');
                 }
-                // Mark email as verified
+                // Keep the token until the password is set. The set-password endpoint
+                // uses this same token to authorize the first password creation.
                 yield prisma_1.default.staff.update({
-                    where: { id: staffId },
-                    data: {
-                        emailVerified: true,
-                        verificationToken: null,
-                        verificationTokenExpiresAt: null,
-                    },
+                    where: { id: staff.id },
+                    data: { emailVerified: true },
                 });
-                console.log(`[v0] Email verified for staff ${staffId}`);
-                return { success: true, message: 'Email verified successfully' };
+                console.log(`[v0] Email verified for staff ${staff.id}`);
+                return { success: true, staffId: staff.id, message: 'Email verified successfully' };
             }
             catch (error) {
                 console.error('[v0] Error verifying email:', error);
@@ -98,29 +113,22 @@ class StaffVerificationService {
     /**
      * Resend verification email
      */
-    resendVerificationEmail(staffId) {
+    resendVerificationEmail(staffId, token) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const staff = yield prisma_1.default.staff.findUnique({
-                    where: { id: staffId },
-                    include: { business: true },
-                });
+                const staff = staffId
+                    ? yield prisma_1.default.staff.findUnique({ where: { id: staffId } })
+                    : token
+                        ? yield prisma_1.default.staff.findUnique({ where: { verificationToken: token } })
+                        : null;
                 if (!staff) {
-                    throw new Error('Staff not found');
+                    throw new Error('Staff not found for this verification link');
                 }
                 if (staff.emailVerified) {
                     throw new Error('Email already verified');
                 }
-                // Check if token exists and is still valid (not expired)
-                if (staff.verificationToken && staff.verificationTokenExpiresAt && staff.verificationTokenExpiresAt > new Date()) {
-                    console.log('[v0] Using existing verification token for resend');
-                    // Send using the existing token
-                    yield email_service_1.emailService.sendStaffVerificationEmail(staff.email, staff.firstName, staff.verificationToken, staff.business.name);
-                }
-                else {
-                    // Generate new token and send
-                    yield this.sendVerificationEmail(staffId, staff.email, staff.firstName, staff.businessId);
-                }
+                // Always rotate the token so an expired or rejected link gets replaced.
+                yield this.sendVerificationEmail(staff.id, staff.email, staff.firstName, staff.businessId);
                 return { success: true, message: 'Verification email resent' };
             }
             catch (error) {

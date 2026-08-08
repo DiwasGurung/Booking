@@ -17,7 +17,7 @@ export default function SubscriptionExpiredPage() {
             <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
             <h1 className="text-2xl font-bold text-foreground mb-2">Trial Period Ended</h1>
             <p className="text-muted-foreground mb-6">
-              Your trial period has ended. To continue using BookFlow and accessing your dashboard, please upgrade to a paid plan.
+              Your trial period has ended. To continue using Appoint-Nepal and accessing your dashboard, please upgrade to a paid plan.
             </p>
 
             <div className="space-y-3">

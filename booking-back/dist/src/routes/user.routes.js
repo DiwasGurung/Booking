@@ -18,4 +18,6 @@ router.put('/password', auth_middleware_1.auth, user_controller_1.changePassword
 router.put('/profile', auth_middleware_1.auth, user_controller_1.updateProfile);
 router.post('/verify-email', user_controller_1.verifyEmail);
 router.post('/resend-verification', user_controller_1.resendVerificationEmail);
+router.post('/request-password-reset', user_controller_1.requestPasswordReset);
+router.post('/reset-password', user_controller_1.resetPassword);
 exports.default = router;

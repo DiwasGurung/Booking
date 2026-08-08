@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import  prisma from '../lib/prisma'
+import { emailService } from './email.service'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 const SALT_ROUNDS = 10
@@ -160,9 +161,7 @@ class StaffAuthService {
         passwordResetExpiresAt: resetTokenExpiry,
       },
     })
-
-    // TODO: Send password reset email
-    console.log('[v0] Password reset token generated for:', email)
+    await emailService.sendPasswordResetEmail(staff.email, resetToken, 'staff')
 
     return { message: 'If an account exists, a reset link has been sent' }
   }

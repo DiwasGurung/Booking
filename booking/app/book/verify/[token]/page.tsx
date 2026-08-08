@@ -152,7 +152,7 @@ export default function VerifyBookingPage() {
 
         {/* Footer Info */}
         <div className="mt-6 text-center text-sm text-muted-foreground">
-          <p>BookFlow - Appointment Booking System</p>
+          <p>Appoint-Nepal - Appointment Booking System</p>
         </div>
       </div>
     </div>
