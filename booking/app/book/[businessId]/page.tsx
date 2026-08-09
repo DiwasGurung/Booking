@@ -389,7 +389,7 @@ function BookingPageContent() {
 
               {/* Action Buttons */}
               <div className="space-y-3 mb-8">
-                {business?.phone && (
+                {/* {business?.phone && (
                   <a
                     href={`https://wa.me/${String(business.phone).replace(/\D/g, '')}?text=Hi%20${encodeURIComponent(String(business.name))}%2C%20I%20have%20a%20booking%20with%20ID%20${bookingId}`}
                     target="_blank"
@@ -399,7 +399,7 @@ function BookingPageContent() {
                     <MessageCircle className="w-5 h-5" />
                     Contact via WhatsApp
                   </a>
-                )}
+                )} */}
                 <Button
                   onClick={() => router.push(`/bookings/${bookingId}`)}
                   variant="outline"
