@@ -1,11 +1,32 @@
 ---
 deployment:
   tasks:
-    # 1. Deploy the Frontend (booking) to public_html
-    - export FRONTEND_PATH=/home/appointn/public_html
-    - /bin/rsync -av --delete --exclude='node_modules/' ./booking/ $FRONTEND_PATH
 
-    # 2. Deploy the Backend (booking-back)
+    # ==========================================
+    # FRONTEND
+    # ==========================================
+
+    - export FRONTEND_PATH=/home/appointn/public_html
+
+    # Build frontend
+    - cd booking && npm ci
+    - cd booking && npm run build
+
+    # Deploy static Next.js output
+    - /bin/rsync -av --delete ./booking/out/ $FRONTEND_PATH/
+
+
+    # ==========================================
+    # BACKEND
+    # ==========================================
+
     - export BACKEND_PATH=/home/appointn/booking-back
+
+    # Create backend directory
     - /bin/mkdir -p $BACKEND_PATH
-    - /bin/rsync -av --delete --exclude='node_modules/' --exclude='.env' ./booking-back/ $BACKEND_PATH
+
+    # Copy backend files
+    - /bin/rsync -av --delete \
+        --exclude='node_modules/' \
+        --exclude='.env' \
+        ./booking-back/ $BACKEND_PATH/
