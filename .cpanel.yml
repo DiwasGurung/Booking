@@ -2,4 +2,4 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/appointn/public_html/
-    - /bin/cp -R repositories/Booking/booking-front/dist-front/* $DEPLOYPATH
+    - /bin/cp -R repositories/Booking/booking/dist-front/* $DEPLOYPATH
