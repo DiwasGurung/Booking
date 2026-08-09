@@ -213,6 +213,7 @@ exports.handleEsewaSuccess = handleEsewaSuccess;
 const handleEsewaFailure = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { data } = req.query;
+        console.log('Full failure callback:', req.query);
         console.log('[SubscriptionPayment] eSewa failure callback:', { data });
         // No need to update payment records since payments are only created after successful verification
         // Failed transactions don't have payment records

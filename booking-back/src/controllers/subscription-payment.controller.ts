@@ -237,6 +237,8 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
 export const handleEsewaFailure = async (req: Request, res: Response) => {
   try {
     const { data } = req.query;
+    
+    console.log('Full failure callback:', req.query);
 
     console.log('[SubscriptionPayment] eSewa failure callback:', { data });
 

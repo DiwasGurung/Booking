@@ -139,14 +139,14 @@ export default function BusinessDashboardPage() {
       bg: 'bg-emerald-50',
       href: '/dashboard/bookings'
     },
-    {
-      title: 'Avg Rating',
-      value: stats?.averageRating?.toFixed(1) ?? '0.0',
-      icon: TrendingUp,
-      color: 'text-amber-600',
-      bg: 'bg-amber-50',
-      href: '/dashboard/analytics'
-    },
+    // {
+    //   title: 'Avg Rating',
+    //   value: stats?.averageRating?.toFixed(1) ?? '0.0',
+    //   icon: TrendingUp,
+    //   color: 'text-amber-600',
+    //   bg: 'bg-amber-50',
+    //   href: '/dashboard/analytics'
+    // },
   ]
 
   return (

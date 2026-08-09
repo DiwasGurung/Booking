@@ -6,7 +6,7 @@
   "scripts": {
     "prisma": "prisma",
     "build": "tsc",
-    "start": "node dist/index.ts",
+    "start": "node dist/src/index.js",
     "dev": "tsx src/index.ts",
     "clean": "rimraf dist node_modules/.cache"
   },
