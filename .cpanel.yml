@@ -1,32 +1,28 @@
----
 deployment:
-  tasks:
+tasks: 
 
-    # ==========================================
-    # FRONTEND
-    # ==========================================
+### 1. Prepare and deploy Frontend Standalone Server files
 
-    - export FRONTEND_PATH=/home/appointn/public_html
+* /bin/mkdir -p /home/appointn/booking-front
+* /bin/rsync -av --delete ./booking/dist-front/standalone/ /home/appointn/booking-front/
 
-    # Build frontend
-    - cd booking && npm ci
-    - cd booking && npm run build
+### 2. Deploy Frontend Public & Static assets directly to the web root
 
-    # Deploy static Next.js output
-    - /bin/rsync -av --delete ./booking/out/ $FRONTEND_PATH/
+* /bin/mkdir -p /home/appointn/public_html/dist-front
+* /bin/rsync -av ./booking/dist-front/static/ /home/appointn/public_html/dist-front/static/
+* /bin/rsync -av ./booking/public/ /home/appointn/public_html/public/
 
+### 3. Deploy the Backend (booking-back)
 
-    # ==========================================
-    # BACKEND
-    # ==========================================
+* /bin/mkdir -p /home/appointn/booking-back
+* /bin/rsync -av --delete --exclude='node_modules/' --exclude='.env' ./booking-back/ /home/appointn/booking-back
 
-    - export BACKEND_PATH=/home/appointn/booking-back
+### 4. Restart the Frontend Node.js Application
 
-    # Create backend directory
-    - /bin/mkdir -p $BACKEND_PATH
+* /bin/mkdir -p /home/appointn/booking-front/tmp
+* /bin/touch /home/appointn/booking-front/tmp/restart.txt
 
-    # Copy backend files
-    - /bin/rsync -av --delete \
-        --exclude='node_modules/' \
-        --exclude='.env' \
-        ./booking-back/ $BACKEND_PATH/
+### 5. Restart the Backend Node.js Application
+
+* /bin/mkdir -p /home/appointn/booking-back/tmp
+* /bin/touch /home/appointn/booking-back/tmp/restart.txt
