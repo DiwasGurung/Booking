@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from "react"
+import React, { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/authContext'
 import { Card } from '@/components/ui/card'
@@ -10,7 +10,7 @@ import { Search, MapPin, Phone, Globe, Loader, AlertCircle, Star, X } from 'luci
 import { businessApi, type Business } from '@/lib/api'
 import { useRoleProtection } from '@/hooks/useRoleProtection'
 
-export default function SearchPage() {
+function SearchPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { refreshUser } = useAuth()
@@ -390,5 +390,13 @@ export default function SearchPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 flex items-center justify-center">Loading...</div>}>
+      <SearchPageContent />
+    </Suspense>
   )
 }
