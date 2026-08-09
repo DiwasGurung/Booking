@@ -1,11 +1,11 @@
 ---
 deployment:
   tasks:
-    # 1. Deploy the Frontend to public_html
+    # 1. Deploy the Frontend (booking) to public_html
     - export FRONTEND_PATH=/home/appointn/public_html
-    - /bin/rsync -av --delete --exclude='node_modules/' ./frontend/ $FRONTEND_PATH
+    - /bin/rsync -av --delete --exclude='node_modules/' ./booking/ $FRONTEND_PATH
 
-    # 2. Deploy the Backend outside public_html
+    # 2. Deploy the Backend (booking-back)
     - export BACKEND_PATH=/home/appointn/booking-back
     - /bin/mkdir -p $BACKEND_PATH
-    - /bin/rsync -av --delete --exclude='node_modules/' --exclude='.env' ./backend/ $BACKEND_PATH
+    - /bin/rsync -av --delete --exclude='node_modules/' --exclude='.env' ./booking-back/ $BACKEND_PATH
