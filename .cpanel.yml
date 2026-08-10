@@ -8,16 +8,31 @@ deployment:
 
     - /bin/mkdir -p /home/appointn/booking-front
 
-    # Fixed: Removed the incorrect "./booking" prefix
-    - /bin/rsync -av --delete ./dist-front/standalone/ /home/appointn/booking-front/
+    # Fixed: Points inside the nested lowercase "booking" folder
+    - /bin/rsync -av --delete ./booking/dist-front/standalone/ /home/appointn/booking-front/
 
-    # Fixed: Corrected target path to ".next/static" so CSS works
+    # Fixed: Copies static assets to the correct .next folder
     - /bin/mkdir -p /home/appointn/booking-front/.next/static
-    - /bin/rsync -av ./dist-front/static/ /home/appointn/booking-front/.next/static/
+    - /bin/rsync -av ./booking/dist-front/static/ /home/appointn/booking-front/.next/static/
 
-    # Fixed: Corrected source path for public assets
+    # Fixed: Copies public folder assets
     - /bin/mkdir -p /home/appointn/booking-front/public
-    - /bin/rsync -av ./public/ /home/appointn/booking-front/public/
+    - /bin/rsync -av ./booking/public/ /home/appointn/booking-front/public/
+
+    # ==========================================
+    # BACKEND
+    # ==========================================
+
+    - /bin/mkdir -p /home/appointn/booking-back
+    - /bin/rsync -av --delete --exclude='node_modules/' --exclude='.env' ./booking-back/ /home/appointn/booking-back/
+
+    # ==========================================
+    # RESTART APP HOOKS
+    # ==========================================
+
+    - /bin/mkdir -p /home/appointn/booking-front/tmp
+    - /bin/touch /home/appointn/booking-front/tmp/restart.txt
+    - /bin/mkdir -p /home/appointn/booking-back/tmp
 
     # ==========================================
     # BACKEND
