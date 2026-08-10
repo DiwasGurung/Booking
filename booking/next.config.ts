@@ -4,9 +4,8 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   images: {
     unoptimized: true, 
-    // Prevents image optimization errors on static exports
+
   },
-   distDir: 'dist-front',
   async headers() {
     return [
       {
