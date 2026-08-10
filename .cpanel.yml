@@ -1,28 +1,42 @@
 deployment:
-tasks: 
+  tasks:
 
-### 1. Prepare and deploy Frontend Standalone Server files
+    # ==========================================
+    # FRONTEND
+    # ==========================================
 
-* /bin/mkdir -p /home/appointn/booking-front
-* /bin/rsync -av --delete ./booking/dist-front/standalone/ /home/appointn/booking-front/
+    - /bin/mkdir -p /home/appointn/booking-front
 
-### 2. Deploy Frontend Public & Static assets directly to the web root
+    - /bin/rsync -av --delete ./booking/dist-front/standalone/ /home/appointn/booking-front/
 
-* /bin/mkdir -p /home/appointn/public_html/dist-front
-* /bin/rsync -av ./booking/dist-front/static/ /home/appointn/public_html/dist-front/static/
-* /bin/rsync -av ./booking/public/ /home/appointn/public_html/public/
+    - /bin/mkdir -p /home/appointn/booking-front/dist-front
 
-### 3. Deploy the Backend (booking-back)
+    - /bin/rsync -av ./booking/dist-front/static/ /home/appointn/booking-front/dist-front/static/
 
-* /bin/mkdir -p /home/appointn/booking-back
-* /bin/rsync -av --delete --exclude='node_modules/' --exclude='.env' ./booking-back/ /home/appointn/booking-back
+    - /bin/rsync -av ./booking/public/ /home/appointn/booking-front/public/
 
-### 4. Restart the Frontend Node.js Application
+    # ==========================================
+    # BACKEND
+    # ==========================================
 
-* /bin/mkdir -p /home/appointn/booking-front/tmp
-* /bin/touch /home/appointn/booking-front/tmp/restart.txt
+    - /bin/mkdir -p /home/appointn/booking-back
 
-### 5. Restart the Backend Node.js Application
+    - /bin/rsync -av --delete \
+        --exclude='node_modules/' \
+        --exclude='.env' \
+        ./booking-back/ \
+        /home/appointn/booking-back/
 
-* /bin/mkdir -p /home/appointn/booking-back/tmp
-* /bin/touch /home/appointn/booking-back/tmp/restart.txt
+    # ==========================================
+    # RESTART FRONTEND
+    # ==========================================
+
+    - /bin/mkdir -p /home/appointn/booking-front/tmp
+    - /bin/touch /home/appointn/booking-front/tmp/restart.txt
+
+    # ==========================================
+    # RESTART BACKEND
+    # ==========================================
+
+    - /bin/mkdir -p /home/appointn/booking-back/tmp
+    - /bin/touch /home/appointn/booking-back/tmp/restart.txt

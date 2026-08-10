@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-    output: 'standalone', // Enforce static export for cPanel hosting
+  output: 'standalone',
   images: {
     unoptimized: true, 
     // Prevents image optimization errors on static exports
