@@ -1,0 +1,9 @@
+{
+  "[project]/components/ui/toaster.tsx [app-client] (ecmascript, next/dynamic entry)": {
+    "id": "[project]/components/ui/toaster.tsx [app-client] (ecmascript, next/dynamic entry)",
+    "files": [
+      "static/chunks/_2b630145._.js",
+      "static/chunks/components_ui_toaster_tsx_32adea1a._.js"
+    ]
+  }
+}

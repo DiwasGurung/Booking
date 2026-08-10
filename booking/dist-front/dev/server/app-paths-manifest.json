@@ -1,0 +1,5 @@
+{
+  "/account/profile/page": "app/account/profile/page.js",
+  "/book/[businessId]/page": "app/book/[businessId]/page.js",
+  "/search/page": "app/search/page.js"
+}

@@ -13,7 +13,7 @@ router.get('/me', auth, getCurrentUser)
 router.post('/logout', auth, logoutUser)
 router.put('/role/:userId', auth, updateUserRole)
 router.put('/password', auth, changePassword)
-router.put('/profile', auth, updateProfile)
+router.put('/:id/profile', auth, updateProfile)
 router.post('/verify-email', verifyEmail)
 router.post('/resend-verification', resendVerificationEmail)
 

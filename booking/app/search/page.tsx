@@ -6,7 +6,7 @@ import { useAuth } from '@/context/authContext'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Search, MapPin, Phone, Globe, Loader, AlertCircle, Star, X } from 'lucide-react'
+import { Search, MapPin, Phone, Globe, Loader, AlertCircle, Building2 } from 'lucide-react'
 import { businessApi, type Business } from '@/lib/api'
 import { useRoleProtection } from '@/hooks/useRoleProtection'
 
@@ -20,12 +20,8 @@ function SearchPageContent() {
   const [filteredBusinesses, setFilteredBusinesses] = useState<Business[]>([])
   const [loading, setLoading] = useState(true)
   const [searched, setSearched] = useState(false)
-  const [showFilters, setShowFilters] = useState(false)
-  
-  // Filter states
+  // Filter state
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [selectedRating, setSelectedRating] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<string>('name')
   
   // Get unique categories
   const categories = React.useMemo(() => {
@@ -49,10 +45,10 @@ function SearchPageContent() {
     }
   }, [searchParams, refreshUser, router])
 
-  // Filter and sort businesses when filters change
+  // Filter businesses when the search or category changes.
   useEffect(() => {
-    applyFiltersAndSort()
-  }, [businesses, query, selectedCategory, selectedRating, sortBy])
+    applyFilters()
+  }, [businesses, query, selectedCategory])
 
   const loadAllBusinesses = async () => {
     try {
@@ -74,24 +70,19 @@ function SearchPageContent() {
     }
   }
 
-  const applyFiltersAndSort = () => {
+  const applyFilters = () => {
     let filtered = [...businesses]
-
-    const normalizeField = (value: unknown) => {
-      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint' || typeof value === 'boolean') {
-        return String(value).toLowerCase()
-      }
-      return ''
-    }
 
     // Apply search query
     if (query.trim()) {
-      const lowerQuery = query.toLowerCase()
+      const lowerQuery = query.trim().toLowerCase()
+      const text = (value: unknown) => String(value ?? '').toLowerCase()
       filtered = filtered.filter(b =>
-        normalizeField(b.name).includes(lowerQuery) ||
-        normalizeField(b.category).includes(lowerQuery) ||
-        normalizeField(b.description).includes(lowerQuery) ||
-        normalizeField(b.city).includes(lowerQuery)
+        text(b.name).includes(lowerQuery) ||
+        text(b.category).includes(lowerQuery) ||
+        text(b.description).includes(lowerQuery) ||
+        text(b.city).includes(lowerQuery) ||
+        text(b.address).includes(lowerQuery)
       )
     }
 
@@ -99,26 +90,6 @@ function SearchPageContent() {
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(b => b.category === selectedCategory)
     }
-
-    // Apply rating filter
-    if (selectedRating !== 'all') {
-      const minRating = parseFloat(selectedRating)
-      filtered = filtered.filter(b => (b.rating || 0) >= minRating)
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name)
-        case 'rating':
-          return (b.rating || 0) - (a.rating || 0)
-        case 'newest':
-          return new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime()
-        default:
-          return 0
-      }
-    })
 
     setFilteredBusinesses(filtered)
     if (query.trim()) {
@@ -134,13 +105,10 @@ function SearchPageContent() {
   const handleClearFilters = () => {
     setQuery('')
     setSelectedCategory('all')
-    setSelectedRating('all')
-    setSortBy('name')
     setSearched(false)
-    setShowFilters(false)
   }
 
-  const hasActiveFilters = query || selectedCategory !== 'all' || selectedRating !== 'all'
+  const hasActiveFilters = Boolean(query.trim()) || selectedCategory !== 'all'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30">
@@ -148,8 +116,9 @@ function SearchPageContent() {
         {/* Header */}
         <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border">
           <div className="px-4 md:px-8 py-4 md:py-6">
-            <h1 className="text-2xl md:text-4xl font-bold text-foreground mb-1">Browse Businesses</h1>
-            <p className="text-sm md:text-lg text-muted-foreground">Discover salons, services, and more</p>
+            <p className="mb-2 text-sm font-medium uppercase tracking-[0.18em] text-primary">Appointment directory</p>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-4xl">Find the right business for your next appointment</h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground md:text-base">Compare the essentials, then book directly with a business that fits your needs.</p>
           </div>
         </div>
 
@@ -178,86 +147,25 @@ function SearchPageContent() {
             </form>
           </Card>
 
-          {/* Mobile Filter Toggle */}
-          <div className="md:hidden mb-4 flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex-1 h-10 text-sm"
-            >
-              {showFilters ? '✕ Hide Filters' : '⚙ Show Filters'}
-            </Button>
-            {hasActiveFilters && (
-              <Button
-                variant="outline"
-                onClick={handleClearFilters}
-                className="flex-1 h-10 text-sm"
+          {/* Category filter */}
+          <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="w-full sm:max-w-xs">
+              <label htmlFor="category" className="mb-2 block text-sm font-medium text-foreground">Browse by category</label>
+              <select
+                id="category"
+                value={selectedCategory}
+                onChange={e => setSelectedCategory(e.target.value)}
+                className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition-colors focus:border-primary"
               >
-                Clear
+                <option value="all">All categories</option>
+                {categories.map((cat) => <option key={String(cat)} value={String(cat)}>{String(cat)}</option>)}
+              </select>
+            </div>
+            {hasActiveFilters && (
+              <Button variant="ghost" onClick={handleClearFilters} className="self-start sm:self-end">
+                Clear search
               </Button>
             )}
-          </div>
-
-          {/* Filters and Sorting */}
-          <div className={`mb-6 md:mb-8 transition-all duration-300 ${
-            showFilters ? 'block' : 'hidden md:block'
-          }`}>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 items-end">
-              {/* Category Filter */}
-              <div>
-                <label className="block text-xs md:text-sm font-semibold text-foreground mb-2">Category</label>
-                <select
-                  value={selectedCategory}
-                  onChange={e => setSelectedCategory(e.target.value)}
-                  className="w-full px-3 md:px-4 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:border-primary focus:outline-none transition-colors"
-                >
-                  <option value="all">All Categories</option>
-                  {categories.map(cat => (
-                    <option key={String(cat)} value={String(cat)}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Rating Filter */}
-              <div>
-                <label className="block text-xs md:text-sm font-semibold text-foreground mb-2">Rating</label>
-                <select
-                  value={selectedRating}
-                  onChange={e => setSelectedRating(e.target.value)}
-                  className="w-full px-3 md:px-4 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:border-primary focus:outline-none transition-colors"
-                >
-                  <option value="all">All Ratings</option>
-                  <option value="4.5">4.5+</option>
-                  <option value="4">4.0+</option>
-                  <option value="3">3.0+</option>
-                </select>
-              </div>
-
-              {/* Sort By */}
-              <div>
-                <label className="block text-xs md:text-sm font-semibold text-foreground mb-2">Sort By</label>
-                <select
-                  value={sortBy}
-                  onChange={e => setSortBy(e.target.value)}
-                  className="w-full px-3 md:px-4 py-2 text-sm border border-border rounded-lg bg-background text-foreground focus:border-primary focus:outline-none transition-colors"
-                >
-                  <option value="name">Name (A-Z)</option>
-                  <option value="rating">Highest Rating</option>
-                  <option value="newest">Newest</option>
-                </select>
-              </div>
-
-              {/* Clear Filters Button - Desktop */}
-              {hasActiveFilters && (
-                <Button
-                  variant="outline"
-                  onClick={handleClearFilters}
-                  className="hidden md:block px-4 h-10 text-sm"
-                >
-                  Clear Filters
-                </Button>
-              )}
-            </div>
           </div>
 
           {/* Results Count */}
@@ -280,107 +188,57 @@ function SearchPageContent() {
             <Card className="border border-border shadow-lg p-6 md:p-12 text-center">
               <AlertCircle className="w-10 md:w-12 h-10 md:h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-lg md:text-xl font-semibold text-foreground mb-2">No Businesses Found</p>
-              <p className="text-sm md:text-base text-muted-foreground mb-6">Try adjusting your filters or search terms</p>
-              <Button
-                variant="outline"
-                onClick={handleClearFilters}
-                className="px-4 md:px-6 text-sm md:text-base"
-              >
-                Clear Filters
+              <p className="mb-6 text-sm text-muted-foreground">Try a different business name, category, or location.</p>
+              <Button variant="outline" onClick={handleClearFilters} className="px-4 md:px-6 text-sm md:text-base">
+                Clear search
               </Button>
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {filteredBusinesses.map(business => (
-                <Card
-                  key={business.id}
-                  className="border border-border shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col"
-                >
-                  <div className="p-4 md:p-6 flex-1 flex flex-col">
-                    {/* Logo */}
-                    {typeof business.logo === 'string' && business.logo && (
-                      <div className="mb-3 md:mb-4 flex justify-center">
-                        <div className="w-16 md:w-20 h-16 md:h-20 bg-muted rounded-lg flex items-center justify-center border border-border overflow-hidden">
-                          <img 
-                            src={business.logo} 
-                            alt={business.name} 
-                            className="w-full h-full object-contain p-1"
-                          />
-                        </div>
+                <Card key={business.id} className="group flex flex-col overflow-hidden border-border bg-card shadow-sm transition-shadow hover:shadow-md">
+                  <div className="flex flex-1 flex-col p-5 md:p-6">
+                    <div className="mb-5 flex items-start gap-4">
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
+                        {business.logo ? (
+                          <img src={typeof business.logo === 'string' ? business.logo : ''} alt={`${business.name} logo`} className="h-full w-full object-contain p-1" />
+                        ) : (
+                          <Building2 className="h-6 w-6 text-muted-foreground" />
+                        )}
                       </div>
-                    )}
-
-                    {/* Header */}
-                    <div className="mb-2 md:mb-3">
-                      <h3 className="text-base md:text-lg font-semibold text-foreground line-clamp-2">{business.name}</h3>
-                      <p className="text-xs md:text-sm text-primary font-medium mt-1">{business.category}</p>
+                      <div className="min-w-0">
+                        <h3 className="truncate text-lg font-semibold text-foreground">{business.name}</h3>
+                        <p className="mt-1 text-sm font-medium text-primary">{business.category || 'Appointment services'}</p>
+                      </div>
                     </div>
 
-                    {/* Rating */}
-                    {business.rating && (
-                      <div className="flex items-center gap-1 mb-2 md:mb-3">
-                        {Array.from({ length: 5 }, (_, i) => (
-                          <Star
-                            key={i}
-                            className={`w-3 md:w-3.5 h-3 md:h-3.5 ${
-                              i < Math.round(business.rating || 0)
-                                ? 'fill-primary text-primary'
-                                : 'text-muted-foreground'
-                            }`}
-                          />
-                        ))}
-                        <span className="ml-1 text-xs md:text-sm font-semibold text-foreground">
-                          {business.rating.toFixed(1)}
-                        </span>
-                      </div>
-                    )}
+                    <p className="mb-5 min-h-12 text-sm leading-6 text-muted-foreground line-clamp-2">
+                      {business.description || 'Book an appointment directly with this local business.'}
+                    </p>
 
-                    {/* Description */}
-                    {business.description && (
-                      <p className="text-xs md:text-sm text-muted-foreground mb-3 md:mb-4 line-clamp-2">
-                        {business.description}
-                      </p>
-                    )}
-
-                    {/* Contact Info */}
-                    <div className="space-y-1.5 md:space-y-2 mb-3 md:mb-4 text-xs md:text-sm text-muted-foreground py-2 md:py-3 border-t border-border">
-                      {business.address && (
-                        <div className="flex items-start gap-2">
-                          <MapPin className="w-3 md:w-3.5 h-3 md:h-3.5 flex-shrink-0 mt-0.5" />
-                          <span className="line-clamp-2">
-                            {business.address}, {business.city}
-                          </span>
+                    <div className="mb-6 space-y-3 border-t border-border pt-4 text-sm text-muted-foreground">
+                      {business.address || business.city ? (
+                        <div className="flex items-start gap-3">
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                          <span className="line-clamp-2">{[business.address, business.city].filter(Boolean).join(', ')}</span>
                         </div>
-                      )}
-                      {business.phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-3 md:w-3.5 h-3 md:h-3.5 flex-shrink-0" />
-                          <a href={`tel:${business.phone}`} className="hover:text-primary transition-colors truncate">
-                            {business.phone}
-                          </a>
+                      ) : null}
+                      {business.phone ? (
+                        <div className="flex items-center gap-3">
+                          <Phone className="h-4 w-4 shrink-0 text-primary" />
+                          <a href={`tel:${business.phone}`} className="truncate hover:text-primary">{business.phone}</a>
                         </div>
-                      )}
-                      {business.website && (
-                        <div className="flex items-center gap-2">
-                          <Globe className="w-3 md:w-3.5 h-3 md:h-3.5 flex-shrink-0" />
-                          <a
-                            href={business.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline truncate text-xs md:text-sm"
-                          >
-                            Visit Website
-                          </a>
+                      ) : null}
+                      {business.website ? (
+                        <div className="flex items-center gap-3">
+                          <Globe className="h-4 w-4 shrink-0 text-primary" />
+                          <a href={business.website} target="_blank" rel="noopener noreferrer" className="truncate text-primary hover:underline">Visit website</a>
                         </div>
-                      )}
+                      ) : null}
                     </div>
 
-                    {/* Button */}
-                    <Button
-                      onClick={() => router.push(`/book/${business.id}`)}
-                      className="w-full h-9 md:h-10 bg-primary text-primary-foreground hover:bg-primary/90 mt-auto text-sm md:text-base"
-                    >
-                      Book Appointment
+                    <Button onClick={() => router.push(`/book/${business.id}`)} className="mt-auto w-full">
+                      View availability
                     </Button>
                   </div>
                 </Card>
@@ -395,7 +253,7 @@ function SearchPageContent() {
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 flex items-center justify-center"><Loader className="h-8 w-8 animate-spin text-primary" /></div>}>
       <SearchPageContent />
     </Suspense>
   )
