@@ -8,41 +8,26 @@ deployment:
 
     - /bin/mkdir -p /home/appointn/booking-front
 
-    # Fixed: Points inside the nested lowercase "booking" folder
-    - /bin/rsync -av --delete ./booking/dist-front/standalone/ /home/appointn/booking-front/
+    # Absolute path pointing directly to your cloned cPanel repository folder
+    - /bin/rsync -av --delete /home/appointn/repositories/Booking/booking/dist-front/standalone/ /home/appointn/booking-front/
 
-    # Fixed: Copies static assets to the correct .next folder
+    # Copies static assets to the correct directory structure
     - /bin/mkdir -p /home/appointn/booking-front/.next/static
-    - /bin/rsync -av ./booking/dist-front/static/ /home/appointn/booking-front/.next/static/
+    - /bin/rsync -av /home/appointn/repositories/Booking/booking/dist-front/static/ /home/appointn/booking-front/.next/static/
 
-    # Fixed: Copies public folder assets
+    # Copies public layout assets
     - /bin/mkdir -p /home/appointn/booking-front/public
-    - /bin/rsync -av ./booking/public/ /home/appointn/booking-front/public/
+    - /bin/rsync -av /home/appointn/repositories/Booking/booking/public/ /home/appointn/booking-front/public/
 
     # ==========================================
     # BACKEND
     # ==========================================
 
     - /bin/mkdir -p /home/appointn/booking-back
-    - /bin/rsync -av --delete --exclude='node_modules/' --exclude='.env' ./booking-back/ /home/appointn/booking-back/
+    - /bin/rsync -av --delete --exclude='node_modules/' --exclude='.env' /home/appointn/repositories/Booking/booking-back/ /home/appointn/booking-back/
 
     # ==========================================
-    # RESTART APP HOOKS
-    # ==========================================
-
-    - /bin/mkdir -p /home/appointn/booking-front/tmp
-    - /bin/touch /home/appointn/booking-front/tmp/restart.txt
-    - /bin/mkdir -p /home/appointn/booking-back/tmp
-
-    # ==========================================
-    # BACKEND
-    # ==========================================
-
-    - /bin/mkdir -p /home/appointn/booking-back
-    - /bin/rsync -av --delete --exclude='node_modules/' --exclude='.env' ./booking-back/ /home/appointn/booking-back/
-
-    # ==========================================
-    # RESTART APP REFRESH HOOKS
+    # RESTART APP REBOOT HOOKS
     # ==========================================
 
     - /bin/mkdir -p /home/appointn/booking-front/tmp
