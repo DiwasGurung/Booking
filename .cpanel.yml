@@ -2,16 +2,20 @@ deployment:
   tasks:
 
     # ==========================================
-    # FRONTEND
+    # FRONTEND - Next.js Standalone
     # ==========================================
 
     - /bin/mkdir -p /home/appointn/booking-front
 
     - /bin/rsync -av --delete ./booking/dist-front/standalone/ /home/appointn/booking-front/
 
-    - /bin/mkdir -p /home/appointn/booking-front/dist-front
+    # Next.js static assets
+    - /bin/mkdir -p /home/appointn/booking-front/dist-front/static
 
     - /bin/rsync -av ./booking/dist-front/static/ /home/appointn/booking-front/dist-front/static/
+
+    # Public assets
+    - /bin/mkdir -p /home/appointn/booking-front/public
 
     - /bin/rsync -av ./booking/public/ /home/appointn/booking-front/public/
 
@@ -24,8 +28,7 @@ deployment:
     - /bin/rsync -av --delete \
         --exclude='node_modules/' \
         --exclude='.env' \
-        ./booking-back/ \
-        /home/appointn/booking-back/
+        ./booking-back/ /home/appointn/booking-back/
 
     # ==========================================
     # RESTART FRONTEND
