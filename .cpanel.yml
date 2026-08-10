@@ -8,14 +8,14 @@ deployment:
 
     - /bin/mkdir -p /home/appointn/booking-front
 
-    # NOTE: If "dist-front" is at the root of your repository, change "./booking/dist-front/..." to "./dist-front/..."
+    # Fixed: Removed the incorrect "./booking" prefix
     - /bin/rsync -av --delete ./dist-front/standalone/ /home/appointn/booking-front/
 
-    # Next.js static assets
-    - /bin/mkdir -p /home/appointn/booking-front/dist-front/static
-    - /bin/rsync -av ./dist-front/static/ /home/appointn/booking-front/dist-front/static/
+    # Fixed: Corrected target path to ".next/static" so CSS works
+    - /bin/mkdir -p /home/appointn/booking-front/.next/static
+    - /bin/rsync -av ./dist-front/static/ /home/appointn/booking-front/.next/static/
 
-    # Public assets
+    # Fixed: Corrected source path for public assets
     - /bin/mkdir -p /home/appointn/booking-front/public
     - /bin/rsync -av ./public/ /home/appointn/booking-front/public/
 
@@ -27,15 +27,10 @@ deployment:
     - /bin/rsync -av --delete --exclude='node_modules/' --exclude='.env' ./booking-back/ /home/appointn/booking-back/
 
     # ==========================================
-    # RESTART FRONTEND
+    # RESTART APP REFRESH HOOKS
     # ==========================================
 
     - /bin/mkdir -p /home/appointn/booking-front/tmp
     - /bin/touch /home/appointn/booking-front/tmp/restart.txt
-
-    # ==========================================
-    # RESTART BACKEND
-    # ==========================================
-
     - /bin/mkdir -p /home/appointn/booking-back/tmp
     - /bin/touch /home/appointn/booking-back/tmp/restart.txt
