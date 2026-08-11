@@ -1,37 +1,25 @@
 ---
 deployment:
   tasks:
-
     # ==========================================
     # FRONTEND - Next.js Standalone
     # ==========================================
-
     - /bin/mkdir -p /home/appointn/booking-front
     - /bin/rsync -av --delete /home/appointn/repositories/Booking/booking/dist-front/standalone/ /home/appointn/booking-front/
-
     - /bin/mkdir -p /home/appointn/booking-front/.next/static
     - /bin/rsync -av /home/appointn/repositories/Booking/booking/dist-front/static/ /home/appointn/booking-front/.next/static/
-
     - /bin/mkdir -p /home/appointn/booking-front/public
     - /bin/rsync -av /home/appointn/repositories/Booking/booking/public/ /home/appointn/booking-front/public/
-
-    # Forces installation on frontend using explicit production parameters 
-    - cd /home/appointn/booking-front && /bin/npm install --production
 
     # ==========================================
     # BACKEND
     # ==========================================
-
     - /bin/mkdir -p /home/appointn/booking-back
     - /bin/rsync -av --delete --exclude='node_modules/' --exclude='.env' /home/appointn/repositories/Booking/booking-back/ /home/appointn/booking-back/
-
-    # FORCE TERMINAL INSTALLATION (Bypasses cPanel Domain Check)
-    - cd /home/appointn/booking-back && /bin/npm install --production
 
     # ==========================================
     # RESTART APP REBOOT HOOKS
     # ==========================================
-
     - /bin/mkdir -p /home/appointn/booking-front/tmp
     - /bin/touch /home/appointn/booking-front/tmp/restart.txt
     - /bin/mkdir -p /home/appointn/booking-back/tmp
