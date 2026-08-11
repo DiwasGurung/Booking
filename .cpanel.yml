@@ -3,27 +3,13 @@ deployment:
   tasks:
 
     # ==========================================
-    # FRONTEND SYSTEM SETUP
-    # ==========================================
-    - /bin/mkdir -p /home/appointn/booking-front
-    - /bin/cp -rf /home/appointn/repositories/Booking/booking/dist-front/standalone/. /home/appointn/booking-front/
-
-    - /bin/mkdir -p /home/appointn/booking-front/.next/static
-    - /bin/cp -rf /home/appointn/repositories/Booking/booking/dist-front/static/. /home/appointn/booking-front/.next/static/
-
-    - /bin/mkdir -p /home/appointn/booking-front/public
-    - /bin/cp -rf /home/appointn/repositories/Booking/booking/public/. /home/appointn/booking-front/public/
-
-    # ==========================================
-    # BACKEND SYSTEM SETUP
+    # BACKEND SYSTEM UPDATE ONLY
     # ==========================================
     - /bin/mkdir -p /home/appointn/booking-back
     - /bin/cp -rf /home/appointn/repositories/Booking/booking-back/. /home/appointn/booking-back/
 
     # ==========================================
-    # RESTART HOOKS
+    # RESTART HOOKS (Only for Backend)
     # ==========================================
-    - /bin/mkdir -p /home/appointn/booking-front/tmp
-    - /bin/touch /home/appointn/booking-front/tmp/restart.txt
     - /bin/mkdir -p /home/appointn/booking-back/tmp
     - /bin/touch /home/appointn/booking-back/tmp/restart.txt
