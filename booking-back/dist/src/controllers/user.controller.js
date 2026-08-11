@@ -255,6 +255,7 @@ const updateProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* 
                 email: user.email,
                 phone: user.phone,
                 role: user.role,
+                createdAt: user.createdAt,
             },
         });
     }

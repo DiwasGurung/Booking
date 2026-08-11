@@ -15,7 +15,7 @@ router.get('/me', auth_middleware_1.auth, user_controller_1.getCurrentUser);
 router.post('/logout', auth_middleware_1.auth, user_controller_1.logoutUser);
 router.put('/role/:userId', auth_middleware_1.auth, user_controller_1.updateUserRole);
 router.put('/password', auth_middleware_1.auth, user_controller_1.changePassword);
-router.put('/profile', auth_middleware_1.auth, user_controller_1.updateProfile);
+router.put('/:id/profile', auth_middleware_1.auth, user_controller_1.updateProfile);
 router.post('/verify-email', user_controller_1.verifyEmail);
 router.post('/resend-verification', user_controller_1.resendVerificationEmail);
 router.post('/request-password-reset', user_controller_1.requestPasswordReset);
