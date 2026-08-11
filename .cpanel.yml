@@ -1,24 +1,27 @@
 ---
 deployment:
   tasks:
+
     # ==========================================
-    # FRONTEND - Next.js Standalone
+    # FRONTEND SYSTEM SETUP
     # ==========================================
     - /bin/mkdir -p /home/appointn/booking-front
-    - /bin/rsync -av --delete /home/appointn/repositories/Booking/booking/dist-front/standalone/ /home/appointn/booking-front/
+    - /bin/cp -rf /home/appointn/repositories/Booking/booking/dist-front/standalone/. /home/appointn/booking-front/
+
     - /bin/mkdir -p /home/appointn/booking-front/.next/static
-    - /bin/rsync -av /home/appointn/repositories/Booking/booking/dist-front/static/ /home/appointn/booking-front/.next/static/
+    - /bin/cp -rf /home/appointn/repositories/Booking/booking/dist-front/static/. /home/appointn/booking-front/.next/static/
+
     - /bin/mkdir -p /home/appointn/booking-front/public
-    - /bin/rsync -av /home/appointn/repositories/Booking/booking/public/ /home/appointn/booking-front/public/
+    - /bin/cp -rf /home/appointn/repositories/Booking/booking/public/. /home/appointn/booking-front/public/
 
     # ==========================================
-    # BACKEND
+    # BACKEND SYSTEM SETUP
     # ==========================================
     - /bin/mkdir -p /home/appointn/booking-back
-    - /bin/rsync -av --delete --exclude='node_modules/' --exclude='.env' /home/appointn/repositories/Booking/booking-back/ /home/appointn/booking-back/
+    - /bin/cp -rf /home/appointn/repositories/Booking/booking-back/. /home/appointn/booking-back/
 
     # ==========================================
-    # RESTART APP REBOOT HOOKS
+    # RESTART HOOKS
     # ==========================================
     - /bin/mkdir -p /home/appointn/booking-front/tmp
     - /bin/touch /home/appointn/booking-front/tmp/restart.txt
