@@ -4,12 +4,12 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
-    "prisma": "prisma",
-    "build": "tsc",
-    "start": "node dist/src/index.js",
-    "dev": "tsx src/index.ts",
-    "clean": "rimraf dist node_modules/.cache"
-  },
+  "prisma": "prisma",
+  "build": "prisma generate && tsc",
+  "start": "node dist/src/index.js",
+  "dev": "tsx src/index.ts",
+  "clean": "rimraf dist node_modules/.cache"
+},
   "prisma": {
     "seed": "tsx scripts/seed-plans.ts"
   },
