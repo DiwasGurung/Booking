@@ -70,6 +70,7 @@ class SubscriptionService {
     planId: string
   }): Promise<SubscriptionWithRelations> {
     try {
+      console.log(`[v0] Creating subscription with free trial for business: ${data.businessId}, planId: ${data.planId}`)
 
       const now = new Date()
       const trialEndsAt = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000) // 15 days trial
@@ -83,6 +84,8 @@ class SubscriptionService {
         throw new Error(`Subscription plan not found: ${data.planId}`)
       }
 
+      console.log(`[v0] Found plan: ${plan.displayName} with ID: ${plan.id}, Plan durationDays: ${plan.durationDays}`)
+      console.log(`[v0] Creating trial for ${trialDays} days, trial ends at: ${trialEndsAt}`)
 
       await prisma.subscription.deleteMany({
         where: { businessId: data.businessId },
@@ -106,6 +109,7 @@ class SubscriptionService {
       })
 
       const actualTrialDays = Math.floor((subscription.endDate!.getTime() - subscription.startDate!.getTime()) / (1000 * 60 * 60 * 24))
+      console.log(`[v0] Subscription created - Trial: ${actualTrialDays} days, ends: ${subscription.endDate}, trialEndsAt: ${subscription.trialEndsAt}`)
       return subscription as SubscriptionWithRelations
     } catch (error) {
       console.error(`[v0] Failed to create subscription:`, error)
@@ -159,6 +163,7 @@ class SubscriptionService {
       const subscription = await this.getBusinessSubscription(businessId)
 
       if (!subscription) {
+        console.log(`[v0] No subscription found for business: ${businessId}`)
         return false
       }
 
@@ -166,18 +171,23 @@ class SubscriptionService {
 
       if (subscription.status === 'TRIAL') {
         if (subscription.trialEndsAt && subscription.trialEndsAt > now) {
+          console.log(`[v0] Trial subscription is valid`)
           return true
         }
+        console.log(`[v0] Trial subscription has expired`)
         return false
       }
 
        if (subscription.status === 'ACTIVE' || subscription.status === 'CANCELLED') {
         if (subscription.endDate && subscription.endDate > now) {
+          console.log(`[v0] ${subscription.status} subscription is still valid until ${subscription.endDate}`)
           return true
         }
+        console.log(`[v0] ${subscription.status} subscription has expired`)
         return false
       }
 
+      console.log(`[v0] Subscription status is: ${subscription.status}`)
       return false
     } catch (error) {
       console.error(`[v0] Failed to check subscription validity:`, error)
@@ -221,6 +231,7 @@ class SubscriptionService {
         
         // If trial has expired, subscription is no longer valid
         if (daysRemaining <= 0) {
+          console.log(`[v0] Trial expired for business ${businessId}`)
           hasValidSubscription = false
         }
       } else if ((subscription.status === 'ACTIVE' || subscription.status === 'CANCELLED') && subscription.endDate) {
@@ -231,11 +242,13 @@ class SubscriptionService {
         
         // If CANCELLED and already expired, subscription is no longer valid
         if (subscription.status === 'CANCELLED' && daysRemaining <= 0) {
+          console.log(`[v0] Cancelled subscription expired for business ${businessId}`)
           hasValidSubscription = false
         }
         
         // If ACTIVE but somehow expired, subscription is no longer valid
         if (subscription.status === 'ACTIVE' && daysRemaining <= 0) {
+          console.log(`[v0] Active subscription expired for business ${businessId}`)
           hasValidSubscription = false
         }
       }
@@ -270,6 +283,7 @@ class SubscriptionService {
     durationDays?: number
   }): Promise<SubscriptionWithRelations> {
     try {
+      console.log(`[v0] Activating subscription: ${subscriptionId}`)
 
       // Fetch subscription to get billing period
       const currentSubscription = await prisma.subscription.findUnique({
@@ -314,6 +328,7 @@ class SubscriptionService {
         },
       })
 
+      console.log(`[v0] Subscription activated:`, {
         subscriptionId,
         billingPeriod: currentSubscription.billingPeriod,
         durationDays,
@@ -547,6 +562,7 @@ class SubscriptionService {
           usageResetDate: now,
         },
       })
+      console.log(`[v0] Monthly usage reset for business: ${businessId}`)
     } catch (error) {
       console.error(`[v0] Failed to reset monthly usage:`, error)
       throw error
@@ -603,6 +619,7 @@ class SubscriptionService {
     paymentId: string
   ): Promise<SubscriptionWithRelations> {
     try {
+      console.log(`[v0] Upgrading subscription for business: ${businessId} to plan: ${newPlanId}`)
 
       const subscription = await prisma.subscription.findUnique({
         where: { businessId },
@@ -637,6 +654,7 @@ class SubscriptionService {
         },
       })
 
+      console.log(`[v0] Subscription upgraded successfully`)
       return updated as SubscriptionWithRelations
     } catch (error) {
       console.error(`[v0] Failed to upgrade subscription:`, error)
@@ -653,6 +671,7 @@ class SubscriptionService {
     paymentId: string
   ): Promise<SubscriptionWithRelations> {
     try {
+      console.log(`[v0] Downgrading subscription for business: ${businessId} to plan: ${newPlanId}`)
 
       const subscription = await prisma.subscription.findUnique({
         where: { businessId },
@@ -683,6 +702,7 @@ class SubscriptionService {
         },
       })
 
+      console.log(`[v0] Subscription downgraded successfully`)
       return updated as SubscriptionWithRelations
     } catch (error) {
       console.error(`[v0] Failed to downgrade subscription:`, error)
@@ -699,6 +719,7 @@ class SubscriptionService {
     durationDays: number = 30
   ): Promise<SubscriptionWithRelations> {
     try {
+      console.log(`[v0] Renewing subscription: ${subscriptionId}`)
 
       const now = new Date()
       const newEndDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
@@ -720,6 +741,7 @@ class SubscriptionService {
         },
       })
 
+      console.log(`[v0] Subscription renewed until: ${newEndDate}`)
       return updated as SubscriptionWithRelations
     } catch (error) {
       console.error(`[v0] Failed to renew subscription:`, error)
@@ -740,6 +762,7 @@ class SubscriptionService {
           },
         },
       })
+      console.log(`[v0] Appointment usage incremented by ${count} for business: ${businessId}`)
     } catch (error) {
       console.error(`[v0] Failed to increment appointment usage:`, error)
       throw error
@@ -751,6 +774,7 @@ class SubscriptionService {
    */
   async scheduleTrialToActive(businessId: string): Promise<SubscriptionWithRelations> {
     try {
+      console.log(`[v0] Scheduling subscription transition from trial to active: ${businessId}`)
 
       const subscription = await this.getBusinessSubscription(businessId)
 
@@ -770,6 +794,7 @@ class SubscriptionService {
    */
   async autoRenewExpiredSubscriptions(): Promise<number> {
     try {
+      console.log('[v0] Starting auto-renewal of expired subscriptions')
 
       const expiredSubs = await this.getExpiredSubscriptions()
       let renewedCount = 0
@@ -785,6 +810,7 @@ class SubscriptionService {
         }
       }
 
+      console.log(`[v0] Auto-renewed ${renewedCount} subscriptions`)
       return renewedCount
     } catch (error) {
       console.error(`[v0] Failed to auto-renew subscriptions:`, error)
@@ -834,6 +860,7 @@ class SubscriptionService {
       throw new Error(`Subscription not found: ${data.subscriptionId}`)
     }
 
+    console.log(`[v0] Cancelling subscription ${data.subscriptionId}`)
 
     const updated = await prisma.subscription.update({
       where: { id: data.subscriptionId },
@@ -844,6 +871,7 @@ class SubscriptionService {
       include: { plan: true, business: true },
     })
 
+    console.log(`[v0] Subscription cancelled successfully`)
     return updated as SubscriptionWithRelations
   }
 }
