@@ -105,11 +105,7 @@ export class EsewaPaymentService {
         signature: signature,
       };
 
-        transactionUuid: request.transactionUuid,
-        totalAmount,
-        paymentUrl: this.paymentUrl,
-      });
-
+       
       return {
         success: true,
         message: 'Payment form data generated successfully',
