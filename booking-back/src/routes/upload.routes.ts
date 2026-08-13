@@ -110,9 +110,6 @@ router.post('/document', auth, upload.single('file'), async (req: AuthRequest, r
     const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 5001}`
     const fileUrl = `${baseUrl}/uploads/documents/${req.file.filename}`
 
-    console.log(`[Upload] Document uploaded: ${type} for user ${userId}`)
-    console.log(`[Upload] File path: ${req.file.path}`)
-    console.log(`[Upload] File URL: ${fileUrl}`)
 
     res.json({
       success: true,
@@ -157,7 +154,6 @@ router.delete('/document/:filename', auth, async (req: AuthRequest, res: Respons
     }
 
     fs.unlinkSync(filePath)
-    console.log(`[Upload] Document deleted: ${filename} by user ${userId}`)
 
     res.json({ success: true, message: 'Document deleted successfully' })
   } catch (error: any) {
@@ -186,9 +182,6 @@ router.post('/logo', auth, logoUpload.single('logo'), async (req: AuthRequest, r
     const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 5001}`
     const logoUrl = `${baseUrl}/uploads/logos/${req.file.filename}`
 
-    console.log(`[Upload] Logo uploaded for user ${userId}`)
-    console.log(`[Upload] File path: ${req.file.path}`)
-    console.log(`[Upload] Logo URL: ${logoUrl}`)
 
     res.json({
       success: true,
@@ -232,7 +225,6 @@ router.delete('/logo/:filename', auth, async (req: AuthRequest, res: Response) =
     }
 
     fs.unlinkSync(filePath)
-    console.log(`[Upload] Logo deleted: ${filename} by user ${userId}`)
 
     res.json({ success: true, message: 'Logo deleted successfully' })
   } catch (error: any) {

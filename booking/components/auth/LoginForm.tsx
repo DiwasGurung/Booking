@@ -46,7 +46,6 @@ export const LoginForm = () => {
       if (!result.success) {
         // Check if email verification is needed
         if (result.emailNotVerified) {
-          console.log("[v0] Email not verified, showing inline verification prompt:", email)
           setNeedsEmailVerification(true)
           setUnverifiedEmail(email)
           setError("")
@@ -60,7 +59,6 @@ export const LoginForm = () => {
         return
       }
 
-      console.log("[v0] Login successful, refreshing auth context...")
 
       // Refresh the auth context to get the latest user data via cookies
       await refreshUser()
@@ -72,7 +70,6 @@ export const LoginForm = () => {
 
       // If returnTo is specified (e.g., from home page "Setup Business" button), use it
       if (returnTo) {
-        console.log("[v0] Redirecting to returnTo:", returnTo)
         router.push(returnTo)
         return
       }
@@ -83,23 +80,18 @@ export const LoginForm = () => {
         const businessId = user?.business?.id
     
         if (businessId) {
-          console.log("[v0] Redirecting BUSINESS_OWNER to dashboard with businessId:", businessId)
           router.push(`/dashboard/${businessId}`)
         } else {
-          console.log("[v0] BUSINESS_OWNER but no businessId, redirecting to /dashboard")
           router.push("/dashboard")
         }
       } else if (result.user?.role === 'CUSTOMER') {
         // Customers go to search/bookings page
-        console.log("[v0] Redirecting CUSTOMER to search page")
         router.push("/search")
       } else if (result.user?.role === 'ADMIN') {
         // Admins go to admin dashboard
-        console.log("[v0] Redirecting ADMIN to admin dashboard")
         router.push("/admin")
       } else {
         // Default fallback
-        console.log("[v0] Unknown role or no role, redirecting to search")
         router.push("/search")
       }
 
@@ -122,12 +114,10 @@ export const LoginForm = () => {
   }
 
   const handleVerifyEmail = () => {
-    console.log("[v0] Navigating to verify email page for:", unverifiedEmail)
     router.push(`/verify-email?email=${unverifiedEmail}`)
   }
 
   const handleResendCode = () => {
-    console.log("[v0] Navigating to verify email page with resend action for:", unverifiedEmail)
     router.push(`/verify-email?email=${unverifiedEmail}&action=resend`)
   }
 

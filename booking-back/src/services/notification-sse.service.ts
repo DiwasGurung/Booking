@@ -16,7 +16,6 @@ export class NotificationSSEService {
    * @returns Cleanup function to remove connection
    */
   static registerConnection(userId: string, res: Response): () => void {
-    console.log(`[v0] SSE Service: User ${userId} registered for notifications`)
 
     // Set SSE headers
     res.setHeader("Content-Type", "text/event-stream")
@@ -55,7 +54,6 @@ export class NotificationSSEService {
       clearInterval(heartbeatInterval)
     }
     this.notificationClients.delete(userId)
-    console.log(`[v0] SSE Service: User ${userId} unregistered from notifications`)
   }
 
   /**
@@ -108,7 +106,6 @@ export class NotificationSSEService {
           timestamp: new Date().toISOString(),
         }
         client.write(`data: ${JSON.stringify(message)}\n\n`)
-        console.log(`[v0] SSE Service: Notification sent to user ${userId}`)
         return true
       } catch (error) {
         console.error(`[v0] SSE Service: Error broadcasting to user ${userId}:`, error)
@@ -116,7 +113,6 @@ export class NotificationSSEService {
         return false
       }
     } else {
-      console.log(`[v0] SSE Service: User ${userId} not connected (will use polling fallback)`)
       return false
     }
   }
@@ -166,7 +162,6 @@ export class NotificationSSEService {
    * Clear all connections (for cleanup)
    */
   static clearAllConnections(): void {
-    console.log(`[v0] SSE Service: Clearing all ${this.notificationClients.size} connections`)
     this.notificationClients.clear()
   }
 }

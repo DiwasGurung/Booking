@@ -40,7 +40,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setTokenState] = useState<string | null>(null)
 
   const setToken = (newToken: string) => {
-    console.log("[v0] Token stored in auth context and localStorage")
     setTokenState(newToken)
     if (typeof window !== "undefined") {
       try {
@@ -53,7 +52,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const checkAuth = async (authToken?: string) => {
     try {
-      console.log("[v0] Checking authentication with backend:", API_URL)
 
       // Use provided token, in-memory token, or persisted token
       const storedToken =
@@ -72,7 +70,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // If we have a token, send it in Authorization header
       if (bearerToken) {
         headers["Authorization"] = `Bearer ${bearerToken}`
-        console.log("[v0] Using Bearer token for authentication")
       }
 
       const response = await fetch(`${API_URL}/api/users/me`, {
@@ -85,17 +82,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (response.ok) {
         const userData = await response.json()
-        console.log("[v0] User authenticated successfully:", userData.user?.id || userData.user?.email)
-        console.log("[v0] User data:", userData.user)
         setUser(userData.user)
       } else if (response.status === 401) {
-        console.log("[v0] User not authenticated (401)")
         setUser(null)
       } else if (response.status === 403) {
-        console.log("[v0] User email not verified (403) - this is expected during email verification flow")
         setUser(null)
       } else {
-        console.log("[v0] Auth check returned status:", response.status)
         setUser(null)
       }
     } catch (error: any) {
@@ -112,7 +104,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   const refreshUser = async (authToken?: string) => {
-    console.log("[v0] Refreshing user data...")
     setLoading(true)
     await checkAuth(authToken)
   }
@@ -130,7 +121,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Listen for auth changes (e.g., after Google sign-in or register)
   useEffect(() => {
     const handleAuthChange = () => {
-      console.log("[v0] Auth state change detected, refreshing user data")
       setLoading(true)
       checkAuth()
     }
@@ -149,7 +139,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     try {
-      console.log("[v0] Logging out...")
       await fetch(`${API_URL}/api/users/logout`, {
         method: "POST",
         credentials: "include",

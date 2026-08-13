@@ -51,7 +51,6 @@ export function useSubscriptionUsage(businessId: string | null | undefined) {
       const response_data = await response.json()
       // Extract the nested data object from the API response
       const actualUsage = response_data.data || response_data
-      console.log('[v0] Subscription usage fetched:', actualUsage)
       setUsage(actualUsage)
     } catch (err: any) {
       console.error('[v0] Error fetching subscription usage:', err.message)

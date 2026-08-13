@@ -44,7 +44,6 @@ export const UserRegisterForm = () => {
     setIsLoading(true)
     setError("")
 
-    console.log(JSON.stringify({
           firstName,
           lastName,
           email,
@@ -76,7 +75,6 @@ export const UserRegisterForm = () => {
 
       const data = await response.json()
 
-      console.log("[v0] User registration successful, email verification required")
       
       // Show success message
       setSuccess(true)

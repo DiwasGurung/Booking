@@ -136,17 +136,12 @@ export const SetupBusinessForm = () => {
         currentToken = token
       }
 
-      console.log('[v0] SetupBusinessForm: token from localStorage:', !!(typeof window !== 'undefined' && localStorage.getItem('authToken')))
-      console.log('[v0] SetupBusinessForm: token from context:', !!token)
-      console.log('[v0] SetupBusinessForm: using token:', !!currentToken)
-      console.log('[v0] SetupBusinessForm: user data:', { userId: user?.id, role: user?.role, email: user?.email })
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }
       if (currentToken) {
         headers['Authorization'] = `Bearer ${currentToken}`
-        console.log('[v0] SetupBusinessForm: Authorization header set')
       } else {
         console.warn('[v0] SetupBusinessForm: No token available!')
       }
@@ -158,7 +153,6 @@ export const SetupBusinessForm = () => {
         body: JSON.stringify(formData),
       })
 
-      console.log('[v0] SetupBusinessForm: API response status:', response.status)
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
@@ -168,21 +162,16 @@ export const SetupBusinessForm = () => {
       }
 
       const businessData = await response.json()
-      console.log("[v0] Business registered successfully:", businessData.id)
 
       // Refresh user to update role and business info
-      console.log("[v0] Refreshing user data after business registration...")
       await refreshUser()
-      console.log("[v0] User data refreshed")
       
       // Small delay to ensure role update is processed
       await new Promise(resolve => setTimeout(resolve, 500))
 
       toast.success("Business registered successfully!")
-      console.log("[v0] About to redirect to /subscription")
       // Add a parameter to indicate we're coming from setup to prevent auto-redirects
       router.push("/subscription?from=setup")
-      console.log("[v0] Redirect call made")
     } catch (error: any) {
       console.error("[v0] Business registration error:", error)
       const errorMessage = error instanceof Error ? error.message : "An error occurred"

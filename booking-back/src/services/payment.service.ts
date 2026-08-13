@@ -183,7 +183,6 @@ export class PaymentService {
     metadata?: any
   ) {
     try {
-      console.log(`[Payment] Action: ${action} | Payment: ${paymentId} | Status: ${status}`, metadata || '');
       // TODO: Implement payment audit logging if needed
     } catch (error: any) {
       console.error('[Payment] Error logging action:', error);

@@ -15,11 +15,47 @@ import { GoogleAuthProvider } from "@/components/GoogleAuthProvider"
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
+const siteUrl = "https://appointnepal.com"
+
 export const metadata: Metadata = {
-  title: "Appoint-Nepal - Simple Online Booking for Service Businesses",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Appoint Nepal | Online Appointment Booking Platform",
+    template: "%s | Appoint Nepal",
+  },
   description:
-    "The easiest way to manage bookings online. Let customers book appointments, reduce no-shows, and grow your business.",
-  generator: "v0.app",
+    "Book appointments online in Nepal with Appoint Nepal. Discover local businesses, salons, clinics, consultants, and service providers, or grow your business with online booking.",
+  keywords: [
+    "appointment booking Nepal",
+    "online booking Nepal",
+    "book appointments online",
+    "business appointment scheduling",
+    "salon booking Nepal",
+    "clinic appointment booking Nepal",
+    "Appoint Nepal",
+    "appointment booking Kathmandu",
+    "appointment booking Pokhara",
+  ],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: siteUrl,
+    siteName: "Appoint Nepal",
+    title: "Appoint Nepal | Online Appointment Booking",
+    description: "Find businesses and book appointments online across Nepal.",
+    locale: "en_NP",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Appoint Nepal | Online Appointment Booking",
+    description: "Find businesses and book appointments online across Nepal.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
+  },
+  generator: "Appoint Nepal",
   icons: {
     icon: [
       {

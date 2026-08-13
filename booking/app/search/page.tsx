@@ -38,7 +38,6 @@ function SearchPageContent() {
   useEffect(() => {
     const authRefresh = searchParams.get('authRefresh')
     if (authRefresh === 'true') {
-      console.log('[v0] Auth refresh triggered from OAuth callback')
       refreshUser()
       // Remove the parameter from URL
       router.replace('/search')
