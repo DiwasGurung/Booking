@@ -40,7 +40,6 @@ class StaffVerificationService {
             });
             // Send verification email to staff
             await email_service_js_1.emailService.sendStaffVerificationEmail(staffEmail, staffName, verificationToken, staff.business.name);
-            console.log(`[v0] Verification email sent to ${staffEmail}`);
             return { success: true, message: 'Verification email sent' };
         }
         catch (error) {
@@ -87,7 +86,6 @@ class StaffVerificationService {
                 where: { id: staff.id },
                 data: { emailVerified: true },
             });
-            console.log(`[v0] Email verified for staff ${staff.id}`);
             return { success: true, staffId: staff.id, message: 'Email verified successfully' };
         }
         catch (error) {

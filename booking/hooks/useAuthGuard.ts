@@ -34,12 +34,7 @@ export function useAuthGuard({ mode, redirectTo, onUnauthorized }: UseAuthGuardO
     // user.role can come from different sources; widen type to allow runtime comparisons
     const userRole = (user as any)?.role as string | undefined
 
-      mode,
-      isAuthenticated,
-      userRole,
-      timestamp: new Date().toISOString(),
-    })
-
+     
     // PUBLIC MODE - Redirect authenticated users away
     if (mode === 'public') {
       if (isAuthenticated) {

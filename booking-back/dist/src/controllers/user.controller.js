@@ -35,7 +35,6 @@ const createUser = async (req, res) => {
         // Send verification email with code
         try {
             await email_service_js_1.emailService.sendVerificationEmail(email, verificationCode);
-            console.log('[v0] Verification code sent to:', email);
         }
         catch (emailError) {
             console.error('[v0] Failed to send verification email:', emailError);
@@ -81,18 +80,14 @@ const loginUser = async (req, res) => {
                 email: user.email
             });
         }
-        console.log('[Login] User found:', user.id);
         if (!user.password) {
-            console.log('[Login] User has no password (Google login)');
             return res.status(401).json({ error: 'User registered with Google. Please use Google sign-in' });
         }
-        console.log('[Login] Comparing password...');
         const isPasswordValid = await (0, auth_js_1.comparePassword)(password, user.password);
         if (!isPasswordValid) {
             return res.status(401).json({ error: 'Invalid password' });
         }
         const token = (0, auth_js_1.generateToken)(user.id);
-        console.log('[Login] Setting auth cookie with token:', token.substring(0, 20) + '...');
         res.cookie('authToken', token, (0, auth_js_1.generateCookie)(token));
         // Also set user role in cookie for middleware to read
         res.cookie('userRole', user.role, {
@@ -101,7 +96,6 @@ const loginUser = async (req, res) => {
             sameSite: 'lax',
             maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
         });
-        console.log('[Login] Cookie options:', (0, auth_js_1.generateCookie)(token));
         res.json({
             success: true,
             token,
@@ -162,7 +156,6 @@ const updateUserRole = async (req, res) => {
             return res.status(400).json({ error: 'Invalid role' });
         }
         const normalizedRole = role;
-        console.log('[Update Role] Updating user:', userId, 'to role:', normalizedRole);
         const user = await user_service_js_1.userService.updateUserRole(userId, normalizedRole);
         res.json({
             success: true,
@@ -180,7 +173,6 @@ const updateUserRole = async (req, res) => {
 exports.updateUserRole = updateUserRole;
 const logoutUser = async (req, res) => {
     try {
-        console.log('[Logout] User logged out:', req.userId);
         res.clearCookie('authToken');
         res.json({ success: true, message: 'Logged out successfully' });
     }
@@ -199,7 +191,6 @@ const changePassword = async (req, res) => {
         if (!currentPassword || !newPassword) {
             return res.status(400).json({ error: 'Current and new password required' });
         }
-        console.log('[Change Password] User:', req.userId);
         const user = await user_service_js_1.userService.findById(req.userId);
         if (!user || !user.password) {
             return res.status(400).json({ error: 'User not found or has no password' });
@@ -231,7 +222,6 @@ const updateProfile = async (req, res) => {
         if (!req.userId) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
-        console.log('[Update Profile] User:', req.userId);
         const user = await user_service_js_1.userService.updateUser(req.userId, {
             firstName,
             lastName,
@@ -261,7 +251,6 @@ const getCurrentUser = async (req, res) => {
         if (!req.userId) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
-        console.log('[Get Current User] User:', req.userId);
         const user = await user_service_js_1.userService.findById(req.userId);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
@@ -279,6 +268,7 @@ const getCurrentUser = async (req, res) => {
                 business: user.business,
                 isEmailVerified: user.isEmailVerified,
                 name: `${user.firstName} ${user.lastName}`,
+                createdAt: user.createdAt,
             },
         });
     }
@@ -297,22 +287,18 @@ const verifyEmail = async (req, res) => {
         if (!email || !code) {
             return res.status(400).json({ error: 'Email and verification code required' });
         }
-        console.log('[Verify Email] Processing verification code for:', email);
         // Find user by email
         const user = await user_service_js_1.userService.findByEmail(email);
         if (!user) {
             console.error('[Verify Email] User not found:', email);
             return res.status(400).json({ error: 'User not found' });
         }
-        console.log('[Verify Email] User found:', user.id);
         // Check if already verified
         if (user.isEmailVerified) {
-            console.log('[Verify Email] Email already verified:', email);
             return res.status(400).json({ error: 'Email is already verified' });
         }
         // Check if code matches
         if (user.emailVerificationCode !== code) {
-            console.log('[Verify Email] Code mismatch for user:', user.id);
             // Increment failed attempts
             const attempts = (user.emailVerificationAttempts || 0) + 1;
             try {
@@ -338,10 +324,8 @@ const verifyEmail = async (req, res) => {
         }
         // Check if code has expired
         if (user.emailVerificationCodeExpires && user.emailVerificationCodeExpires < new Date()) {
-            console.log('[Verify Email] Code expired for user:', user.id);
             return res.status(400).json({ error: 'Verification code has expired. Please request a new one.' });
         }
-        console.log('[Verify Email] Updating user as verified:', user.id);
         // Update user as verified
         const verifiedUser = await user_service_js_1.userService.updateUser(user.id, {
             isEmailVerified: true,
@@ -349,7 +333,6 @@ const verifyEmail = async (req, res) => {
             emailVerificationCodeExpires: null,
             emailVerificationAttempts: 0,
         });
-        console.log('[v0] Email verified for user:', email, 'ID:', user.id);
         // Generate auth token now that email is verified
         const token = (0, auth_js_1.generateToken)(verifiedUser.id);
         // Set auth cookies so the user is automatically logged in after verification
@@ -390,22 +373,18 @@ const resendVerificationEmail = async (req, res) => {
         if (!email) {
             return res.status(400).json({ error: 'Email required' });
         }
-        console.log('[Resend Verification Code] Processing for email:', email);
         const user = await user_service_js_1.userService.findByEmail(email);
         if (!user) {
             console.error('[Resend Verification] User not found:', email);
             return res.status(404).json({ error: 'User not found' });
         }
-        console.log('[Resend Verification] User found:', user.id);
         // If already verified, no need to resend
         if (user.isEmailVerified) {
-            console.log('[Resend Verification] Email already verified:', email);
             return res.status(400).json({ error: 'Email is already verified' });
         }
         // Generate new 6-digit code
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
         const codeExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-        console.log('[Resend Verification] Generated new code for user:', user.id);
         // Update user with new code and reset attempts
         try {
             await user_service_js_1.userService.updateUser(user.id, {
@@ -413,7 +392,6 @@ const resendVerificationEmail = async (req, res) => {
                 emailVerificationCodeExpires: codeExpires,
                 emailVerificationAttempts: 0,
             });
-            console.log('[Resend Verification] Updated user code in database');
         }
         catch (dbError) {
             console.error('[Resend Verification] Failed to update code in database:', dbError);
@@ -422,7 +400,6 @@ const resendVerificationEmail = async (req, res) => {
         // Send verification email with code
         try {
             await email_service_js_1.emailService.sendVerificationEmail(email, verificationCode);
-            console.log('[v0] Verification code resent to:', email);
         }
         catch (emailError) {
             console.error('[v0] Failed to send verification email:', emailError);

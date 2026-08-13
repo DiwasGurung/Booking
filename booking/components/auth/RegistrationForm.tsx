@@ -44,13 +44,6 @@ export const UserRegisterForm = () => {
     setIsLoading(true)
     setError("")
 
-          firstName,
-          lastName,
-          email,
-          password,
-          phone: phone || undefined,
-          role: "CUSTOMER",
-        }))
 
     try {
       const response = await fetch(`${API_URL}/api/users/register`, {

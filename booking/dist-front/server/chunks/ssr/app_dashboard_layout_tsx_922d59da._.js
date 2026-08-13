@@ -1,3 +1,0 @@
-module.exports=[76252,a=>{"use strict";var b=a.i(87924),c=a.i(50944),d=a.i(72131);function e({children:a}){let e=(0,c.usePathname)();return d.default.useEffect(()=>{let a=document.querySelectorAll('footer, [role="contentinfo"]');return a.forEach(a=>{a.style.display="none"}),()=>{a.forEach(a=>{a.style.display=""})}},[e]),(0,b.jsx)(b.Fragment,{children:a})}a.s(["default",()=>e])}];
-
-//# sourceMappingURL=app_dashboard_layout_tsx_922d59da._.js.map

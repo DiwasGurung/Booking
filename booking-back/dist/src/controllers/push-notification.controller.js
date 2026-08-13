@@ -15,7 +15,6 @@ const subscribeToPushNotifications = async (req, res) => {
         if (!subscription || !subscription.endpoint || !subscription.keys) {
             return res.status(400).json({ error: 'Invalid subscription object' });
         }
-        console.log('[PushSubscription] Subscribing user:', userId);
         await push_subscription_service_js_1.PushSubscriptionService.createOrUpdateSubscription(userId, subscription);
         res.json({
             success: true,
@@ -41,7 +40,6 @@ const unsubscribeFromPushNotifications = async (req, res) => {
         if (!subscriptionId) {
             return res.status(400).json({ error: 'Subscription ID required' });
         }
-        console.log('[PushSubscription] Unsubscribing user:', userId);
         await push_subscription_service_js_1.PushSubscriptionService.deactivateSubscription(subscriptionId);
         res.json({
             success: true,

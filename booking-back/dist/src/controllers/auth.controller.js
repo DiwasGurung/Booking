@@ -13,7 +13,6 @@ exports.authController = {
             if (!access_token) {
                 return res.status(400).json({ error: 'Access token is required' });
             }
-            console.log('[Google OAuth] Verifying access token...');
             // Verify the Google access token
             const tokenInfo = await googleClient.getTokenInfo(access_token);
             if (!tokenInfo.email) {
@@ -22,7 +21,6 @@ exports.authController = {
             const { email, email_verified } = tokenInfo;
             // Note: getTokenInfo doesn't return googleId (sub), so we use email as identifier
             const googleId = tokenInfo.sub || email;
-            console.log('[Google OAuth] Token verified for:', email);
             // Check if user exists by Google ID
             let user = await user_service_js_1.userService.findByGoogleId(googleId);
             if (!user) {
@@ -31,7 +29,6 @@ exports.authController = {
                 if (existingUser) {
                     // Link Google to existing user
                     user = await user_service_js_1.userService.linkGoogleToUser(existingUser.id, googleId);
-                    console.log('[Google OAuth] Linked Google to existing user:', email);
                 }
                 else {
                     // Create new user - extract name from email if not available
@@ -44,11 +41,9 @@ exports.authController = {
                         role: 'CUSTOMER',
                         authProvider: 'GOOGLE',
                     });
-                    console.log('[Google OAuth] Created new user:', email);
                 }
             }
             else {
-                console.log('[Google OAuth] User already exists:', email);
             }
             // Generate JWT token
             const token = (0, auth_js_1.generateToken)(user.id);
@@ -88,7 +83,6 @@ exports.authController = {
                 console.warn('[Auth] User not found:', req.userId);
                 return res.status(404).json({ error: 'User not found' });
             }
-            console.log('[Auth] Retrieved current user:', req.userId);
             res.json({
                 id: user.id,
                 firstName: user.firstName,

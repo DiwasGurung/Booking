@@ -62,11 +62,6 @@ class EsewaPaymentService {
                 signed_field_names: signedFieldNames,
                 signature: signature,
             };
-            console.log('[eSewa] Payment initiated:', {
-                transactionUuid: request.transactionUuid,
-                totalAmount,
-                paymentUrl: this.paymentUrl,
-            });
             return {
                 success: true,
                 message: 'Payment form data generated successfully',
@@ -100,7 +95,6 @@ class EsewaPaymentService {
                 },
             });
             const data = response.data;
-            console.log('[eSewa] Verification response:', data);
             if (data.status === 'COMPLETE') {
                 return {
                     success: true,

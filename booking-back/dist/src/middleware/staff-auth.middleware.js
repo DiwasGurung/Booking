@@ -19,7 +19,6 @@ const staffAuth = (req, res, next) => {
         const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
         req.staffId = decoded.staffId;
         req.staff = decoded;
-        console.log('[Staff Auth Middleware] Token verified for staff:', req.staffId);
         next();
     }
     catch (error) {
@@ -38,7 +37,6 @@ const optionalStaffAuth = (req, res, next) => {
             const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
             req.staffId = decoded.staffId;
             req.staff = decoded;
-            console.log('[Optional Staff Auth Middleware] Token verified for staff:', req.staffId);
         }
         next();
     }

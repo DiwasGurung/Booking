@@ -17,7 +17,6 @@ class BusinessController {
             if (!userId) {
                 return res.status(401).json({ error: 'Not authenticated' });
             }
-            console.log('[Business Setup] Creating business for user:', userId);
             const business = await business_service_js_1.default.createBusiness({
                 ...req.body,
                 userId
@@ -43,7 +42,6 @@ class BusinessController {
             if (!userId) {
                 return res.status(401).json({ message: "Not authenticated" });
             }
-            console.log('[v0] Getting current business for user:', userId);
             const business = await business_service_js_1.default.getBusinessByUserId(userId);
             if (!business) {
                 return res.status(404).json({ message: "No business found for this user" });

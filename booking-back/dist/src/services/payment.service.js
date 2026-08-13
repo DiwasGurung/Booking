@@ -155,7 +155,6 @@ class PaymentService {
      */
     async logPaymentAction(paymentId, action, status, metadata) {
         try {
-            console.log(`[Payment] Action: ${action} | Payment: ${paymentId} | Status: ${status}`, metadata || '');
             // TODO: Implement payment audit logging if needed
         }
         catch (error) {

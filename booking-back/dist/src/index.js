@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 // server.js
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const path_1 = __importDefault(require("path"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const user_routes_js_1 = __importDefault(require("./routes/user.routes.js")); // Adjust path if needed
 const booking_routes_js_1 = __importDefault(require("./routes/booking.routes.js"));
@@ -66,6 +67,9 @@ app.use("/api/upload", upload_routes_js_1.default);
 app.use((req, res) => {
     res.status(404).send('Not Found');
 });
+if (process.env.NODE_ENV === 'production') {
+    const appRoot = '/home/appointn/booking-back';
+    module.paths.unshift(path_1.default.join(appRoot, 'node_modules'));
+}
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
 });

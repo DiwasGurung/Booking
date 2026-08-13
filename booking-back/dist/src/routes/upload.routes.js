@@ -98,9 +98,6 @@ router.post('/document', auth_middleware_js_1.auth, upload.single('file'), async
         // Generate URL for the uploaded file
         const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 5001}`;
         const fileUrl = `${baseUrl}/uploads/documents/${req.file.filename}`;
-        console.log(`[Upload] Document uploaded: ${type} for user ${userId}`);
-        console.log(`[Upload] File path: ${req.file.path}`);
-        console.log(`[Upload] File URL: ${fileUrl}`);
         res.json({
             success: true,
             url: fileUrl,
@@ -139,7 +136,6 @@ router.delete('/document/:filename', auth_middleware_js_1.auth, async (req, res)
             return res.status(404).json({ error: 'File not found' });
         }
         fs_1.default.unlinkSync(filePath);
-        console.log(`[Upload] Document deleted: ${filename} by user ${userId}`);
         res.json({ success: true, message: 'Document deleted successfully' });
     }
     catch (error) {
@@ -164,9 +160,6 @@ router.post('/logo', auth_middleware_js_1.auth, logoUpload.single('logo'), async
         // Generate URL for the uploaded file
         const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 5001}`;
         const logoUrl = `${baseUrl}/uploads/logos/${req.file.filename}`;
-        console.log(`[Upload] Logo uploaded for user ${userId}`);
-        console.log(`[Upload] File path: ${req.file.path}`);
-        console.log(`[Upload] Logo URL: ${logoUrl}`);
         res.json({
             success: true,
             logoUrl,
@@ -204,7 +197,6 @@ router.delete('/logo/:filename', auth_middleware_js_1.auth, async (req, res) => 
             return res.status(404).json({ error: 'File not found' });
         }
         fs_1.default.unlinkSync(filePath);
-        console.log(`[Upload] Logo deleted: ${filename} by user ${userId}`);
         res.json({ success: true, message: 'Logo deleted successfully' });
     }
     catch (error) {

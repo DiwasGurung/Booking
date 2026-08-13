@@ -76,12 +76,6 @@ const initiateEsewaPayment = async (req, res) => {
         if (!esewaResponse.success) {
             return res.status(500).json({ error: esewaResponse.message });
         }
-        console.log('[SubscriptionPayment] eSewa payment initiated:', {
-            transactionUuid,
-            amount: priceNPR,
-            billingPeriod,
-            durationDays: getDurationDays(billingPeriod),
-        });
         return res.json({
             success: true,
             formData: esewaResponse.formData,

@@ -24,18 +24,13 @@ function generateCookie(token) {
     };
 }
 async function hashPassword(password) {
-    console.log('[hashPassword] Hashing password...');
     const salt = await bcrypt_1.default.genSalt(10);
     const hashedPassword = await bcrypt_1.default.hash(password, salt);
-    console.log('[hashPassword] Password hashed successfully');
     return hashedPassword;
 }
 async function comparePassword(plainPassword, hashedPassword) {
     try {
-        console.log('[comparePassword] Comparing passwords...');
-        console.log('[comparePassword] Hashed password length:', hashedPassword.length);
         const isMatch = await bcrypt_1.default.compare(plainPassword, hashedPassword);
-        console.log('[comparePassword] Match result:', isMatch);
         return isMatch;
     }
     catch (error) {

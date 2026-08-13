@@ -64,7 +64,6 @@ class WebPushService {
                 },
             };
             await webpush.sendNotification(subscription, JSON.stringify(notificationPayload), options);
-            console.log('[WebPush] Notification sent successfully');
             return true;
         }
         catch (error) {
@@ -94,7 +93,6 @@ class WebPushService {
             failed++;
         }));
         await Promise.all(promises);
-        console.log(`[WebPush] Bulk send completed - Success: ${success}, Failed: ${failed}`);
         return { success, failed };
     }
     /**

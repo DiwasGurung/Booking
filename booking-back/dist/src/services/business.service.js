@@ -160,7 +160,6 @@ class BusinessService {
      */
     async getBusinessSettings(businessId) {
         try {
-            console.log('[v0] getBusinessSettings called with:', businessId);
             const business = await prisma_js_1.default.business.findUnique({
                 where: { id: businessId },
                 select: {
@@ -182,7 +181,6 @@ class BusinessService {
                     notificationSettings: true,
                 }
             });
-            console.log('[v0] business found:', business);
             if (!business) {
                 throw new Error("Business not found");
             }
@@ -215,7 +213,6 @@ class BusinessService {
             };
         }
         catch (error) {
-            console.log('[v0] getBusinessSettings error:', error instanceof Error ? error.message : String(error));
             throw error;
         }
     }

@@ -17,7 +17,6 @@ class SubscriptionController {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId, planId } = validation.data;
-            console.log(`[v0] Creating free trial subscription for business: ${businessId}`);
             const subscription = await subscription_service_js_1.default.createSubscriptionWithTrial({
                 businessId,
                 planId,
@@ -43,9 +42,7 @@ class SubscriptionController {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId } = validation.data;
-            console.log(`[v0] Fetching subscription status for business: ${businessId}`);
             const status = await subscription_service_js_1.default.getSubscriptionStatus(businessId);
-            console.log(`[v0] Subscription status fetched:`, { businessId, hasSubscription: status.hasSubscription, status: status.status });
             // Return default subscription status if none exists (first-time user)
             if (!status.hasSubscription) {
                 return res.json({
@@ -74,7 +71,6 @@ class SubscriptionController {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId } = validation.data;
-            console.log(`[v0] Checking subscription validity for business: ${businessId}`);
             const isValid = await subscription_service_js_1.default.isSubscriptionValid(businessId);
             res.json({
                 businessId,
@@ -101,7 +97,6 @@ class SubscriptionController {
             }
             const { subscriptionId } = paramsValidation.data;
             const { paymentId, durationDays } = bodyValidation.data;
-            console.log(`[v0] Activating subscription: ${subscriptionId}`);
             const subscription = await subscription_service_js_1.default.activateSubscription(subscriptionId, {
                 paymentId,
                 durationDays,
@@ -126,7 +121,6 @@ class SubscriptionController {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId } = validation.data;
-            console.log(`[v0] Checking trial expiration for business: ${businessId}`);
             const expired = await subscription_service_js_1.default.hasTrialExpired(businessId);
             res.json({
                 businessId,
@@ -152,7 +146,6 @@ class SubscriptionController {
             if (!userId) {
                 return res.status(401).json({ message: 'Unauthorized' });
             }
-            console.log(`[v0] Cancelling subscription: ${subscriptionId}`);
             const result = await subscription_service_js_1.default.cancelSubscription({
                 subscriptionId,
                 userId,
@@ -172,7 +165,6 @@ class SubscriptionController {
      */
     async getExpired(req, res) {
         try {
-            console.log('[v0] Fetching expired subscriptions');
             const subscriptions = await subscription_service_js_1.default.getExpiredSubscriptions();
             res.json({
                 count: subscriptions.length,
@@ -189,7 +181,6 @@ class SubscriptionController {
      */
     async getExpiringSoon(req, res) {
         try {
-            console.log('[v0] Fetching subscriptions expiring soon');
             const subscriptions = await subscription_service_js_1.default.getExpiringSoonSubscriptions();
             res.json({
                 count: subscriptions.length,
@@ -299,7 +290,6 @@ class SubscriptionController {
      */
     async getAllPlans(req, res) {
         try {
-            console.log('[v0] Fetching all subscription plans');
             const plans = await prisma_js_1.default.subscriptionPlan.findMany({
                 where: { active: true },
                 orderBy: { priceNPR: 'asc' },
@@ -324,7 +314,6 @@ class SubscriptionController {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId, newPlanId, paymentId } = validation.data;
-            console.log(`[v0] Upgrading subscription for business: ${businessId}`);
             const subscription = await subscription_service_js_1.default.upgradeSubscription(businessId, newPlanId, paymentId);
             res.json({
                 message: 'Subscription upgraded successfully',
@@ -346,7 +335,6 @@ class SubscriptionController {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId, newPlanId, paymentId } = validation.data;
-            console.log(`[v0] Downgrading subscription for business: ${businessId}`);
             const subscription = await subscription_service_js_1.default.downgradeSubscription(businessId, newPlanId, paymentId);
             res.json({
                 message: 'Subscription downgraded successfully. Changes take effect on next billing cycle.',
@@ -368,7 +356,6 @@ class SubscriptionController {
                 return res.status(400).json({ message: validation.error });
             }
             const { subscriptionId, paymentId, durationDays } = validation.data;
-            console.log(`[v0] Renewing subscription: ${subscriptionId}`);
             const subscription = await subscription_service_js_1.default.renewSubscription(subscriptionId, paymentId, durationDays || 30);
             res.json({
                 message: 'Subscription renewed successfully',

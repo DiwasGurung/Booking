@@ -14,12 +14,10 @@ class NotificationSSEController {
             if (!userId) {
                 return res.status(401).json({ message: "Not authenticated" });
             }
-            console.log(`[v0] User ${userId} subscribing to notifications`);
             // Register connection with SSE service
             const cleanup = notification_sse_service_js_1.default.registerConnection(userId, res);
             // Handle client disconnect
             req.on("close", () => {
-                console.log(`[v0] User ${userId} disconnected from notifications`);
                 cleanup();
                 res.end();
             });

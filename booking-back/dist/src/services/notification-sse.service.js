@@ -16,7 +16,6 @@ class NotificationSSEService {
      * @returns Cleanup function to remove connection
      */
     static registerConnection(userId, res) {
-        console.log(`[v0] SSE Service: User ${userId} registered for notifications`);
         // Set SSE headers
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
@@ -49,7 +48,6 @@ class NotificationSSEService {
             clearInterval(heartbeatInterval);
         }
         this.notificationClients.delete(userId);
-        console.log(`[v0] SSE Service: User ${userId} unregistered from notifications`);
     }
     /**
      * Send a heartbeat to keep connection alive
@@ -101,7 +99,6 @@ class NotificationSSEService {
                     timestamp: new Date().toISOString(),
                 };
                 client.write(`data: ${JSON.stringify(message)}\n\n`);
-                console.log(`[v0] SSE Service: Notification sent to user ${userId}`);
                 return true;
             }
             catch (error) {
@@ -111,7 +108,6 @@ class NotificationSSEService {
             }
         }
         else {
-            console.log(`[v0] SSE Service: User ${userId} not connected (will use polling fallback)`);
             return false;
         }
     }
@@ -156,7 +152,6 @@ class NotificationSSEService {
      * Clear all connections (for cleanup)
      */
     static clearAllConnections() {
-        console.log(`[v0] SSE Service: Clearing all ${this.notificationClients.size} connections`);
         this.notificationClients.clear();
     }
 }

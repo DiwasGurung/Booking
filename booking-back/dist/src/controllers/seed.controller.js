@@ -10,11 +10,9 @@ class SeedController {
      */
     async seedPlans(req, res) {
         try {
-            console.log('[v0] Seeding subscription plans...');
             // Delete existing plans and recreate with new limits
             const existingPlans = await prisma_js_1.default.subscriptionPlan.findMany();
             if (existingPlans.length > 0) {
-                console.log('[v0] Deleting existing plans to update with new limits...');
                 await prisma_js_1.default.subscriptionPlan.deleteMany();
             }
             const plans = [
@@ -127,7 +125,6 @@ class SeedController {
             const createdPlans = await Promise.all(plans.map((plan) => prisma_js_1.default.subscriptionPlan.create({
                 data: plan,
             })));
-            console.log('[v0] Successfully created', createdPlans.length, 'subscription plans with limits');
             res.json({
                 message: 'Subscription plans seeded successfully',
                 plans: createdPlans,
@@ -146,7 +143,6 @@ class SeedController {
      */
     async getPlans(req, res) {
         try {
-            console.log('[v0] Fetching all subscription plans');
             const plans = await prisma_js_1.default.subscriptionPlan.findMany({
                 where: { active: true },
                 orderBy: { priceNPR: 'asc' },

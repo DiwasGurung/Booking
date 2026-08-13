@@ -27,7 +27,6 @@ const initializeTransporter = () => {
             console.error('[Email Setup] See: https://support.google.com/accounts/answer/185833');
         }
         else {
-            console.log('[Email Service] Ready to send emails');
         }
     });
     return transporter;
@@ -38,7 +37,6 @@ exports.emailService = {
      */
     async sendVerificationCustomerEmail(email, verificationToken, bookingDetails) {
         try {
-            console.log('[Email Service] Sending verification email to:', email);
             const transporter = initializeTransporter();
             const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/book/verify/${verificationToken}`;
             const html = `
@@ -85,7 +83,6 @@ exports.emailService = {
                 subject: `Verify Your Booking - ${bookingDetails.serviceName}`,
                 html,
             });
-            console.log('[Email Service] Verification email sent successfully');
             return true;
         }
         catch (error) {
@@ -136,7 +133,6 @@ exports.emailService = {
         `,
             };
             const result = await transporter.sendMail(mailOptions);
-            console.log('[Email Service] Verification code sent to:', email, 'Message ID:', result.messageId);
             return result;
         }
         catch (error) {
@@ -187,7 +183,6 @@ exports.emailService = {
         `,
             };
             const result = await transporter.sendMail(mailOptions);
-            console.log('[Email Service] Password reset email sent to:', email);
             return result;
         }
         catch (error) {
@@ -304,7 +299,6 @@ exports.emailService = {
         `,
             };
             const result = await transporter.sendMail(mailOptions);
-            console.log('[Email Service] New booking notification sent to owner:', ownerEmail);
             return result;
         }
         catch (error) {
@@ -390,7 +384,6 @@ exports.emailService = {
         `,
             };
             const result = await transporter.sendMail(mailOptions);
-            console.log('[Email Service] Booking confirmation sent to customer:', customerEmail);
             return result;
         }
         catch (error) {
@@ -464,7 +457,6 @@ exports.emailService = {
         `,
             };
             const result = await transporter.sendMail(mailOptions);
-            console.log('[Email Service] Staff verification email sent to:', staffEmail);
             return result;
         }
         catch (error) {
