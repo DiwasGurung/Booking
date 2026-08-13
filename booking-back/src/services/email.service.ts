@@ -25,6 +25,7 @@ const initializeTransporter = () => {
       console.error('[Email Setup] Make sure you are using a Gmail App Password, not your regular password.')
       console.error('[Email Setup] See: https://support.google.com/accounts/answer/185833')
     } else {
+      console.log('[Email Service] Ready to send emails')
     }
   })
 
@@ -44,6 +45,7 @@ export const emailService = {
     staffName?: string
   }): Promise<boolean> {
     try {
+      console.log('[Email Service] Sending verification email to:', email)
       const transporter = initializeTransporter()
 
       const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/book/verify/${verificationToken}`
@@ -94,6 +96,7 @@ export const emailService = {
         html,
       })
 
+      console.log('[Email Service] Verification email sent successfully')
       return true
     } catch (error: any) {
       console.error('[Email Service] Failed to send verification email:', error.message)
@@ -145,6 +148,7 @@ export const emailService = {
       }
 
       const result = await transporter.sendMail(mailOptions)
+      console.log('[Email Service] Verification code sent to:', email, 'Message ID:', result.messageId)
       return result
     } catch (error: any) {
       console.error('[Email Service] Failed to send verification email:', error.message)
@@ -199,6 +203,7 @@ export const emailService = {
       }
 
       const result = await transporter.sendMail(mailOptions)
+      console.log('[Email Service] Password reset email sent to:', email)
       return result
     } catch (error: any) {
       console.error('[Email Service] Failed to send password reset email:', error.message)
@@ -329,6 +334,7 @@ export const emailService = {
       }
 
       const result = await transporter.sendMail(mailOptions)
+      console.log('[Email Service] New booking notification sent to owner:', ownerEmail)
       return result
     } catch (error: any) {
       console.error('[Email Service] Failed to send new booking notification:', error.message)
@@ -427,6 +433,7 @@ export const emailService = {
       }
 
       const result = await transporter.sendMail(mailOptions)
+      console.log('[Email Service] Booking confirmation sent to customer:', customerEmail)
       return result
     } catch (error: any) {
       console.error('[Email Service] Failed to send booking confirmation to customer:', error.message)
@@ -503,6 +510,7 @@ export const emailService = {
       }
 
       const result = await transporter.sendMail(mailOptions)
+      console.log('[Email Service] Staff verification email sent to:', staffEmail)
       return result
     } catch (error: any) {
       console.error('[Email Service] Failed to send staff verification email:', error.message)

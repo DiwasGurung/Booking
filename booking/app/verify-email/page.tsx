@@ -11,6 +11,7 @@ function VerifyEmailContent() {
   const email = searchParams.get('email') || ''
   const action = searchParams.get('action')
 
+  console.log('[v0] Verify Email Page - Email:', email, 'Action:', action)
 
   return (
     <Card className="w-full max-w-md border-border shadow-lg">

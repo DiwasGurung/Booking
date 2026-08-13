@@ -19,6 +19,7 @@ class BusinessController {
         return res.status(401).json({ error: 'Not authenticated' })
       }
 
+      console.log('[Business Setup] Creating business for user:', userId)
       
       const business = await BusinessService.createBusiness({
         ...req.body,
@@ -48,6 +49,7 @@ class BusinessController {
         return res.status(401).json({ message: "Not authenticated" })
       }
 
+      console.log('[v0] Getting current business for user:', userId)
 
       const business = await BusinessService.getBusinessByUserId(userId)
 

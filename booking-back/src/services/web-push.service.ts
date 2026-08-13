@@ -48,6 +48,7 @@ export class WebPushService {
       }
 
       await webpush.sendNotification(subscription, JSON.stringify(notificationPayload), options)
+      console.log('[WebPush] Notification sent successfully')
       return true
     } catch (error: any) {
       if (error.statusCode === 410 || error.statusCode === 404) {
@@ -82,6 +83,7 @@ export class WebPushService {
     )
 
     await Promise.all(promises)
+    console.log(`[WebPush] Bulk send completed - Success: ${success}, Failed: ${failed}`)
     return { success, failed }
   }
 

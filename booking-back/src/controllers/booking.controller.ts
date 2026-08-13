@@ -235,6 +235,7 @@ class BookingController {
    */
   async createBooking(req: Request, res: Response): Promise<Response | void> {
     try {
+      console.log('[v0] createBooking called with body:', req.body)
       
       // Get userId from authenticated user (set by auth middleware)
       const userId = (req as any).userId
@@ -367,6 +368,7 @@ class BookingController {
         },
       })
 
+      console.log('[v0] Authenticated booking created (CONFIRMED):', booking.id)
 
       const emailWarnings: string[] = []
 
@@ -386,6 +388,7 @@ class BookingController {
             businessName: business.name,
             notes: booking.notes || undefined,
           })
+          console.log('[v0] Owner notification email sent to:', business.user.email)
         }
       } catch (emailError: any) {
         console.error('[v0] Failed to send email to owner:', emailError)
@@ -403,6 +406,7 @@ class BookingController {
           businessPhone: business.phone || '',
           businessAddress: business.address || '',
         })
+        console.log('[v0] Customer confirmation email sent to:', booking.customerEmail)
       } catch (emailError: any) {
         console.error('[v0] Failed to send confirmation email to customer:', emailError)
         emailWarnings.push('Confirmation email could not be sent to ' + booking.customerEmail)
@@ -490,6 +494,7 @@ class BookingController {
       const { id } = req.params
       const { status } = req.body
 
+      console.log('[v0] updateBookingStatus called with id:', id, 'status:', status)
 
       // Fetch booking before updating to get all relations
       const booking = await BookingService.getBookingById(Array.isArray(id) ? id[0] : id)
@@ -507,9 +512,11 @@ class BookingController {
         status
       )
 
+      console.log('[v0] Booking status updated to:', status)
 
       // Send notification based on status
       try {
+        console.log('[v0] Creating notification for booking status:', status, 'userId:', booking?.userId)
         
         if (!booking?.userId) {
           console.warn('[v0] Warning: booking.userId is null or undefined')
@@ -524,7 +531,9 @@ class BookingController {
         const businessName = business?.name || 'the business'
         
         if (status === 'CONFIRMED') {
+          console.log('[v0] Sending confirmation notification for booking:', booking.id, 'userId:', booking.userId)
           const notification = await NotificationService.sendBookingConfirmation(booking.id, booking.userId)
+          console.log('[v0] Confirmation notification created:', JSON.stringify(notification))
           
           // Broadcast real-time notification
           NotificationSSEService.broadcastToUser(booking.userId, {
@@ -535,6 +544,7 @@ class BookingController {
             createdAt: new Date(),
           })
         } else if (status === 'COMPLETED') {
+          console.log('[v0] Sending completion notification for booking:', booking.id, 'userId:', booking.userId)
           const notification = await NotificationService.createNotification({
             userId: booking.userId,
             type: 'BOOKING_CONFIRMATION',
@@ -542,6 +552,7 @@ class BookingController {
             message: `Your booking with ${businessName} has been completed. Please leave a review!`,
             bookingId: booking.id,
           })
+          console.log('[v0] Completion notification created:', JSON.stringify(notification))
           
           // Broadcast real-time notification
           NotificationSSEService.broadcastToUser(booking.userId, {
@@ -552,6 +563,7 @@ class BookingController {
             createdAt: new Date(),
           })
         } else if (status === 'CANCELLED') {
+          console.log('[v0] Sending cancellation notification for booking:', booking.id, 'userId:', booking.userId)
           const notification = await NotificationService.createNotification({
             userId: booking.userId,
             type: 'BOOKING_CANCELLATION',
@@ -559,6 +571,7 @@ class BookingController {
             message: `Your booking with ${businessName} has been cancelled.`,
             bookingId: booking.id,
           })
+          console.log('[v0] Cancellation notification created:', JSON.stringify(notification))
           
           // Broadcast real-time notification
           NotificationSSEService.broadcastToUser(booking.userId, {
@@ -774,6 +787,7 @@ class BookingController {
         // Existing customer - use the existing record
         customer = existingCustomer
         isNewCustomer = false
+        console.log('[v0] Existing customer found:', customer.id)
       } else {
         // New customer - create a new record
         try {
@@ -787,6 +801,7 @@ class BookingController {
             },
           })
           isNewCustomer = true
+          console.log('[v0] New guest customer created:', customer.id)
         } catch (err: any) {
           console.error('[v0] Error creating customer:', err)
           return res.status(500).json({
@@ -841,6 +856,7 @@ class BookingController {
         },
       })
 
+      console.log(`[v0] Public booking created (${bookingStatus}):`, booking.id)
 
       const emailWarnings: string[] = []
 
@@ -857,6 +873,7 @@ class BookingController {
             businessName: business.name,
             notes,
           })
+          console.log('[v0] Owner notification email sent to:', business.user.email)
         }
       } catch (emailError: any) {
         console.error('[v0] Failed to send email to owner:', emailError)
@@ -878,12 +895,14 @@ class BookingController {
           if (!verificationSent) {
             emailWarnings.push('Verification email could not be sent. Please check your email spam folder or contact the business.')
           } else {
+            console.log('[v0] Customer verification email sent to:', customerEmail)
           }
         } catch (emailError: any) {
           console.error('[v0] Failed to send verification email to customer:', emailError)
           emailWarnings.push('Verification email could not be sent to ' + customerEmail)
         }
       } else {
+        console.log('[v0] Existing customer - booking auto-confirmed without verification')
       }
 
       res.status(201).json({
@@ -969,6 +988,7 @@ class BookingController {
         include: { service: true, business: true, customer: true }
       })
 
+      console.log('[v0] Booking verified and confirmed:', booking.id)
 
       // Send confirmation email to customer
       try {
@@ -981,6 +1001,7 @@ class BookingController {
           businessPhone: confirmedBooking.business.phone || '',
           businessAddress: confirmedBooking.business.address || '',
         })
+        console.log('[v0] Confirmation email sent to:', booking.customerEmail)
       } catch (emailError: any) {
         console.error('[v0] Failed to send confirmation email:', emailError)
         // Don't fail the verification if email send fails - booking is already confirmed

@@ -1,5 +1,6 @@
 // Service Worker for handling push notifications
 self.addEventListener('push', function (event) {
+  console.log('[ServiceWorker] Push notification received')
 
   try {
     const data = event.data.json()
@@ -34,6 +35,7 @@ self.addEventListener('push', function (event) {
 
 // Handle notification clicks
 self.addEventListener('notificationclick', function (event) {
+  console.log('[ServiceWorker] Notification clicked')
 
   event.notification.close()
 
@@ -62,10 +64,12 @@ self.addEventListener('notificationclick', function (event) {
 
 // Handle notification dismissal
 self.addEventListener('notificationclose', function (event) {
+  console.log('[ServiceWorker] Notification closed')
 })
 
 // Background sync (optional - for retrying failed syncs)
 self.addEventListener('sync', function (event) {
   if (event.tag === 'sync-notifications') {
+    console.log('[ServiceWorker] Syncing notifications')
   }
 })

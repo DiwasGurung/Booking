@@ -177,9 +177,11 @@ export class BookingService {
           staff: true
         }
       })
+      console.log('[v0] All staff services for service:', { serviceId, count: allStaffServices.length })
       
       // Filter to only active staff from this business
       staffStaffServices = allStaffServices.filter((ss: { staff: { businessId: string; isActive: any } }) => ss.staff.businessId === businessId && ss.staff.isActive)
+      console.log('[v0] Active staff for business:', { businessId, serviceId, staffCount: staffStaffServices.length })
       
       if (staffStaffServices.length === 0) {
         console.error('[v0] No staff found for service:', { businessId, serviceId })

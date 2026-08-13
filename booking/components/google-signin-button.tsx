@@ -20,6 +20,7 @@ export const GoogleSignInButton = () => {
       setError("")
 
       try {
+        console.log("[v0] Google login successful, sending token to backend...")
         
         const response = await fetch(`${API_URL}/api/auth/google`, {
           method: "POST",
@@ -45,15 +46,19 @@ export const GoogleSignInButton = () => {
         }
 
         const data = await response.json()
+        console.log("[v0] Google sign-in successful for:", data.user)
 
         // Dispatch custom event to notify auth context of state change
         // httpOnly cookie is automatically sent and stored by backend
         window.dispatchEvent(new Event('authStateChanged'))
+        console.log("[v0] Auth state change event dispatched")
 
         // Redirect to appropriate page
         if (data.user?.role === "BUSINESS_OWNER") {
+          console.log("[v0] Redirecting to business dashboard")
           router.push(`/dashboard/${data.user.businessId}`)
         } else {
+          console.log("[v0] Redirecting to search page")
           router.push("/search")
         }
       } catch (err: any) {

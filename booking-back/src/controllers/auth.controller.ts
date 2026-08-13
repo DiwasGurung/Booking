@@ -16,6 +16,7 @@ export const authController = {
         return res.status(400).json({ error: 'Access token is required' })
       }
 
+      console.log('[Google OAuth] Verifying access token...')
 
       // Verify the Google access token
       const tokenInfo = await googleClient.getTokenInfo(access_token)
@@ -29,6 +30,7 @@ export const authController = {
       // Note: getTokenInfo doesn't return googleId (sub), so we use email as identifier
       const googleId = tokenInfo.sub || email
 
+      console.log('[Google OAuth] Token verified for:', email)
 
       // Check if user exists by Google ID
       let user = await userService.findByGoogleId(googleId)
@@ -40,6 +42,7 @@ export const authController = {
         if (existingUser) {
           // Link Google to existing user
           user = await userService.linkGoogleToUser(existingUser.id, googleId)
+          console.log('[Google OAuth] Linked Google to existing user:', email)
         } else {
           // Create new user - extract name from email if not available
           const nameParts = email.split('@')[0].split('.')
@@ -51,8 +54,10 @@ export const authController = {
             role: 'CUSTOMER',
             authProvider: 'GOOGLE',
           })
+          console.log('[Google OAuth] Created new user:', email)
         }
       } else {
+        console.log('[Google OAuth] User already exists:', email)
       }
 
       // Generate JWT token
@@ -97,6 +102,7 @@ export const authController = {
         return res.status(404).json({ error: 'User not found' })
       }
 
+      console.log('[Auth] Retrieved current user:', req.userId)
       res.json({
         id: user.id,
         firstName: user.firstName,

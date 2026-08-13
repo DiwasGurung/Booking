@@ -34,6 +34,7 @@ export function useAuthGuard({ mode, redirectTo, onUnauthorized }: UseAuthGuardO
     // user.role can come from different sources; widen type to allow runtime comparisons
     const userRole = (user as any)?.role as string | undefined
 
+    console.log('[useAuthGuard]', {
       mode,
       isAuthenticated,
       userRole,
@@ -43,6 +44,7 @@ export function useAuthGuard({ mode, redirectTo, onUnauthorized }: UseAuthGuardO
     // PUBLIC MODE - Redirect authenticated users away
     if (mode === 'public') {
       if (isAuthenticated) {
+        console.log('[useAuthGuard] Public page - redirecting authenticated user')
 
         // Role-based redirects for authenticated users
         if (userRole === 'BUSINESS_OWNER') {
@@ -61,6 +63,7 @@ export function useAuthGuard({ mode, redirectTo, onUnauthorized }: UseAuthGuardO
     // PROTECTED MODE - Redirect unauthenticated users
     if (mode === 'protected') {
       if (!isAuthenticated) {
+        console.log('[useAuthGuard] Protected page - redirecting to login')
         router.replace('/login')
         onUnauthorized?.()
       }
@@ -70,12 +73,14 @@ export function useAuthGuard({ mode, redirectTo, onUnauthorized }: UseAuthGuardO
     // BUSINESS-ONLY MODE - Check BUSINESS_OWNER role
     if (mode === 'business-only') {
       if (!isAuthenticated) {
+        console.log('[useAuthGuard] Business page - not authenticated, redirecting to login')
         router.replace('/login')
         onUnauthorized?.()
         return
       }
 
       if (userRole !== 'BUSINESS_OWNER') {
+        console.log('[useAuthGuard] Business page - wrong role, redirecting to', redirectTo || '/dashboard')
         router.replace(redirectTo || '/dashboard')
         onUnauthorized?.()
       }
@@ -85,12 +90,14 @@ export function useAuthGuard({ mode, redirectTo, onUnauthorized }: UseAuthGuardO
     // CUSTOMER-ONLY MODE - Check CUSTOMER role
     if (mode === 'customer-only') {
       if (!isAuthenticated) {
+        console.log('[useAuthGuard] Customer page - not authenticated, redirecting to login')
         router.replace('/login')
         onUnauthorized?.()
         return
       }
 
       if (userRole !== 'CUSTOMER') {
+        console.log('[useAuthGuard] Customer page - wrong role, redirecting to', redirectTo || '/search')
         router.replace(redirectTo || '/search')
         onUnauthorized?.()
       }
@@ -100,12 +107,14 @@ export function useAuthGuard({ mode, redirectTo, onUnauthorized }: UseAuthGuardO
     // ADMIN-ONLY MODE - Check ADMIN role
     if (mode === 'admin-only') {
       if (!isAuthenticated) {
+        console.log('[useAuthGuard] Admin page - not authenticated, redirecting to login')
         router.replace('/login')
         onUnauthorized?.()
         return
       }
 
       if (userRole !== 'ADMIN') {
+        console.log('[useAuthGuard] Admin page - wrong role, redirecting to', redirectTo || '/dashboard')
         router.replace(redirectTo || '/dashboard')
         onUnauthorized?.()
       }

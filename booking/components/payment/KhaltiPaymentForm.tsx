@@ -84,6 +84,7 @@ export function KhaltiPaymentForm({
               throw new Error(error.message || 'Khalti payment failed');
             },
             onClose: () => {
+              console.log('Khalti payment cancelled');
             }
           },
           amount: Math.round(amount * 100) // Khalti uses paisa

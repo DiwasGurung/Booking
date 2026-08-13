@@ -7,12 +7,11 @@ import { useAuth } from "@/context/authContext"
 import { useEffect } from "react" 
 import { useRouter } from "next/navigation"
 
-
 export default function HomePage() {
   const { user, loading } = useAuth()
   const router = useRouter()
 
-  // Redirect authenticated users based on their role
+  // Redirect authenticated business owners to their dashboard
   useEffect(() => {
     if (loading) return
     
@@ -30,27 +29,12 @@ export default function HomePage() {
     if (user.role === 'CUSTOMER') {
       router.replace('/search')
     }
+    
+   
   }, [user, loading, router])
 
   return (
     <main className="min-h-screen bg-background">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            name: "Appoint Nepal",
-            url: "https://appoint-nepal.com",
-            description: "Online appointment booking for customers and service businesses in Nepal.",
-            potentialAction: {
-              "@type": "SearchAction",
-              target: "https://appointnepal.com/search?q={search_term_string}",
-              "query-input": "required name=search_term_string",
-            },
-          }),
-        }}
-      />
 
       {/* HERO SECTION */}
       <section className="relative px-6 py-24 md:py-32 overflow-hidden">
@@ -60,14 +44,14 @@ export default function HomePage() {
           </div>
 
           <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6 text-balance leading-tight">
-            Online appointment booking for Nepal businesses
+            The simplest way to manage bookings
           </h1>
 
           <p className="text-xl text-foreground/60 mb-8 max-w-2xl text-balance leading-relaxed">
-            Help customers find your business and book appointments online in Nepal while you focus on delivering great service. No complex setup needed.
+            Let customers book appointments online while you focus on growing your business. No complex setup needed.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-8 mb-12 items-start">
+          <div className="flex flex-col sm:flex-row gap-4 mb-12">
             <Link
               href="/search"
               className="group bg-primary text-primary-foreground px-8 py-3 rounded-lg font-semibold flex items-center gap-2 hover:opacity-90 transition w-fit"
@@ -120,11 +104,6 @@ export default function HomePage() {
               description="Manage multiple staff members, assign appointments, and track team performance."
             />
             <FeatureCard
-              icon={Zap}
-              title="Instant Notifications"
-              description="Automated SMS and email reminders reduce no-shows by up to 40%."
-            />
-            <FeatureCard
               icon={TrendingUp}
               title="Business Analytics"
               description="Track bookings, revenue, and customer insights with detailed reports."
@@ -161,9 +140,9 @@ export default function HomePage() {
       {/* INDUSTRY SHOWCASE */}
       <section className="px-6 py-20 bg-card/50">
         <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-foreground text-center mb-4">Book appointments across Nepal</h2>
-            <p className="text-center text-foreground/60 mb-12">
-              From salons and clinics to consultants and repair services, Appoint Nepal helps businesses manage appointments online
+          <h2 className="text-3xl font-bold text-foreground text-center mb-4">Built for every industry</h2>
+          <p className="text-center text-foreground/60 mb-12">
+            From salons to consulting, Appoint-Nepal works for any service-based business
           </p>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -214,10 +193,10 @@ export default function HomePage() {
           </div>
 
           <Link
-            href="/register-business"
+            href="/signup-business"
             className="inline-block bg-primary-foreground text-primary px-8 py-3 rounded-lg font-semibold hover:opacity-90 transition"
           >
-            Register Your Business 
+            Register Your Business Free
           </Link>
         </div>
       </section>

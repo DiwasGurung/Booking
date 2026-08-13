@@ -22,6 +22,7 @@ export const subscribeToPushNotifications = async (req: AuthRequest, res: Respon
       return res.status(400).json({ error: 'Invalid subscription object' })
     }
 
+    console.log('[PushSubscription] Subscribing user:', userId)
 
     await PushSubscriptionService.createOrUpdateSubscription(userId, subscription)
 
@@ -51,6 +52,7 @@ export const unsubscribeFromPushNotifications = async (req: AuthRequest, res: Re
       return res.status(400).json({ error: 'Subscription ID required' })
     }
 
+    console.log('[PushSubscription] Unsubscribing user:', userId)
 
     await PushSubscriptionService.deactivateSubscription(subscriptionId)
 

@@ -45,6 +45,7 @@ export function VerifyEmailForm({ initialEmail, shouldResendOnMount }: VerifyEma
   // Auto-resend code if coming from login verification dialog
   useEffect(() => {
     if (shouldResendOnMount && email && !loading) {
+      console.log('[v0] Auto-resending verification code for email:', email)
       handleResendCode()
     }
   }, [shouldResendOnMount])
@@ -130,6 +131,7 @@ export function VerifyEmailForm({ initialEmail, shouldResendOnMount }: VerifyEma
       // Store the token if provided
       if (data.token) {
         document.cookie = `authToken=${data.token}; path=/; secure; samesite=strict`
+        console.log('[v0] Auth token stored after email verification')
       }
 
       // Redirect to dashboard after 2 seconds
@@ -243,6 +245,7 @@ export function VerifyEmailForm({ initialEmail, shouldResendOnMount }: VerifyEma
       setAttemptsLeft(5)
       setShowResend(false)
       
+      console.log('[v0] Verification code sent to new email:', emailInput)
       
       // Focus on first code input
       setTimeout(() => {

@@ -11,6 +11,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 // Middleware to verify JWT token (strict auth)
 export const auth = (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
+    console.log('[Auth] Checking auth - Cookies:', Object.keys(req.cookies), 'Authorization header:', !!req.headers.authorization)
     
     const token = req.cookies.authToken || req.headers.authorization?.replace('Bearer ', '')
 
@@ -22,6 +23,7 @@ export const auth = (req: AuthRequest, res: Response, next: NextFunction) => {
     const decoded = jwt.verify(token, JWT_SECRET) as any
     req.userId = decoded.userId
     req.user = decoded
+    console.log('[Auth] Token verified for user:', req.userId)
     next()
   } catch (error: any) {
     console.error('[Auth] Token verification failed:', error.message)
@@ -38,6 +40,7 @@ export const optionalAuth = (req: AuthRequest, res: Response, next: NextFunction
       const decoded = jwt.verify(token, JWT_SECRET) as any
       req.userId = decoded.userId
       req.user = decoded
+      console.log('[Optional Auth] Token verified for user:', req.userId)
     }
     next()
   } catch (error: any) {

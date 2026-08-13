@@ -27,6 +27,7 @@ class SubscriptionController {
 
       const { businessId, planId } = validation.data
 
+      console.log(`[v0] Creating free trial subscription for business: ${businessId}`)
 
       const subscription = await subscriptionService.createSubscriptionWithTrial({
         businessId,
@@ -57,9 +58,11 @@ class SubscriptionController {
 
       const { businessId } = validation.data
 
+      console.log(`[v0] Fetching subscription status for business: ${businessId}`)
 
       const status = await subscriptionService.getSubscriptionStatus(businessId)
 
+      console.log(`[v0] Subscription status fetched:`, { businessId, hasSubscription: status.hasSubscription, status: status.status })
 
       // Return default subscription status if none exists (first-time user)
       if (!status.hasSubscription) {
@@ -93,6 +96,7 @@ class SubscriptionController {
 
       const { businessId } = validation.data
 
+      console.log(`[v0] Checking subscription validity for business: ${businessId}`)
 
       const isValid = await subscriptionService.isSubscriptionValid(businessId)
 
@@ -126,6 +130,7 @@ class SubscriptionController {
       const { subscriptionId } = paramsValidation.data
       const { paymentId, durationDays } = bodyValidation.data
 
+      console.log(`[v0] Activating subscription: ${subscriptionId}`)
 
       const subscription = await subscriptionService.activateSubscription(subscriptionId, {
         paymentId,
@@ -155,6 +160,7 @@ class SubscriptionController {
 
       const { businessId } = validation.data
 
+      console.log(`[v0] Checking trial expiration for business: ${businessId}`)
 
       const expired = await subscriptionService.hasTrialExpired(businessId)
 
@@ -186,6 +192,7 @@ class SubscriptionController {
         return res.status(401).json({ message: 'Unauthorized' })
       }
 
+      console.log(`[v0] Cancelling subscription: ${subscriptionId}`)
 
       const result = await subscriptionService.cancelSubscription({
         subscriptionId,
@@ -207,6 +214,7 @@ class SubscriptionController {
    */
   async getExpired(req: Request, res: Response) {
     try {
+      console.log('[v0] Fetching expired subscriptions')
 
       const subscriptions = await subscriptionService.getExpiredSubscriptions()
 
@@ -225,6 +233,7 @@ class SubscriptionController {
    */
   async getExpiringSoon(req: Request, res: Response) {
     try {
+      console.log('[v0] Fetching subscriptions expiring soon')
 
       const subscriptions = await subscriptionService.getExpiringSoonSubscriptions()
 
@@ -351,6 +360,7 @@ class SubscriptionController {
    */
   async getAllPlans(req: Request, res: Response) {
     try {
+      console.log('[v0] Fetching all subscription plans')
 
     
       const plans = await prisma.subscriptionPlan.findMany({
@@ -381,6 +391,7 @@ class SubscriptionController {
 
       const { businessId, newPlanId, paymentId } = validation.data
 
+      console.log(`[v0] Upgrading subscription for business: ${businessId}`)
 
       const subscription = await subscriptionService.upgradeSubscription(
         businessId,
@@ -411,6 +422,7 @@ class SubscriptionController {
 
       const { businessId, newPlanId, paymentId } = validation.data
 
+      console.log(`[v0] Downgrading subscription for business: ${businessId}`)
 
       const subscription = await subscriptionService.downgradeSubscription(
         businessId,
@@ -441,6 +453,7 @@ class SubscriptionController {
 
       const { subscriptionId, paymentId, durationDays } = validation.data
 
+      console.log(`[v0] Renewing subscription: ${subscriptionId}`)
 
       const subscription = await subscriptionService.renewSubscription(
         subscriptionId,

@@ -92,6 +92,7 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
       return res.status(500).json({ error: esewaResponse.message });
     }
 
+    console.log('[SubscriptionPayment] eSewa payment initiated:', {
       transactionUuid,
       amount: priceNPR,
       billingPeriod,
@@ -141,6 +142,7 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
       return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Invalid product code`);
     }
 
+    console.log('[SubscriptionPayment] eSewa success callback:', {
       transactionUuid: transaction_uuid,
       status,
       totalAmount: parsedTotalAmount,
@@ -200,6 +202,7 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
       },
     });
 
+    console.log('[SubscriptionPayment] Payment created after verification:', payment.id);
 
     // Activate subscription
     if (payment.subscriptionId) {
@@ -218,6 +221,7 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
         durationDays,
       });
 
+      console.log('[SubscriptionPayment] Subscription activated:', payment.subscriptionId);
     }
 
     return res.redirect(`${FRONTEND_URL}/subscription?status=success&message=Payment successful`);
@@ -234,7 +238,9 @@ export const handleEsewaFailure = async (req: Request, res: Response) => {
   try {
     const { data } = req.query;
     
+    console.log('Full failure callback:', req.query);
 
+    console.log('[SubscriptionPayment] eSewa failure callback:', { data });
 
     // No need to update payment records since payments are only created after successful verification
     // Failed transactions don't have payment records

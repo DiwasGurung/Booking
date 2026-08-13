@@ -147,6 +147,7 @@ export default function SubscriptionPlan() {
       try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
         
+        console.log('[v0] Fetching subscription plans from:', `${API_URL}/api/subscription-payment/plans`)
         
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 10000) // 10 second timeout
@@ -164,28 +165,36 @@ export default function SubscriptionPlan() {
           
           // If no plans found, try to seed them
           if (response.status === 404 || response.status === 500) {
+            console.log('[v0] No plans found (status ' + response.status + '), attempting to seed subscription plans...')
             try {
+              console.log('[v0] Calling POST /api/seed/plans (backend Express endpoint)')
               const seedResponse = await fetch(`${API_URL}/api/seed/plans`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
               })
 
+              console.log('[v0] Seed response received - status: ' + seedResponse.status)
               const seedData = await seedResponse.json().catch(() => ({ error: 'Failed to parse response' }))
+              console.log('[v0] Seed response data:', seedData)
 
               if (seedResponse.ok && seedData.plans) {
+                console.log('[v0] Plans seeded successfully! Created ' + seedData.plans.length + ' plans')
                 
                 // Wait a moment for database to be ready
                 await new Promise(resolve => setTimeout(resolve, 1000))
                 
+                console.log('[v0] Retrying fetch after seeding...')
                 const retryResponse = await fetch(`${API_URL}/api/subscription-payment/plans`, {
                   credentials: 'include',
                   headers: { 'Content-Type': 'application/json' },
                 })
 
+                console.log('[v0] Retry fetch status:', retryResponse.status)
                 
                 if (retryResponse.ok) {
                   const data = await retryResponse.json()
+                  console.log('[v0] Plans loaded after seeding! Found ' + (data.plans?.length || 0) + ' plans')
                   const sortedPlans = (data.plans || [])
                     .sort((a: Plan, b: Plan) => a.priceNPR - b.priceNPR)
                     .map((plan: Plan, index: number) => ({
@@ -210,31 +219,40 @@ export default function SubscriptionPlan() {
         }
 
         const data = await response.json()
+        console.log('[v0] Plans fetched successfully:', data)
         
         // If no plans exist, seed them
         if (!data.plans || data.plans.length === 0) {
+          console.log('[v0] No plans found in response, attempting to seed subscription plans...')
           try {
+            console.log('[v0] Calling POST /api/seed/plans (backend Express endpoint)')
             const seedResponse = await fetch(`${API_URL}/api/seed/plans`, {
               method: 'POST',
               credentials: 'include',
               headers: { 'Content-Type': 'application/json' },
             })
 
+            console.log('[v0] Seed response received - status: ' + seedResponse.status)
             const seedData = await seedResponse.json().catch(() => ({ error: 'Failed to parse response' }))
+            console.log('[v0] Seed response data:', seedData)
 
             if (seedResponse.ok && seedData.plans) {
+              console.log('[v0] Plans seeded successfully! Created ' + seedData.plans.length + ' plans')
               
               // Wait a moment for database to be ready
               await new Promise(resolve => setTimeout(resolve, 1000))
               
+              console.log('[v0] Retrying fetch after seeding...')
               const retryResponse = await fetch(`${API_URL}/api/subscription-payment/plans`, {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
               })
 
+              console.log('[v0] Retry fetch status:', retryResponse.status)
               
               if (retryResponse.ok) {
                 const retryData = await retryResponse.json()
+                console.log('[v0] Plans loaded after seeding! Found ' + (retryData.plans?.length || 0) + ' plans')
                 const sortedPlans = (retryData.plans || [])
                   .sort((a: Plan, b: Plan) => a.priceNPR - b.priceNPR)
                   .map((plan: Plan, index: number) => ({
@@ -268,6 +286,7 @@ export default function SubscriptionPlan() {
             recommended: index === 1,
           }))
 
+        console.log('[v0] Sorted plans:', sortedPlans.length)
         setPlans(sortedPlans)
         
         // Check if plan is specified in URL params
@@ -315,6 +334,7 @@ export default function SubscriptionPlan() {
         throw new Error('Plan not found')
       }
 
+      console.log('[v0] Found plan:', { id: plan.id, name: plan.name, displayName: plan.displayName, idType: typeof plan.id, idLength: plan.id?.length })
 
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
@@ -336,6 +356,7 @@ export default function SubscriptionPlan() {
         throw new Error('Business ID not found')
       }
 
+      console.log('[v0] Starting trial with:', { businessId, planId: plan.id, planName: plan.name, billingPeriod })
 
       // Create subscription with free trial
       const response = await fetch(`${API_URL}/api/subscriptions/create-trial`, {

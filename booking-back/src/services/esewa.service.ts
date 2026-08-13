@@ -105,6 +105,7 @@ export class EsewaPaymentService {
         signature: signature,
       };
 
+      console.log('[eSewa] Payment initiated:', {
         transactionUuid: request.transactionUuid,
         totalAmount,
         paymentUrl: this.paymentUrl,
@@ -147,6 +148,7 @@ export class EsewaPaymentService {
       });
 
       const data = response.data;
+      console.log('[eSewa] Verification response:', data);
 
       if (data.status === 'COMPLETE') {
         return {

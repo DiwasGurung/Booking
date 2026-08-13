@@ -23,6 +23,7 @@ export const staffAuth = (req: StaffAuthRequest, res: Response, next: NextFuncti
     const decoded = jwt.verify(token, JWT_SECRET) as any
     req.staffId = decoded.staffId
     req.staff = decoded
+    console.log('[Staff Auth Middleware] Token verified for staff:', req.staffId)
     next()
   } catch (error: any) {
     console.error('[Staff Auth Middleware] Token verification failed:', error.message)
@@ -41,6 +42,7 @@ export const optionalStaffAuth = (req: StaffAuthRequest, res: Response, next: Ne
       const decoded = jwt.verify(token, JWT_SECRET) as any
       req.staffId = decoded.staffId
       req.staff = decoded
+      console.log('[Optional Staff Auth Middleware] Token verified for staff:', req.staffId)
     }
     next()
   } catch (error: any) {

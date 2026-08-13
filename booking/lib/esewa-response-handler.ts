@@ -49,14 +49,19 @@ export function verifyEsewaSignature(
       })
       .join(',');
 
+    console.log('[eSewa] Verifying signature...');
+    console.log('[eSewa] Signature message:', signatureMessage);
 
     // Generate signature using the same method as request
     const hmac = crypto.createHmac('sha256', secretKey);
     hmac.update(signatureMessage);
     const generatedSignature = hmac.digest('base64');
 
+    console.log('[eSewa] Expected signature:', signature);
+    console.log('[eSewa] Generated signature:', generatedSignature);
 
     const isValid = signature === generatedSignature;
+    console.log('[eSewa] Signature valid:', isValid);
 
     return isValid;
   } catch (error) {
@@ -82,6 +87,7 @@ export function processEsewaCallback(
       };
     }
 
+    console.log('[eSewa] Decoded response:', decodedData);
 
     // Step 2: Verify the signature
     const isSignatureValid = verifyEsewaSignature(decodedData, secretKey);

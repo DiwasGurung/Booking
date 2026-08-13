@@ -68,9 +68,11 @@ export default function BusinessDashboardPage() {
   // Check subscription status and redirect if no subscription
   useEffect(() => {
     if (!subscriptionLoading && subscriptionStatus) {
+      console.log('[dashboard] Subscription status:', subscriptionStatus)
       
       // Redirect only if no subscription, or if CANCELLED and already expired
       if (subscriptionStatus.hasSubscription === false) {
+        console.log('[dashboard] No subscription found, redirecting to subscription page...')
         router.push('/subscription?from=setup')
       }
     }

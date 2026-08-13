@@ -65,6 +65,7 @@ export function usePushNotifications() {
     try {
       // Register service worker
       const registration = await navigator.serviceWorker.register('/service-worker.js')
+      console.log('[usePushNotifications] Service Worker registered')
 
       // Get VAPID public key
       const keyResponse = await fetch(`${apiUrl}/api/push-subscriptions/vapid-key`)
@@ -80,6 +81,7 @@ export function usePushNotifications() {
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as any,
       })
 
+      console.log('[usePushNotifications] Push subscription created')
 
       // Send subscription to backend
       const subscribeResponse = await fetch(`${apiUrl}/api/push-subscriptions/subscribe`, {
@@ -95,6 +97,7 @@ export function usePushNotifications() {
         throw new Error('Failed to save subscription to server')
       }
 
+      console.log('[usePushNotifications] Subscription saved to server')
 
       setState((prev) => ({
         ...prev,
@@ -129,6 +132,7 @@ export function usePushNotifications() {
           // Notify backend to deactivate subscription
           // Note: You'll need to pass subscription ID if you want to track it
           await subscription.unsubscribe()
+          console.log('[usePushNotifications] Unsubscribed from push notifications')
         }
       }
 
