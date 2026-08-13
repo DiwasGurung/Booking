@@ -32,8 +32,8 @@ const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5001;
 app.use((0, cors_1.default)({
     origin: ['http://localhost:3000',
-        'https://booking-red-zeta.vercel.app',
-        'https://appoint-nepal.vercel.app'],
+        'https://api.appoint-nepal.com',
+        'https://appoint-nepal.com'],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
