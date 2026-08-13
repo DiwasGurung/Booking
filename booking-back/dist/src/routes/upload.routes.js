@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -16,7 +7,7 @@ const express_1 = require("express");
 const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
-const auth_middleware_1 = require("../middleware/auth.middleware");
+const auth_middleware_js_1 = require("../middleware/auth.middleware.js");
 const router = (0, express_1.Router)();
 // Configure multer for file storage
 const storage = multer_1.default.diskStorage({
@@ -89,10 +80,9 @@ const upload = (0, multer_1.default)({
  * @desc Upload a business document (registration certificate, PAN, etc.)
  * @access Private
  */
-router.post('/document', auth_middleware_1.auth, upload.single('file'), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+router.post('/document', auth_middleware_js_1.auth, upload.single('file'), async (req, res) => {
     try {
-        const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || req.userId;
+        const userId = req.user?.id || req.userId;
         if (!userId) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
@@ -128,16 +118,15 @@ router.post('/document', auth_middleware_1.auth, upload.single('file'), (req, re
         }
         res.status(500).json({ error: error.message || 'Failed to upload document' });
     }
-}));
+});
 /**
  * @route DELETE /api/upload/document/:filename
  * @desc Delete an uploaded document
  * @access Private
  */
-router.delete('/document/:filename', auth_middleware_1.auth, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+router.delete('/document/:filename', auth_middleware_js_1.auth, async (req, res) => {
     try {
-        const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || req.userId;
+        const userId = req.user?.id || req.userId;
         if (!userId) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
@@ -157,16 +146,15 @@ router.delete('/document/:filename', auth_middleware_1.auth, (req, res) => __awa
         console.error('[Upload] Delete error:', error.message);
         res.status(500).json({ error: 'Failed to delete document' });
     }
-}));
+});
 /**
  * @route POST /api/upload/logo
  * @desc Upload a business logo
  * @access Private
  */
-router.post('/logo', auth_middleware_1.auth, logoUpload.single('logo'), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+router.post('/logo', auth_middleware_js_1.auth, logoUpload.single('logo'), async (req, res) => {
     try {
-        const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || req.userId;
+        const userId = req.user?.id || req.userId;
         if (!userId) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
@@ -195,16 +183,15 @@ router.post('/logo', auth_middleware_1.auth, logoUpload.single('logo'), (req, re
         }
         res.status(500).json({ error: error.message || 'Failed to upload logo' });
     }
-}));
+});
 /**
  * @route DELETE /api/upload/logo/:filename
  * @desc Delete a business logo
  * @access Private
  */
-router.delete('/logo/:filename', auth_middleware_1.auth, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+router.delete('/logo/:filename', auth_middleware_js_1.auth, async (req, res) => {
     try {
-        const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || req.userId;
+        const userId = req.user?.id || req.userId;
         if (!userId) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
@@ -224,5 +211,5 @@ router.delete('/logo/:filename', auth_middleware_1.auth, (req, res) => __awaiter
         console.error('[Upload] Logo delete error:', error.message);
         res.status(500).json({ error: 'Failed to delete logo' });
     }
-}));
+});
 exports.default = router;

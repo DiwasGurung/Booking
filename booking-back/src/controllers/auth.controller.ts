@@ -1,8 +1,8 @@
 import { Response } from 'express'
 import { OAuth2Client } from 'google-auth-library'
-import { AuthRequest } from '../middleware/auth.middleware'
-import { userService } from '../services/user.service'
-import { generateToken, generateCookie } from '../utils/auth'
+import { AuthRequest } from '../middleware/auth.middleware.js'
+import { userService } from '../services/user.service.js'
+import { generateToken, generateCookie } from '../utils/auth.js'
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
 

@@ -1,5 +1,5 @@
 import { Request, Response } from "express"
-import BusinessHoursService from "../services/businessHours.service"
+import BusinessHoursService from "../services/businessHours.service.js"
 
 class BusinessHoursController {
   /**

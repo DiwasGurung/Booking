@@ -1,6 +1,6 @@
 import { Router } from "express"
-import NotificationSSEController from "../controllers/notification-sse.controller"
-import { auth } from "../middleware/auth.middleware"
+import NotificationSSEController from "../controllers/notification-sse.controller.js"
+import { auth } from "../middleware/auth.middleware.js"
 
 const sseRoutes = Router()
 

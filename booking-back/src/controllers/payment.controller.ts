@@ -1,5 +1,5 @@
 import { Request, Response } from "express"
-import PaymentService from "../services/payment.service"
+import PaymentService from "../services/payment.service.js"
 import { PaymentStatus } from "@prisma/client"
 
 class PaymentController {

@@ -1,8 +1,8 @@
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
-import  prisma from '../lib/prisma'
-import { emailService } from './email.service'
+import  prisma from '../lib/prisma.js'
+import { emailService } from './email.service.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 const SALT_ROUNDS = 10

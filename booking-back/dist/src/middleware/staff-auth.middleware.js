@@ -10,9 +10,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
  * Middleware to verify staff JWT token (strict auth)
  */
 const staffAuth = (req, res, next) => {
-    var _a;
     try {
-        const token = req.cookies.staffAuthToken || ((_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.replace('Bearer ', ''));
+        const token = req.cookies.staffAuthToken || req.headers.authorization?.replace('Bearer ', '');
         if (!token) {
             console.warn('[Staff Auth Middleware] No token found in cookies or headers');
             return res.status(401).json({ error: 'No authentication token provided' });
@@ -33,9 +32,8 @@ exports.staffAuth = staffAuth;
  * Middleware for optional staff auth (doesn't block if no token)
  */
 const optionalStaffAuth = (req, res, next) => {
-    var _a;
     try {
-        const token = req.cookies.staffAuthToken || ((_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.replace('Bearer ', ''));
+        const token = req.cookies.staffAuthToken || req.headers.authorization?.replace('Bearer ', '');
         if (token) {
             const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
             req.staffId = decoded.staffId;

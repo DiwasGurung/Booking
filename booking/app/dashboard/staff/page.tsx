@@ -638,8 +638,7 @@ export default function StaffPage() {
                 ))}
               </div>
 
-              {/* Form */}
-              <form onSubmit={handleSubmit} className="flex-1 overflow-auto p-4 space-y-6">
+            <form id="staff-form" onSubmit={handleSubmit} className="flex-1 overflow-auto p-4 space-y-6">
                 {/* STEP 1: Basic Information */}
                 {currentStep === 1 && (
                 <div className="space-y-4 animate-in fade-in">
@@ -892,7 +891,8 @@ export default function StaffPage() {
                     </Button>
                   ) : (
                     <Button
-                      onClick={handleSubmit}
+                      type="submit"
+                      form="staff-form"
                       disabled={saving || isSubmitting}
                       className="bg-primary hover:bg-primary/90"
                     >

@@ -1,6 +1,6 @@
 import { Router } from "express";
-import BookingController from "../controllers/booking.controller";
-import { auth } from "../middleware/auth.middleware";
+import BookingController from "../controllers/booking.controller.js";
+import { auth } from "../middleware/auth.middleware.js";
 
 const bookingRoutes = Router();
 

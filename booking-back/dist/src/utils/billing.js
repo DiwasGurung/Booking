@@ -42,8 +42,7 @@ exports.BILLING_PERIODS = {
  * Get the duration in days for a billing period
  */
 function getDurationDays(period) {
-    var _a;
-    return ((_a = exports.BILLING_PERIODS[period]) === null || _a === void 0 ? void 0 : _a.days) || 30;
+    return exports.BILLING_PERIODS[period]?.days || 30;
 }
 /**
  * Calculate the renewal date based on billing period

@@ -1,4 +1,4 @@
-import  prisma  from "../lib/prisma"
+import  prisma  from "../lib/prisma.js"
 import type { Notification, NotificationType, Prisma } from"@prisma/client"
 
 

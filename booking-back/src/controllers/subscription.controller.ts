@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import subscriptionService from '../services/subscription.service'
+import subscriptionService from '../services/subscription.service.js'
 import {
   CreateSubscriptionTrialSchema,
   SubscriptionBusinessParamsSchema,
@@ -10,8 +10,8 @@ import {
   RenewSubscriptionSchema,
   parseAndValidate,
   isValidationError,
-} from '../validators'
-import prisma from '../lib/prisma'
+} from '../validators/index.js'
+import prisma from '../lib/prisma.js'
 
 class SubscriptionController {
   /**

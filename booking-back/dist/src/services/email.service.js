@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -45,13 +36,12 @@ exports.emailService = {
     /**
      * Send verification email to customer for public booking
      */
-    sendVerificationCustomerEmail(email, verificationToken, bookingDetails) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                console.log('[Email Service] Sending verification email to:', email);
-                const transporter = initializeTransporter();
-                const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/book/verify/${verificationToken}`;
-                const html = `
+    async sendVerificationCustomerEmail(email, verificationToken, bookingDetails) {
+        try {
+            console.log('[Email Service] Sending verification email to:', email);
+            const transporter = initializeTransporter();
+            const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/book/verify/${verificationToken}`;
+            const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
             <h2 style="color: #333; margin: 0;">Verify Your Booking</h2>
@@ -89,33 +79,31 @@ exports.emailService = {
           </p>
         </div>
       `;
-                const result = yield transporter.sendMail({
-                    from: emailUser,
-                    to: email,
-                    subject: `Verify Your Booking - ${bookingDetails.serviceName}`,
-                    html,
-                });
-                console.log('[Email Service] Verification email sent successfully');
-                return true;
-            }
-            catch (error) {
-                console.error('[Email Service] Failed to send verification email:', error.message);
-                return false;
-            }
-        });
+            const result = await transporter.sendMail({
+                from: emailUser,
+                to: email,
+                subject: `Verify Your Booking - ${bookingDetails.serviceName}`,
+                html,
+            });
+            console.log('[Email Service] Verification email sent successfully');
+            return true;
+        }
+        catch (error) {
+            console.error('[Email Service] Failed to send verification email:', error.message);
+            return false;
+        }
     },
     /**
      * Send email verification code
      */
-    sendVerificationEmail(email, verificationCode) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const transporter = initializeTransporter();
-                const mailOptions = {
-                    from: emailUser,
-                    to: email,
-                    subject: 'Verify Your Email Address - Appoint-Nepal',
-                    html: `
+    async sendVerificationEmail(email, verificationCode) {
+        try {
+            const transporter = initializeTransporter();
+            const mailOptions = {
+                from: emailUser,
+                to: email,
+                subject: 'Verify Your Email Address - Appoint-Nepal',
+                html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
               <h2 style="color: #333; margin: 0;">Welcome to Appoint-Nepal!</h2>
@@ -146,38 +134,36 @@ exports.emailService = {
             </p>
           </div>
         `,
-                };
-                const result = yield transporter.sendMail(mailOptions);
-                console.log('[Email Service] Verification code sent to:', email, 'Message ID:', result.messageId);
-                return result;
+            };
+            const result = await transporter.sendMail(mailOptions);
+            console.log('[Email Service] Verification code sent to:', email, 'Message ID:', result.messageId);
+            return result;
+        }
+        catch (error) {
+            console.error('[Email Service] Failed to send verification email:', error.message);
+            // Provide helpful error messages
+            if (error.code === 'EAUTH') {
+                console.error('[Email Setup] Authentication failed. Please:');
+                console.error('1. Enable 2-Factor Authentication on your Google Account');
+                console.error('2. Generate an App Password: https://myaccount.google.com/apppasswords');
+                console.error('3. Set EMAIL_PASSWORD to the 16-character App Password (without spaces)');
+                console.error('4. Make sure EMAIL_USER is your full Gmail address');
             }
-            catch (error) {
-                console.error('[Email Service] Failed to send verification email:', error.message);
-                // Provide helpful error messages
-                if (error.code === 'EAUTH') {
-                    console.error('[Email Setup] Authentication failed. Please:');
-                    console.error('1. Enable 2-Factor Authentication on your Google Account');
-                    console.error('2. Generate an App Password: https://myaccount.google.com/apppasswords');
-                    console.error('3. Set EMAIL_PASSWORD to the 16-character App Password (without spaces)');
-                    console.error('4. Make sure EMAIL_USER is your full Gmail address');
-                }
-                throw error;
-            }
-        });
+            throw error;
+        }
     },
     /**
    * Send password reset email
    */
-    sendPasswordResetEmail(email_1, resetToken_1) {
-        return __awaiter(this, arguments, void 0, function* (email, resetToken, accountType = 'staff') {
-            try {
-                const transporter = initializeTransporter();
-                const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${encodeURIComponent(resetToken)}&type=${accountType}`;
-                const mailOptions = {
-                    from: emailUser,
-                    to: email,
-                    subject: 'Reset Your Password - Appoint-Nepal',
-                    html: `
+    async sendPasswordResetEmail(email, resetToken, accountType = 'staff') {
+        try {
+            const transporter = initializeTransporter();
+            const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${encodeURIComponent(resetToken)}&type=${accountType}`;
+            const mailOptions = {
+                from: emailUser,
+                to: email,
+                subject: 'Reset Your Password - Appoint-Nepal',
+                html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
               <h2 style="color: #333; margin: 0;">Password Reset Request</h2>
@@ -199,43 +185,41 @@ exports.emailService = {
             </p>
           </div>
         `,
-                };
-                const result = yield transporter.sendMail(mailOptions);
-                console.log('[Email Service] Password reset email sent to:', email);
-                return result;
-            }
-            catch (error) {
-                console.error('[Email Service] Failed to send password reset email:', error.message);
-                throw error;
-            }
-        });
+            };
+            const result = await transporter.sendMail(mailOptions);
+            console.log('[Email Service] Password reset email sent to:', email);
+            return result;
+        }
+        catch (error) {
+            console.error('[Email Service] Failed to send password reset email:', error.message);
+            throw error;
+        }
     },
     /**
      * Send new booking notification to business owner
      */
-    sendNewBookingNotification(ownerEmail, bookingDetails) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const transporter = initializeTransporter();
-                const formattedDate = new Date(bookingDetails.startTime).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
-                const formattedStartTime = new Date(bookingDetails.startTime).toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                const formattedEndTime = new Date(bookingDetails.endTime).toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                const mailOptions = {
-                    from: emailUser,
-                    to: ownerEmail,
-                    subject: `New Booking Received - ${bookingDetails.serviceName} - Appoint-Nepal`,
-                    html: `
+    async sendNewBookingNotification(ownerEmail, bookingDetails) {
+        try {
+            const transporter = initializeTransporter();
+            const formattedDate = new Date(bookingDetails.startTime).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            const formattedStartTime = new Date(bookingDetails.startTime).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const formattedEndTime = new Date(bookingDetails.endTime).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const mailOptions = {
+                from: emailUser,
+                to: ownerEmail,
+                subject: `New Booking Received - ${bookingDetails.serviceName} - Appoint-Nepal`,
+                html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
               <h2 style="color: white; margin: 0;">New Booking Received!</h2>
@@ -318,39 +302,37 @@ exports.emailService = {
             </div>
           </div>
         `,
-                };
-                const result = yield transporter.sendMail(mailOptions);
-                console.log('[Email Service] New booking notification sent to owner:', ownerEmail);
-                return result;
-            }
-            catch (error) {
-                console.error('[Email Service] Failed to send new booking notification:', error.message);
-                throw error;
-            }
-        });
+            };
+            const result = await transporter.sendMail(mailOptions);
+            console.log('[Email Service] New booking notification sent to owner:', ownerEmail);
+            return result;
+        }
+        catch (error) {
+            console.error('[Email Service] Failed to send new booking notification:', error.message);
+            throw error;
+        }
     },
     /**
      * Send booking confirmation to customer
      */
-    sendBookingConfirmationToCustomer(customerEmail, bookingDetails) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const transporter = initializeTransporter();
-                const formattedDate = new Date(bookingDetails.startTime).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
-                const formattedStartTime = new Date(bookingDetails.startTime).toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                const mailOptions = {
-                    from: emailUser,
-                    to: customerEmail,
-                    subject: `Booking Confirmed - ${bookingDetails.businessName} - Appoint-Nepal`,
-                    html: `
+    async sendBookingConfirmationToCustomer(customerEmail, bookingDetails) {
+        try {
+            const transporter = initializeTransporter();
+            const formattedDate = new Date(bookingDetails.startTime).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            const formattedStartTime = new Date(bookingDetails.startTime).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const mailOptions = {
+                from: emailUser,
+                to: customerEmail,
+                subject: `Booking Confirmed - ${bookingDetails.businessName} - Appoint-Nepal`,
+                html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
               <h2 style="color: white; margin: 0;">Booking Confirmed!</h2>
@@ -406,31 +388,29 @@ exports.emailService = {
             </div>
           </div>
         `,
-                };
-                const result = yield transporter.sendMail(mailOptions);
-                console.log('[Email Service] Booking confirmation sent to customer:', customerEmail);
-                return result;
-            }
-            catch (error) {
-                console.error('[Email Service] Failed to send booking confirmation to customer:', error.message);
-                throw error;
-            }
-        });
+            };
+            const result = await transporter.sendMail(mailOptions);
+            console.log('[Email Service] Booking confirmation sent to customer:', customerEmail);
+            return result;
+        }
+        catch (error) {
+            console.error('[Email Service] Failed to send booking confirmation to customer:', error.message);
+            throw error;
+        }
     },
     /**
      * Send staff email verification
      */
-    sendStaffVerificationEmail(staffEmail, staffName, verificationToken, businessName) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const transporter = initializeTransporter();
-                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-                const verificationLink = `${baseUrl}/staff/verify-email?token=${verificationToken}`;
-                const mailOptions = {
-                    from: emailUser,
-                    to: staffEmail,
-                    subject: `Verify Your Email - ${businessName} Staff Portal`,
-                    html: `
+    async sendStaffVerificationEmail(staffEmail, staffName, verificationToken, businessName) {
+        try {
+            const transporter = initializeTransporter();
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+            const verificationLink = `${baseUrl}/staff/verify-email?token=${verificationToken}`;
+            const mailOptions = {
+                from: emailUser,
+                to: staffEmail,
+                subject: `Verify Your Email - ${businessName} Staff Portal`,
+                html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
               <h2 style="color: white; margin: 0;">Welcome to Appoint-Nepal Staff Portal!</h2>
@@ -482,15 +462,14 @@ exports.emailService = {
             </div>
           </div>
         `,
-                };
-                const result = yield transporter.sendMail(mailOptions);
-                console.log('[Email Service] Staff verification email sent to:', staffEmail);
-                return result;
-            }
-            catch (error) {
-                console.error('[Email Service] Failed to send staff verification email:', error.message);
-                throw error;
-            }
-        });
+            };
+            const result = await transporter.sendMail(mailOptions);
+            console.log('[Email Service] Staff verification email sent to:', staffEmail);
+            return result;
+        }
+        catch (error) {
+            console.error('[Email Service] Failed to send staff verification email:', error.message);
+            throw error;
+        }
     },
 };

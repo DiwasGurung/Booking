@@ -2,7 +2,7 @@
   "name": "booking-back",
   "version": "1.0.0",
   "description": "",
-  "main": "index.ts",
+  "main": "dist/src/index.js",
   "scripts": {
   "prisma": "prisma",
   "build": "prisma generate && tsc",
@@ -14,6 +14,7 @@
     "seed": "tsx scripts/seed-plans.ts"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "bcrypt": "^6.0.0",
@@ -45,7 +46,7 @@
     "@types/pg": "^8.20.0",
     "@types/web-push": "^3.6.4",
     "cross-env": "^7.0.0",
-    "dotenv": "^17.4.2",
+    
     "esbuild": "^0.28.1",
     "nodemon": "^3.1.11",
     "prisma": "^7.8.0",

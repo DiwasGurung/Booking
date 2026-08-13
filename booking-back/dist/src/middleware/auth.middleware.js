@@ -8,10 +8,9 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 // Middleware to verify JWT token (strict auth)
 const auth = (req, res, next) => {
-    var _a;
     try {
         console.log('[Auth] Checking auth - Cookies:', Object.keys(req.cookies), 'Authorization header:', !!req.headers.authorization);
-        const token = req.cookies.authToken || ((_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.replace('Bearer ', ''));
+        const token = req.cookies.authToken || req.headers.authorization?.replace('Bearer ', '');
         if (!token) {
             console.warn('[Auth] No token found in cookies or headers');
             return res.status(401).json({ error: 'No authentication token provided' });
@@ -30,9 +29,8 @@ const auth = (req, res, next) => {
 exports.auth = auth;
 // Middleware for optional auth (doesn't block if no token)
 const optionalAuth = (req, res, next) => {
-    var _a;
     try {
-        const token = req.cookies.authToken || ((_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.replace('Bearer ', ''));
+        const token = req.cookies.authToken || req.headers.authorization?.replace('Bearer ', '');
         if (token) {
             const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
             req.userId = decoded.userId;

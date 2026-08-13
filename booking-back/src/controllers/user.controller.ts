@@ -1,8 +1,8 @@
 import { Response } from 'express'
-import { AuthRequest } from '../middleware/auth.middleware'
-import { userService } from '../services/user.service'
-import { generateToken, generateCookie, hashPassword, comparePassword } from '../utils/auth'
-import { emailService } from '../services/email.service'
+import { AuthRequest } from '../middleware/auth.middleware.js'
+import { userService } from '../services/user.service.js'
+import { generateToken, generateCookie, hashPassword, comparePassword } from '../utils/auth.js'
+import { emailService } from '../services/email.service.js'
 import { randomBytes } from 'crypto'
 
 export const createUser = async (req: AuthRequest, res: Response) => {

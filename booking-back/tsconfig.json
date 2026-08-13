@@ -1,15 +1,15 @@
 {
   "compilerOptions": {
-    "target": "ES6",
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "outDir": "./dist",
+    "rootDir": "./",            // Changes the root directory to your backend src folder
     "esModuleInterop": true,
     "strict": true,
     "skipLibCheck": true,
-    "rootDir": "./",
     "types": ["node"]
   },
-  "include": ["src","prisma","scripts", "../booking/app/constants", "../booking/lib/firebase.ts", "prisma.config.ts"],
+  "include": ["src/**/*", "prisma/**/*", "scripts/**/*"],
   "exclude": ["node_modules", "dist"]
 }

@@ -1,5 +1,5 @@
-import  prisma  from "../lib/prisma"
-import { staffVerificationService } from "./staff-verification.service"
+import  prisma  from "../lib/prisma.js"
+import { staffVerificationService } from "./staff-verification.service.js"
 
 export interface WorkingHours {
   [day: string]: {

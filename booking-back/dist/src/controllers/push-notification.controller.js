@@ -1,23 +1,13 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUserSubscriptions = exports.getVapidPublicKey = exports.unsubscribeFromPushNotifications = exports.subscribeToPushNotifications = void 0;
-const push_subscription_service_1 = require("../services/push-subscription.service");
+const push_subscription_service_js_1 = require("../services/push-subscription.service.js");
 /**
  * Subscribe user to push notifications
  */
-const subscribeToPushNotifications = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+const subscribeToPushNotifications = async (req, res) => {
     try {
-        const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || req.userId;
+        const userId = req.user?.id || req.userId;
         if (!userId) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
@@ -26,7 +16,7 @@ const subscribeToPushNotifications = (req, res) => __awaiter(void 0, void 0, voi
             return res.status(400).json({ error: 'Invalid subscription object' });
         }
         console.log('[PushSubscription] Subscribing user:', userId);
-        yield push_subscription_service_1.PushSubscriptionService.createOrUpdateSubscription(userId, subscription);
+        await push_subscription_service_js_1.PushSubscriptionService.createOrUpdateSubscription(userId, subscription);
         res.json({
             success: true,
             message: 'Successfully subscribed to push notifications',
@@ -36,15 +26,14 @@ const subscribeToPushNotifications = (req, res) => __awaiter(void 0, void 0, voi
         console.error('[PushSubscription] Subscription error:', error.message);
         res.status(500).json({ error: 'Failed to subscribe to push notifications' });
     }
-});
+};
 exports.subscribeToPushNotifications = subscribeToPushNotifications;
 /**
  * Unsubscribe user from push notifications
  */
-const unsubscribeFromPushNotifications = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+const unsubscribeFromPushNotifications = async (req, res) => {
     try {
-        const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || req.userId;
+        const userId = req.user?.id || req.userId;
         if (!userId) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
@@ -53,7 +42,7 @@ const unsubscribeFromPushNotifications = (req, res) => __awaiter(void 0, void 0,
             return res.status(400).json({ error: 'Subscription ID required' });
         }
         console.log('[PushSubscription] Unsubscribing user:', userId);
-        yield push_subscription_service_1.PushSubscriptionService.deactivateSubscription(subscriptionId);
+        await push_subscription_service_js_1.PushSubscriptionService.deactivateSubscription(subscriptionId);
         res.json({
             success: true,
             message: 'Successfully unsubscribed from push notifications',
@@ -63,7 +52,7 @@ const unsubscribeFromPushNotifications = (req, res) => __awaiter(void 0, void 0,
         console.error('[PushSubscription] Unsubscribe error:', error.message);
         res.status(500).json({ error: 'Failed to unsubscribe from push notifications' });
     }
-});
+};
 exports.unsubscribeFromPushNotifications = unsubscribeFromPushNotifications;
 /**
  * Get VAPID public key for push subscription
@@ -85,14 +74,13 @@ exports.getVapidPublicKey = getVapidPublicKey;
 /**
  * Get user's subscriptions
  */
-const getUserSubscriptions = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+const getUserSubscriptions = async (req, res) => {
     try {
-        const userId = ((_a = req.user) === null || _a === void 0 ? void 0 : _a.id) || req.userId;
+        const userId = req.user?.id || req.userId;
         if (!userId) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
-        const subscriptions = yield push_subscription_service_1.PushSubscriptionService.getUserSubscriptions(userId);
+        const subscriptions = await push_subscription_service_js_1.PushSubscriptionService.getUserSubscriptions(userId);
         res.json({
             success: true,
             subscriptions,
@@ -102,5 +90,5 @@ const getUserSubscriptions = (req, res) => __awaiter(void 0, void 0, void 0, fun
         console.error('[PushSubscription] Get subscriptions error:', error.message);
         res.status(500).json({ error: 'Failed to retrieve subscriptions' });
     }
-});
+};
 exports.getUserSubscriptions = getUserSubscriptions;

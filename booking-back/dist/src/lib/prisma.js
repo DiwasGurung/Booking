@@ -1,5 +1,4 @@
 "use strict";
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 require("dotenv/config"); // 1. Crucial for runtime app initialization
 const client_1 = require("@prisma/client");
@@ -18,7 +17,7 @@ const prismaClientSingleton = () => {
     // 3. In Prisma v7, you must pass the driver adapter option
     return new client_1.PrismaClient({ adapter });
 };
-const prisma = (_a = globalThis.prismaGlobal) !== null && _a !== void 0 ? _a : prismaClientSingleton();
+const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
 if (process.env.NODE_ENV !== 'production')
     globalThis.prismaGlobal = prisma;
 exports.default = prisma;

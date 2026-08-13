@@ -1,36 +1,27 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.resendVerificationEmail = exports.verifyEmail = exports.getCurrentUser = exports.updateProfile = exports.changePassword = exports.logoutUser = exports.updateUserRole = exports.resetPassword = exports.requestPasswordReset = exports.loginUser = exports.createUser = void 0;
-const user_service_1 = require("../services/user.service");
-const auth_1 = require("../utils/auth");
-const email_service_1 = require("../services/email.service");
-const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const user_service_js_1 = require("../services/user.service.js");
+const auth_js_1 = require("../utils/auth.js");
+const email_service_js_1 = require("../services/email.service.js");
+const createUser = async (req, res) => {
     try {
         const { email, password, firstName, lastName, phone, role } = req.body;
         if (!email || !password || !firstName || !lastName) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
         // Check if user already exists
-        const existingUser = yield user_service_1.userService.findByEmail(email);
+        const existingUser = await user_service_js_1.userService.findByEmail(email);
         if (existingUser) {
             return res.status(400).json({ error: 'User already exists' });
         }
         // Hash password
-        const hashedPassword = yield (0, auth_1.hashPassword)(password);
+        const hashedPassword = await (0, auth_js_1.hashPassword)(password);
         // Generate 6-digit verification code
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
         const codeExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
         // Create user with verification code
-        const user = yield user_service_1.userService.createUser({
+        const user = await user_service_js_1.userService.createUser({
             email,
             password: hashedPassword,
             firstName,
@@ -43,7 +34,7 @@ const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         });
         // Send verification email with code
         try {
-            yield email_service_1.emailService.sendVerificationEmail(email, verificationCode);
+            await email_service_js_1.emailService.sendVerificationEmail(email, verificationCode);
             console.log('[v0] Verification code sent to:', email);
         }
         catch (emailError) {
@@ -70,15 +61,15 @@ const createUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         console.error('[Register Error]', error.message);
         res.status(500).json({ error: 'Registration failed' });
     }
-});
+};
 exports.createUser = createUser;
-const loginUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const loginUser = async (req, res) => {
     try {
         const { email, password } = req.body;
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password required' });
         }
-        const user = yield user_service_1.userService.findByEmail(email);
+        const user = await user_service_js_1.userService.findByEmail(email);
         if (!user) {
             return res.status(401).json({ error: 'Email not found.' });
         }
@@ -96,13 +87,13 @@ const loginUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             return res.status(401).json({ error: 'User registered with Google. Please use Google sign-in' });
         }
         console.log('[Login] Comparing password...');
-        const isPasswordValid = yield (0, auth_1.comparePassword)(password, user.password);
+        const isPasswordValid = await (0, auth_js_1.comparePassword)(password, user.password);
         if (!isPasswordValid) {
             return res.status(401).json({ error: 'Invalid password' });
         }
-        const token = (0, auth_1.generateToken)(user.id);
+        const token = (0, auth_js_1.generateToken)(user.id);
         console.log('[Login] Setting auth cookie with token:', token.substring(0, 20) + '...');
-        res.cookie('authToken', token, (0, auth_1.generateCookie)(token));
+        res.cookie('authToken', token, (0, auth_js_1.generateCookie)(token));
         // Also set user role in cookie for middleware to read
         res.cookie('userRole', user.role, {
             httpOnly: false, // Must be accessible to middleware
@@ -110,7 +101,7 @@ const loginUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             sameSite: 'lax',
             maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
         });
-        console.log('[Login] Cookie options:', (0, auth_1.generateCookie)(token));
+        console.log('[Login] Cookie options:', (0, auth_js_1.generateCookie)(token));
         res.json({
             success: true,
             token,
@@ -129,38 +120,38 @@ const loginUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         console.error('[Login Error]', error.message);
         res.status(500).json({ error: 'Invalid email or password.' });
     }
-});
+};
 exports.loginUser = loginUser;
-const requestPasswordReset = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const requestPasswordReset = async (req, res) => {
     const message = 'If an account exists, a reset link has been sent to the email';
     try {
         const email = String(req.body.email || '').trim().toLowerCase();
         if (!email)
             return res.status(400).json({ error: 'Email is required' });
-        yield user_service_1.userService.requestPasswordReset(email);
+        await user_service_js_1.userService.requestPasswordReset(email);
         return res.json({ success: true, message });
     }
     catch (error) {
         console.error('[User Auth] Password reset request failed:', error);
         return res.json({ success: true, message });
     }
-});
+};
 exports.requestPasswordReset = requestPasswordReset;
-const resetPassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const resetPassword = async (req, res) => {
     try {
         const { resetToken, password, passwordConfirm } = req.body;
         if (!resetToken || !password || password !== passwordConfirm) {
             return res.status(400).json({ error: 'Valid token and matching passwords are required' });
         }
-        yield user_service_1.userService.resetPassword(resetToken, password);
+        await user_service_js_1.userService.resetPassword(resetToken, password);
         return res.json({ success: true, message: 'Password reset successfully' });
     }
     catch (error) {
         return res.status(400).json({ error: error.message || 'Failed to reset password' });
     }
-});
+};
 exports.resetPassword = resetPassword;
-const updateUserRole = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const updateUserRole = async (req, res) => {
     try {
         const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
         const { role } = req.body;
@@ -172,7 +163,7 @@ const updateUserRole = (req, res) => __awaiter(void 0, void 0, void 0, function*
         }
         const normalizedRole = role;
         console.log('[Update Role] Updating user:', userId, 'to role:', normalizedRole);
-        const user = yield user_service_1.userService.updateUserRole(userId, normalizedRole);
+        const user = await user_service_js_1.userService.updateUserRole(userId, normalizedRole);
         res.json({
             success: true,
             user: {
@@ -185,9 +176,9 @@ const updateUserRole = (req, res) => __awaiter(void 0, void 0, void 0, function*
         console.error('[Update Role Error]', error.message);
         res.status(500).json({ error: 'Failed to update role' });
     }
-});
+};
 exports.updateUserRole = updateUserRole;
-const logoutUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const logoutUser = async (req, res) => {
     try {
         console.log('[Logout] User logged out:', req.userId);
         res.clearCookie('authToken');
@@ -197,9 +188,9 @@ const logoutUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         console.error('[Logout Error]', error.message);
         res.status(500).json({ error: 'Logout failed' });
     }
-});
+};
 exports.logoutUser = logoutUser;
-const changePassword = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const changePassword = async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
         if (!req.userId) {
@@ -209,16 +200,16 @@ const changePassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
             return res.status(400).json({ error: 'Current and new password required' });
         }
         console.log('[Change Password] User:', req.userId);
-        const user = yield user_service_1.userService.findById(req.userId);
+        const user = await user_service_js_1.userService.findById(req.userId);
         if (!user || !user.password) {
             return res.status(400).json({ error: 'User not found or has no password' });
         }
-        const isPasswordValid = yield (0, auth_1.comparePassword)(currentPassword, user.password);
+        const isPasswordValid = await (0, auth_js_1.comparePassword)(currentPassword, user.password);
         if (!isPasswordValid) {
             return res.status(401).json({ error: 'Current password is incorrect' });
         }
-        const hashedPassword = yield (0, auth_1.hashPassword)(newPassword);
-        const updatedUser = yield user_service_1.userService.updatePassword(req.userId, hashedPassword);
+        const hashedPassword = await (0, auth_js_1.hashPassword)(newPassword);
+        const updatedUser = await user_service_js_1.userService.updatePassword(req.userId, hashedPassword);
         res.json({
             success: true,
             message: 'Password changed successfully',
@@ -232,16 +223,16 @@ const changePassword = (req, res) => __awaiter(void 0, void 0, void 0, function*
         console.error('[Change Password Error]', error.message);
         res.status(500).json({ error: 'Failed to change password' });
     }
-});
+};
 exports.changePassword = changePassword;
-const updateProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const updateProfile = async (req, res) => {
     try {
         const { firstName, lastName, phone } = req.body;
         if (!req.userId) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
         console.log('[Update Profile] User:', req.userId);
-        const user = yield user_service_1.userService.updateUser(req.userId, {
+        const user = await user_service_js_1.userService.updateUser(req.userId, {
             firstName,
             lastName,
             phone,
@@ -263,15 +254,15 @@ const updateProfile = (req, res) => __awaiter(void 0, void 0, void 0, function* 
         console.error('[Update Profile Error]', error.message);
         res.status(500).json({ error: 'Failed to update profile' });
     }
-});
+};
 exports.updateProfile = updateProfile;
-const getCurrentUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const getCurrentUser = async (req, res) => {
     try {
         if (!req.userId) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
         console.log('[Get Current User] User:', req.userId);
-        const user = yield user_service_1.userService.findById(req.userId);
+        const user = await user_service_js_1.userService.findById(req.userId);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -295,12 +286,12 @@ const getCurrentUser = (req, res) => __awaiter(void 0, void 0, void 0, function*
         console.error('[Get Current User Error]', error.message);
         res.status(500).json({ error: 'Failed to get user' });
     }
-});
+};
 exports.getCurrentUser = getCurrentUser;
 /**
  * Verify user email using code
  */
-const verifyEmail = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const verifyEmail = async (req, res) => {
     try {
         const { email, code } = req.body;
         if (!email || !code) {
@@ -308,7 +299,7 @@ const verifyEmail = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         }
         console.log('[Verify Email] Processing verification code for:', email);
         // Find user by email
-        const user = yield user_service_1.userService.findByEmail(email);
+        const user = await user_service_js_1.userService.findByEmail(email);
         if (!user) {
             console.error('[Verify Email] User not found:', email);
             return res.status(400).json({ error: 'User not found' });
@@ -325,7 +316,7 @@ const verifyEmail = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
             // Increment failed attempts
             const attempts = (user.emailVerificationAttempts || 0) + 1;
             try {
-                yield user_service_1.userService.updateUser(user.id, {
+                await user_service_js_1.userService.updateUser(user.id, {
                     emailVerificationAttempts: attempts,
                 });
             }
@@ -352,7 +343,7 @@ const verifyEmail = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         }
         console.log('[Verify Email] Updating user as verified:', user.id);
         // Update user as verified
-        const verifiedUser = yield user_service_1.userService.updateUser(user.id, {
+        const verifiedUser = await user_service_js_1.userService.updateUser(user.id, {
             isEmailVerified: true,
             emailVerificationCode: null,
             emailVerificationCodeExpires: null,
@@ -360,9 +351,9 @@ const verifyEmail = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         });
         console.log('[v0] Email verified for user:', email, 'ID:', user.id);
         // Generate auth token now that email is verified
-        const token = (0, auth_1.generateToken)(verifiedUser.id);
+        const token = (0, auth_js_1.generateToken)(verifiedUser.id);
         // Set auth cookies so the user is automatically logged in after verification
-        res.cookie('authToken', token, (0, auth_1.generateCookie)(token));
+        res.cookie('authToken', token, (0, auth_js_1.generateCookie)(token));
         res.cookie('userRole', verifiedUser.role, {
             httpOnly: false, // Must be accessible to middleware
             secure: process.env.NODE_ENV === 'production',
@@ -388,19 +379,19 @@ const verifyEmail = (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         console.error('[Verify Email Error Stack]', error.stack);
         res.status(500).json({ error: 'Failed to verify email' });
     }
-});
+};
 exports.verifyEmail = verifyEmail;
 /**
  * Resend verification code
  */
-const resendVerificationEmail = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const resendVerificationEmail = async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) {
             return res.status(400).json({ error: 'Email required' });
         }
         console.log('[Resend Verification Code] Processing for email:', email);
-        const user = yield user_service_1.userService.findByEmail(email);
+        const user = await user_service_js_1.userService.findByEmail(email);
         if (!user) {
             console.error('[Resend Verification] User not found:', email);
             return res.status(404).json({ error: 'User not found' });
@@ -417,7 +408,7 @@ const resendVerificationEmail = (req, res) => __awaiter(void 0, void 0, void 0, 
         console.log('[Resend Verification] Generated new code for user:', user.id);
         // Update user with new code and reset attempts
         try {
-            yield user_service_1.userService.updateUser(user.id, {
+            await user_service_js_1.userService.updateUser(user.id, {
                 emailVerificationCode: verificationCode,
                 emailVerificationCodeExpires: codeExpires,
                 emailVerificationAttempts: 0,
@@ -430,7 +421,7 @@ const resendVerificationEmail = (req, res) => __awaiter(void 0, void 0, void 0, 
         }
         // Send verification email with code
         try {
-            yield email_service_1.emailService.sendVerificationEmail(email, verificationCode);
+            await email_service_js_1.emailService.sendVerificationEmail(email, verificationCode);
             console.log('[v0] Verification code resent to:', email);
         }
         catch (emailError) {
@@ -447,5 +438,5 @@ const resendVerificationEmail = (req, res) => __awaiter(void 0, void 0, void 0, 
         console.error('[Resend Verification Code Error Stack]', error.stack);
         res.status(500).json({ error: 'Failed to resend verification code' });
     }
-});
+};
 exports.resendVerificationEmail = resendVerificationEmail;

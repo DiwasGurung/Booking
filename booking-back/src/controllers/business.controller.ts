@@ -1,6 +1,6 @@
 import { Request, Response } from "express"
-import BusinessService from "../services/business.service"
-import  {userService}  from "../services/user.service"
+import BusinessService from "../services/business.service.js"
+import  {userService}  from "../services/user.service.js"
 
 
 class BusinessController {

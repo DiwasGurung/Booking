@@ -1,33 +1,24 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const staff_auth_service_1 = require("../services/staff-auth.service");
-const prisma_1 = __importDefault(require("../lib/prisma"));
+const staff_auth_service_js_1 = require("../services/staff-auth.service.js");
+const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
 const router = (0, express_1.Router)();
 /**
  * @route POST /api/staff-auth/login
  * @desc Login staff with email and password
  * @access Public
  */
-router.post('/login', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password are required' });
         }
-        const result = yield staff_auth_service_1.staffAuthService.login(email, password);
+        const result = await staff_auth_service_js_1.staffAuthService.login(email, password);
         // Set JWT token in httpOnly cookie
         res.cookie('staffAuthToken', result.token, {
             httpOnly: true,
@@ -45,13 +36,13 @@ router.post('/login', (req, res) => __awaiter(void 0, void 0, void 0, function* 
         console.error('[Staff Auth] Login error:', error.message);
         res.status(401).json({ error: error.message || 'Login failed' });
     }
-}));
+});
 /**
  * @route POST /api/staff-auth/set-password
  * @desc Set password after email verification
  * @access Public (requires valid verification)
  */
-router.post('/set-password', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.post('/set-password', async (req, res) => {
     try {
         const { staffId, verificationToken, password, passwordConfirm } = req.body;
         if (!staffId || !verificationToken || !password) {
@@ -61,7 +52,7 @@ router.post('/set-password', (req, res) => __awaiter(void 0, void 0, void 0, fun
             return res.status(400).json({ error: 'Passwords do not match' });
         }
         // Verify the token is valid
-        const staff = yield prisma_1.default.staff.findUnique({
+        const staff = await prisma_js_1.default.staff.findUnique({
             where: { id: staffId },
             select: {
                 verificationToken: true,
@@ -82,9 +73,9 @@ router.post('/set-password', (req, res) => __awaiter(void 0, void 0, void 0, fun
         // page marks the email verified; this endpoint consumes the still-valid
         // token to authorize the initial password creation.
         // Set password
-        const updatedStaff = yield staff_auth_service_1.staffAuthService.setPassword(staffId, password);
+        const updatedStaff = await staff_auth_service_js_1.staffAuthService.setPassword(staffId, password);
         // Clear verification token
-        yield prisma_1.default.staff.update({
+        await prisma_js_1.default.staff.update({
             where: { id: staffId },
             data: {
                 verificationToken: null,
@@ -92,7 +83,7 @@ router.post('/set-password', (req, res) => __awaiter(void 0, void 0, void 0, fun
             },
         });
         // Generate login token
-        const loginToken = staff_auth_service_1.staffAuthService.generateToken({
+        const loginToken = staff_auth_service_js_1.staffAuthService.generateToken({
             staffId: updatedStaff.id,
             email: updatedStaff.email,
             businessId: updatedStaff.businessId,
@@ -119,7 +110,7 @@ router.post('/set-password', (req, res) => __awaiter(void 0, void 0, void 0, fun
         console.error('[Staff Auth] Set password error:', error.message);
         res.status(400).json({ error: error.message || 'Failed to set password' });
     }
-}));
+});
 /**
  * @route POST /api/staff-auth/logout
  * @desc Logout staff
@@ -134,13 +125,13 @@ router.post('/logout', (req, res) => {
  * @desc Request password reset email
  * @access Public
  */
-router.post('/request-password-reset', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.post('/request-password-reset', async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) {
             return res.status(400).json({ error: 'Email is required' });
         }
-        yield staff_auth_service_1.staffAuthService.requestPasswordReset(email);
+        await staff_auth_service_js_1.staffAuthService.requestPasswordReset(email);
         res.json({
             success: true,
             message: 'If an account exists, a reset link has been sent to the email',
@@ -150,13 +141,13 @@ router.post('/request-password-reset', (req, res) => __awaiter(void 0, void 0, v
         console.error('[Staff Auth] Password reset request error:', error.message);
         res.status(400).json({ error: error.message || 'Failed to request password reset' });
     }
-}));
+});
 /**
  * @route POST /api/staff-auth/reset-password
  * @desc Reset password with token
  * @access Public
  */
-router.post('/reset-password', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.post('/reset-password', async (req, res) => {
     try {
         const { resetToken, password, passwordConfirm } = req.body;
         if (!resetToken || !password) {
@@ -165,7 +156,7 @@ router.post('/reset-password', (req, res) => __awaiter(void 0, void 0, void 0, f
         if (password !== passwordConfirm) {
             return res.status(400).json({ error: 'Passwords do not match' });
         }
-        const staff = yield staff_auth_service_1.staffAuthService.resetPassword(resetToken, password);
+        const staff = await staff_auth_service_js_1.staffAuthService.resetPassword(resetToken, password);
         res.json({
             success: true,
             message: 'Password reset successfully. You can now login with your new password.',
@@ -179,22 +170,21 @@ router.post('/reset-password', (req, res) => __awaiter(void 0, void 0, void 0, f
         console.error('[Staff Auth] Password reset error:', error.message);
         res.status(400).json({ error: error.message || 'Failed to reset password' });
     }
-}));
+});
 /**
  * @route GET /api/staff-auth/verify
  * @desc Verify staff token
  * @access Private
  */
-router.get('/verify', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
+router.get('/verify', async (req, res) => {
     try {
-        const token = req.cookies.staffAuthToken || ((_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.replace('Bearer ', ''));
+        const token = req.cookies.staffAuthToken || req.headers.authorization?.replace('Bearer ', '');
         if (!token) {
             return res.status(401).json({ error: 'No token provided' });
         }
-        const decoded = staff_auth_service_1.staffAuthService.verifyToken(token);
+        const decoded = staff_auth_service_js_1.staffAuthService.verifyToken(token);
         // Get latest staff info
-        const staff = yield prisma_1.default.staff.findUnique({
+        const staff = await prisma_js_1.default.staff.findUnique({
             where: { id: decoded.staffId },
             select: {
                 id: true,
@@ -219,5 +209,5 @@ router.get('/verify', (req, res) => __awaiter(void 0, void 0, void 0, function* 
         console.error('[Staff Auth] Verification error:', error.message);
         res.status(401).json({ error: error.message || 'Token verification failed' });
     }
-}));
+});
 exports.default = router;

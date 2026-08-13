@@ -2,7 +2,7 @@
 // Routes for subscription payments with eSewa and Khalti
 
 import { Router } from 'express';
-import { auth } from '../middleware/auth.middleware';
+import { auth } from '../middleware/auth.middleware.js';
 import {
   initiateEsewaPayment,
   handleEsewaSuccess,
@@ -10,7 +10,7 @@ import {
   getSubscriptionUsage,
   checkSubscriptionLimit,
   getSubscriptionPlans,
-} from '../controllers/subscription-payment.controller';
+} from '../controllers/subscription-payment.controller.js';
 
 const router = Router();
 

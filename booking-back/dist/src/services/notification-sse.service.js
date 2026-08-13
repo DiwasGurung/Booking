@@ -7,6 +7,8 @@ exports.NotificationSSEService = void 0;
  * Manages client connections, heartbeats, and message broadcasting
  */
 class NotificationSSEService {
+    // Store active SSE connections: userId -> Response
+    static notificationClients = new Map();
     /**
      * Register a user for real-time notifications via SSE
      * @param userId - User ID to register
@@ -159,6 +161,4 @@ class NotificationSSEService {
     }
 }
 exports.NotificationSSEService = NotificationSSEService;
-// Store active SSE connections: userId -> Response
-NotificationSSEService.notificationClients = new Map();
 exports.default = NotificationSSEService;

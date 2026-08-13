@@ -1,6 +1,6 @@
 import { Router } from "express"
-import BusinessHoursController from "../controllers/businessHours.controller"
-import { auth } from "../middleware/auth.middleware"
+import BusinessHoursController from "../controllers/businessHours.controller.js"
+import { auth } from "../middleware/auth.middleware.js"
 
 const businessHoursRoutes = Router()
 
