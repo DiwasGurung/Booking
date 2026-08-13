@@ -54,16 +54,13 @@ export default function BookingsPage() {
     if (!businessId) return
     try {
       setLoading(true)
-      console.log('[v0] loadBookings called with filterStatus:', filterStatus, 'page:', page, 'businessId:', businessId)
       const response = await bookingsApi.getBusinessBookings(
         businessId, 
         page, 
         10,
         filterStatus !== 'ALL' ? filterStatus : undefined
       )
-      console.log('[v0] API response:', response)
       const data = Array.isArray(response.data) ? response.data : response.data?.bookings || []
-      console.log('[v0] Extracted bookings data:', data, 'count:', data.length)
       setBookings(data)
       setError(null)
     } catch (err) {
@@ -142,7 +139,6 @@ export default function BookingsPage() {
               variant={filterStatus === status ? 'default' : 'outline'}
               size="sm"
               onClick={() => {
-                console.log('[v0] Filter clicked:', status)
                 setFilterStatus(status)
                 setPage(1)
               }}

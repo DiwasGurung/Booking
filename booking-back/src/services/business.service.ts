@@ -191,7 +191,6 @@ export class BusinessService {
    */
   async getBusinessSettings(businessId: string) {
     try {
-      console.log('[v0] getBusinessSettings called with:', businessId)
       const business = await prisma.business.findUnique({
         where: { id: businessId },
         select: {
@@ -214,7 +213,6 @@ export class BusinessService {
         }
       })
       
-      console.log('[v0] business found:', business)
       
       if (!business) {
         throw new Error("Business not found")
@@ -248,7 +246,6 @@ export class BusinessService {
         }
       }
     } catch (error) {
-      console.log('[v0] getBusinessSettings error:', error instanceof Error ? error.message : String(error))
       throw error
     }
   }

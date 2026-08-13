@@ -45,7 +45,6 @@ export function ProfilePhoneVerification({
   // Timer countdown
   useEffect(() => {
 
-    console.log('[v0] Phone verification component mounted with user:', user)
     if (timeLeft <= 0 || !timeLeft) {
       setShowResend(true)
       return
@@ -65,7 +64,6 @@ export function ProfilePhoneVerification({
     // Check if user is authenticated
     if (!user?.id) {
       setError('Please log in to verify your phone number')
-      console.log('[v0] User not authenticated:', user)
       return
     }
 
@@ -77,7 +75,6 @@ export function ProfilePhoneVerification({
     try {
       setIsLoading(true)
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      console.log('[v0] User authenticated, sending OTP for:', phone)
       
       const cleanedPhone = phone.replace(/\D/g, '')
       const response = await fetch(`${apiUrl}/api/phone-verification/send-code`, {
@@ -94,7 +91,6 @@ export function ProfilePhoneVerification({
         throw new Error(data.error || 'Failed to send code')
       }
 
-      console.log('[v0] Code sent successfully')
       setSuccess('Verification code sent to your phone!')
       setStep('verify')
       setTimeLeft(120)
@@ -125,7 +121,6 @@ export function ProfilePhoneVerification({
       setIsLoading(true)
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
       
-      console.log('[v0] Verifying phone code for:', phone)
       const cleanedPhone = phone.replace(/\D/g, '')
       const response = await fetch(`${apiUrl}/api/phone-verification/verify`, {
         method: 'POST',
@@ -144,7 +139,6 @@ export function ProfilePhoneVerification({
         throw new Error(data.error || 'Invalid verification code')
       }
 
-      console.log('[v0] Phone verified successfully')
       setSuccess('Phone number verified successfully!')
       setIsPhoneVerified(true)
       setStep('input')
@@ -174,7 +168,6 @@ export function ProfilePhoneVerification({
       setIsLoading(true)
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
       
-      console.log('[v0] Resending phone verification code for:', phone)
       const cleanedPhone = phone.replace(/\D/g, '')
       const response = await fetch(`${apiUrl}/api/phone-verification/resend-code`, {
         method: 'POST',
@@ -190,7 +183,6 @@ export function ProfilePhoneVerification({
         throw new Error(data.error || 'Failed to resend code')
       }
 
-      console.log('[v0] Code resent successfully')
       setSuccess('New verification code sent!')
       setTimeLeft(120)
       setShowResend(false)

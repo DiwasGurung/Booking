@@ -235,7 +235,6 @@ export default function BusinessHoursPage() {
 
       await Promise.all([...hoursPromises, ...closedDatesPromises])
 
-      console.log('[v0] Business hours and closed dates saved successfully')
 
       setSaveSuccess(true)
       setTimeout(() => {

@@ -19,19 +19,14 @@ export function generateCookie(token: string): CookieOptions {
 }
 
 export async function hashPassword(password: string): Promise<string> {
-  console.log('[hashPassword] Hashing password...')
   const salt = await bcrypt.genSalt(10)
   const hashedPassword = await bcrypt.hash(password, salt)
-  console.log('[hashPassword] Password hashed successfully')
   return hashedPassword
 }
 
 export async function comparePassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
   try {
-    console.log('[comparePassword] Comparing passwords...')
-    console.log('[comparePassword] Hashed password length:', hashedPassword.length)
     const isMatch = await bcrypt.compare(plainPassword, hashedPassword)
-    console.log('[comparePassword] Match result:', isMatch)
     return isMatch
   } catch (error: any) {
     console.error('[comparePassword] Error comparing passwords:', error.message)

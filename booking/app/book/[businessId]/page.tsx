@@ -145,10 +145,8 @@ function BookingPageContent() {
 
     try {
       setLoading(true)
-      console.log('[v0] Loading business available slots:', { businessId, serviceId: selectedService.id, date, staffId: selectedStaff?.id || 'any' })
       
       const response = await bookingsApi.getBusinessAvailableSlots(businessId, selectedService.id, date, selectedStaff?.id)
-      console.log('[v0] Business available slots response:', response)
 
       if (response.success) {
         // Handle nested response: response.data could be array or {data: array}
@@ -159,7 +157,6 @@ function BookingPageContent() {
           slots = (response.data as any).data
         }
         
-        console.log('[v0] Available slots:', slots)
         
         if (slots.length > 0) {
           // Store time strings directly
@@ -170,7 +167,6 @@ function BookingPageContent() {
           setError('No available slots for the selected date')
         }
       } else {
-        console.log('[v0] Failed to load slots:', response.error)
         setAvailableSlots([])
         setError(response.error || 'Unable to load available slots')
       }
@@ -277,7 +273,6 @@ function BookingPageContent() {
         })
       }
 
-      console.log('[v0] Booking response:', response)
 
       if (response.success && response.data) {
         const bookingId = response.data.booking?.id || response.data.id || ''

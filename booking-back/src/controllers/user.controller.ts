@@ -43,7 +43,6 @@ export const createUser = async (req: AuthRequest, res: Response) => {
     // Send verification email with code
     try {
       await emailService.sendVerificationEmail(email, verificationCode)
-      console.log('[v0] Verification code sent to:', email)
     } catch (emailError) {
       console.error('[v0] Failed to send verification email:', emailError)
       // Don't fail registration if email send fails, but log it
@@ -95,14 +94,11 @@ export const loginUser = async (req: AuthRequest, res: Response) => {
       })
     }
 
-    console.log('[Login] User found:', user.id)
 
     if (!user.password) {
-      console.log('[Login] User has no password (Google login)')
       return res.status(401).json({ error: 'User registered with Google. Please use Google sign-in' })
     }
 
-    console.log('[Login] Comparing password...')
     const isPasswordValid = await comparePassword(password, user.password)
  
     
@@ -111,7 +107,6 @@ export const loginUser = async (req: AuthRequest, res: Response) => {
     }
 
     const token = generateToken(user.id)
-    console.log('[Login] Setting auth cookie with token:', token.substring(0, 20) + '...')
     res.cookie('authToken', token, generateCookie(token))
     // Also set user role in cookie for middleware to read
     res.cookie('userRole', user.role, {
@@ -120,7 +115,6 @@ export const loginUser = async (req: AuthRequest, res: Response) => {
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     })
-    console.log('[Login] Cookie options:', generateCookie(token))
 
     res.json({
       success: true,
@@ -181,7 +175,6 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
 
     const normalizedRole = role as 'CUSTOMER' | 'BUSINESS_OWNER'
 
-    console.log('[Update Role] Updating user:', userId, 'to role:', normalizedRole)
 
     const user = await userService.updateUserRole(userId, normalizedRole)
 
@@ -200,7 +193,6 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
 
 export const logoutUser = async (req: AuthRequest, res: Response) => {
   try {
-    console.log('[Logout] User logged out:', req.userId)
 
     res.clearCookie('authToken')
     res.json({ success: true, message: 'Logged out successfully' })
@@ -222,7 +214,6 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Current and new password required' })
     }
 
-    console.log('[Change Password] User:', req.userId)
 
     const user = await userService.findById(req.userId)
     if (!user || !user.password) {
@@ -259,7 +250,6 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' })
     }
 
-    console.log('[Update Profile] User:', req.userId)
 
     const user = await userService.updateUser(req.userId, {
       firstName,
@@ -291,7 +281,6 @@ export const getCurrentUser = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' })
     }
 
-    console.log('[Get Current User] User:', req.userId)
 
     const user = await userService.findById(req.userId)
     if (!user) {
@@ -311,6 +300,7 @@ export const getCurrentUser = async (req: AuthRequest, res: Response) => {
         business: user.business,
         isEmailVerified: user.isEmailVerified,
         name: `${user.firstName} ${user.lastName}`,
+        createdAt: user.createdAt,
       },
     })
   } catch (error: any) {
@@ -330,7 +320,6 @@ export const verifyEmail = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Email and verification code required' })
     }
 
-    console.log('[Verify Email] Processing verification code for:', email)
 
     // Find user by email
     const user = await userService.findByEmail(email)
@@ -339,17 +328,14 @@ export const verifyEmail = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'User not found' })
     }
 
-    console.log('[Verify Email] User found:', user.id)
 
     // Check if already verified
     if (user.isEmailVerified) {
-      console.log('[Verify Email] Email already verified:', email)
       return res.status(400).json({ error: 'Email is already verified' })
     }
 
     // Check if code matches
     if (user.emailVerificationCode !== code) {
-      console.log('[Verify Email] Code mismatch for user:', user.id)
       // Increment failed attempts
       const attempts = (user.emailVerificationAttempts || 0) + 1
       try {
@@ -377,11 +363,9 @@ export const verifyEmail = async (req: AuthRequest, res: Response) => {
 
     // Check if code has expired
     if (user.emailVerificationCodeExpires && user.emailVerificationCodeExpires < new Date()) {
-      console.log('[Verify Email] Code expired for user:', user.id)
       return res.status(400).json({ error: 'Verification code has expired. Please request a new one.' })
     }
 
-    console.log('[Verify Email] Updating user as verified:', user.id)
 
     // Update user as verified
     const verifiedUser = await userService.updateUser(user.id, {
@@ -391,7 +375,6 @@ export const verifyEmail = async (req: AuthRequest, res: Response) => {
       emailVerificationAttempts: 0,
     })
 
-    console.log('[v0] Email verified for user:', email, 'ID:', user.id)
 
     // Generate auth token now that email is verified
     const token = generateToken(verifiedUser.id)
@@ -436,7 +419,6 @@ export const resendVerificationEmail = async (req: AuthRequest, res: Response) =
       return res.status(400).json({ error: 'Email required' })
     }
 
-    console.log('[Resend Verification Code] Processing for email:', email)
 
     const user = await userService.findByEmail(email)
     if (!user) {
@@ -444,11 +426,9 @@ export const resendVerificationEmail = async (req: AuthRequest, res: Response) =
       return res.status(404).json({ error: 'User not found' })
     }
 
-    console.log('[Resend Verification] User found:', user.id)
 
     // If already verified, no need to resend
     if (user.isEmailVerified) {
-      console.log('[Resend Verification] Email already verified:', email)
       return res.status(400).json({ error: 'Email is already verified' })
     }
 
@@ -456,7 +436,6 @@ export const resendVerificationEmail = async (req: AuthRequest, res: Response) =
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
     const codeExpires = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
 
-    console.log('[Resend Verification] Generated new code for user:', user.id)
 
     // Update user with new code and reset attempts
     try {
@@ -465,7 +444,6 @@ export const resendVerificationEmail = async (req: AuthRequest, res: Response) =
         emailVerificationCodeExpires: codeExpires,
         emailVerificationAttempts: 0,
       })
-      console.log('[Resend Verification] Updated user code in database')
     } catch (dbError) {
       console.error('[Resend Verification] Failed to update code in database:', dbError)
       throw dbError
@@ -474,7 +452,6 @@ export const resendVerificationEmail = async (req: AuthRequest, res: Response) =
     // Send verification email with code
     try {
       await emailService.sendVerificationEmail(email, verificationCode)
-      console.log('[v0] Verification code resent to:', email)
     } catch (emailError) {
       console.error('[v0] Failed to send verification email:', emailError)
       return res.status(500).json({ error: 'Failed to send verification code' })

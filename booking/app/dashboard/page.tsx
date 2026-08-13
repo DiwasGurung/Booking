@@ -21,7 +21,6 @@ export default function DashboardPage() {
   // Redirect to business-specific dashboard once businessId is available
   useEffect(() => {
     if (businessId && !fetchingBusinessId) {
-      console.log('[dashboard] Redirecting to business dashboard:', businessId)
       router.replace(`/dashboard/${businessId}`)
     }
   }, [businessId, fetchingBusinessId, router])

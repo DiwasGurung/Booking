@@ -46,7 +46,6 @@ class StaffVerificationService {
         staff.business.name
       )
 
-      console.log(`[v0] Verification email sent to ${staffEmail}`)
       return { success: true, message: 'Verification email sent' }
     } catch (error: any) {
       console.error('[v0] Error sending verification email:', error)
@@ -102,7 +101,6 @@ class StaffVerificationService {
         data: { emailVerified: true },
       })
 
-      console.log(`[v0] Email verified for staff ${staff.id}`)
       return { success: true, staffId: staff.id, message: 'Email verified successfully' }
     } catch (error: any) {
       console.error('[v0] Error verifying email:', error)
