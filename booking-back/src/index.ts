@@ -1,8 +1,6 @@
 // server.js
 import express from "express";
 import cors from "cors";
-import { createRequire } from 'module';
-import path from 'path';
 import dotenv from "dotenv";
 import userRoutes from "./routes/user.routes.js"; // Adjust path if needed
 import bookingRoutes from "./routes/booking.routes.js";
@@ -37,7 +35,8 @@ app.use(
   cors({
     origin: ['http://localhost:3000',
     'https://api.appoint-nepal.com',
-    'https://appoint-nepal.com'],
+    'https://appoint-nepal.com',
+  'https://www.appoint-nepal.com'],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true, 
@@ -99,10 +98,7 @@ app.use( (req, res) => {
 });
 
 
-if (process.env.NODE_ENV === 'production') {
-  const appRoot = '/home/appointn/booking-back';
-  module.paths.unshift(path.join(appRoot, 'node_modules'));
-}
+
 
 app.listen(PORT, () => {
 });
