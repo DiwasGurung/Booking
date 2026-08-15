@@ -249,6 +249,49 @@ export class BusinessService {
       throw error
     }
   }
+  /**
+   * Get booking and customer analytics. Subscription payments are intentionally excluded.
+   */
+  async getBusinessAnalytics(businessId: string, days = 30) {
+    const safeDays = Math.min(Math.max(days, 1), 365)
+    const now = new Date()
+    const currentStart = new Date(now)
+    currentStart.setDate(now.getDate() - safeDays)
+    const previousStart = new Date(currentStart)
+    previousStart.setDate(currentStart.getDate() - safeDays)
+
+    const [currentBookings, previousBookings, customers, currentCustomers, previousCustomers, statusRows, serviceRows] = await Promise.all([
+      prisma.booking.findMany({
+        where: { businessId, createdAt: { gte: currentStart } },
+        select: { id: true, status: true, service: { select: { name: true } }, createdAt: true },
+      }),
+      prisma.booking.count({ where: { businessId, createdAt: { gte: previousStart, lt: currentStart } } }),
+      prisma.customer.count({ where: { businessId } }),
+      prisma.customer.count({ where: { businessId, createdAt: { gte: currentStart } } }),
+      prisma.customer.count({ where: { businessId, createdAt: { gte: previousStart, lt: currentStart } } }),
+      prisma.booking.groupBy({ by: ['status'], where: { businessId, createdAt: { gte: currentStart } }, _count: { _all: true } }),
+      prisma.booking.groupBy({ by: ['serviceId'], where: { businessId, createdAt: { gte: currentStart } }, _count: { _all: true }, orderBy: { _count: { serviceId: 'desc' } }, take: 5 }),
+    ])
+
+    const serviceIds = serviceRows.map((row: { serviceId: any }) => row.serviceId)
+    const services = await prisma.service.findMany({ where: { id: { in: serviceIds } }, select: { id: true, name: true } })
+    const serviceNames = new Map(services.map((service: { id: any; name: any }) => [service.id, service.name]))
+    const bookingsByStatus = Object.fromEntries(statusRows.map((row: { status: any; _count: { _all: any } }) => [row.status, row._count._all]))
+    const bookingGrowth = previousBookings === 0 ? (currentBookings.length ? 100 : 0) : ((currentBookings.length - previousBookings) / previousBookings) * 100
+    const customerGrowth = previousCustomers === 0 ? (currentCustomers ? 100 : 0) : ((currentCustomers - previousCustomers) / previousCustomers) * 100
+
+    return {
+      totalBookings: currentBookings.length,
+      bookingGrowth,
+      totalCustomers: customers,
+      newCustomers: currentCustomers,
+      customersGrowth: customerGrowth,
+      conversionRate: currentBookings.length ? ((bookingsByStatus.COMPLETED || 0) / currentBookings.length) * 100 : 0,
+      bookingsByStatus,
+      topServices: serviceRows.map((row: { serviceId: unknown; _count: { _all: any } }) => ({ name: serviceNames.get(row.serviceId) || 'Unknown service', bookings: row._count._all })),
+    }
+  }
+
 
   /**
    * Update business settings

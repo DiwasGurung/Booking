@@ -215,7 +215,7 @@ export const Header = () => {
                     Login
                   </Button>
                 </Link>
-                <Link href="/register" className="block" onClick={() => setIsOpen(false)}>
+                <Link href="/signup" className="block" onClick={() => setIsOpen(false)}>
                   <Button size="sm" className="w-full bg-white text-primary hover:bg-white/90">
                     Sign Up
                   </Button>

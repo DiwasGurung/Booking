@@ -100,6 +100,19 @@ async create(req: Request, res: Response) {
   }
 
   /**
+   * Booking and customer analytics
+   */
+  async analytics(req: Request, res: Response) {
+    try {
+      const days = Number(req.query.days) || 30
+      const analytics = await BusinessService.getBusinessAnalytics(req.params.businessId as string, days)
+      res.json(analytics)
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch analytics', error })
+    }
+  }
+
+  /**
    * Get business by user ID
    */
   async getByUserId(req: Request, res: Response) {

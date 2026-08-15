@@ -36,7 +36,7 @@ app.use(
     origin: ['http://localhost:3000',
     'https://api.appoint-nepal.com',
     'https://appoint-nepal.com',
-  'https://www.appoint-nepal.com'],
+   'https://www.appoint-nepal.com'],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true, 

@@ -38,5 +38,9 @@ businessRoutes.put("/:id", BusinessController.update)
 // Delete business
 businessRoutes.delete("/:id", BusinessController.delete)
 
+ // Analytics and statistics routes (specific routes before /:id)
+  businessRoutes.get("/:businessId/analytics", auth, BusinessController.analytics)
+  businessRoutes.get("/:businessId/stats", BusinessController.stats)
+
 export default businessRoutes
 

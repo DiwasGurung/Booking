@@ -15,8 +15,10 @@ interface AnalyticsData {
   totalBookings: number
   bookingGrowth: number
   totalCustomers: number
+  newCustomers: number
   customersGrowth: number
   conversionRate: number
+  bookingsByStatus: Record<string, number>
   topServices: Array<{ name: string; bookings: number }>
 }
 
@@ -129,7 +131,7 @@ export default function AnalyticsPage() {
         ) : analytics ? (
           <div className="space-y-8">
             {/* Key Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <StatCard
                 icon={Calendar}
                 title="Total Bookings"
@@ -145,11 +147,29 @@ export default function AnalyticsPage() {
                 trend={analytics.customersGrowth >= 0 ? 'up' : 'down'}
               />
               <StatCard
+                icon={Users}
+                title="New Customers"
+                value={analytics.newCustomers}
+              />
+              <StatCard
                 icon={BarChart3}
                 title="Conversion Rate"
                 value={`${analytics.conversionRate.toFixed(1)}%`}
               />
             </div>
+
+            {/* Booking status breakdown */}
+            <Card className="p-6">
+              <h2 className="mb-5 text-xl font-semibold text-slate-900">Booking status</h2>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {Object.entries(analytics.bookingsByStatus || {}).map(([status, count]) => (
+                  <div key={status} className="rounded-lg bg-slate-50 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{status}</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-900">{count}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
 
             {/* Top Services */}
             {analytics.topServices && analytics.topServices.length > 0 && (

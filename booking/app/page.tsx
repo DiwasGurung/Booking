@@ -55,9 +55,9 @@ export default function HomePage() {
       {/* HERO SECTION */}
       <section className="relative px-6 py-24 md:py-32 overflow-hidden">
         <div className="max-w-4xl mx-auto">
-          <div className="inline-block mb-6 px-4 py-2 bg-accent/10 rounded-full border border-accent/30">
+          {/* <div className="inline-block mb-6 px-4 py-2 bg-accent/10 rounded-full border border-accent/30">
             <span className="text-sm font-medium text-accent">✨ Trusted by 500+ businesses</span>
-          </div>
+          </div> */}
 
           <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6 text-balance leading-tight">
             Online appointment booking for Nepal businesses
