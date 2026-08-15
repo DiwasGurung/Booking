@@ -89,6 +89,19 @@ class BusinessController {
         }
     }
     /**
+     * Booking and customer analytics
+     */
+    async analytics(req, res) {
+        try {
+            const days = Number(req.query.days) || 30;
+            const analytics = await business_service_js_1.default.getBusinessAnalytics(req.params.businessId, days);
+            res.json(analytics);
+        }
+        catch (error) {
+            res.status(500).json({ message: 'Failed to fetch analytics', error });
+        }
+    }
+    /**
      * Get business by user ID
      */
     async getByUserId(req, res) {

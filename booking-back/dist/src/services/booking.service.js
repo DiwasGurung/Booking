@@ -32,11 +32,18 @@ class BookingService {
     /**
      * Get all bookings for a business
      */
-    async getBusinessBookings(businessId, page = 1, limit = 10, status) {
+    async getBusinessBookings(businessId, page = 1, limit = 10, status, staffId, verified, startDate, endDate) {
         const skip = (page - 1) * limit;
         const where = { businessId };
         if (status)
             where.status = status;
+        if (staffId)
+            where.staffId = staffId;
+        if (verified !== undefined)
+            where.isEmailVerified = verified;
+        if (startDate || endDate) {
+            where.startTime = { ...(startDate ? { gte: startDate } : {}), ...(endDate ? { lte: endDate } : {}) };
+        }
         const [bookings, total] = await Promise.all([
             prisma_js_1.default.booking.findMany({
                 where,

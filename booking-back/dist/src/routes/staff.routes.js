@@ -84,4 +84,6 @@ router.get("/:staffId/time-off", staff_controller_js_1.getTimeOff);
 router.post("/:staffId/time-off", auth_middleware_js_1.auth, staff_controller_js_1.addTimeOff);
 // In your routes file
 router.get("/code/:staffCode/bookings/date", staff_controller_js_1.getStaffBookingsByDate);
+router.get("/:staffId/performance", auth_middleware_js_1.auth, staff_controller_js_1.getStaffPerformance);
+router.get("/:staffId/stats", auth_middleware_js_1.auth, staff_controller_js_1.getStaffStats);
 exports.default = router;

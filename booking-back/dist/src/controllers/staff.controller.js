@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getStaffBookingsByDate = exports.addTimeOff = exports.getTimeOff = exports.getStaffAuthenticatedBookings = exports.getStaffBookings = exports.getStaffByCode = exports.getStaffStats = exports.getStaffAvailability = exports.toggleStaffStatus = exports.deleteStaff = exports.updateStaff = exports.getStaffForService = exports.getBusinessStaff = exports.getStaffById = exports.createStaff = void 0;
+exports.getStaffBookingsByDate = exports.addTimeOff = exports.getTimeOff = exports.getStaffAuthenticatedBookings = exports.getStaffBookings = exports.getStaffByCode = exports.getStaffStats = exports.getStaffAvailability = exports.toggleStaffStatus = exports.deleteStaff = exports.updateStaff = exports.getStaffPerformance = exports.getStaffForService = exports.getBusinessStaff = exports.getStaffById = exports.createStaff = void 0;
 const staff_service_js_1 = __importDefault(require("../services/staff.service.js"));
 const index_js_1 = require("../validators/index.js");
 const subscription_service_js_1 = __importDefault(require("../services/subscription.service.js"));
@@ -92,6 +92,40 @@ const getStaffForService = async (req, res) => {
     }
 };
 exports.getStaffForService = getStaffForService;
+/**
+ * Get staff performance for a selected period.
+ * This reports bookings and served customers only; it does not use subscription payments.
+ */
+const getStaffPerformance = async (req, res) => {
+    try {
+        const staffId = req.params.staffId;
+        const startDate = typeof req.query.startDate === 'string' ? new Date(req.query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const endDate = typeof req.query.endDate === 'string' ? new Date(req.query.endDate) : new Date();
+        const dateFilter = { gte: startDate, lte: endDate };
+        const [totalBookings, servedCustomers, pendingBookings, unverifiedBookings, customers] = await Promise.all([
+            prisma_js_1.default.booking.count({ where: { staffId, startTime: dateFilter } }),
+            prisma_js_1.default.booking.count({ where: { staffId, status: 'COMPLETED', startTime: dateFilter } }),
+            prisma_js_1.default.booking.count({ where: { staffId, status: 'PENDING', startTime: dateFilter } }),
+            prisma_js_1.default.booking.count({ where: { staffId, isEmailVerified: false, startTime: dateFilter } }),
+            prisma_js_1.default.booking.findMany({ where: { staffId, startTime: dateFilter }, distinct: ['customerEmail'], select: { customerEmail: true } }),
+        ]);
+        res.json({
+            totalBookings,
+            servedCustomers,
+            pendingBookings,
+            unverifiedBookings,
+            uniqueCustomers: customers.length,
+            completionRate: totalBookings ? (servedCustomers / totalBookings) * 100 : 0,
+            startDate,
+            endDate,
+        });
+    }
+    catch (error) {
+        console.error('[Staff Controller] Performance error:', error.message);
+        res.status(500).json({ error: 'Failed to load staff performance' });
+    }
+};
+exports.getStaffPerformance = getStaffPerformance;
 /**
  * Update staff member
  */
