@@ -234,7 +234,7 @@ export default function BookingsPage() {
                         </Badge>
                       </td>
                       <td className="px-6 py-4 font-semibold text-slate-900">
-                        ${booking.service?.price || 0}
+                        Rs.{booking.service?.price || 0}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2 items-center">

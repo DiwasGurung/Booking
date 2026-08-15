@@ -83,7 +83,7 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <p className="text-sm text-foreground/50">🎉 Free for first 30 days. No credit card required.</p>
+          <p className="text-sm text-foreground/50">🎉 Free for first 15 days. No credit card required.</p>
         </div>
 
         {/* Background decoration */}

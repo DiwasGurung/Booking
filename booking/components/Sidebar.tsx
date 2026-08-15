@@ -139,7 +139,7 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-screen bg-card border-r border-border transition-all duration-300 z-30 ${
+         className={`fixed inset-y-0 left-0 z-50 flex w-[min(86vw,20rem)] flex-col border-r border-border bg-card pt-16 shadow-xl transition-transform duration-300 md:top-0 md:z-30 md:w-64 md:translate-x-0 md:shadow-none ${
           isOpen ? 'w-64' : 'w-0 -translate-x-full md:translate-x-0'
         } md:w-64 md:translate-x-0 pt-20`}
       >
@@ -166,7 +166,7 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
                   />
                 </button>
               ) : (
-                <Link href={item.href}>
+                <Link href={item.href} onClick={() => setIsOpen(false)}>
                   <span
                     className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer block ${
                       isActive(item.href)
@@ -184,7 +184,7 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
               {item.children && expandedItems.includes(item.label) && (
                 <div className="ml-4 mt-2 space-y-1 border-l border-slate-200">
                   {item.children.map((subitem) => (
-                    <Link key={subitem.href} href={subitem.href}>
+                    <Link key={subitem.href} href={subitem.href} onClick={() => setIsOpen(false)}>
                       <span
                         className={`w-full text-left px-4 py-2 text-xs rounded transition-colors block ${
                           isActive(subitem.href)

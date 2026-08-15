@@ -111,7 +111,7 @@ export default function BookingsPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       <Sidebar userRole="BUSINESS_OWNER" />
 
-      <main className="md:ml-64 pt-6 px-4 md:px-8 py-8">
+       <main className="min-h-screen px-4 pb-8 pt-20 sm:px-6 md:ml-64 md:px-8 md:pt-8">
         <Breadcrumbs items={[
           { label: 'Dashboard', href: '/dashboard' },
           { label: 'Bookings' },
@@ -204,7 +204,7 @@ export default function BookingsPage() {
                         </Badge>
                       </td>
                       <td className="px-6 py-4 font-semibold text-slate-900">
-                        ${booking.service?.price || 0}
+                        Rs.{booking.service?.price || 0}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2 items-center">

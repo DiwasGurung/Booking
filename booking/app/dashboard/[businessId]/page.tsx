@@ -304,7 +304,7 @@ export default function BusinessDashboardPage() {
                             }`} />
                             <span className="text-sm text-slate-600">{payment.gateway}</span>
                           </div>
-                          <span className="font-semibold text-slate-900">${payment.amount.toFixed(2)}</span>
+                          <span className="font-semibold text-slate-900">Rs.{payment.amount.toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
