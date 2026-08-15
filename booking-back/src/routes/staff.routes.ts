@@ -14,7 +14,8 @@ import {
   getStaffBookings,
   addTimeOff,
   getTimeOff,
-  getStaffBookingsByDate
+  getStaffBookingsByDate,
+  getStaffPerformance
 } from "../controllers/staff.controller.js"
 
 const router = Router()
@@ -113,5 +114,8 @@ router.post("/:staffId/time-off", auth, addTimeOff)
 
 // In your routes file
 router.get("/code/:staffCode/bookings/date", getStaffBookingsByDate)
+
+ router.get("/:staffId/performance", auth, getStaffPerformance)
+  router.get("/:staffId/stats", auth, getStaffStats)
 
 export default router

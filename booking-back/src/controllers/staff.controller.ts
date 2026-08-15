@@ -97,6 +97,41 @@ export const getStaffForService = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to get staff for service" })
   }
 }
+/**
+ * Get staff performance for a selected period.
+ * This reports bookings and served customers only; it does not use subscription payments.
+ */
+export const getStaffPerformance = async (req: Request, res: Response) => {
+  try {
+    const staffId = req.params.staffId as string
+    const startDate = typeof req.query.startDate === 'string' ? new Date(req.query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+    const endDate = typeof req.query.endDate === 'string' ? new Date(req.query.endDate) : new Date()
+    const dateFilter = { gte: startDate, lte: endDate }
+
+    const [totalBookings, servedCustomers, pendingBookings, unverifiedBookings, customers] = await Promise.all([
+      prisma.booking.count({ where: { staffId, startTime: dateFilter } }),
+      prisma.booking.count({ where: { staffId, status: 'COMPLETED', startTime: dateFilter } }),
+      prisma.booking.count({ where: { staffId, status: 'PENDING', startTime: dateFilter } }),
+      prisma.booking.count({ where: { staffId, isEmailVerified: false, startTime: dateFilter } }),
+      prisma.booking.findMany({ where: { staffId, startTime: dateFilter }, distinct: ['customerEmail'], select: { customerEmail: true } }),
+    ])
+
+    res.json({
+      totalBookings,
+      servedCustomers,
+      pendingBookings,
+      unverifiedBookings,
+      uniqueCustomers: customers.length,
+      completionRate: totalBookings ? (servedCustomers / totalBookings) * 100 : 0,
+      startDate,
+      endDate,
+    })
+  } catch (error: any) {
+    console.error('[Staff Controller] Performance error:', error.message)
+    res.status(500).json({ error: 'Failed to load staff performance' })
+  }
+}
+
 
 /**
  * Update staff member

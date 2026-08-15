@@ -55,6 +55,17 @@ export interface Payment {
   updatedAt: string
 }
 
+ export interface StaffPerformance {
+    totalBookings: number
+    servedCustomers: number
+    pendingBookings: number
+    unverifiedBookings: number
+    uniqueCustomers: number
+    completionRate: number
+    startDate: string
+    endDate: string
+  }
+
 export interface InitiatePaymentRequest {
   method: 'ESEWA' | 'KHALTI' | 'STRIPE'
   subscriptionId: string
@@ -494,7 +505,7 @@ export const bookingsApi = {
     }),
 
   // Get all bookings for a specific business
-  getBusinessBookings: (businessId: string, page = 1, limit = 10, status?: string) => {
+  getBusinessBookings: (businessId: string, page = 1, limit = 10, status?: string, p0?: string | undefined, p1?: boolean | undefined, startDate?: string, endDate?: string) => {
     let url = `/api/booking/businesses/${businessId}/bookings?page=${page}&limit=${limit}`
     if (status) {
       url += `&status=${status}`
@@ -743,6 +754,10 @@ export const staffApi = {
   // Get staff by ID
   getById: (staffId: string) =>
     apiCall<{ staff: Staff }>(`/api/staff/${staffId}`),
+
+  // Get booking performance for a selected period
+  getPerformance: (staffId: string, startDate: string, endDate: string) =>
+    apiCall<StaffPerformance>(`/api/staff/${staffId}/performance?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`),
 
   // Get all staff for a business
   getBusinessStaff: (businessId: string, includeInactive = false) =>

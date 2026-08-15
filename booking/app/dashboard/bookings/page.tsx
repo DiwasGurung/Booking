@@ -55,8 +55,8 @@ export default function BookingsPage() {
     try {
       setLoading(true)
       const response = await bookingsApi.getBusinessBookings(
-        businessId, 
-        page, 
+        businessId,
+        page,
         10,
         filterStatus !== 'ALL' ? filterStatus : undefined
       )
@@ -284,7 +284,7 @@ export default function BookingsPage() {
               <p className="text-slate-600 mb-6">
                 Are you sure you want to change the status to <strong>{newStatus}</strong>?
                 <br />
-                The customer will be notified via email and SMS.
+                The customer will be notified via email.
               </p>
               
               <div className="flex gap-2 justify-end">

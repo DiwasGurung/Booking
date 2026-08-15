@@ -37,7 +37,6 @@ export class BookingService {
       },
     })
   }
-
   /**
    * Get all bookings for a business
    */
@@ -46,18 +45,27 @@ export class BookingService {
     page = 1,
     limit = 10,
     status?: BookingStatus,
+    staffId?: string,
+    verified?: boolean,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<{ bookings: Booking[]; total: number }> {
     const skip = (page - 1) * limit
 
     const where: Prisma.BookingWhereInput = { businessId }
     if (status) where.status = status
+    if (staffId) where.staffId = staffId
+    if (verified !== undefined) where.isEmailVerified = verified
+    if (startDate || endDate) {
+      where.startTime = { ...(startDate ? { gte: startDate } : {}), ...(endDate ? { lte: endDate } : {}) }
+    }
 
     const [bookings, total] = await Promise.all([
       prisma.booking.findMany({
         where,
         skip,
         take: limit,
-        include: { service: true, customer: true, staff: true},
+        include: { service: true, customer: true, staff: true, payment: true },
         orderBy: { startTime: "desc" },
       }),
       prisma.booking.count({ where }),

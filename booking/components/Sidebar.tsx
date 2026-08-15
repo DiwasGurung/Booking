@@ -75,11 +75,6 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
       label: 'Analytics',
       href: '/dashboard/analytics',
       icon: BarChart3,
-      children: [
-        { label: 'Revenue', href: '/dashboard/analytics?tab=revenue', icon: BarChart3 },
-        { label: 'Bookings', href: '/dashboard/analytics?tab=bookings', icon: BarChart3 },
-        { label: 'Customers', href: '/dashboard/analytics?tab=customers', icon: BarChart3 },
-      ]
     },
     { label: 'Subscription', href: '/dashboard/subscription', icon: CreditCard },
     { label: 'Settings', href: '/dashboard/settings', icon: Settings },

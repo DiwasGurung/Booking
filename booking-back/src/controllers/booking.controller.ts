@@ -454,13 +454,19 @@ class BookingController {
   async getBusinessBookings(req: Request, res: Response): Promise<void> {
     try {
       const { businessId } = req.params;
-      const { page, limit, status } = req.query;
+      const { page, limit, status, staffId, verified, startDate, endDate } = req.query;
+      const parseDate = (value: unknown) => typeof value === 'string' && !Number.isNaN(Date.parse(value)) ? new Date(value) : undefined
+      const verifiedValue = verified === 'true' ? true : verified === 'false' ? false : undefined
 
       const result = await BookingService.getBusinessBookings(
         Array.isArray(businessId) ? businessId[0] : businessId,
         page ? parseInt(page as string) : 1,
         limit ? parseInt(limit as string) : 10,
-        status as BookingStatus | undefined
+        status as BookingStatus | undefined,
+        typeof staffId === 'string' ? staffId : undefined,
+        verifiedValue,
+        parseDate(startDate),
+        parseDate(endDate)
       );
 
       res.status(200).json(result);
