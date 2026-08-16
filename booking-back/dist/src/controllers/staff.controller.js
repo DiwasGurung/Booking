@@ -99,6 +99,13 @@ exports.getStaffForService = getStaffForService;
 const getStaffPerformance = async (req, res) => {
     try {
         const staffId = req.params.staffId;
+        const staffMember = await prisma_js_1.default.staff.findUnique({ where: { id: staffId }, select: { businessId: true } });
+        if (!staffMember)
+            return res.status(404).json({ error: 'Staff member not found' });
+        const subscription = await subscription_service_js_1.default.getSubscriptionStatus(staffMember.businessId);
+        if (!subscription.hasSubscription || !subscription.planName?.toLowerCase().includes('enterprise')) {
+            return res.status(403).json({ error: 'Staff performance analytics require an Enterprise subscription' });
+        }
         const startDate = typeof req.query.startDate === 'string' ? new Date(req.query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
         const endDate = typeof req.query.endDate === 'string' ? new Date(req.query.endDate) : new Date();
         const dateFilter = { gte: startDate, lte: endDate };

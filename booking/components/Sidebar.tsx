@@ -1,9 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { ChevronDown, Menu, X, LayoutDashboard, Calendar, Settings,Clock, BarChart3, CreditCard, Users, Home, LogOut, UserCog } from 'lucide-react'
+import { ChevronDown, Menu, X, LayoutDashboard, Calendar, Settings, BarChart3, CreditCard, Users, Home, LogOut, UserCog, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/authContext'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -25,15 +25,18 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
+  const activeAnalyticsTab = searchParams.get('tab') || 'overview'
   const { logout } = useAuth()
 
-  // Close sidebar when navigating on mobile
+  // Keep the active section open and close the drawer after mobile navigation.
   useEffect(() => {
-    if (isMobile) {
-      setIsOpen(false)
+    if (isMobile) setIsOpen(false)
+    if (pathname === '/dashboard/analytics') {
+      setExpandedItems((items) => items.includes('Analytics') ? items : [...items, 'Analytics'])
     }
-  }, [pathname, isMobile])
+  }, [pathname, isMobile, activeAnalyticsTab])
 
   const businessOwnerNav: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: Home },
@@ -52,7 +55,7 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
       href: '/dashboard/services',
       icon: Users,
     },
-     {
+    {
       label: 'Business Hours',
       href: '/dashboard/business-hours',
       icon: Clock,
@@ -61,6 +64,11 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
       label: 'Staff',
       href: '/dashboard/staff',
       icon: UserCog,
+    },
+    {
+      label: 'Time Off',
+      href: '/dashboard/staff-time-off',
+      icon: Calendar,
     },
     {
       label: 'Payments',
@@ -75,6 +83,11 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
       label: 'Analytics',
       href: '/dashboard/analytics',
       icon: BarChart3,
+      children: [
+        { label: 'Revenue', href: '/dashboard/analytics?tab=revenue', icon: BarChart3 },
+        { label: 'Bookings', href: '/dashboard/analytics?tab=bookings', icon: BarChart3 },
+        { label: 'Customers', href: '/dashboard/analytics?tab=customers', icon: BarChart3 },
+      ]
     },
     { label: 'Subscription', href: '/dashboard/subscription', icon: CreditCard },
     { label: 'Settings', href: '/dashboard/settings', icon: Settings },
@@ -96,7 +109,12 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
     )
   }
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
+  const isActive = (href: string) => {
+    const [path, query] = href.split('?')
+    if (pathname !== path && !pathname.startsWith(path + '/')) return false
+    if (!query) return pathname === path || pathname.startsWith(path + '/')
+    return new URLSearchParams(query).get('tab') === activeAnalyticsTab
+  }
 
   const handleLogout = async () => {
     try {
@@ -114,36 +132,33 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
 
   return (
     <>
-      {/* Backdrop Overlay - Mobile Only */}
-      {isOpen && isMobile && (
-        <div
-          className="fixed inset-0 bg-black/50 z-20 md:hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
+      {/* Mobile backdrop */}
+      {isOpen && <div className="fixed inset-0 z-40 bg-foreground/35 md:hidden" onClick={() => setIsOpen(false)} />}
 
-      {/* Mobile Toggle */}
+      {/* Mobile toggle */}
       <Button
-        variant="ghost"
-        size="sm"
-        className="md:hidden fixed top-20 left-4 z-50"
+        variant="outline"
+        size="icon"
+        aria-label={isOpen ? 'Close navigation' : 'Open navigation'}
+        className="fixed left-4 top-4 z-50 h-10 w-10 bg-background shadow-sm md:hidden"
         onClick={() => setIsOpen(!isOpen)}
       >
-        {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </Button>
 
-      {/* Sidebar */}
       <aside
-         className={`fixed inset-y-0 left-0 z-50 flex w-[min(86vw,20rem)] flex-col border-r border-border bg-card pt-16 shadow-xl transition-transform duration-300 md:top-0 md:z-30 md:w-64 md:translate-x-0 md:shadow-none ${
-          isOpen ? 'w-64' : 'w-0 -translate-x-full md:translate-x-0'
-        } md:w-64 md:translate-x-0 pt-20`}
+        className={`fixed inset-y-0 left-0 z-50 flex w-[min(86vw,20rem)] flex-col border-r border-border bg-card pt-16 shadow-xl transition-transform duration-300 md:top-0 md:z-30 md:w-64 md:translate-x-0 md:shadow-none ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
       >
-        <nav className="p-4 space-y-2 overflow-y-auto h-full pb-24">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {navItems.map((item) => (
             <div key={item.label}>
               {item.children ? (
                 <button
                   onClick={() => toggleExpandItem(item.label)}
+                  aria-expanded={expandedItems.includes(item.label)}
+                  aria-controls={`${item.label.toLowerCase()}-submenu`}
                   className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     expandedItems.includes(item.label)
                       ? 'bg-primary/10 text-primary'
@@ -177,7 +192,7 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
 
               {/* Submenu */}
               {item.children && expandedItems.includes(item.label) && (
-                <div className="ml-4 mt-2 space-y-1 border-l border-slate-200">
+                <div id={`${item.label.toLowerCase()}-submenu`} className="ml-4 mt-1 space-y-1 border-l border-border py-1 pl-2">
                   {item.children.map((subitem) => (
                     <Link key={subitem.href} href={subitem.href} onClick={() => setIsOpen(false)}>
                       <span
@@ -196,27 +211,18 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
             </div>
           ))}
 
-          {/* Logout Button */}
-          <div className="absolute bottom-4 left-4 right-4">
-            <Button
-              onClick={handleLogout}
-              className="w-full bg-destructive hover:bg-destructive/90 text-destructive-foreground flex items-center justify-center gap-2"
-              size="sm"
-            >
-              <LogOut className="w-4 h-4" />
-              Logout
-            </Button>
-          </div>
         </nav>
+        <div className="shrink-0 border-t border-border bg-card p-3">
+          <Button
+            onClick={handleLogout}
+            className="w-full justify-center gap-2 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            size="sm"
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
+        </div>
       </aside>
-
-      {/* Mobile Overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-20 md:hidden"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
     </>
   )
 }

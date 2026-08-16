@@ -5,6 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const business_service_js_1 = __importDefault(require("../services/business.service.js"));
 const user_service_js_1 = require("../services/user.service.js");
+const subscription_service_js_1 = __importDefault(require("../services/subscription.service.js"));
+const customer_service_js_1 = __importDefault(require("../services/customer.service.js"));
 class BusinessController {
     constructor() {
     }
@@ -86,6 +88,19 @@ class BusinessController {
         }
         catch (error) {
             res.status(500).json({ message: "Failed to fetch business", error });
+        }
+    }
+    async customerInsights(req, res) {
+        try {
+            const businessId = req.params.businessId;
+            const subscription = await subscription_service_js_1.default.getSubscriptionStatus(businessId);
+            if (!subscription.hasSubscription || !subscription.planName?.toLowerCase().includes('enterprise')) {
+                return res.status(403).json({ error: 'Customer loyalty insights require an Enterprise subscription' });
+            }
+            return res.json({ insights: await customer_service_js_1.default.getBusinessInsights(businessId) });
+        }
+        catch (error) {
+            return res.status(500).json({ error: 'Failed to load customer insights' });
         }
     }
     /**

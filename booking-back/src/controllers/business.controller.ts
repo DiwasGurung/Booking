@@ -1,6 +1,8 @@
 import { Request, Response } from "express"
 import BusinessService from "../services/business.service.js"
 import  {userService}  from "../services/user.service.js"
+import SubscriptionService from "../services/subscription.service.js"
+import CustomerService from "../services/customer.service.js"
 
 
 class BusinessController {
@@ -98,6 +100,19 @@ async create(req: Request, res: Response) {
       res.status(500).json({ message: "Failed to fetch business", error })
     }
   }
+   async customerInsights(req: Request, res: Response) {
+    try {
+      const businessId = req.params.businessId as string
+      const subscription = await SubscriptionService.getSubscriptionStatus(businessId)
+      if (!subscription.hasSubscription || !subscription.planName?.toLowerCase().includes('enterprise')) {
+        return res.status(403).json({ error: 'Customer loyalty insights require an Enterprise subscription' })
+      }
+      return res.json({ insights: await CustomerService.getBusinessInsights(businessId) })
+    } catch (error) {
+      return res.status(500).json({ error: 'Failed to load customer insights' })
+    }
+  }
+
 
   /**
    * Booking and customer analytics

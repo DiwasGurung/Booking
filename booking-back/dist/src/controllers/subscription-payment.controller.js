@@ -346,14 +346,8 @@ const checkSubscriptionLimit = async (req, res) => {
                 }
                 break;
             case 'add-customer':
-                if (plan.maxCustomers !== -1) {
-                    currentUsage = await prisma_js_1.default.customer.count({
-                        where: { businessId },
-                    });
-                    limit = plan.maxCustomers;
-                    allowed = currentUsage < limit;
-                    reason = allowed ? '' : `Customer limit reached (${limit})`;
-                }
+                // Customer records are unlimited for every subscription plan.
+                allowed = true;
                 break;
             case 'view-reports':
                 allowed = plan.allowReports;

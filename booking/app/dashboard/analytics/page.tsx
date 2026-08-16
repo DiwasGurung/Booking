@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
 import { Loader, AlertCircle, TrendingUp, TrendingDown, BarChart3, Users, Calendar } from 'lucide-react'
-import { businessApi } from '@/lib/api'
+import { businessApi, customerInsightsApi, type CustomerInsight } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
 
 interface AnalyticsData {
@@ -29,12 +29,26 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState('30')
+  const [customerInsights, setCustomerInsights] = useState<CustomerInsight[]>([])
+  const [insightsLoading, setInsightsLoading] = useState(false)
+  const [insightsError, setInsightsError] = useState<string | null>(null)
 
   useEffect(() => {
     if (businessId) {
       loadAnalytics()
+      loadCustomerInsights()
     }
   }, [dateRange, businessId])
+
+  const loadCustomerInsights = async () => {
+    if (!businessId) return
+    setInsightsLoading(true)
+    setInsightsError(null)
+    const response = await customerInsightsApi.get(businessId)
+    if (response.data?.insights) setCustomerInsights(response.data.insights)
+    else setInsightsError(response.error || 'Enterprise customer insights are unavailable.')
+    setInsightsLoading(false)
+  }
 
   // Redirect to login if business ID error or not found
   useEffect(() => {
@@ -157,6 +171,14 @@ export default function AnalyticsPage() {
                 value={`${analytics.conversionRate.toFixed(1)}%`}
               />
             </div>
+
+            <Card className="border-slate-200 p-6 shadow-sm">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div><h2 className="text-xl font-semibold text-slate-900">Customer loyalty</h2><p className="mt-1 text-sm text-slate-500">Enterprise insights from completed visits and customer observations.</p></div>
+                <Badge className="bg-amber-100 text-amber-900">Enterprise</Badge>
+              </div>
+              {insightsLoading ? <div className="py-8 text-center text-sm text-slate-500">Loading customer insights...</div> : insightsError ? <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">{insightsError}</div> : customerInsights.length === 0 ? <div className="py-8 text-center text-sm text-slate-500">No completed customer visits yet.</div> : <div className="overflow-x-auto"><table className="min-w-[700px] w-full"><thead className="border-b border-slate-200"><tr><th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Customer</th><th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Observation</th><th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Visits</th><th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Loyalty</th></tr></thead><tbody className="divide-y divide-slate-200">{customerInsights.map(customer => <tr key={customer.id}><td className="px-3 py-4"><p className="font-medium text-slate-900">{customer.name}</p><p className="text-sm text-slate-500">{customer.email}</p></td><td className="max-w-xs px-3 py-4 text-sm text-slate-600">{customer.notes || 'No observation added'}</td><td className="px-3 py-4 font-semibold text-slate-900">{customer.visitCount}</td><td className="px-3 py-4"><Badge className="bg-teal-100 text-teal-800">{customer.loyalty}</Badge></td></tr>)}</tbody></table></div>}
+            </Card>
 
             {/* Booking status breakdown */}
             <Card className="p-6">

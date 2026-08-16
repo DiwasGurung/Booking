@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { prisma } from '../lib/prisma'
+import  prisma  from '../lib/prisma'
 
 class SeedController {
   /**
@@ -41,7 +41,7 @@ class SeedController {
           maxAppointmentsPerMonth: 200,
           maxStaff: 1,
           maxServices: 5,
-          maxCustomers: 100,
+          maxCustomers: -1,
           // Features
           allowEmailNotifications: true,
           allowOnlineBooking: true,

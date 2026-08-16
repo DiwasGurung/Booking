@@ -15,6 +15,26 @@ class CustomerService {
         });
     }
     /**
+     * Enterprise customer observations and visit-frequency loyalty insights.
+     */
+    async getBusinessInsights(businessId) {
+        const customers = await prisma_js_1.default.customer.findMany({
+            where: { businessId },
+            select: {
+                id: true, name: true, email: true, notes: true,
+                bookings: { where: { status: 'COMPLETED' }, select: { startTime: true }, orderBy: { startTime: 'desc' } },
+            },
+        });
+        return customers.map(Customer => {
+            const visits = Customer.bookings.length;
+            const loyalty = visits >= 10 ? 'VIP' : visits >= 5 ? 'Loyal' : visits >= 2 ? 'Returning' : 'New';
+            return {
+                id: Customer.id, name: Customer.name, email: Customer.email, notes: Customer.notes,
+                visitCount: visits, lastVisit: Customer.bookings[0]?.startTime ?? null, loyalty,
+            };
+        }).sort((a, b) => b.visitCount - a.visitCount);
+    }
+    /**
      * Get customer by ID
      */
     async getCustomerById(id) {

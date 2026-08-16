@@ -400,6 +400,20 @@ export const businessHoursApi = {
     }),
 }
 
+export interface CustomerInsight {
+  id: string
+  name: string
+  email: string
+  notes?: string | null
+  visitCount: number
+  lastVisit?: string | null
+  loyalty: 'New' | 'Returning' | 'Loyal' | 'VIP'
+}
+
+export const customerInsightsApi = {
+  get: (businessId: string) => apiCall<{ insights: CustomerInsight[] }>(`/api/businesses/${businessId}/customer-insights`),
+}
+
 // Bookings API - /api/booking prefix
 export const bookingsApi = {
   // ==================== STAFF INDIVIDUAL BOOKING ====================
