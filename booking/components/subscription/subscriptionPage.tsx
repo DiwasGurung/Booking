@@ -628,18 +628,7 @@ const handleEsewaPayment = async (planId: string, billingPeriod: BillingPeriod) 
                       <span>{feature}</span>
                     </li>
                   ))}
-                  {plan.allowReports && (
-                    <li className="flex items-start gap-2 text-sm">
-                      <span className="text-primary font-bold mt-0.5">✓</span>
-                      <span>Advanced Reports</span>
-                    </li>
-                  )}
-                  {plan.prioritySupport && (
-                    <li className="flex items-start gap-2 text-sm">
-                      <span className="text-primary font-bold mt-0.5">✓</span>
-                      <span>Priority Support</span>
-                    </li>
-                  )}
+
                 </ul>
               </div>
 
