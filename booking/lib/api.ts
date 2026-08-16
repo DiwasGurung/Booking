@@ -742,6 +742,10 @@ export interface UpdateStaffData {
   serviceIds?: string[]
 }
 
+export const subscriptionApi = {
+  getStatus: (businessId: string) => apiCall<{ hasSubscription: boolean; planName?: string; status?: string }>(`/api/subscription/status/${businessId}`),
+}
+
 // Staff API - /api/staff prefix
 export const staffApi = {
   // Create new staff member

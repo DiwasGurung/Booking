@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import  prisma  from '../lib/prisma.js'
+import { prisma } from '../lib/prisma'
 
 class SeedController {
   /**
@@ -7,10 +7,12 @@ class SeedController {
    */
   async seedPlans(req: Request, res: Response) {
     try {
+    
 
       // Delete existing plans and recreate with new limits
       const existingPlans = await prisma.subscriptionPlan.findMany()
       if (existingPlans.length > 0) {
+        
         await prisma.subscriptionPlan.deleteMany()
       }
 
@@ -29,9 +31,9 @@ class SeedController {
           priceAnnualNPR: 4491,         // 12 months @ 25% discount
           features: [
             'Up to 200 bookings/month',
-            'Basic booking page',
-            '5 services maximum',
-            'Email reminders',
+            'Up to 5 services',
+            'Email notifications',
+            'Online booking',
             'Email support',
             '30-day booking history',
           ],
@@ -64,11 +66,10 @@ class SeedController {
             'Unlimited bookings',
             'Unlimited services',
             'Staff management (up to 5 staff)',
-            'Calendar sync (Google Calendar)',
-            'Customer database & notes',
-            'Automated email reminders',
-            'Payment collection (eSewa)',
-            'Basic analytics',
+            'Customer database',
+            'Email notifications',
+            'Online booking',
+            'Booking analytics and reports',
             'Priority email support',
           ],
           // Limits
@@ -99,13 +100,10 @@ class SeedController {
           features: [
             'Everything in Professional',
             'Unlimited staff',
-            'Multiple locations',
-            'Advanced analytics & reports',
+            'Advanced booking analytics',
+            'Staff performance analytics',
             'Custom branding',
-            'API access',
-            'Dedicated account manager',
-            'Phone + Email support',
-            'Custom integrations',
+            'Priority email support',
           ],
           // Limits
           maxAppointmentsPerMonth: -1,  // Unlimited
@@ -130,6 +128,7 @@ class SeedController {
         )
       )
 
+      console.log('[v0] Successfully created', createdPlans.length, 'subscription plans with limits')
       res.json({
         message: 'Subscription plans seeded successfully',
         plans: createdPlans,
@@ -148,6 +147,7 @@ class SeedController {
    */
   async getPlans(req: Request, res: Response) {
     try {
+      console.log('[v0] Fetching all subscription plans')
 
       const plans = await prisma.subscriptionPlan.findMany({
         where: { active: true },
