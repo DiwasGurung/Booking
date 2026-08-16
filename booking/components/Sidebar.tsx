@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { ChevronDown, Menu, X, LayoutDashboard, Calendar, Settings, BarChart3, CreditCard, Users, Home, LogOut, UserCog, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -25,13 +25,15 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const router = useRouter()
-  const activeAnalyticsTab = searchParams.get('tab') || 'overview'
+  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState('overview')
   const { logout } = useAuth()
 
   // Keep the active section open and close the drawer after mobile navigation.
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setActiveAnalyticsTab(new URLSearchParams(window.location.search).get('tab') || 'overview')
+    }
     if (isMobile) setIsOpen(false)
     if (pathname === '/dashboard/analytics') {
       setExpandedItems((items) => items.includes('Analytics') ? items : [...items, 'Analytics'])
