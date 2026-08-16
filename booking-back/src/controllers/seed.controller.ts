@@ -64,7 +64,6 @@ class SeedController {
           priceAnnualNPR: 8991,         // 12 months @ 25% discount
           features: [
             'Unlimited bookings',
-            'Unlimited services',
             'Staff management (up to 5 staff)',
             'Customer database',
             'Email notifications',

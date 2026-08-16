@@ -160,7 +160,6 @@ export default function SubscriptionPlan() {
         clearTimeout(timeout)
 
         if (!response.ok) {
-          console.error('[v0] Plans fetch failed with status:', response.status)
           
           // If no plans found, try to seed them
           if (response.status === 404 || response.status === 500) {
@@ -350,14 +349,12 @@ export default function SubscriptionPlan() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
-        console.error('[v0] Subscription trial error response:', { status: response.status, data })
         throw new Error(data.message || data.error || `Server error: ${response.status}`)
       }
 
       toast.success(`${plan.displayName || plan.name} trial activated! You have 15 days free access.`)
       router.push('/dashboard')
     } catch (error: any) {
-      console.error('[v0] Subscription creation error:', error)
       toast.error(error.message || 'An error occurred')
     } finally {
       setIsLoading(false)
