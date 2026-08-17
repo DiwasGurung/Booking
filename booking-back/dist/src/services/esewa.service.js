@@ -14,11 +14,14 @@ class EsewaPaymentService {
     paymentUrl;
     verifyUrl;
     constructor() {
-        // Use test credentials if not in production
         const isProduction = process.env.NODE_ENV === 'production';
-        this.productCode = process.env.ESEWA_PRODUCT_CODE || 'EPAYTEST';
-        this.secretKey = process.env.ESEWA_SECRET_KEY || '8gBm/:&EnhH.1/q';
-        // eSewa ePay v2 URLs - Official sandbox and production endpoints
+        const configuredProductCode = process.env.ESEWA_PRODUCT_CODE || process.env.ESEWA_MERCHANT_CODE;
+        const configuredSecretKey = process.env.ESEWA_SECRET_KEY || process.env.ESEWA_MERCHANT_SECRET;
+        if (isProduction && (!configuredProductCode || !configuredSecretKey)) {
+            throw new Error('eSewa production credentials are not configured');
+        }
+        this.productCode = configuredProductCode || 'EPAYTEST';
+        this.secretKey = configuredSecretKey || '8gBm/:&EnhH.1/q';
         this.paymentUrl = isProduction
             ? 'https://epay.esewa.com.np/api/epay/main/v2/form'
             : 'https://rc-epay.esewa.com.np/api/epay/main/v2/form';
@@ -40,28 +43,41 @@ class EsewaPaymentService {
      */
     async initiatePayment(request) {
         try {
-            const amount = request.amount;
-            const taxAmount = request.taxAmount || 0;
-            const productServiceCharge = request.productServiceCharge || 0;
-            const productDeliveryCharge = request.productDeliveryCharge || 0;
-            const totalAmount = amount + taxAmount + productServiceCharge + productDeliveryCharge;
-            // Create signature message
+            const amount = Number(request.amount);
+            const taxAmount = Number(request.taxAmount || 0);
+            const productServiceCharge = Number(request.productServiceCharge || 0);
+            const productDeliveryCharge = Number(request.productDeliveryCharge || 0);
+            if (![amount, taxAmount, productServiceCharge, productDeliveryCharge].every(Number.isFinite) || amount <= 0) {
+                throw new Error('Invalid eSewa payment amount');
+            }
+            // eSewa signs the exact decimal strings sent in the form. Always use two decimals.
+            const amountValue = amount.toFixed(2);
+            const taxAmountValue = taxAmount.toFixed(2);
+            const serviceChargeValue = productServiceCharge.toFixed(2);
+            const deliveryChargeValue = productDeliveryCharge.toFixed(2);
+            const totalAmountValue = (amount + taxAmount + productServiceCharge + productDeliveryCharge).toFixed(2);
+            const totalAmount = Number(totalAmountValue);
             const signedFieldNames = 'total_amount,transaction_uuid,product_code';
-            const signatureMessage = `total_amount=${totalAmount},transaction_uuid=${request.transactionUuid},product_code=${this.productCode}`;
+            const signatureMessage = `total_amount=${totalAmountValue},transaction_uuid=${request.transactionUuid},product_code=${this.productCode}`;
             const signature = this.generateSignature(signatureMessage);
             const formData = {
-                amount: amount.toString(),
-                tax_amount: taxAmount.toString(),
-                total_amount: totalAmount.toString(),
+                amount: amountValue,
+                tax_amount: taxAmountValue,
+                total_amount: totalAmountValue,
                 transaction_uuid: request.transactionUuid,
                 product_code: this.productCode,
-                product_service_charge: productServiceCharge.toString(),
-                product_delivery_charge: productDeliveryCharge.toString(),
+                product_service_charge: serviceChargeValue,
+                product_delivery_charge: deliveryChargeValue,
                 success_url: request.successUrl,
                 failure_url: request.failureUrl,
                 signed_field_names: signedFieldNames,
                 signature: signature,
             };
+            console.log('[eSewa] Payment initiated:', {
+                transactionUuid: request.transactionUuid,
+                totalAmount,
+                paymentUrl: this.paymentUrl,
+            });
             return {
                 success: true,
                 message: 'Payment form data generated successfully',
@@ -95,6 +111,7 @@ class EsewaPaymentService {
                 },
             });
             const data = response.data;
+            console.log('[eSewa] Verification response:', data);
             if (data.status === 'COMPLETE') {
                 return {
                     success: true,
