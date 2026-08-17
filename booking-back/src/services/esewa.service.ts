@@ -64,8 +64,8 @@ export class EsewaPaymentService {
       ? 'https://epay.esewa.com.np/api/epay/main/v2/form'
       : 'https://rc-epay.esewa.com.np/api/epay/main/v2/form';
     this.verifyUrl = isProduction
-      ? 'https://epay.esewa.com.np/api/epay/transaction/status/'
-      : 'https://rc-epay.esewa.com.np/api/epay/transaction/status/';
+      ? 'https://esewa.com.np/api/epay/transaction/status/'
+      : 'https://rc.esewa.com.np/api/epay/transaction/status/';
   }
 
   /**
@@ -167,7 +167,14 @@ export class EsewaPaymentService {
       });
 
       const data = response.data;
-      console.log('[eSewa] Verification response:', data);
+      const expectedAmount = Number(totalAmount);
+      const returnedAmount = Number(data.total_amount);
+      const returnedProductCode = String(data.product_code || '');
+      const returnedUuid = String(data.transaction_uuid || '');
+
+      if (returnedProductCode !== this.productCode || returnedUuid !== transactionUuid || !Number.isFinite(returnedAmount) || returnedAmount !== expectedAmount) {
+        return { success: false, status: 'FAILED', message: 'eSewa verification data does not match the transaction' };
+      }
 
       if (data.status === 'COMPLETE') {
         return {

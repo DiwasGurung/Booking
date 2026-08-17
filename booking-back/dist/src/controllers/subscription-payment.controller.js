@@ -64,8 +64,8 @@ const initiateEsewaPayment = async (req, res) => {
                 data: { billingPeriod, planId },
             });
         }
-        // Generate unique transaction ID
-        const transactionUuid = `SUB-${subscription.id}-${Date.now()}`;
+        // eSewa accepts only alphanumeric characters and hyphens in transaction_uuid.
+        const transactionUuid = `SUB-${subscription.id}-${Date.now()}`.replace(/[^A-Za-z0-9-]/g, '');
         // Generate eSewa payment form data
         const esewaResponse = await esewa_service_js_1.default.initiatePayment({
             amount: priceNPR,
