@@ -90,15 +90,16 @@ export class EsewaPaymentService {
         throw new Error('Invalid eSewa payment amount');
       }
 
-      // eSewa signs the exact decimal strings sent in the form. Always use two decimals.
-      const amountValue = amount.toFixed(2);
-      const taxAmountValue = taxAmount.toFixed(2);
-      const serviceChargeValue = productServiceCharge.toFixed(2);
-      const deliveryChargeValue = productDeliveryCharge.toFixed(2);
-      const totalAmountValue = (amount + taxAmount + productServiceCharge + productDeliveryCharge).toFixed(2);
-      const totalAmount = Number(totalAmountValue);
+      const amountValue = amount.toString();
+      const taxAmountValue = taxAmount.toString();
+      const serviceChargeValue = productServiceCharge.toString();
+      const deliveryChargeValue = productDeliveryCharge.toString();
+      const totalAmountValue = (amount + taxAmount + productServiceCharge + productDeliveryCharge).toString();
       const signedFieldNames = 'total_amount,transaction_uuid,product_code';
-      const signatureMessage = `total_amount=${totalAmountValue},transaction_uuid=${request.transactionUuid},product_code=${this.productCode}`;
+      const signatureMessage = signedFieldNames.split(',').map(field => {
+        const value = field === 'total_amount' ? totalAmountValue : field === 'transaction_uuid' ? request.transactionUuid : this.productCode;
+        return `${field}=${value}`;
+      }).join(',');
       const signature = this.generateSignature(signatureMessage);
 
       const formData = {
@@ -115,9 +116,11 @@ export class EsewaPaymentService {
         signature: signature,
       };
 
-      console.log('[eSewa] Payment initiated:', {
+      console.log('[eSewa] Payment payload prepared:', {
         transactionUuid: request.transactionUuid,
-        totalAmount,
+        productCode: this.productCode,
+        totalAmount: totalAmountValue,
+        signedFieldNames,
         paymentUrl: this.paymentUrl,
       });
 
