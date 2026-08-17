@@ -49,9 +49,10 @@ export class EsewaPaymentService {
   private verifyUrl: string;
 
   constructor() {
-    const isProduction = process.env.NODE_ENV === 'production';
-    const configuredProductCode = process.env.ESEWA_PRODUCT_CODE || process.env.ESEWA_MERCHANT_CODE;
-    const configuredSecretKey = process.env.ESEWA_SECRET_KEY || process.env.ESEWA_MERCHANT_SECRET;
+    const environment = (process.env.ESEWA_ENV || process.env.NODE_ENV || 'development').trim().toLowerCase();
+    const isProduction = environment === 'production' || environment === 'prod';
+    const configuredProductCode = (process.env.ESEWA_PRODUCT_CODE || process.env.ESEWA_MERCHANT_CODE || '').trim();
+    const configuredSecretKey = (process.env.ESEWA_SECRET_KEY || process.env.ESEWA_MERCHANT_SECRET || '').trim();
 
     if (isProduction && (!configuredProductCode || !configuredSecretKey)) {
       throw new Error('eSewa production credentials are not configured');
@@ -86,26 +87,26 @@ export class EsewaPaymentService {
       const taxAmount = Number(request.taxAmount || 0);
       const productServiceCharge = Number(request.productServiceCharge || 0);
       const productDeliveryCharge = Number(request.productDeliveryCharge || 0);
-      if (![amount, taxAmount, productServiceCharge, productDeliveryCharge].every(Number.isFinite) || amount <= 0) {
+      if (![amount, taxAmount, productServiceCharge, productDeliveryCharge].every(Number.isFinite) || amount <= 0 || taxAmount < 0 || productServiceCharge < 0 || productDeliveryCharge < 0) {
         throw new Error('Invalid eSewa payment amount');
       }
+      if (!request.transactionUuid.trim() || !request.successUrl.trim() || !request.failureUrl.trim()) {
+        throw new Error('Invalid eSewa transaction or callback URL');
+      }
 
+      // This must match the documentation exactly:
+      // total_amount=<value>,transaction_uuid=<value>,product_code=<value>
       const amountValue = amount.toString();
       const taxAmountValue = taxAmount.toString();
       const serviceChargeValue = productServiceCharge.toString();
       const deliveryChargeValue = productDeliveryCharge.toString();
-
-  
-const totalAmountValue = (amount + taxAmount + productServiceCharge + productDeliveryCharge).toString();
-
-const signedFieldNames = 'total_amount,transaction_uuid,product_code';
-// eSewa v2 joins the values of the keys in order, separated strictly by a comma
-const signatureMessage = `${totalAmountValue},${request.transactionUuid},${this.productCode}`;
-
-
-const signature = this.generateSignature(signatureMessage);
-
-
+      const totalAmountValue = (amount + taxAmount + productServiceCharge + productDeliveryCharge).toString();
+      const signedFieldNames = 'total_amount,transaction_uuid,product_code';
+      const signatureMessage = signedFieldNames.split(',').map(field => {
+        const value = field === 'total_amount' ? totalAmountValue : field === 'transaction_uuid' ? request.transactionUuid : this.productCode;
+        return `${field}=${value}`;
+      }).join(',');
+      const signature = this.generateSignature(signatureMessage);
 
       const formData = {
         amount: amountValue,
@@ -121,6 +122,13 @@ const signature = this.generateSignature(signatureMessage);
         signature: signature,
       };
 
+      console.log('[eSewa] Payment payload prepared:', {
+        transactionUuid: request.transactionUuid,
+        productCode: this.productCode,
+        totalAmount: totalAmountValue,
+        signedFieldNames,
+        paymentUrl: this.paymentUrl,
+      });
 
       return {
         success: true,
@@ -129,6 +137,7 @@ const signature = this.generateSignature(signatureMessage);
         paymentUrl: this.paymentUrl,
       };
     } catch (error: any) {
+      console.error('[eSewa] Payment initiation error:', error);
       return {
         success: false,
         message: error.message || 'Failed to initiate payment',

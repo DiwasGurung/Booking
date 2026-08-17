@@ -100,7 +100,7 @@ export default function SubscriptionPlan() {
     const checkTrialStatus = async () => {
       try {
         setLoadingTrialStatus(true)
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
         
         const response = await fetch(`${API_URL}/api/businesses/current`, {
           credentials: 'include',
@@ -120,7 +120,7 @@ export default function SubscriptionPlan() {
             
             if (subResponse.ok) {
               const subData = await subResponse.json()
-              setTrialUsed(subData.status === 'TRIAL' || (subData.hasSubscription && subData.status !== 'TRIAL'))
+              setTrialUsed(Boolean(subData.trialUsed || subData.trialExpired || subData.hasUsedTrial))
             }
           }
         }
@@ -138,7 +138,6 @@ export default function SubscriptionPlan() {
   useEffect(() => {
     if (esewaFormData && esewaFormRef.current) {
       esewaFormRef.current.submit()
-      setIsLoading(false) 
     }
   }, [esewaFormData])
 
@@ -146,7 +145,7 @@ export default function SubscriptionPlan() {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
         
         
         const controller = new AbortController()
@@ -161,6 +160,7 @@ export default function SubscriptionPlan() {
         clearTimeout(timeout)
 
         if (!response.ok) {
+          console.error('[v0] Plans fetch failed with status:', response.status)
           
           // If no plans found, try to seed them
           if (response.status === 404 || response.status === 500) {
@@ -316,7 +316,7 @@ export default function SubscriptionPlan() {
       }
 
 
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
       // Get current business
       const businessResponse = await fetch(`${API_URL}/api/businesses/current`, {
@@ -350,12 +350,14 @@ export default function SubscriptionPlan() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
+        console.error('[v0] Subscription trial error response:', { status: response.status, data })
         throw new Error(data.message || data.error || `Server error: ${response.status}`)
       }
 
       toast.success(`${plan.displayName || plan.name} trial activated! You have 15 days free access.`)
       router.push('/dashboard')
     } catch (error: any) {
+      console.error('[v0] Subscription creation error:', error)
       toast.error(error.message || 'An error occurred')
     } finally {
       setIsLoading(false)
@@ -364,7 +366,7 @@ export default function SubscriptionPlan() {
 const handleEsewaPayment = async (planId: string, billingPeriod: BillingPeriod) => {
   setIsLoading(true)
   try {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
     // Get current business
     const businessResponse = await fetch(`${API_URL}/api/businesses/current`, {

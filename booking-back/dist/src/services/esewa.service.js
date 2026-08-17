@@ -14,9 +14,10 @@ class EsewaPaymentService {
     paymentUrl;
     verifyUrl;
     constructor() {
-        const isProduction = process.env.NODE_ENV === 'production';
-        const configuredProductCode = process.env.ESEWA_PRODUCT_CODE || process.env.ESEWA_MERCHANT_CODE;
-        const configuredSecretKey = process.env.ESEWA_SECRET_KEY || process.env.ESEWA_MERCHANT_SECRET;
+        const environment = (process.env.ESEWA_ENV || process.env.NODE_ENV || 'development').trim().toLowerCase();
+        const isProduction = environment === 'production' || environment === 'prod';
+        const configuredProductCode = (process.env.ESEWA_PRODUCT_CODE || process.env.ESEWA_MERCHANT_CODE || '').trim();
+        const configuredSecretKey = (process.env.ESEWA_SECRET_KEY || process.env.ESEWA_MERCHANT_SECRET || '').trim();
         if (isProduction && (!configuredProductCode || !configuredSecretKey)) {
             throw new Error('eSewa production credentials are not configured');
         }
@@ -47,9 +48,14 @@ class EsewaPaymentService {
             const taxAmount = Number(request.taxAmount || 0);
             const productServiceCharge = Number(request.productServiceCharge || 0);
             const productDeliveryCharge = Number(request.productDeliveryCharge || 0);
-            if (![amount, taxAmount, productServiceCharge, productDeliveryCharge].every(Number.isFinite) || amount <= 0) {
+            if (![amount, taxAmount, productServiceCharge, productDeliveryCharge].every(Number.isFinite) || amount <= 0 || taxAmount < 0 || productServiceCharge < 0 || productDeliveryCharge < 0) {
                 throw new Error('Invalid eSewa payment amount');
             }
+            if (!request.transactionUuid.trim() || !request.successUrl.trim() || !request.failureUrl.trim()) {
+                throw new Error('Invalid eSewa transaction or callback URL');
+            }
+            // This must match the documentation exactly:
+            // total_amount=<value>,transaction_uuid=<value>,product_code=<value>
             const amountValue = amount.toString();
             const taxAmountValue = taxAmount.toString();
             const serviceChargeValue = productServiceCharge.toString();
