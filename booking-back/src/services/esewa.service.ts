@@ -95,12 +95,24 @@ export class EsewaPaymentService {
       const serviceChargeValue = productServiceCharge.toString();
       const deliveryChargeValue = productDeliveryCharge.toString();
       const totalAmountValue = (amount + taxAmount + productServiceCharge + productDeliveryCharge).toString();
+  
       const signedFieldNames = 'total_amount,transaction_uuid,product_code';
-      const signatureMessage = signedFieldNames.split(',').map(field => {
-        const value = field === 'total_amount' ? totalAmountValue : field === 'transaction_uuid' ? request.transactionUuid : this.productCode;
-        return `${field}=${value}`;
-      }).join(',');
-      const signature = this.generateSignature(signatureMessage);
+const signatureMessage = signedFieldNames.split(',').map(field => {
+  switch (field) {
+    case 'total_amount':
+      return `${field}=${totalAmountValue}`;
+    case 'transaction_uuid':
+      return `${field}=${request.transactionUuid}`;
+    case 'product_code':
+      return `${field}=${this.productCode}`;
+    default:
+      return `${field}=`;
+  }
+}).join(',');
+
+console.log('Signature message:', signatureMessage);
+const signature = this.generateSignature(signatureMessage);
+console.log('Generated signature:', signature);
 
       const formData = {
         amount: amountValue,
@@ -116,13 +128,6 @@ export class EsewaPaymentService {
         signature: signature,
       };
 
-      console.log('[eSewa] Payment payload prepared:', {
-        transactionUuid: request.transactionUuid,
-        productCode: this.productCode,
-        totalAmount: totalAmountValue,
-        signedFieldNames,
-        paymentUrl: this.paymentUrl,
-      });
 
       return {
         success: true,
@@ -131,7 +136,6 @@ export class EsewaPaymentService {
         paymentUrl: this.paymentUrl,
       };
     } catch (error: any) {
-      console.error('[eSewa] Payment initiation error:', error);
       return {
         success: false,
         message: error.message || 'Failed to initiate payment',

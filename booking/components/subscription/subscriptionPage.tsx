@@ -138,6 +138,7 @@ export default function SubscriptionPlan() {
   useEffect(() => {
     if (esewaFormData && esewaFormRef.current) {
       esewaFormRef.current.submit()
+      setIsLoading(false) 
     }
   }, [esewaFormData])
 
