@@ -94,25 +94,18 @@ export class EsewaPaymentService {
       const taxAmountValue = taxAmount.toString();
       const serviceChargeValue = productServiceCharge.toString();
       const deliveryChargeValue = productDeliveryCharge.toString();
-      const totalAmountValue = (amount + taxAmount + productServiceCharge + productDeliveryCharge).toString();
-  
-      const signedFieldNames = 'total_amount,transaction_uuid,product_code';
-const signatureMessage = signedFieldNames.split(',').map(field => {
-  switch (field) {
-    case 'total_amount':
-      return `${field}=${totalAmountValue}`;
-    case 'transaction_uuid':
-      return `${field}=${request.transactionUuid}`;
-    case 'product_code':
-      return `${field}=${this.productCode}`;
-    default:
-      return `${field}=`;
-  }
-}).join(',');
 
-console.log('Signature message:', signatureMessage);
+  
+const totalAmountValue = (amount + taxAmount + productServiceCharge + productDeliveryCharge).toString();
+
+const signedFieldNames = 'total_amount,transaction_uuid,product_code';
+// eSewa v2 joins the values of the keys in order, separated strictly by a comma
+const signatureMessage = `${totalAmountValue},${request.transactionUuid},${this.productCode}`;
+
+
 const signature = this.generateSignature(signatureMessage);
-console.log('Generated signature:', signature);
+
+
 
       const formData = {
         amount: amountValue,
