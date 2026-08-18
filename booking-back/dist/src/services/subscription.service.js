@@ -207,19 +207,24 @@ class SubscriptionService {
                 throw new Error(`Subscription not found: ${subscriptionId}`);
             }
             const now = new Date();
-            // Use provided durationDays or calculate based on billing period
-            let durationDays = data.durationDays || 30;
-            if (currentSubscription.billingPeriod) {
-                const billingDays = {
-                    MONTHLY: 30,
-                    QUARTERLY: 90,
-                    HALF_YEARLY: 180,
-                    YEARLY: 365,
-                };
-                durationDays = billingDays[currentSubscription.billingPeriod] || 30;
+            // Use calendar periods so monthly/yearly expiry dates remain accurate.
+            const endDate = new Date(now);
+            switch (currentSubscription.billingPeriod) {
+                case 'QUARTERLY':
+                    endDate.setMonth(endDate.getMonth() + 3);
+                    break;
+                case 'HALF_YEARLY':
+                    endDate.setMonth(endDate.getMonth() + 6);
+                    break;
+                case 'YEARLY':
+                    endDate.setFullYear(endDate.getFullYear() + 1);
+                    break;
+                case 'MONTHLY':
+                    endDate.setMonth(endDate.getMonth() + 1);
+                    break;
+                default: endDate.setDate(endDate.getDate() + (data.durationDays || 30));
             }
-            const endDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-            const billingCycleEndDate = new Date(endDate); // Same as endDate initially
+            const billingCycleEndDate = new Date(endDate);
             const subscription = await prisma_js_1.default.subscription.update({
                 where: { id: subscriptionId },
                 data: {
@@ -235,13 +240,6 @@ class SubscriptionService {
                     plan: true,
                     business: true,
                 },
-            });
-            console.log(`[v0] Subscription activated:`, {
-                subscriptionId,
-                billingPeriod: currentSubscription.billingPeriod,
-                durationDays,
-                activatedAt: now,
-                expiresAt: endDate,
             });
             return subscription;
         }
@@ -353,15 +351,21 @@ class SubscriptionService {
             }
             const plan = subscription.plan;
             if (plan.maxAppointmentsPerMonth === -1) {
-                return { allowed: true };
+                return { allowed: true, current: subscription.appointmentsThisMonth, limit: -1 };
             }
             if (subscription.appointmentsThisMonth >= plan.maxAppointmentsPerMonth) {
                 return {
                     allowed: false,
                     reason: `Monthly booking limit (${plan.maxAppointmentsPerMonth}) reached. Upgrade to increase limit.`,
+                    current: subscription.appointmentsThisMonth,
+                    limit: plan.maxAppointmentsPerMonth,
                 };
             }
-            return { allowed: true };
+            return {
+                allowed: true,
+                current: subscription.appointmentsThisMonth,
+                limit: plan.maxAppointmentsPerMonth,
+            };
         }
         catch (error) {
             console.error(`[v0] Failed to check appointment limit:`, error);
@@ -462,6 +466,9 @@ class SubscriptionService {
             const plan = subscription.plan;
             const staffCount = await prisma_js_1.default.staff.count({ where: { businessId } });
             const serviceCount = await prisma_js_1.default.service.count({ where: { businessId } });
+            const staffOverLimit = plan.maxStaff !== -1 && staffCount > plan.maxStaff;
+            const servicesOverLimit = plan.maxServices !== -1 && serviceCount > plan.maxServices;
+            const appointmentsOverLimit = plan.maxAppointmentsPerMonth !== -1 && subscription.appointmentsThisMonth > plan.maxAppointmentsPerMonth;
             return {
                 planName: plan.displayName,
                 currentUsage: {
@@ -480,6 +487,11 @@ class SubscriptionService {
                     reports: plan.allowReports,
                     customBranding: plan.allowCustomBranding,
                     prioritySupport: plan.prioritySupport,
+                }, overLimit: {
+                    staff: staffOverLimit,
+                    services: servicesOverLimit,
+                    appointments: appointmentsOverLimit,
+                    any: staffOverLimit || servicesOverLimit || appointmentsOverLimit,
                 },
             };
         }

@@ -232,7 +232,10 @@ class BookingController {
                 return res.status(429).json({
                     success: false,
                     message: appointmentLimit.reason || 'Booking limit reached. Please upgrade your subscription.',
-                    error: 'LIMIT_EXCEEDED',
+                    error: 'APPOINTMENT_LIMIT_EXCEEDED',
+                    current: appointmentLimit.current,
+                    limit: appointmentLimit.limit,
+                    overLimit: true,
                 });
             }
             // Verify business exists
@@ -704,16 +707,15 @@ class BookingController {
                     });
                 }
             }
-            // Generate verification token only for new customers (24 hours validity)
+            const customerIsVerified = customer.isEmailVerified === true || customer.isEmailVerified === true;
             let verificationToken = null;
             let verificationTokenExpires = null;
-            if (isNewCustomer) {
+            if (!customerIsVerified) {
                 verificationToken = (0, crypto_1.randomBytes)(32).toString('hex');
-                verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+                verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
             }
-            // Determine booking status: CONFIRMED for existing customers, UNVERIFIED for new customers
-            const bookingStatus = isNewCustomer ? 'UNVERIFIED' : 'CONFIRMED';
-            const isEmailVerified = isNewCustomer ? false : true;
+            const bookingStatus = customerIsVerified ? 'CONFIRMED' : 'UNVERIFIED';
+            const isEmailVerified = customerIsVerified;
             // Create a guest booking
             const bookingData = {
                 startTime: new Date(startTime),
@@ -763,7 +765,7 @@ class BookingController {
                 emailWarnings.push('Unable to notify business owner due to email delivery issue');
             }
             // Send verification email only for NEW customers (existing customers are auto-confirmed)
-            if (isNewCustomer && verificationToken) {
+            if (!customerIsVerified && verificationToken) {
                 try {
                     const staffName = booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined;
                     const verificationSent = await email_service_js_1.emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
@@ -788,11 +790,11 @@ class BookingController {
             }
             res.status(201).json({
                 success: true,
-                message: isNewCustomer
-                    ? (emailWarnings.length > 0
+                message: customerIsVerified
+                    ? 'Booking confirmed! Your appointment is scheduled.'
+                    : (emailWarnings.length > 0
                         ? 'Booking created! Please verify your email to confirm your appointment.'
-                        : 'Booking created! Check your email to verify and confirm your appointment.')
-                    : 'Booking confirmed! Your appointment is scheduled.',
+                        : 'Booking created! Check your email to verify and confirm your appointment.'),
                 warnings: emailWarnings.length > 0 ? emailWarnings : undefined,
                 booking: {
                     id: booking.id,
@@ -849,6 +851,13 @@ class BookingController {
                 return res.status(400).json({
                     success: false,
                     message: "This booking has already been verified."
+                });
+            }
+            // Persist verification for future bookings from the same customer.
+            if (booking.customerId) {
+                await prisma_js_1.default.customer.update({
+                    where: { id: booking.customerId },
+                    data: { isEmailVerified: true },
                 });
             }
             // Update booking to CONFIRMED status and mark email as verified

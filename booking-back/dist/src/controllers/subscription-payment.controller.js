@@ -151,6 +151,15 @@ const handleEsewaSuccess = async (req, res) => {
         // Create payment record AFTER successful verification; transactionId is unique.
         const existingPayment = await prisma_js_1.default.payment.findUnique({ where: { transactionId: transaction_uuid } });
         if (existingPayment) {
+            if (existingPayment.subscriptionId) {
+                const existingSubscription = await prisma_js_1.default.subscription.findUnique({ where: { id: existingPayment.subscriptionId } });
+                if (existingSubscription && (existingSubscription.status !== 'ACTIVE' || !existingSubscription.startDate || !existingSubscription.endDate)) {
+                    await subscription_service_js_1.default.activateSubscription(existingPayment.subscriptionId, {
+                        paymentId: existingPayment.id,
+                        durationDays: subscription.plan.durationDays || 30,
+                    });
+                }
+            }
             return res.redirect(`${FRONTEND_URL}/subscription?status=success&message=Payment already processed`);
         }
         const payment = await prisma_js_1.default.payment.create({

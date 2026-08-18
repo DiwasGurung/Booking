@@ -231,6 +231,7 @@ model Customer {
   email String
   phone String
   notes String?
+  isEmailVerified Boolean @default(false)
 
   totalBookings Int   @default(0)
   totalSpent    Float @default(0)

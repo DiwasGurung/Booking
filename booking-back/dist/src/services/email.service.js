@@ -5,19 +5,30 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.emailService = void 0;
 const nodemailer_1 = __importDefault(require("nodemailer"));
-const emailUser = process.env.EMAIL_USER || 'your-email@gmail.com';
-const emailPassword = process.env.EMAIL_PASSWORD || 'your-app-password';
+// 1. Point to your new custom environment variables
+const emailUser = process.env.EMAIL_USER || 'diwasgrg14@gmail.com';
+const emailPassword = process.env.EMAIL_PASSWORD || 'mmvd jejs mywh wriw';
+const emailHost = process.env.EMAIL_HOST || '://yourdomain.com';
+const emailPort = parseInt(process.env.EMAIL_PORT || '465');
+const businessTimeZone = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
+const formatBookingDate = (value, options) => new Intl.DateTimeFormat('en-US', { ...options, timeZone: businessTimeZone }).format(new Date(value));
 // Verify transporter configuration on startup
 let transporter = null;
 const initializeTransporter = () => {
     if (transporter)
         return transporter;
     transporter = nodemailer_1.default.createTransport({
-        service: 'gmail',
+        host: emailHost,
+        port: emailPort,
+        secure: emailPort === 465,
         auth: {
             user: emailUser,
             pass: emailPassword,
         },
+        tls: {
+            // Prevents connection rejection if your domain SSL is fresh or self-signed
+            rejectUnauthorized: false
+        }
     });
     // Verify connection
     transporter.verify((error, success) => {
@@ -196,19 +207,12 @@ exports.emailService = {
     async sendNewBookingNotification(ownerEmail, bookingDetails) {
         try {
             const transporter = initializeTransporter();
-            const formattedDate = new Date(bookingDetails.startTime).toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
+            const formattedDate = formatBookingDate(bookingDetails.startTime, {});
+            const formattedStartTime = formatBookingDate(bookingDetails.startTime, {
+                hour: '2-digit', minute: '2-digit'
             });
-            const formattedStartTime = new Date(bookingDetails.startTime).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            const formattedEndTime = new Date(bookingDetails.endTime).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit'
+            const formattedEndTime = formatBookingDate(bookingDetails.endTime, {
+                hour: '2-digit', minute: '2-digit'
             });
             const mailOptions = {
                 from: emailUser,
@@ -312,15 +316,12 @@ exports.emailService = {
     async sendBookingConfirmationToCustomer(customerEmail, bookingDetails) {
         try {
             const transporter = initializeTransporter();
-            const formattedDate = new Date(bookingDetails.startTime).toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
+            const formattedDate = formatBookingDate(bookingDetails.startTime, {});
+            const formattedStartTime = formatBookingDate(bookingDetails.startTime, {
+                hour: '2-digit', minute: '2-digit'
             });
-            const formattedStartTime = new Date(bookingDetails.startTime).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit'
+            const formattedEndTime = formatBookingDate(bookingDetails.endTime, {
+                hour: '2-digit', minute: '2-digit'
             });
             const mailOptions = {
                 from: emailUser,

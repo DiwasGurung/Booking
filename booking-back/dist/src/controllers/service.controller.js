@@ -81,6 +81,7 @@ class ServiceController {
                     error: 'SERVICE_LIMIT_EXCEEDED',
                     current: serviceLimit.current,
                     limit: serviceLimit.limit,
+                    overLimit: true,
                 });
             }
             const service = await service_service_js_1.default.createService({

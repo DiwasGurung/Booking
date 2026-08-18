@@ -26,6 +26,7 @@ const createStaff = async (req, res) => {
                 error: 'STAFF_LIMIT_EXCEEDED',
                 current: staffLimit.current,
                 limit: staffLimit.limit,
+                overLimit: true,
             });
         }
         const staff = await staff_service_js_1.default.createStaff(validation.data);
