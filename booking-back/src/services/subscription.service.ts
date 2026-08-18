@@ -306,20 +306,16 @@ class SubscriptionService {
 
       const now = new Date()
       
-      // Use provided durationDays or calculate based on billing period
-      let durationDays = data.durationDays || 30
-      if (currentSubscription.billingPeriod) {
-        const billingDays: Record<string, number> = {
-          MONTHLY: 30,
-          QUARTERLY: 90,
-          HALF_YEARLY: 180,
-          YEARLY: 365,
-        }
-        durationDays = billingDays[currentSubscription.billingPeriod] || 30
+       // Use calendar periods so monthly/yearly expiry dates remain accurate.
+      const endDate = new Date(now)
+      switch (currentSubscription.billingPeriod) {
+        case 'QUARTERLY': endDate.setMonth(endDate.getMonth() + 3); break
+        case 'HALF_YEARLY': endDate.setMonth(endDate.getMonth() + 6); break
+        case 'YEARLY': endDate.setFullYear(endDate.getFullYear() + 1); break
+        case 'MONTHLY': endDate.setMonth(endDate.getMonth() + 1); break
+        default: endDate.setDate(endDate.getDate() + (data.durationDays || 30))
       }
-
-      const endDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000)
-      const billingCycleEndDate = new Date(endDate) // Same as endDate initially
+      const billingCycleEndDate = new Date(endDate)
 
       const subscription = await prisma.subscription.update({
         where: { id: subscriptionId },
@@ -336,14 +332,6 @@ class SubscriptionService {
           plan: true,
           business: true,
         },
-      })
-
-      console.log(`[v0] Subscription activated:`, {
-        subscriptionId,
-        billingPeriod: currentSubscription.billingPeriod,
-        durationDays,
-        activatedAt: now,
-        expiresAt: endDate,
       })
       return subscription as SubscriptionWithRelations
     } catch (error) {
