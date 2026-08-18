@@ -268,7 +268,10 @@ class BookingController {
         return res.status(429).json({
           success: false,
           message: appointmentLimit.reason || 'Booking limit reached. Please upgrade your subscription.',
-          error: 'LIMIT_EXCEEDED',
+         error: 'APPOINTMENT_LIMIT_EXCEEDED',
+          current: appointmentLimit.current,
+          limit: appointmentLimit.limit,
+          overLimit: true,
         })
       }
 

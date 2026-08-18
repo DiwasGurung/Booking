@@ -1,8 +1,11 @@
 import nodemailer from 'nodemailer'
 import { validate } from 'deep-email-validator'
 
-const emailUser = process.env.EMAIL_USER || 'your-email@gmail.com'
-const emailPassword = process.env.EMAIL_PASSWORD || 'your-app-password'
+// 1. Point to your new custom environment variables
+const emailUser = process.env.EMAIL_USER || 'diwasgrg14@gmail.com'
+const emailPassword = process.env.EMAIL_PASSWORD || 'mmvd jejs mywh wriw'
+const emailHost = process.env.EMAIL_HOST || '://yourdomain.com'
+const emailPort = parseInt(process.env.EMAIL_PORT || '465')
 
 // Verify transporter configuration on startup
 let transporter: nodemailer.Transporter | null = null
@@ -11,11 +14,17 @@ const initializeTransporter = () => {
   if (transporter) return transporter
 
   transporter = nodemailer.createTransport({
-    service: 'gmail',
+     host: emailHost,
+    port: emailPort,
+    secure: emailPort === 465,
     auth: {
       user: emailUser,
       pass: emailPassword,
     },
+     tls: {
+      // Prevents connection rejection if your domain SSL is fresh or self-signed
+      rejectUnauthorized: false 
+    }
   })
 
   // Verify connection

@@ -92,6 +92,7 @@ class ServiceController {
           error: 'SERVICE_LIMIT_EXCEEDED',
           current: serviceLimit.current,
           limit: serviceLimit.limit,
+           overLimit: true,
         })
       }
 

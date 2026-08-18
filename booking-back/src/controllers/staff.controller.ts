@@ -29,6 +29,7 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
         error: 'STAFF_LIMIT_EXCEEDED',
         current: staffLimit.current,
         limit: staffLimit.limit,
+         overLimit: true,
       })
     }
 

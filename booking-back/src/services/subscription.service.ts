@@ -10,6 +10,9 @@ type SubscriptionWithRelations = Subscription & {
 type AppointmentLimitResult = {
   allowed: boolean
   reason?: string
+  current?: number
+  limit?: number
+  
 }
 
 type StaffLimitResult = {
@@ -24,6 +27,7 @@ type ServiceLimitResult = {
   reason?: string
   current?: number
   limit?: number
+  
 }
 
 type SubscriptionStatusResult = {
@@ -53,11 +57,17 @@ type UsageDetailsResult = {
     maxServices: number | string
   }
   featuresEnabled: {
-    emailNotifications: boolean
-    onlineBooking: boolean
-    reports: boolean
-    customBranding: boolean
-    prioritySupport: boolean
+  emailNotifications: boolean
+  onlineBooking: boolean
+  reports: boolean
+  customBranding: boolean
+  prioritySupport: boolean
+  }
+  overLimit: {
+  staff: boolean
+  services: boolean
+  appointments: boolean
+  any: boolean
   }
 } | null
 
@@ -458,17 +468,23 @@ class SubscriptionService {
       const plan = subscription.plan
 
       if (plan.maxAppointmentsPerMonth === -1) {
-        return { allowed: true }
+          return { allowed: true, current: subscription.appointmentsThisMonth, limit: -1 }
       }
 
       if (subscription.appointmentsThisMonth >= plan.maxAppointmentsPerMonth) {
         return {
           allowed: false,
           reason: `Monthly booking limit (${plan.maxAppointmentsPerMonth}) reached. Upgrade to increase limit.`,
+          current: subscription.appointmentsThisMonth,
+          limit: plan.maxAppointmentsPerMonth,
         }
       }
 
-      return { allowed: true }
+      return {
+        allowed: true,
+        current: subscription.appointmentsThisMonth,
+        limit: plan.maxAppointmentsPerMonth,
+      }
     } catch (error) {
       console.error(`[v0] Failed to check appointment limit:`, error)
       return { allowed: false, reason: 'Error checking subscription' }
@@ -583,6 +599,9 @@ class SubscriptionService {
       const plan = subscription.plan
       const staffCount = await prisma.staff.count({ where: { businessId } })
       const serviceCount = await prisma.service.count({ where: { businessId } })
+      const staffOverLimit = plan.maxStaff !== -1 && staffCount > plan.maxStaff
+      const servicesOverLimit = plan.maxServices !== -1 && serviceCount > plan.maxServices
+      const appointmentsOverLimit = plan.maxAppointmentsPerMonth !== -1 && subscription.appointmentsThisMonth > plan.maxAppointmentsPerMonth
 
       return {
         planName: plan.displayName,
@@ -602,6 +621,11 @@ class SubscriptionService {
           reports: plan.allowReports,
           customBranding: plan.allowCustomBranding,
           prioritySupport: plan.prioritySupport,
+        },overLimit: {
+          staff: staffOverLimit,
+          services: servicesOverLimit,
+          appointments: appointmentsOverLimit,
+          any: staffOverLimit || servicesOverLimit || appointmentsOverLimit,
         },
       }
     } catch (error) {
