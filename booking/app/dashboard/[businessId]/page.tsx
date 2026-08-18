@@ -202,7 +202,7 @@ export default function BusinessDashboardPage() {
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm md:text-base break-words">
                   {subscriptionStatus.status === 'CANCELLED'
-                    ? `Your subscription will end on ${subscriptionStatus.expiresAt ? new Date(subscriptionStatus.expiresAt).toLocaleDateString() : 'soon'}`
+                    ? `Your subscription will end on ${subscriptionStatus.expiresAt && !Number.isNaN(new Date(subscriptionStatus.expiresAt).getTime()) ? new Date(subscriptionStatus.expiresAt).toLocaleDateString() : 'soon'}`
                     : subscriptionStatus.status === 'TRIAL' 
                     ? `Free Trial Active - ${subscriptionStatus.daysRemaining} days remaining` 
                     : `${subscriptionStatus.planName} - Active`}
@@ -210,7 +210,9 @@ export default function BusinessDashboardPage() {
                 <p className="text-xs md:text-sm text-muted-foreground">
                   {subscriptionStatus.status === 'TRIAL' 
                     ? 'You are on a free trial. Please set up payment to continue using after trial ends.' 
-                    : `Expires on ${new Date(subscriptionStatus.expiresAt!).toLocaleDateString()}`}
+                   : subscriptionStatus.expiresAt && !Number.isNaN(new Date(subscriptionStatus.expiresAt).getTime())
+                    ? `Expires on ${new Date(subscriptionStatus.expiresAt).toLocaleDateString()}`
+                    : 'Subscription expiry date unavailable'}
                 </p>
               </div>
               {subscriptionStatus.status === 'TRIAL' && (

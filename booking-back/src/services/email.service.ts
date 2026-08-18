@@ -6,6 +6,10 @@ const emailUser = process.env.EMAIL_USER || 'diwasgrg14@gmail.com'
 const emailPassword = process.env.EMAIL_PASSWORD || 'mmvd jejs mywh wriw'
 const emailHost = process.env.EMAIL_HOST || '://yourdomain.com'
 const emailPort = parseInt(process.env.EMAIL_PORT || '465')
+const businessTimeZone = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
+
+const formatBookingDate = (value: Date, options: Intl.DateTimeFormatOptions) =>
+  new Intl.DateTimeFormat('en-US', { ...options, timeZone: businessTimeZone }).format(new Date(value))
 
 // Verify transporter configuration on startup
 let transporter: nodemailer.Transporter | null = null
@@ -231,21 +235,15 @@ export const emailService = {
     try {
       const transporter = initializeTransporter()
       
-      const formattedDate = new Date(bookingDetails.startTime).toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+       const formattedDate = formatBookingDate(bookingDetails.startTime, {
       })
       
-      const formattedStartTime = new Date(bookingDetails.startTime).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit'
+      const formattedStartTime = formatBookingDate(bookingDetails.startTime, {
+        hour: '2-digit', minute: '2-digit'
       })
       
-      const formattedEndTime = new Date(bookingDetails.endTime).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit'
+     const formattedEndTime = formatBookingDate(bookingDetails.endTime, {
+        hour: '2-digit', minute: '2-digit'
       })
 
       const mailOptions = {
@@ -361,18 +359,17 @@ export const emailService = {
     try {
       const transporter = initializeTransporter()
       
-      const formattedDate = new Date(bookingDetails.startTime).toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+       const formattedDate = formatBookingDate(bookingDetails.startTime, {
       })
       
-      const formattedStartTime = new Date(bookingDetails.startTime).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit'
+      const formattedStartTime = formatBookingDate(bookingDetails.startTime, {
+        hour: '2-digit', minute: '2-digit'
       })
-
+        const formattedEndTime = formatBookingDate(bookingDetails.endTime, {
+        hour: '2-digit', minute: '2-digit'
+      })
+      
+   
       const mailOptions = {
         from: emailUser,
         to: customerEmail,
