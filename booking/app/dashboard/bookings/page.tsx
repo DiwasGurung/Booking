@@ -31,6 +31,7 @@ export default function BookingsPage() {
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [filterStaffId, setFilterStaffId] = useState('ALL')
   const [filterVerification, setFilterVerification] = useState('ALL')
+  const [filterRange, setFilterRange] = useState<'today' | 'week' | 'month'>('month')
   const [staff, setStaff] = useState<Staff[]>([])
   const [page, setPage] = useState(1)
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
@@ -41,7 +42,9 @@ export default function BookingsPage() {
   const getDateRange = () => {
     const end = new Date()
     const start = new Date(end)
-    start.setDate(end.getDate() - 30)
+    if (filterRange === 'today') start.setHours(0, 0, 0, 0)
+    if (filterRange === 'week') start.setDate(end.getDate() - 7)
+    if (filterRange === 'month') start.setDate(end.getDate() - 30)
     return { startDate: start.toISOString().slice(0, 10), endDate: end.toISOString().slice(0, 10) }
   }
 
@@ -50,7 +53,7 @@ export default function BookingsPage() {
       loadBookings()
       staffApi.getBusinessStaff(businessId).then(response => setStaff(response.data?.staff || [])).catch(() => setStaff([]))
     }
-  }, [page, filterStatus, filterStaffId, filterVerification, businessId])
+  }, [page, filterStatus, filterStaffId, filterVerification, filterRange, businessId])
 
 
   const loadBookings = async () => {
@@ -141,7 +144,7 @@ export default function BookingsPage() {
 
         {/* Filters */}
         <div className="mb-6 flex gap-2">
-          {['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'].map((status) => (
+          {['ALL', 'UNVERIFIED', 'CONFIRMED', 'COMPLETED', 'CANCELLED'].map((status) => (
             <Button
               key={status}
               variant={filterStatus === status ? 'default' : 'outline'}
@@ -160,6 +163,7 @@ export default function BookingsPage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Staff member</label><select value={filterStaffId} onChange={event => { setFilterStaffId(event.target.value); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">All staff</option>{staff.map(member => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}</select></div>
             <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Customer verification</label><select value={filterVerification} onChange={event => { setFilterVerification(event.target.value); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">All customers</option><option value="VERIFIED">Verified</option><option value="UNVERIFIED">Unverified</option></select></div>
+            <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Date range</label><select value={filterRange} onChange={event => { setFilterRange(event.target.value as typeof filterRange); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="today">Today</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option></select></div>
             <div className="flex items-end"><Link href="/dashboard/staff/performance" className="text-sm font-semibold text-blue-700 hover:underline">View staff performance</Link></div>
           </div>
         </Card>

@@ -35,7 +35,10 @@ export default function StaffPerformancePage() {
         const members = staffResponse.data?.staff || []
         setStaff(members)
         setStaffId(current => current || members[0]?.id || '')
-        setIsEnterprise(Boolean(subscriptionResponse.data?.hasSubscription && subscriptionResponse.data.planName?.toLowerCase().includes('enterprise')))
+        const subscription = subscriptionResponse.data
+        const planName = String(subscription?.planName || subscription?.planName || '').trim().toLowerCase()
+        const isActive = subscription?.status === 'ACTIVE' || subscription?.hasSubscription
+        setIsEnterprise(Boolean(isActive && planName.includes('enterprise')))
       })
       .catch(() => setError('Unable to load staff performance.'))
       .finally(() => setLoading(false))
@@ -50,7 +53,6 @@ export default function StaffPerformancePage() {
   }, [staffId, dates, isEnterprise])
 
   const selectedStaff = staff.find(member => member.id === staffId)
-
   const metrics: Array<{ label: string; value: string | number; Icon: LucideIcon }> = performance ? [
     { label: 'Total bookings', value: performance.totalBookings, Icon: CalendarDays },
     { label: 'Completed', value: performance.servedCustomers, Icon: CheckCircle2 },
