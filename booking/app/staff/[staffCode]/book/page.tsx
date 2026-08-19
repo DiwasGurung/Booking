@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { AlertCircle, Calendar, Clock, MapPin, Loader } from 'lucide-react'
+import { AlertCircle, Calendar, Clock,Loader , MailIcon, Phone} from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { getCurrentUser } from '@/lib/auth'
 
@@ -571,12 +571,12 @@ export default function StaffBookPage() {
           <CardContent>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-muted-foreground" />
+                <MailIcon className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm">{staff.email}</span>
               </div>
               {staff.phone && (
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <Phone className="w-4 h-4 text-muted-foreground" />
                   <span className="text-sm">{staff.phone}</span>
                 </div>
               )}
