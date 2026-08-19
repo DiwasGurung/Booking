@@ -109,8 +109,9 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
   const isActive = (href: string) => {
     const [path, query] = href.split('?')
     if (pathname !== path && !pathname.startsWith(path + '/')) return false
-    if (!query) return pathname === path || pathname.startsWith(path + '/')
-    return new URLSearchParams(query).get('tab') === activeAnalyticsTab
+   if (!query) return pathname === path
+    const expected = new URLSearchParams(query)
+    return expected.get('tab') === activeAnalyticsTab
   }
 
   const handleLogout = async () => {

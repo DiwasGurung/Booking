@@ -108,7 +108,10 @@ export const getStaffPerformance = async (req: Request, res: Response) => {
     const staffMember = await prisma.staff.findUnique({ where: { id: staffId }, select: { businessId: true } })
     if (!staffMember) return res.status(404).json({ error: 'Staff member not found' })
     const subscription = await SubscriptionService.getSubscriptionStatus(staffMember.businessId)
-    if (!subscription.hasSubscription || !subscription.planName?.toLowerCase().includes('enterprise')) {
+    const planName = String(subscription?.planName || '').trim().toLowerCase()
+    const isEnterprise = planName.includes('enterprise')
+    const hasAccess = isEnterprise && (subscription?.hasSubscription === true || subscription?.status === 'ACTIVE' || subscription?.status === 'CANCELLED')
+    if (!hasAccess) {
       return res.status(403).json({ error: 'Staff performance analytics require an Enterprise subscription' })
     }
     const startDate = typeof req.query.startDate === 'string' ? new Date(req.query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1)

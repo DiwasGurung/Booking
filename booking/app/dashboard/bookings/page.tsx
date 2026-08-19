@@ -45,16 +45,21 @@ export default function BookingsPage() {
     if (filterRange === 'today') start.setHours(0, 0, 0, 0)
     if (filterRange === 'week') start.setDate(end.getDate() - 7)
     if (filterRange === 'month') start.setDate(end.getDate() - 30)
-    return { startDate: start.toISOString().slice(0, 10), endDate: end.toISOString().slice(0, 10) }
+     end.setHours(23, 59, 59, 999)
+    return { startDate: start.toISOString(), endDate: end.toISOString() }
   }
 
   useEffect(() => {
     if (businessId) {
       loadBookings()
-      staffApi.getBusinessStaff(businessId).then(response => setStaff(response.data?.staff || [])).catch(() => setStaff([]))
     }
   }, [page, filterStatus, filterStaffId, filterVerification, filterRange, businessId])
 
+useEffect(() => {
+    if (businessId) {
+      staffApi.getBusinessStaff(businessId).then(response => setStaff(response.data?.staff || [])).catch(() => setStaff([]))
+    }
+  }, [businessId])
 
   const loadBookings = async () => {
     if (!businessId) return

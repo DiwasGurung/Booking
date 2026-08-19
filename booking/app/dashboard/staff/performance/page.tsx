@@ -25,7 +25,8 @@ export default function StaffPerformancePage() {
     if (range === 'today') start.setHours(0, 0, 0, 0)
     if (range === 'week') start.setDate(start.getDate() - 7)
     if (range === 'month') start.setDate(start.getDate() - 30)
-    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) }
+    end.setHours(23, 59, 59, 999)
+    return { start: start.toISOString(), end: end.toISOString() }
   }, [range])
 
   useEffect(() => {
@@ -37,7 +38,7 @@ export default function StaffPerformancePage() {
         setStaffId(current => current || members[0]?.id || '')
         const subscription = subscriptionResponse.data
         const planName = String(subscription?.planName || subscription?.planName || '').trim().toLowerCase()
-        const isActive = subscription?.status === 'ACTIVE' || subscription?.hasSubscription
+         const isActive = subscription?.status === 'ACTIVE' || subscription?.status === 'CANCELLED' || subscription?.hasSubscription === true
         setIsEnterprise(Boolean(isActive && planName.includes('enterprise')))
       })
       .catch(() => setError('Unable to load staff performance.'))
