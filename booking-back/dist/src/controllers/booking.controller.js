@@ -468,21 +468,21 @@ class BookingController {
                     });
                 }
                 else if (status === 'COMPLETED') {
-                    const notification = await notification_service_js_1.default.createNotification({
-                        userId: booking.userId,
-                        type: 'BOOKING_CONFIRMATION',
-                        title: 'Booking Completed',
-                        message: `Your booking with ${businessName} has been completed. Please leave a review!`,
-                        bookingId: booking.id,
-                    });
-                    // Broadcast real-time notification
-                    notification_sse_service_js_1.default.broadcastToUser(booking.userId, {
-                        id: notification.id,
-                        title: 'Booking Completed',
-                        message: `Your booking with ${businessName} has been completed. Please leave a review!`,
-                        type: 'BOOKING_CONFIRMATION',
-                        createdAt: new Date(),
-                    });
+                    // const notification = await NotificationService.createNotification({
+                    //   userId: booking.userId,
+                    //   type: 'BOOKING_CONFIRMATION',
+                    //   title: 'Booking Completed',
+                    //   message: `Your booking with ${businessName} has been completed. Please leave a review!`,
+                    //   bookingId: booking.id,
+                    // })
+                    // // Broadcast real-time notification
+                    // NotificationSSEService.broadcastToUser(booking.userId, {
+                    //   id: notification.id,
+                    //   title: 'Booking Completed',
+                    //   message: `Your booking with ${businessName} has been completed. Please leave a review!`,
+                    //   type: 'BOOKING_CONFIRMATION',
+                    //   createdAt: new Date(),
+                    // })
                 }
                 else if (status === 'CANCELLED') {
                     const notification = await notification_service_js_1.default.createNotification({

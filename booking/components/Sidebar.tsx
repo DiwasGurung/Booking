@@ -68,6 +68,11 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
       icon: UserCog,
     },
     {
+      label: 'Staff Performance',
+      href: '/dashboard/staff/performance',
+      icon: BarChart3,
+    },
+    {
       label: 'Payments',
       href: '/dashboard/payments',
       icon: CreditCard,

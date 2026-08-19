@@ -544,22 +544,22 @@ class BookingController {
             createdAt: new Date(),
           })
         } else if (status === 'COMPLETED') {
-          const notification = await NotificationService.createNotification({
-            userId: booking.userId,
-            type: 'BOOKING_CONFIRMATION',
-            title: 'Booking Completed',
-            message: `Your booking with ${businessName} has been completed. Please leave a review!`,
-            bookingId: booking.id,
-          })
+          // const notification = await NotificationService.createNotification({
+          //   userId: booking.userId,
+          //   type: 'BOOKING_CONFIRMATION',
+          //   title: 'Booking Completed',
+          //   message: `Your booking with ${businessName} has been completed. Please leave a review!`,
+          //   bookingId: booking.id,
+          // })
           
-          // Broadcast real-time notification
-          NotificationSSEService.broadcastToUser(booking.userId, {
-            id: notification.id,
-            title: 'Booking Completed',
-            message: `Your booking with ${businessName} has been completed. Please leave a review!`,
-            type: 'BOOKING_CONFIRMATION',
-            createdAt: new Date(),
-          })
+          // // Broadcast real-time notification
+          // NotificationSSEService.broadcastToUser(booking.userId, {
+          //   id: notification.id,
+          //   title: 'Booking Completed',
+          //   message: `Your booking with ${businessName} has been completed. Please leave a review!`,
+          //   type: 'BOOKING_CONFIRMATION',
+          //   createdAt: new Date(),
+          // })
         } else if (status === 'CANCELLED') {
           const notification = await NotificationService.createNotification({
             userId: booking.userId,
@@ -579,9 +579,7 @@ class BookingController {
           })
         }
       } catch (notificationError) {
-        console.error('[v0] Error sending notification:', notificationError instanceof Error ? notificationError.message : notificationError)
-        console.error('[v0] Full error:', notificationError)
-        // Don't fail the request if notification fails
+        console.error('[v0] Error sending notification after booking status update:', notificationError)
       }
 
       res.status(200).json({

@@ -6,10 +6,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.emailService = void 0;
 const nodemailer_1 = __importDefault(require("nodemailer"));
 // 1. Point to your new custom environment variables
-const emailUser = process.env.EMAIL_USER || 'diwasgrg14@gmail.com';
-const emailPassword = process.env.EMAIL_PASSWORD || 'mmvd jejs mywh wriw';
-const emailHost = process.env.EMAIL_HOST || '://yourdomain.com';
-const emailPort = parseInt(process.env.EMAIL_PORT || '465');
+const emailUser = process.env.EMAIL_USER || '';
+const emailPassword = process.env.EMAIL_PASSWORD || '';
+const emailHost = process.env.EMAIL_HOST || '';
+const emailPort = Number(process.env.EMAIL_PORT || 465);
+const emailFrom = process.env.EMAIL_FROM || emailUser;
 const businessTimeZone = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
 const formatBookingDate = (value, options) => new Intl.DateTimeFormat('en-US', { ...options, timeZone: businessTimeZone }).format(new Date(value));
 // Verify transporter configuration on startup
@@ -21,14 +22,7 @@ const initializeTransporter = () => {
         host: emailHost,
         port: emailPort,
         secure: emailPort === 465,
-        auth: {
-            user: emailUser,
-            pass: emailPassword,
-        },
-        tls: {
-            // Prevents connection rejection if your domain SSL is fresh or self-signed
-            rejectUnauthorized: false
-        }
+        auth: { user: emailUser, pass: emailPassword },
     });
     // Verify connection
     transporter.verify((error, success) => {
@@ -89,7 +83,7 @@ exports.emailService = {
         </div>
       `;
             const result = await transporter.sendMail({
-                from: emailUser,
+                from: emailFrom,
                 to: email,
                 subject: `Verify Your Booking - ${bookingDetails.serviceName}`,
                 html,
@@ -108,7 +102,7 @@ exports.emailService = {
         try {
             const transporter = initializeTransporter();
             const mailOptions = {
-                from: emailUser,
+                from: emailFrom,
                 to: email,
                 subject: 'Verify Your Email Address - Appoint-Nepal',
                 html: `
@@ -167,7 +161,7 @@ exports.emailService = {
             const transporter = initializeTransporter();
             const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${encodeURIComponent(resetToken)}&type=${accountType}`;
             const mailOptions = {
-                from: emailUser,
+                from: emailFrom,
                 to: email,
                 subject: 'Reset Your Password - Appoint-Nepal',
                 html: `
@@ -215,7 +209,7 @@ exports.emailService = {
                 hour: '2-digit', minute: '2-digit'
             });
             const mailOptions = {
-                from: emailUser,
+                from: emailFrom,
                 to: ownerEmail,
                 subject: `New Booking Received - ${bookingDetails.serviceName} - Appoint-Nepal`,
                 html: `

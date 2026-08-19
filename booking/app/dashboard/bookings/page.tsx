@@ -1,13 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/Sidebar'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
-import { bookingsApi, staffApi, subscriptionApi, type Staff, type StaffPerformance } from '@/lib/api'
+import { bookingsApi, staffApi, type Staff } from '@/lib/api'
 import { Calendar, Loader, AlertCircle, Eye, Edit, Trash2, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { useBusinessId } from '@/hooks/useBusinessId'
@@ -25,7 +24,6 @@ interface Booking {
 }
 
 export default function BookingsPage() {
-  const router = useRouter()
   const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
@@ -33,10 +31,7 @@ export default function BookingsPage() {
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [filterStaffId, setFilterStaffId] = useState('ALL')
   const [filterVerification, setFilterVerification] = useState('ALL')
-  const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('month')
   const [staff, setStaff] = useState<Staff[]>([])
-  const [performance, setPerformance] = useState<StaffPerformance | null>(null)
-  const [isEnterprise, setIsEnterprise] = useState(false)
   const [page, setPage] = useState(1)
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
   const [newStatus, setNewStatus] = useState<string | null>(null)
@@ -46,37 +41,17 @@ export default function BookingsPage() {
   const getDateRange = () => {
     const end = new Date()
     const start = new Date(end)
-    if (dateRange === 'today') start.setHours(0, 0, 0, 0)
-    if (dateRange === 'week') start.setDate(end.getDate() - 7)
-    if (dateRange === 'month') start.setDate(end.getDate() - 30)
+    start.setDate(end.getDate() - 30)
     return { startDate: start.toISOString().slice(0, 10), endDate: end.toISOString().slice(0, 10) }
   }
 
   useEffect(() => {
     if (businessId) {
       loadBookings()
-      subscriptionApi.getStatus(businessId).then(response => {
-        setIsEnterprise(Boolean(response.data?.hasSubscription && response.data.planName?.toLowerCase().includes('enterprise')))
-      }).catch(() => setIsEnterprise(false))
       staffApi.getBusinessStaff(businessId).then(response => setStaff(response.data?.staff || [])).catch(() => setStaff([]))
     }
-  }, [page, filterStatus, filterStaffId, filterVerification, dateRange, businessId])
+  }, [page, filterStatus, filterStaffId, filterVerification, businessId])
 
-  useEffect(() => {
-    if (!isEnterprise || filterStaffId === 'ALL') {
-      setPerformance(null)
-      return
-    }
-    const { startDate, endDate } = getDateRange()
-    staffApi.getPerformance(filterStaffId, startDate, endDate).then(response => setPerformance(response.data || null)).catch(() => setPerformance(null))
-  }, [filterStaffId, dateRange, isEnterprise])
-
-  // Redirect to login if business ID error or not found
-  useEffect(() => {
-    if (!fetchingBusinessId && (businessIdError || !businessId)) {
-      router.push('/login')
-    }
-  }, [fetchingBusinessId, businessIdError, businessId, router])
 
   const loadBookings = async () => {
     if (!businessId) return
@@ -185,12 +160,9 @@ export default function BookingsPage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Staff member</label><select value={filterStaffId} onChange={event => { setFilterStaffId(event.target.value); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">All staff</option>{staff.map(member => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}</select></div>
             <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Customer verification</label><select value={filterVerification} onChange={event => { setFilterVerification(event.target.value); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">All customers</option><option value="VERIFIED">Verified</option><option value="UNVERIFIED">Unverified</option></select></div>
-            <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Performance period</label><select value={dateRange} onChange={event => setDateRange(event.target.value as 'today' | 'week' | 'month')} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="today">Today</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option></select></div>
+            <div className="flex items-end"><Link href="/dashboard/staff/performance" className="text-sm font-semibold text-blue-700 hover:underline">View staff performance</Link></div>
           </div>
         </Card>
-
-        {isEnterprise && performance && <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">{[['Bookings', performance.totalBookings], ['Customers served', performance.servedCustomers], ['Unique customers', performance.uniqueCustomers], ['Pending', performance.pendingBookings], ['Unverified', performance.unverifiedBookings]].map(([label, value]) => <Card key={String(label)} className="border-slate-200 p-4 shadow-sm"><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-2xl font-bold text-slate-900">{value}</p></Card>)}</div>}
-        {!isEnterprise && <Card className="mb-6 border-amber-200 bg-amber-50 p-4"><p className="font-semibold text-amber-950">Staff performance analytics are available on the Enterprise plan.</p><p className="mt-1 text-sm text-amber-800">You can still filter and manage bookings by staff, status, and verification.</p><Link href="/dashboard/subscription" className="mt-3 inline-block text-sm font-semibold text-amber-950 underline">View Enterprise plan</Link></Card>}
 
         {/* Error Message */}
         {error && (
@@ -328,7 +300,7 @@ export default function BookingsPage() {
               <p className="text-slate-600 mb-6">
                 Are you sure you want to change the status to <strong>{newStatus}</strong>?
                 <br />
-                The customer will be notified via email.
+                The booking status will be updated without sending a customer email.
               </p>
               
               <div className="flex gap-2 justify-end">
