@@ -3,10 +3,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const service_service_js_1 = __importDefault(require("../services/service.service.js"));
-const index_js_1 = require("../validators/index.js");
-const index_js_2 = require("../validators/index.js");
-const subscription_service_js_1 = __importDefault(require("../services/subscription.service.js"));
+const service_service_1 = __importDefault(require("../services/service.service"));
+const index_1 = require("../validators/index");
+const index_2 = require("../validators/index");
+const subscription_service_1 = __importDefault(require("../services/subscription.service"));
 class ServiceController {
     /**
      * Get all services (with optional businessId filter)
@@ -15,10 +15,10 @@ class ServiceController {
         try {
             const { businessId } = req.query;
             if (businessId) {
-                const services = await service_service_js_1.default.getServicesByBusinessId(businessId);
+                const services = await service_service_1.default.getServicesByBusinessId(businessId);
                 return res.json({ data: services });
             }
-            const services = await service_service_js_1.default.getAllServices();
+            const services = await service_service_1.default.getAllServices();
             res.json({ data: services });
         }
         catch (error) {
@@ -31,11 +31,11 @@ class ServiceController {
      */
     async getById(req, res) {
         try {
-            const validation = (0, index_js_2.parseAndValidate)(index_js_2.ServiceParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_2.parseAndValidate)(index_2.ServiceParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
-            const service = await service_service_js_1.default.getServiceById(validation.data.id);
+            const service = await service_service_1.default.getServiceById(validation.data.id);
             if (!service) {
                 return res.status(404).json({ message: "Service not found" });
             }
@@ -51,11 +51,11 @@ class ServiceController {
      */
     async getByBusinessId(req, res) {
         try {
-            const validation = (0, index_js_2.parseAndValidate)(index_js_2.BusinessIdParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_2.parseAndValidate)(index_2.BusinessIdParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
-            const services = await service_service_js_1.default.getServicesByBusinessId(validation.data.businessId);
+            const services = await service_service_1.default.getServicesByBusinessId(validation.data.businessId);
             res.json({ data: services });
         }
         catch (error) {
@@ -68,12 +68,12 @@ class ServiceController {
      */
     async create(req, res) {
         try {
-            const validation = (0, index_js_2.parseAndValidate)(index_js_2.CreateServiceSchema, req.body);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_2.parseAndValidate)(index_2.CreateServiceSchema, req.body);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId, name, description, price, duration } = validation.data;
-            const serviceLimit = await subscription_service_js_1.default.canAddService(businessId);
+            const serviceLimit = await subscription_service_1.default.canAddService(businessId);
             if (!serviceLimit.allowed) {
                 console.warn('[v0] Service limit exceeded for business:', businessId);
                 return res.status(429).json({
@@ -84,7 +84,7 @@ class ServiceController {
                     overLimit: true,
                 });
             }
-            const service = await service_service_js_1.default.createService({
+            const service = await service_service_1.default.createService({
                 businessId,
                 name,
                 description,
@@ -103,16 +103,16 @@ class ServiceController {
      */
     async update(req, res) {
         try {
-            const paramsValidation = (0, index_js_2.parseAndValidate)(index_js_2.ServiceParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(paramsValidation)) {
+            const paramsValidation = (0, index_2.parseAndValidate)(index_2.ServiceParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(paramsValidation)) {
                 return res.status(400).json({ message: paramsValidation.error });
             }
-            const bodyValidation = (0, index_js_2.parseAndValidate)(index_js_2.UpdateServiceSchema, req.body);
-            if ((0, index_js_1.isValidationError)(bodyValidation)) {
+            const bodyValidation = (0, index_2.parseAndValidate)(index_2.UpdateServiceSchema, req.body);
+            if ((0, index_1.isValidationError)(bodyValidation)) {
                 return res.status(400).json({ message: bodyValidation.error });
             }
             const { name, description, price, duration } = bodyValidation.data;
-            const service = await service_service_js_1.default.updateService(paramsValidation.data.id, {
+            const service = await service_service_1.default.updateService(paramsValidation.data.id, {
                 name,
                 description,
                 price,
@@ -130,11 +130,11 @@ class ServiceController {
      */
     async delete(req, res) {
         try {
-            const validation = (0, index_js_2.parseAndValidate)(index_js_2.ServiceParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_2.parseAndValidate)(index_2.ServiceParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
-            await service_service_js_1.default.deleteService(validation.data.id);
+            await service_service_1.default.deleteService(validation.data.id);
             res.json({ message: "Service deleted successfully" });
         }
         catch (error) {
@@ -147,11 +147,11 @@ class ServiceController {
      */
     async getActiveServices(req, res) {
         try {
-            const validation = (0, index_js_2.parseAndValidate)(index_js_2.BusinessIdParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_2.parseAndValidate)(index_2.BusinessIdParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
-            const services = await service_service_js_1.default.getActiveServices(validation.data.businessId);
+            const services = await service_service_1.default.getActiveServices(validation.data.businessId);
             res.json({ data: services });
         }
         catch (error) {
@@ -164,11 +164,11 @@ class ServiceController {
      */
     async withStats(req, res) {
         try {
-            const validation = (0, index_js_2.parseAndValidate)(index_js_2.BusinessIdParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_2.parseAndValidate)(index_2.BusinessIdParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
-            const servicesWithStats = await service_service_js_1.default.getServicesWithStats(validation.data.businessId);
+            const servicesWithStats = await service_service_1.default.getServicesWithStats(validation.data.businessId);
             res.json({ data: servicesWithStats });
         }
         catch (error) {

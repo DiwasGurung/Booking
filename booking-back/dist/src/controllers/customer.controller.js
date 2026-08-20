@@ -3,14 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const customer_service_js_1 = __importDefault(require("../services/customer.service.js"));
+const customer_service_1 = __importDefault(require("../services/customer.service"));
 class CustomerController {
     /**
      * Create customer
      */
     async create(req, res) {
         try {
-            const customer = await customer_service_js_1.default.createCustomer(req.body);
+            const customer = await customer_service_1.default.createCustomer(req.body);
             res.status(201).json(customer);
         }
         catch (error) {
@@ -23,7 +23,7 @@ class CustomerController {
     async getById(req, res) {
         try {
             const { id } = req.params;
-            const customer = await customer_service_js_1.default.getCustomerById(id);
+            const customer = await customer_service_1.default.getCustomerById(id);
             if (!customer) {
                 return res.status(404).json({ message: "Customer not found" });
             }
@@ -41,7 +41,7 @@ class CustomerController {
             const { businessId } = req.params;
             const page = Number(req.query.page) || 1;
             const limit = Number(req.query.limit) || 10;
-            const result = await customer_service_js_1.default.getBusinessCustomers(businessId, page, limit);
+            const result = await customer_service_1.default.getBusinessCustomers(businessId, page, limit);
             res.json(result);
         }
         catch (error) {
@@ -54,7 +54,7 @@ class CustomerController {
     async update(req, res) {
         try {
             const { id } = req.params;
-            const customer = await customer_service_js_1.default.updateCustomer(id, req.body);
+            const customer = await customer_service_1.default.updateCustomer(id, req.body);
             res.json(customer);
         }
         catch (error) {
@@ -67,7 +67,7 @@ class CustomerController {
     async delete(req, res) {
         try {
             const { id } = req.params;
-            const customer = await customer_service_js_1.default.deleteCustomer(id);
+            const customer = await customer_service_1.default.deleteCustomer(id);
             res.json(customer);
         }
         catch (error) {
@@ -79,7 +79,7 @@ class CustomerController {
      */
     async getOrCreate(req, res) {
         try {
-            const customer = await customer_service_js_1.default.getOrCreateCustomer(req.body);
+            const customer = await customer_service_1.default.getOrCreateCustomer(req.body);
             res.json(customer);
         }
         catch (error) {
@@ -92,7 +92,7 @@ class CustomerController {
     async stats(req, res) {
         try {
             const { customerId } = req.params;
-            const stats = await customer_service_js_1.default.getCustomerStats(customerId);
+            const stats = await customer_service_1.default.getCustomerStats(customerId);
             res.json(stats);
         }
         catch (error) {
@@ -110,7 +110,7 @@ class CustomerController {
             if (!query) {
                 return res.status(400).json({ message: "Search query is required" });
             }
-            const customers = await customer_service_js_1.default.searchCustomers(businessId, query, limit);
+            const customers = await customer_service_1.default.searchCustomers(businessId, query, limit);
             res.json(customers);
         }
         catch (error) {

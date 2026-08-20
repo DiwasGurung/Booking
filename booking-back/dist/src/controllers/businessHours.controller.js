@@ -3,14 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const businessHours_service_js_1 = __importDefault(require("../services/businessHours.service.js"));
+const businessHours_service_1 = __importDefault(require("../services/businessHours.service"));
 class BusinessHoursController {
     /**
      * Set or update business hours for a day
      */
     async set(req, res) {
         try {
-            const hours = await businessHours_service_js_1.default.setBusinessHours(req.body);
+            const hours = await businessHours_service_1.default.setBusinessHours(req.body);
             res.status(201).json(hours);
         }
         catch (error) {
@@ -23,7 +23,7 @@ class BusinessHoursController {
     async getAll(req, res) {
         try {
             const { businessId } = req.params;
-            const hours = await businessHours_service_js_1.default.getBusinessHours(businessId);
+            const hours = await businessHours_service_1.default.getBusinessHours(businessId);
             res.json(hours);
         }
         catch (error) {
@@ -36,7 +36,7 @@ class BusinessHoursController {
     async getByDay(req, res) {
         try {
             const { businessId, dayOfWeek } = req.params;
-            const hours = await businessHours_service_js_1.default.getHoursForDay(businessId, Number(dayOfWeek));
+            const hours = await businessHours_service_1.default.getHoursForDay(businessId, Number(dayOfWeek));
             if (!hours) {
                 return res.status(404).json({ message: "Business hours not found" });
             }
@@ -52,7 +52,7 @@ class BusinessHoursController {
     async update(req, res) {
         try {
             const { id } = req.params;
-            const hours = await businessHours_service_js_1.default.updateBusinessHours(id, req.body);
+            const hours = await businessHours_service_1.default.updateBusinessHours(id, req.body);
             res.json(hours);
         }
         catch (error) {
@@ -65,7 +65,7 @@ class BusinessHoursController {
     async delete(req, res) {
         try {
             const { id } = req.params;
-            const hours = await businessHours_service_js_1.default.deleteBusinessHours(id);
+            const hours = await businessHours_service_1.default.deleteBusinessHours(id);
             res.json(hours);
         }
         catch (error) {
@@ -78,7 +78,7 @@ class BusinessHoursController {
     async isOpen(req, res) {
         try {
             const { businessId } = req.params;
-            const open = await businessHours_service_js_1.default.isBusinessOpen(businessId);
+            const open = await businessHours_service_1.default.isBusinessOpen(businessId);
             res.json({ isOpen: open });
         }
         catch (error) {
@@ -95,7 +95,7 @@ class BusinessHoursController {
             if (!startDate || !endDate) {
                 return res.status(400).json({ message: "Start date and end date are required" });
             }
-            const timeOff = await businessHours_service_js_1.default.addTimeOff({
+            const timeOff = await businessHours_service_1.default.addTimeOff({
                 businessId: businessId,
                 staffId,
                 startDate,
@@ -117,7 +117,7 @@ class BusinessHoursController {
         try {
             const { businessId } = req.params;
             const { staffId } = req.query;
-            const timeOffs = await businessHours_service_js_1.default.getTimeOffs(businessId, staffId);
+            const timeOffs = await businessHours_service_1.default.getTimeOffs(businessId, staffId);
             res.json({ success: true, data: timeOffs });
         }
         catch (error) {
@@ -131,7 +131,7 @@ class BusinessHoursController {
     async removeTimeOff(req, res) {
         try {
             const { timeOffId } = req.params;
-            const timeOff = await businessHours_service_js_1.default.removeTimeOff(timeOffId);
+            const timeOff = await businessHours_service_1.default.removeTimeOff(timeOffId);
             res.json({ success: true, data: timeOff });
         }
         catch (error) {
@@ -145,7 +145,7 @@ class BusinessHoursController {
     async getClosedDates(req, res) {
         try {
             const { businessId } = req.params;
-            const closedDates = await businessHours_service_js_1.default.getClosedDates(businessId);
+            const closedDates = await businessHours_service_1.default.getClosedDates(businessId);
             res.json({ success: true, data: closedDates });
         }
         catch (error) {
@@ -163,7 +163,7 @@ class BusinessHoursController {
             if (!date) {
                 return res.status(400).json({ message: "Date is required" });
             }
-            const closedDate = await businessHours_service_js_1.default.addClosedDate(businessId, { date, reason });
+            const closedDate = await businessHours_service_1.default.addClosedDate(businessId, { date, reason });
             res.status(201).json({ success: true, data: closedDate });
         }
         catch (error) {
@@ -177,7 +177,7 @@ class BusinessHoursController {
     async removeClosedDate(req, res) {
         try {
             const { businessId, dateId } = req.params;
-            const closedDate = await businessHours_service_js_1.default.removeClosedDate(businessId, dateId);
+            const closedDate = await businessHours_service_1.default.removeClosedDate(businessId, dateId);
             res.json({ success: true, data: closedDate });
         }
         catch (error) {

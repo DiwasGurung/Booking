@@ -3,14 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const notification_service_js_1 = __importDefault(require("../services/notification.service.js"));
+const notification_service_1 = __importDefault(require("../services/notification.service"));
 class NotificationController {
     /**
      * Create notification
      */
     async create(req, res) {
         try {
-            const notification = await notification_service_js_1.default.createNotification(req.body);
+            const notification = await notification_service_1.default.createNotification(req.body);
             res.status(201).json(notification);
         }
         catch (error) {
@@ -23,7 +23,7 @@ class NotificationController {
     async getById(req, res) {
         try {
             const { id } = req.params;
-            const notification = await notification_service_js_1.default.getNotificationById(id);
+            const notification = await notification_service_1.default.getNotificationById(id);
             if (!notification) {
                 return res.status(404).json({ message: "Notification not found" });
             }
@@ -42,7 +42,7 @@ class NotificationController {
             const page = Number(req.query.page) || 1;
             const limit = Number(req.query.limit) || 20;
             const unreadOnly = req.query.unreadOnly === "true";
-            const result = await notification_service_js_1.default.getUserNotifications(userId, page, limit, unreadOnly);
+            const result = await notification_service_1.default.getUserNotifications(userId, page, limit, unreadOnly);
             res.json(result);
         }
         catch (error) {
@@ -55,7 +55,7 @@ class NotificationController {
     async markAsRead(req, res) {
         try {
             const { id } = req.params;
-            const notification = await notification_service_js_1.default.markAsRead(id);
+            const notification = await notification_service_1.default.markAsRead(id);
             res.json(notification);
         }
         catch (error) {
@@ -68,7 +68,7 @@ class NotificationController {
     async markAllAsRead(req, res) {
         try {
             const { userId } = req.params;
-            const count = await notification_service_js_1.default.markAllAsRead(userId);
+            const count = await notification_service_1.default.markAllAsRead(userId);
             res.json({ updated: count });
         }
         catch (error) {
@@ -81,7 +81,7 @@ class NotificationController {
     async delete(req, res) {
         try {
             const { id } = req.params;
-            const notification = await notification_service_js_1.default.deleteNotification(id);
+            const notification = await notification_service_1.default.deleteNotification(id);
             res.json(notification);
         }
         catch (error) {
@@ -94,7 +94,7 @@ class NotificationController {
     async unreadCount(req, res) {
         try {
             const { userId } = req.params;
-            const count = await notification_service_js_1.default.getUnreadCount(userId);
+            const count = await notification_service_1.default.getUnreadCount(userId);
             res.json({ unreadCount: count });
         }
         catch (error) {

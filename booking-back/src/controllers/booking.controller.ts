@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
 import { randomBytes } from "crypto";
-import BookingService from "../services/booking.service.js";
-import NotificationService from "../services/notification.service.js";
-import NotificationSSEService from "../services/notification-sse.service.js";
-import { emailService } from "../services/email.service.js";
-import SubscriptionService from "../services/subscription.service.js";
-import prisma from "../lib/prisma.js";
-import { CreateBookingSchema, parseAndValidate } from "../validators/index.js";
+import BookingService from "../services/booking.service";
+import NotificationService from "../services/notification.service";
+import NotificationSSEService from "../services/notification-sse.service";
+import { emailService } from "../services/email.service";
+import SubscriptionService from "../services/subscription.service";
+import prisma from "../lib/prisma";
+import { CreateBookingSchema, parseAndValidate } from "../validators/index";
 import type { BookingStatus } from "@prisma/client";
 
 class BookingController {

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { PushSubscriptionService } from '../services/push-subscription.service.js'
+import { PushSubscriptionService } from '../services/push-subscription.service'
 
 interface AuthRequest extends Request {
   user?: { id: string }

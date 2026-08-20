@@ -1,6 +1,6 @@
 import express from 'express'
-import { createUser, loginUser, updateUserRole, logoutUser, changePassword, updateProfile, getCurrentUser, verifyEmail, resendVerificationEmail, resetPassword, requestPasswordReset } from '../controllers/user.controller.js'
-import { auth, AuthRequest } from '../middleware/auth.middleware.js'
+import { createUser, loginUser, updateUserRole, logoutUser, changePassword, updateProfile, getCurrentUser, verifyEmail, resendVerificationEmail, resetPassword, requestPasswordReset } from '../controllers/user.controller'
+import { auth, AuthRequest } from '../middleware/auth.middleware'
 
 const router = express.Router()
 

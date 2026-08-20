@@ -1,11 +1,11 @@
 import { Router } from 'express'
-import { auth } from '../middleware/auth.middleware.js'
+import { auth } from '../middleware/auth.middleware'
 import {
   subscribeToPushNotifications,
   unsubscribeFromPushNotifications,
   getVapidPublicKey,
   getUserSubscriptions,
-} from '../controllers/push-notification.controller.js'
+} from '../controllers/push-notification.controller'
 
 const router = Router()
 

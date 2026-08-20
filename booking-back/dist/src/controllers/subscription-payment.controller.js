@@ -6,14 +6,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getSubscriptionPlans = exports.checkSubscriptionLimit = exports.getSubscriptionUsage = exports.handleEsewaFailure = exports.handleEsewaSuccess = exports.initiateEsewaPayment = void 0;
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
-const esewa_service_js_1 = __importDefault(require("../services/esewa.service.js"));
-const subscription_service_js_1 = __importDefault(require("../services/subscription.service.js"));
-const billing_js_1 = require("../utils/billing.js");
+const prisma_1 = __importDefault(require("../lib/prisma"));
+const esewa_service_1 = __importDefault(require("../services/esewa.service"));
+const subscription_service_1 = __importDefault(require("../services/subscription.service"));
+const billing_1 = require("../utils/billing");
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
 function getExpectedSubscriptionAmount(subscription, plan) {
-    return (0, billing_js_1.getPriceForPeriod)(plan.priceMonthlyNPR ?? 0, subscription.billingPeriod, {
+    return (0, billing_1.getPriceForPeriod)(plan.priceMonthlyNPR ?? 0, subscription.billingPeriod, {
         monthly: plan.priceMonthlyNPR ?? undefined,
         quarterly: plan.priceQuarterlyNPR ?? undefined,
         semiAnnual: plan.priceSemiAnnualNPR ?? undefined,
@@ -25,30 +25,30 @@ function getExpectedSubscriptionAmount(subscription, plan) {
  */
 const initiateEsewaPayment = async (req, res) => {
     try {
-        const { businessId, planId, billingPeriod = billing_js_1.BillingPeriod.MONTHLY } = req.body;
+        const { businessId, planId, billingPeriod = billing_1.BillingPeriod.MONTHLY } = req.body;
         if (!businessId || !planId) {
             return res.status(400).json({ error: 'Business ID and Plan ID are required' });
         }
         // Get the subscription plan
-        const plan = await prisma_js_1.default.subscriptionPlan.findUnique({
+        const plan = await prisma_1.default.subscriptionPlan.findUnique({
             where: { id: planId },
         });
         if (!plan) {
             return res.status(404).json({ error: 'Subscription plan not found' });
         }
         const { getDurationDays } = require('../utils/billing');
-        const priceNPR = (0, billing_js_1.getPriceForPeriod)(plan.priceMonthlyNPR ?? 0, billingPeriod, {
+        const priceNPR = (0, billing_1.getPriceForPeriod)(plan.priceMonthlyNPR ?? 0, billingPeriod, {
             monthly: plan.priceMonthlyNPR ?? undefined,
             quarterly: plan.priceQuarterlyNPR ?? undefined,
             semiAnnual: plan.priceSemiAnnualNPR ?? undefined,
             annual: plan.priceAnnualNPR ?? undefined,
         });
         // Get or create subscription
-        let subscription = await prisma_js_1.default.subscription.findUnique({
+        let subscription = await prisma_1.default.subscription.findUnique({
             where: { businessId },
         });
         if (!subscription) {
-            subscription = await prisma_js_1.default.subscription.create({
+            subscription = await prisma_1.default.subscription.create({
                 data: {
                     businessId,
                     planId,
@@ -59,7 +59,7 @@ const initiateEsewaPayment = async (req, res) => {
         }
         else {
             // Update billing period if changing plans
-            await prisma_js_1.default.subscription.update({
+            await prisma_1.default.subscription.update({
                 where: { id: subscription.id },
                 data: { billingPeriod, planId },
             });
@@ -67,7 +67,7 @@ const initiateEsewaPayment = async (req, res) => {
         // eSewa accepts only alphanumeric characters and hyphens in transaction_uuid.
         const transactionUuid = `SUB-${subscription.id}-${Date.now()}`.replace(/[^A-Za-z0-9-]/g, '');
         // Generate eSewa payment form data
-        const esewaResponse = await esewa_service_js_1.default.initiatePayment({
+        const esewaResponse = await esewa_service_1.default.initiatePayment({
             amount: priceNPR,
             transactionUuid: transactionUuid,
             successUrl: `${BACKEND_URL}/api/subscription-payment/esewa/success`,
@@ -101,7 +101,7 @@ const handleEsewaSuccess = async (req, res) => {
             return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Invalid callback data`);
         }
         // Decode and verify the response
-        const decoded = esewa_service_js_1.default.decodeEsewaResponse(data);
+        const decoded = esewa_service_1.default.decodeEsewaResponse(data);
         if (!decoded.success || !decoded.data) {
             console.error('[SubscriptionPayment] Failed to decode eSewa response');
             return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Invalid response signature`);
@@ -111,7 +111,7 @@ const handleEsewaSuccess = async (req, res) => {
         if (status !== 'COMPLETE' || !Number.isFinite(parsedTotalAmount) || parsedTotalAmount <= 0) {
             return res.redirect(`${FRONTEND_URL}/subscription?status=failed&message=Payment was not completed`);
         }
-        if (product_code !== esewa_service_js_1.default.getProductCode()) {
+        if (product_code !== esewa_service_1.default.getProductCode()) {
             return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Invalid product code`);
         }
         console.log('[SubscriptionPayment] eSewa success callback:', {
@@ -126,7 +126,7 @@ const handleEsewaSuccess = async (req, res) => {
             return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Invalid transaction reference`);
         }
         const subscriptionId = transaction_uuid.slice(transactionPrefix.length).replace(/-\d+$/, '');
-        const subscription = await prisma_js_1.default.subscription.findUnique({
+        const subscription = await prisma_1.default.subscription.findUnique({
             where: { id: subscriptionId },
             include: { plan: true },
         });
@@ -135,7 +135,7 @@ const handleEsewaSuccess = async (req, res) => {
             return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Subscription not found`);
         }
         // Verify with eSewa server (server-to-server verification)
-        const verification = await esewa_service_js_1.default.verifyPayment(transaction_uuid, parsedTotalAmount);
+        const verification = await esewa_service_1.default.verifyPayment(transaction_uuid, parsedTotalAmount);
         if (!verification.success) {
             console.error('[SubscriptionPayment] eSewa verification failed:', verification.message);
             return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Payment verification failed`);
@@ -149,12 +149,12 @@ const handleEsewaSuccess = async (req, res) => {
             return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Payment amount does not match the selected plan`);
         }
         // Create payment record AFTER successful verification; transactionId is unique.
-        const existingPayment = await prisma_js_1.default.payment.findUnique({ where: { transactionId: transaction_uuid } });
+        const existingPayment = await prisma_1.default.payment.findUnique({ where: { transactionId: transaction_uuid } });
         if (existingPayment) {
             if (existingPayment.subscriptionId) {
-                const existingSubscription = await prisma_js_1.default.subscription.findUnique({ where: { id: existingPayment.subscriptionId } });
+                const existingSubscription = await prisma_1.default.subscription.findUnique({ where: { id: existingPayment.subscriptionId } });
                 if (existingSubscription && (existingSubscription.status !== 'ACTIVE' || !existingSubscription.startDate || !existingSubscription.endDate)) {
-                    await subscription_service_js_1.default.activateSubscription(existingPayment.subscriptionId, {
+                    await subscription_service_1.default.activateSubscription(existingPayment.subscriptionId, {
                         paymentId: existingPayment.id,
                         durationDays: subscription.plan.durationDays || 30,
                     });
@@ -162,7 +162,7 @@ const handleEsewaSuccess = async (req, res) => {
             }
             return res.redirect(`${FRONTEND_URL}/subscription?status=success&message=Payment already processed`);
         }
-        const payment = await prisma_js_1.default.payment.create({
+        const payment = await prisma_1.default.payment.create({
             data: {
                 businessId: subscription.businessId,
                 subscriptionId: subscription.id,
@@ -171,13 +171,13 @@ const handleEsewaSuccess = async (req, res) => {
                 amount: Math.round(parseFloat(total_amount) * 100),
                 status: 'completed',
                 esewaRefId: transaction_code,
-                esewaProductCode: esewa_service_js_1.default.getProductCode(),
+                esewaProductCode: esewa_service_1.default.getProductCode(),
             },
         });
         console.log('[SubscriptionPayment] Payment created after verification:', payment.id);
         // Activate subscription
         if (payment.subscriptionId) {
-            const plan = await prisma_js_1.default.subscriptionPlan.findFirst({
+            const plan = await prisma_1.default.subscriptionPlan.findFirst({
                 where: {
                     subscriptions: {
                         some: { id: payment.subscriptionId },
@@ -185,7 +185,7 @@ const handleEsewaSuccess = async (req, res) => {
                 },
             });
             const durationDays = plan?.durationDays || 30;
-            await subscription_service_js_1.default.activateSubscription(payment.subscriptionId, {
+            await subscription_service_1.default.activateSubscription(payment.subscriptionId, {
                 paymentId: payment.id,
                 durationDays,
             });
@@ -225,7 +225,7 @@ const getSubscriptionUsage = async (req, res) => {
         const { businessId } = req.params;
         // Ensure businessId is a string
         const id = typeof businessId === 'string' ? businessId : Array.isArray(businessId) ? businessId[0] : businessId;
-        const subscription = await prisma_js_1.default.subscription.findUnique({
+        const subscription = await prisma_1.default.subscription.findUnique({
             where: { businessId: id },
             include: { plan: true },
         });
@@ -236,19 +236,19 @@ const getSubscriptionUsage = async (req, res) => {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const [appointmentsCount, staffCount, servicesCount, customersCount] = await Promise.all([
-            prisma_js_1.default.booking.count({
+            prisma_1.default.booking.count({
                 where: {
                     businessId,
                     createdAt: { gte: startOfMonth },
                 },
             }),
-            prisma_js_1.default.staff.count({
+            prisma_1.default.staff.count({
                 where: { businessId, isActive: true },
             }),
-            prisma_js_1.default.service.count({
+            prisma_1.default.service.count({
                 where: { businessId, isActive: true },
             }),
-            prisma_js_1.default.customer.count({
+            prisma_1.default.customer.count({
                 where: { businessId },
             }),
         ]);
@@ -300,7 +300,7 @@ const checkSubscriptionLimit = async (req, res) => {
         const { businessId, action } = req.params;
         // Ensure businessId is a string
         const id = typeof businessId === 'string' ? businessId : Array.isArray(businessId) ? businessId[0] : businessId;
-        const subscription = await prisma_js_1.default.subscription.findUnique({
+        const subscription = await prisma_1.default.subscription.findUnique({
             where: { businessId: id },
             include: { plan: true },
         });
@@ -323,7 +323,7 @@ const checkSubscriptionLimit = async (req, res) => {
             case 'create-appointment':
                 if (plan.maxAppointmentsPerMonth !== -1) {
                     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-                    currentUsage = await prisma_js_1.default.booking.count({
+                    currentUsage = await prisma_1.default.booking.count({
                         where: {
                             businessId,
                             createdAt: { gte: startOfMonth },
@@ -336,7 +336,7 @@ const checkSubscriptionLimit = async (req, res) => {
                 break;
             case 'add-staff':
                 if (plan.maxStaff !== -1) {
-                    currentUsage = await prisma_js_1.default.staff.count({
+                    currentUsage = await prisma_1.default.staff.count({
                         where: { businessId, isActive: true },
                     });
                     limit = plan.maxStaff;
@@ -346,7 +346,7 @@ const checkSubscriptionLimit = async (req, res) => {
                 break;
             case 'add-service':
                 if (plan.maxServices !== -1) {
-                    currentUsage = await prisma_js_1.default.service.count({
+                    currentUsage = await prisma_1.default.service.count({
                         where: { businessId, isActive: true },
                     });
                     limit = plan.maxServices;
@@ -383,7 +383,7 @@ exports.checkSubscriptionLimit = checkSubscriptionLimit;
  */
 const getSubscriptionPlans = async (req, res) => {
     try {
-        const plans = await prisma_js_1.default.subscriptionPlan.findMany({
+        const plans = await prisma_1.default.subscriptionPlan.findMany({
             where: { active: true },
             orderBy: { priceNPR: 'asc' },
         });

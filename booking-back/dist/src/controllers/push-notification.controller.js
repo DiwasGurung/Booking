@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUserSubscriptions = exports.getVapidPublicKey = exports.unsubscribeFromPushNotifications = exports.subscribeToPushNotifications = void 0;
-const push_subscription_service_js_1 = require("../services/push-subscription.service.js");
+const push_subscription_service_1 = require("../services/push-subscription.service");
 /**
  * Subscribe user to push notifications
  */
@@ -15,7 +15,7 @@ const subscribeToPushNotifications = async (req, res) => {
         if (!subscription || !subscription.endpoint || !subscription.keys) {
             return res.status(400).json({ error: 'Invalid subscription object' });
         }
-        await push_subscription_service_js_1.PushSubscriptionService.createOrUpdateSubscription(userId, subscription);
+        await push_subscription_service_1.PushSubscriptionService.createOrUpdateSubscription(userId, subscription);
         res.json({
             success: true,
             message: 'Successfully subscribed to push notifications',
@@ -40,7 +40,7 @@ const unsubscribeFromPushNotifications = async (req, res) => {
         if (!subscriptionId) {
             return res.status(400).json({ error: 'Subscription ID required' });
         }
-        await push_subscription_service_js_1.PushSubscriptionService.deactivateSubscription(subscriptionId);
+        await push_subscription_service_1.PushSubscriptionService.deactivateSubscription(subscriptionId);
         res.json({
             success: true,
             message: 'Successfully unsubscribed from push notifications',
@@ -78,7 +78,7 @@ const getUserSubscriptions = async (req, res) => {
         if (!userId) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
-        const subscriptions = await push_subscription_service_js_1.PushSubscriptionService.getUserSubscriptions(userId);
+        const subscriptions = await push_subscription_service_1.PushSubscriptionService.getUserSubscriptions(userId);
         res.json({
             success: true,
             subscriptions,

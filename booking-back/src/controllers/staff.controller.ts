@@ -1,8 +1,8 @@
 import { Request, Response } from "express"
-import staffService from "../services/staff.service.js"
-import { CreateStaffSchema, StaffParamsSchema, BusinessIdParamsSchema, parseAndValidate } from "../validators/index.js"
-import SubscriptionService from "../services/subscription.service.js"
-import  prisma  from "../lib/prisma.js"
+import staffService from "../services/staff.service"
+import { CreateStaffSchema, StaffParamsSchema, BusinessIdParamsSchema, parseAndValidate } from "../validators/index"
+import SubscriptionService from "../services/subscription.service"
+import  prisma  from "../lib/prisma"
 
 interface AuthRequest extends Request {
   user?: { id: string }

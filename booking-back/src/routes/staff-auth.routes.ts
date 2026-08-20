@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express'
-import { staffAuthService } from '../services/staff-auth.service.js'
-import { staffVerificationService } from '../services/staff-verification.service.js'
-import  prisma  from '../lib/prisma.js'
+import { staffAuthService } from '../services/staff-auth.service'
+import { staffVerificationService } from '../services/staff-verification.service'
+import  prisma  from '../lib/prisma'
 
 const router = Router()
 

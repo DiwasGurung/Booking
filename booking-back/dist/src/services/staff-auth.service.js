@@ -7,8 +7,8 @@ exports.staffAuthService = void 0;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const crypto_1 = __importDefault(require("crypto"));
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
-const email_service_js_1 = require("./email.service.js");
+const prisma_1 = __importDefault(require("../lib/prisma"));
+const email_service_1 = require("./email.service");
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const SALT_ROUNDS = 10;
 class StaffAuthService {
@@ -32,7 +32,7 @@ class StaffAuthService {
             throw new Error('Password must be at least 8 characters long');
         }
         const hashedPassword = await this.hashPassword(password);
-        const staff = await prisma_js_1.default.staff.update({
+        const staff = await prisma_1.default.staff.update({
             where: { id: staffId },
             data: {
                 password: hashedPassword,
@@ -51,7 +51,7 @@ class StaffAuthService {
      * Login staff with email and password
      */
     async login(email, password) {
-        const staff = await prisma_js_1.default.staff.findFirst({
+        const staff = await prisma_1.default.staff.findFirst({
             where: {
                 email: email.toLowerCase(),
                 isActive: true,
@@ -123,7 +123,7 @@ class StaffAuthService {
      * Request password reset
      */
     async requestPasswordReset(email) {
-        const staff = await prisma_js_1.default.staff.findFirst({
+        const staff = await prisma_1.default.staff.findFirst({
             where: { email: email.toLowerCase() },
             select: { id: true, email: true, firstName: true, businessId: true, business: { select: { name: true } } },
         });
@@ -134,14 +134,14 @@ class StaffAuthService {
         // Generate reset token
         const resetToken = crypto_1.default.randomBytes(32).toString('hex');
         const resetTokenExpiry = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
-        await prisma_js_1.default.staff.update({
+        await prisma_1.default.staff.update({
             where: { id: staff.id },
             data: {
                 passwordResetToken: resetToken,
                 passwordResetExpiresAt: resetTokenExpiry,
             },
         });
-        await email_service_js_1.emailService.sendPasswordResetEmail(staff.email, resetToken, 'staff');
+        await email_service_1.emailService.sendPasswordResetEmail(staff.email, resetToken, 'staff');
         return { message: 'If an account exists, a reset link has been sent' };
     }
     /**
@@ -151,7 +151,7 @@ class StaffAuthService {
         if (newPassword.length < 8) {
             throw new Error('Password must be at least 8 characters long');
         }
-        const staff = await prisma_js_1.default.staff.findFirst({
+        const staff = await prisma_1.default.staff.findFirst({
             where: {
                 passwordResetToken: resetToken,
                 passwordResetExpiresAt: {
@@ -163,7 +163,7 @@ class StaffAuthService {
             throw new Error('Invalid or expired reset token');
         }
         const hashedPassword = await this.hashPassword(newPassword);
-        const updatedStaff = await prisma_js_1.default.staff.update({
+        const updatedStaff = await prisma_1.default.staff.update({
             where: { id: staff.id },
             data: {
                 password: hashedPassword,
@@ -182,7 +182,7 @@ class StaffAuthService {
      * Check if staff has password set
      */
     async hasPasswordSet(staffId) {
-        const staff = await prisma_js_1.default.staff.findUnique({
+        const staff = await prisma_1.default.staff.findUnique({
             where: { id: staffId },
             select: { password: true },
         });

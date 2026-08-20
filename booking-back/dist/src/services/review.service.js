@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReviewService = void 0;
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
+const prisma_1 = __importDefault(require("../lib/prisma"));
 class ReviewService {
     /**
      * Create a new review
@@ -13,7 +13,7 @@ class ReviewService {
         if (data.rating < 1 || data.rating > 5) {
             throw new Error("Rating must be between 1 and 5");
         }
-        return prisma_js_1.default.review.create({
+        return prisma_1.default.review.create({
             data,
         });
     }
@@ -21,7 +21,7 @@ class ReviewService {
      * Get review by ID
      */
     async getReviewById(id) {
-        return prisma_js_1.default.review.findUnique({
+        return prisma_1.default.review.findUnique({
             where: { id },
             include: { user: true, business: true },
         });
@@ -32,14 +32,14 @@ class ReviewService {
     async getBusinessReviews(businessId, page = 1, limit = 10) {
         const skip = (page - 1) * limit;
         const [reviews, total] = await Promise.all([
-            prisma_js_1.default.review.findMany({
+            prisma_1.default.review.findMany({
                 where: { businessId },
                 skip,
                 take: limit,
                 include: { user: true },
                 orderBy: { createdAt: "desc" },
             }),
-            prisma_js_1.default.review.count({ where: { businessId } }),
+            prisma_1.default.review.count({ where: { businessId } }),
         ]);
         return { reviews, total };
     }
@@ -47,7 +47,7 @@ class ReviewService {
      * Update review
      */
     async updateReview(id, data) {
-        return prisma_js_1.default.review.update({
+        return prisma_1.default.review.update({
             where: { id },
             data,
         });
@@ -56,7 +56,7 @@ class ReviewService {
      * Delete review
      */
     async deleteReview(id) {
-        return prisma_js_1.default.review.delete({
+        return prisma_1.default.review.delete({
             where: { id },
         });
     }
@@ -64,7 +64,7 @@ class ReviewService {
      * Get review statistics
      */
     async getReviewStats(businessId) {
-        const reviews = await prisma_js_1.default.review.findMany({
+        const reviews = await prisma_1.default.review.findMany({
             where: { businessId },
             select: { rating: true },
         });

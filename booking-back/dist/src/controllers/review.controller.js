@@ -3,14 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const review_service_js_1 = __importDefault(require("../services/review.service.js"));
+const review_service_1 = __importDefault(require("../services/review.service"));
 class ReviewController {
     /**
      * Create review
      */
     async create(req, res) {
         try {
-            const review = await review_service_js_1.default.createReview(req.body);
+            const review = await review_service_1.default.createReview(req.body);
             res.status(201).json(review);
         }
         catch (error) {
@@ -23,7 +23,7 @@ class ReviewController {
     async getById(req, res) {
         try {
             const { id } = req.params;
-            const review = await review_service_js_1.default.getReviewById(id);
+            const review = await review_service_1.default.getReviewById(id);
             if (!review) {
                 return res.status(404).json({ message: "Review not found" });
             }
@@ -41,7 +41,7 @@ class ReviewController {
             const { businessId } = req.params;
             const page = Number(req.query.page) || 1;
             const limit = Number(req.query.limit) || 10;
-            const result = await review_service_js_1.default.getBusinessReviews(businessId, page, limit);
+            const result = await review_service_1.default.getBusinessReviews(businessId, page, limit);
             res.json(result);
         }
         catch (error) {
@@ -54,7 +54,7 @@ class ReviewController {
     async update(req, res) {
         try {
             const { id } = req.params;
-            const review = await review_service_js_1.default.updateReview(id, req.body);
+            const review = await review_service_1.default.updateReview(id, req.body);
             res.json(review);
         }
         catch (error) {
@@ -67,7 +67,7 @@ class ReviewController {
     async delete(req, res) {
         try {
             const { id } = req.params;
-            const review = await review_service_js_1.default.deleteReview(id);
+            const review = await review_service_1.default.deleteReview(id);
             res.json(review);
         }
         catch (error) {
@@ -80,7 +80,7 @@ class ReviewController {
     async stats(req, res) {
         try {
             const { businessId } = req.params;
-            const stats = await review_service_js_1.default.getReviewStats(businessId);
+            const stats = await review_service_1.default.getReviewStats(businessId);
             res.json(stats);
         }
         catch (error) {

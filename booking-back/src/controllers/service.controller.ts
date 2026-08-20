@@ -1,8 +1,8 @@
 import { Request, Response } from "express"
-import ServiceService from "../services/service.service.js"
-import { isValidationError } from "../validators/index.js"
-import { ServiceParamsSchema, BusinessIdParamsSchema, CreateServiceSchema, UpdateServiceSchema, parseAndValidate } from "../validators/index.js"
-import subscriptionService from "../services/subscription.service.js"
+import ServiceService from "../services/service.service"
+import { isValidationError } from "../validators/index"
+import { ServiceParamsSchema, BusinessIdParamsSchema, CreateServiceSchema, UpdateServiceSchema, parseAndValidate } from "../validators/index"
+import subscriptionService from "../services/subscription.service"
 
 class ServiceController {
   /**

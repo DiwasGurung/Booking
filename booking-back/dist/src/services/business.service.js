@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BusinessService = void 0;
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
+const prisma_1 = __importDefault(require("../lib/prisma"));
 class BusinessService {
     /**
      * Create a new business
@@ -13,12 +13,12 @@ class BusinessService {
         if (!data.userId)
             throw new Error("userId is required to create a business");
         // Check if user already has a business
-        const existingBusiness = await prisma_js_1.default.business.findUnique({ where: { userId: data.userId } });
+        const existingBusiness = await prisma_1.default.business.findUnique({ where: { userId: data.userId } });
         if (existingBusiness) {
             throw new Error("This user already has a business");
         }
         // Create business and update user role to business_owner
-        const business = await prisma_js_1.default.business.create({
+        const business = await prisma_1.default.business.create({
             data: {
                 name: data.name,
                 email: data.email,
@@ -38,7 +38,7 @@ class BusinessService {
             },
         });
         // Update user role to BUSINESS_OWNER (must match the UserRole enum)
-        await prisma_js_1.default.user.update({
+        await prisma_1.default.user.update({
             where: { id: data.userId },
             data: { role: 'BUSINESS_OWNER' }
         });
@@ -48,7 +48,7 @@ class BusinessService {
      * Get business by ID
      */
     async getBusinessById(id) {
-        return prisma_js_1.default.business.findUnique({
+        return prisma_1.default.business.findUnique({
             where: { id },
             include: {
                 user: true,
@@ -62,7 +62,7 @@ class BusinessService {
      * Get business by user ID
      */
     async getBusinessByUserId(userId) {
-        return prisma_js_1.default.business.findUnique({
+        return prisma_1.default.business.findUnique({
             where: { userId },
             include: {
                 user: true,
@@ -76,7 +76,7 @@ class BusinessService {
      * Update business
      */
     async updateBusiness(id, data) {
-        return prisma_js_1.default.business.update({
+        return prisma_1.default.business.update({
             where: { id },
             data,
         });
@@ -85,7 +85,7 @@ class BusinessService {
      * Delete business
      */
     async deleteBusiness(id) {
-        return prisma_js_1.default.business.delete({
+        return prisma_1.default.business.delete({
             where: { id },
         });
     }
@@ -100,14 +100,14 @@ class BusinessService {
         if (isActive !== undefined)
             where.isActive = isActive;
         const [businesses, total] = await Promise.all([
-            prisma_js_1.default.business.findMany({
+            prisma_1.default.business.findMany({
                 where,
                 skip,
                 take: limit,
                 include: { user: true },
                 orderBy: { createdAt: "desc" },
             }),
-            prisma_js_1.default.business.count({ where }),
+            prisma_1.default.business.count({ where }),
         ]);
         return { businesses, total };
     }
@@ -116,17 +116,17 @@ class BusinessService {
      */
     async getBusinessStats(businessId) {
         const [totalBookings, totalRevenue, completedBookings, averageRating] = await Promise.all([
-            prisma_js_1.default.booking.count({
+            prisma_1.default.booking.count({
                 where: { businessId },
             }),
-            prisma_js_1.default.payment.aggregate({
+            prisma_1.default.payment.aggregate({
                 where: { businessId, status: "COMPLETED" },
                 _sum: { amount: true },
             }),
-            prisma_js_1.default.booking.count({
+            prisma_1.default.booking.count({
                 where: { businessId, status: "COMPLETED" },
             }),
-            prisma_js_1.default.business.findUnique({
+            prisma_1.default.business.findUnique({
                 where: { id: businessId },
                 select: { rating: true },
             }),
@@ -143,7 +143,7 @@ class BusinessService {
      * Search businesses
      */
     async searchBusinesses(query, limit = 10) {
-        return prisma_js_1.default.business.findMany({
+        return prisma_1.default.business.findMany({
             where: {
                 OR: [
                     { name: { contains: query, mode: "insensitive" } },
@@ -160,7 +160,7 @@ class BusinessService {
      */
     async getBusinessSettings(businessId) {
         try {
-            const business = await prisma_js_1.default.business.findUnique({
+            const business = await prisma_1.default.business.findUnique({
                 where: { id: businessId },
                 select: {
                     id: true,
@@ -227,19 +227,19 @@ class BusinessService {
         const previousStart = new Date(currentStart);
         previousStart.setDate(currentStart.getDate() - safeDays);
         const [currentBookings, previousBookings, customers, currentCustomers, previousCustomers, statusRows, serviceRows] = await Promise.all([
-            prisma_js_1.default.booking.findMany({
+            prisma_1.default.booking.findMany({
                 where: { businessId, createdAt: { gte: currentStart } },
                 select: { id: true, status: true, service: { select: { name: true } }, createdAt: true },
             }),
-            prisma_js_1.default.booking.count({ where: { businessId, createdAt: { gte: previousStart, lt: currentStart } } }),
-            prisma_js_1.default.customer.count({ where: { businessId } }),
-            prisma_js_1.default.customer.count({ where: { businessId, createdAt: { gte: currentStart } } }),
-            prisma_js_1.default.customer.count({ where: { businessId, createdAt: { gte: previousStart, lt: currentStart } } }),
-            prisma_js_1.default.booking.groupBy({ by: ['status'], where: { businessId, createdAt: { gte: currentStart } }, _count: { _all: true } }),
-            prisma_js_1.default.booking.groupBy({ by: ['serviceId'], where: { businessId, createdAt: { gte: currentStart } }, _count: { _all: true }, orderBy: { _count: { serviceId: 'desc' } }, take: 5 }),
+            prisma_1.default.booking.count({ where: { businessId, createdAt: { gte: previousStart, lt: currentStart } } }),
+            prisma_1.default.customer.count({ where: { businessId } }),
+            prisma_1.default.customer.count({ where: { businessId, createdAt: { gte: currentStart } } }),
+            prisma_1.default.customer.count({ where: { businessId, createdAt: { gte: previousStart, lt: currentStart } } }),
+            prisma_1.default.booking.groupBy({ by: ['status'], where: { businessId, createdAt: { gte: currentStart } }, _count: { _all: true } }),
+            prisma_1.default.booking.groupBy({ by: ['serviceId'], where: { businessId, createdAt: { gte: currentStart } }, _count: { _all: true }, orderBy: { _count: { serviceId: 'desc' } }, take: 5 }),
         ]);
         const serviceIds = serviceRows.map((row) => row.serviceId);
-        const services = await prisma_js_1.default.service.findMany({ where: { id: { in: serviceIds } }, select: { id: true, name: true } });
+        const services = await prisma_1.default.service.findMany({ where: { id: { in: serviceIds } }, select: { id: true, name: true } });
         const serviceNames = new Map(services.map((service) => [service.id, service.name]));
         const bookingsByStatus = Object.fromEntries(statusRows.map((row) => [row.status, row._count._all]));
         const bookingGrowth = previousBookings === 0 ? (currentBookings.length ? 100 : 0) : ((currentBookings.length - previousBookings) / previousBookings) * 100;
@@ -260,7 +260,7 @@ class BusinessService {
      */
     async updateBusinessSettings(businessId, settings) {
         try {
-            const business = await prisma_js_1.default.business.update({
+            const business = await prisma_1.default.business.update({
                 where: { id: businessId },
                 data: {
                     name: settings.businessName,

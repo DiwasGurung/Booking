@@ -1,5 +1,5 @@
 import { Router } from "express"
-import { auth, optionalAuth } from "../middleware/auth.middleware.js"
+import { auth, optionalAuth } from "../middleware/auth.middleware"
 import {
   createStaff,
   getStaffById,
@@ -16,7 +16,7 @@ import {
   getTimeOff,
   getStaffBookingsByDate,
   getStaffPerformance
-} from "../controllers/staff.controller.js"
+} from "../controllers/staff.controller"
 
 const router = Router()
 

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const payment_service_js_1 = __importDefault(require("../services/payment.service.js"));
+const payment_service_1 = __importDefault(require("../services/payment.service"));
 class PaymentController {
     async getBusinessPayments(req, res) {
         try {
@@ -12,12 +12,12 @@ class PaymentController {
             const pageNum = Math.max(1, parseInt(page) || 1);
             const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 10));
             const skip = (pageNum - 1) * limitNum;
-            const payments = await payment_service_js_1.default.getBusinessPayments(businessId, {
+            const payments = await payment_service_1.default.getBusinessPayments(businessId, {
                 skip,
                 limit: limitNum,
                 status: status
             });
-            const total = await payment_service_js_1.default.getBusinessPaymentsCount(businessId);
+            const total = await payment_service_1.default.getBusinessPaymentsCount(businessId);
             return res.json({
                 success: true,
                 data: payments,
@@ -51,7 +51,7 @@ class PaymentController {
                     message: 'Business ID is required'
                 });
             }
-            const payment = await payment_service_js_1.default.getPaymentById(paymentId, businessId);
+            const payment = await payment_service_1.default.getPaymentById(paymentId, businessId);
             return res.json({
                 success: true,
                 data: payment
@@ -80,7 +80,7 @@ class PaymentController {
                     message: 'Status and Business ID are required'
                 });
             }
-            const updatedPayment = await payment_service_js_1.default.updatePaymentStatus(paymentId, status, businessId);
+            const updatedPayment = await payment_service_1.default.updatePaymentStatus(paymentId, status, businessId);
             return res.json({
                 success: true,
                 data: updatedPayment,

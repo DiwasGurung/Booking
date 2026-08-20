@@ -2,10 +2,10 @@
 // Controller for handling subscription payments with eSewa
 
 import { Request, Response } from 'express';
-import  prisma  from '../lib/prisma.js';
-import esewaService from '../services/esewa.service.js';
-import subscriptionService from '../services/subscription.service.js';
-import { getPriceForPeriod, BillingPeriod } from '../utils/billing.js';
+import  prisma  from '../lib/prisma';
+import esewaService from '../services/esewa.service';
+import subscriptionService from '../services/subscription.service';
+import { getPriceForPeriod, BillingPeriod } from '../utils/billing';
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';

@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaymentService = void 0;
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
+const prisma_1 = __importDefault(require("../lib/prisma"));
 class PaymentService {
     async getBusinessPayments(businessId, options = { skip: 0, limit: 10 }) {
         try {
@@ -16,7 +16,7 @@ class PaymentService {
             if (options.status) {
                 where.status = options.status;
             }
-            const payments = await prisma_js_1.default.payment.findMany({
+            const payments = await prisma_1.default.payment.findMany({
                 where,
                 include: {
                     subscription: {
@@ -39,7 +39,7 @@ class PaymentService {
      */
     async getBusinessPaymentsCount(businessId) {
         try {
-            return await prisma_js_1.default.payment.count({
+            return await prisma_1.default.payment.count({
                 where: {
                     subscription: {
                         businessId
@@ -57,7 +57,7 @@ class PaymentService {
      */
     async getPaymentById(paymentId, businessId) {
         try {
-            const payment = await prisma_js_1.default.payment.findUnique({
+            const payment = await prisma_1.default.payment.findUnique({
                 where: { id: paymentId },
                 include: {
                     subscription: {
@@ -85,7 +85,7 @@ class PaymentService {
     async updatePaymentStatus(paymentId, status, businessId) {
         try {
             // Verify ownership first
-            const payment = await prisma_js_1.default.payment.findUnique({
+            const payment = await prisma_1.default.payment.findUnique({
                 where: { id: paymentId },
                 include: { subscription: true }
             });
@@ -95,7 +95,7 @@ class PaymentService {
             if (payment.subscription?.businessId !== businessId) {
                 throw new Error('Unauthorized: This payment does not belong to your business');
             }
-            const updatedPayment = await prisma_js_1.default.payment.update({
+            const updatedPayment = await prisma_1.default.payment.update({
                 where: { id: paymentId },
                 data: { status },
                 include: { subscription: true }

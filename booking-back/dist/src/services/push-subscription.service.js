@@ -4,14 +4,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PushSubscriptionService = void 0;
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
+const prisma_1 = __importDefault(require("../lib/prisma"));
 class PushSubscriptionService {
     /**
      * Create or update a push subscription for a user
      */
     static async createOrUpdateSubscription(userId, subscription) {
         try {
-            const existing = await prisma_js_1.default.pushSubscription.findFirst({
+            const existing = await prisma_1.default.pushSubscription.findFirst({
                 where: {
                     userId,
                     endpoint: subscription.endpoint,
@@ -19,7 +19,7 @@ class PushSubscriptionService {
             });
             if (existing) {
                 // Update existing subscription
-                return await prisma_js_1.default.pushSubscription.update({
+                return await prisma_1.default.pushSubscription.update({
                     where: { id: existing.id },
                     data: {
                         p256dh: subscription.keys.p256dh,
@@ -31,7 +31,7 @@ class PushSubscriptionService {
             }
             else {
                 // Create new subscription
-                return await prisma_js_1.default.pushSubscription.create({
+                return await prisma_1.default.pushSubscription.create({
                     data: {
                         userId,
                         endpoint: subscription.endpoint,
@@ -52,7 +52,7 @@ class PushSubscriptionService {
      */
     static async getUserSubscriptions(userId) {
         try {
-            const subscriptions = await prisma_js_1.default.pushSubscription.findMany({
+            const subscriptions = await prisma_1.default.pushSubscription.findMany({
                 where: {
                     userId,
                     isActive: true,
@@ -78,7 +78,7 @@ class PushSubscriptionService {
      */
     static async deactivateSubscription(subscriptionId) {
         try {
-            return await prisma_js_1.default.pushSubscription.update({
+            return await prisma_1.default.pushSubscription.update({
                 where: { id: subscriptionId },
                 data: {
                     isActive: false,
@@ -95,7 +95,7 @@ class PushSubscriptionService {
      */
     static async removeSubscription(subscriptionId) {
         try {
-            return await prisma_js_1.default.pushSubscription.delete({
+            return await prisma_1.default.pushSubscription.delete({
                 where: { id: subscriptionId },
             });
         }
@@ -108,7 +108,7 @@ class PushSubscriptionService {
      */
     static async hasActiveSubscriptions(userId) {
         try {
-            const count = await prisma_js_1.default.pushSubscription.count({
+            const count = await prisma_1.default.pushSubscription.count({
                 where: {
                     userId,
                     isActive: true,

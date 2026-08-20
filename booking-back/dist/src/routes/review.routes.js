@@ -4,18 +4,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const review_controller_js_1 = __importDefault(require("../controllers/review.controller.js"));
+const review_controller_1 = __importDefault(require("../controllers/review.controller"));
 const reviewRoutes = (0, express_1.Router)();
 // Create review
-reviewRoutes.post("/", review_controller_js_1.default.create);
+reviewRoutes.post("/", review_controller_1.default.create);
 // Get reviews for a business
-reviewRoutes.get("/business/:businessId", review_controller_js_1.default.getBusinessReviews);
+reviewRoutes.get("/business/:businessId", review_controller_1.default.getBusinessReviews);
 // Review statistics
-reviewRoutes.get("/business/:businessId/stats", review_controller_js_1.default.stats);
+reviewRoutes.get("/business/:businessId/stats", review_controller_1.default.stats);
 // Get review by ID
-reviewRoutes.get("/:id", review_controller_js_1.default.getById);
+reviewRoutes.get("/:id", review_controller_1.default.getById);
 // Update review
-reviewRoutes.put("/:id", review_controller_js_1.default.update);
+reviewRoutes.put("/:id", review_controller_1.default.update);
 // Delete review
-reviewRoutes.delete("/:id", review_controller_js_1.default.delete);
+reviewRoutes.delete("/:id", review_controller_1.default.delete);
 exports.default = reviewRoutes;

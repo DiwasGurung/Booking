@@ -4,12 +4,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const crypto_1 = require("crypto");
-const booking_service_js_1 = __importDefault(require("../services/booking.service.js"));
-const notification_service_js_1 = __importDefault(require("../services/notification.service.js"));
-const notification_sse_service_js_1 = __importDefault(require("../services/notification-sse.service.js"));
-const email_service_js_1 = require("../services/email.service.js");
-const subscription_service_js_1 = __importDefault(require("../services/subscription.service.js"));
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
+const booking_service_1 = __importDefault(require("../services/booking.service"));
+const notification_service_1 = __importDefault(require("../services/notification.service"));
+const notification_sse_service_1 = __importDefault(require("../services/notification-sse.service"));
+const email_service_1 = require("../services/email.service");
+const subscription_service_1 = __importDefault(require("../services/subscription.service"));
+const prisma_1 = __importDefault(require("../lib/prisma"));
 class BookingController {
     /**
      * Create a booking for BUSINESS - Authenticated User
@@ -33,12 +33,12 @@ class BookingController {
                     message: "Missing required fields: businessId, serviceId, startTime"
                 });
             }
-            const user = await prisma_js_1.default.user.findUnique({ where: { id: userId } });
+            const user = await prisma_1.default.user.findUnique({ where: { id: userId } });
             if (!user) {
                 return res.status(404).json({ success: false, message: "User not found" });
             }
             // Get service for duration
-            const service = await prisma_js_1.default.service.findUnique({ where: { id: serviceId } });
+            const service = await prisma_1.default.service.findUnique({ where: { id: serviceId } });
             if (!service) {
                 return res.status(404).json({ success: false, message: "Service not found" });
             }
@@ -46,7 +46,7 @@ class BookingController {
             // Auto-assign staff if not provided
             let assignedStaffId = staffId;
             if (!assignedStaffId) {
-                const availableStaff = await prisma_js_1.default.staff.findFirst({
+                const availableStaff = await prisma_1.default.staff.findFirst({
                     where: {
                         businessId,
                         services: { some: { serviceId } }
@@ -60,7 +60,7 @@ class BookingController {
                 }
                 assignedStaffId = availableStaff.id;
             }
-            const booking = await prisma_js_1.default.booking.create({
+            const booking = await prisma_1.default.booking.create({
                 data: {
                     startTime,
                     endTime: finalEndTime,
@@ -101,24 +101,24 @@ class BookingController {
                     message: "Missing required fields"
                 });
             }
-            const service = await prisma_js_1.default.service.findUnique({ where: { id: serviceId } });
+            const service = await prisma_1.default.service.findUnique({ where: { id: serviceId } });
             if (!service) {
                 return res.status(404).json({ success: false, message: "Service not found" });
             }
             const finalEndTime = bodyEndTime ? new Date(bodyEndTime) : new Date(startTime.getTime() + (service.duration || 60) * 60000);
             // Check/create customer
-            let customer = await prisma_js_1.default.customer.findUnique({
+            let customer = await prisma_1.default.customer.findUnique({
                 where: { businessId_email: { businessId, email: customerEmail } }
             });
             if (!customer) {
-                customer = await prisma_js_1.default.customer.create({
+                customer = await prisma_1.default.customer.create({
                     data: { businessId, name: customerName, email: customerEmail, phone: customerPhone || '' }
                 });
             }
             // Auto-assign staff if not provided
             let assignedStaffId = staffId;
             if (!assignedStaffId) {
-                const availableStaff = await prisma_js_1.default.staff.findFirst({
+                const availableStaff = await prisma_1.default.staff.findFirst({
                     where: { businessId, services: { some: { serviceId } } }
                 });
                 if (!availableStaff) {
@@ -132,7 +132,7 @@ class BookingController {
             // Generate verification token
             const verificationToken = (0, crypto_1.randomBytes)(32).toString('hex');
             const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-            const booking = await prisma_js_1.default.booking.create({
+            const booking = await prisma_1.default.booking.create({
                 data: {
                     startTime,
                     endTime: finalEndTime,
@@ -155,7 +155,7 @@ class BookingController {
             try {
                 const bookingDate = startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
                 const bookingTime = startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-                await email_service_js_1.emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
+                await email_service_1.emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
                     customerName,
                     serviceName: service.name,
                     date: bookingDate,
@@ -193,7 +193,7 @@ class BookingController {
             const parsedDate = new Date(year, month - 1, day);
             // Ensure staffIdStr is a string or undefined (req.query can contain ParsedQs)
             const staffIdStr = typeof staffId === 'string' ? staffId : undefined;
-            const slots = await booking_service_js_1.default.getBusinessAvailableSlots(Array.isArray(serviceId) ? serviceId[0] : serviceId, Array.isArray(businessId) ? businessId[0] : businessId, parsedDate, staffIdStr);
+            const slots = await booking_service_1.default.getBusinessAvailableSlots(Array.isArray(serviceId) ? serviceId[0] : serviceId, Array.isArray(businessId) ? businessId[0] : businessId, parsedDate, staffIdStr);
             res.status(200).json({ success: true, data: slots });
         }
         catch (error) {
@@ -226,7 +226,7 @@ class BookingController {
                 });
             }
             // Check subscription and feature gating
-            const appointmentLimit = await subscription_service_js_1.default.canAddAppointment(businessId);
+            const appointmentLimit = await subscription_service_1.default.canAddAppointment(businessId);
             if (!appointmentLimit.allowed) {
                 console.warn('[v0] Booking limit exceeded for business:', businessId);
                 return res.status(429).json({
@@ -239,7 +239,7 @@ class BookingController {
                 });
             }
             // Verify business exists
-            const business = await prisma_js_1.default.business.findUnique({
+            const business = await prisma_1.default.business.findUnique({
                 where: { id: businessId },
                 include: { user: true },
             });
@@ -259,7 +259,7 @@ class BookingController {
                 });
             }
             // Verify service exists and belongs to this business
-            const service = await prisma_js_1.default.service.findUnique({
+            const service = await prisma_1.default.service.findUnique({
                 where: { id: serviceId },
             });
             if (!service || service.businessId !== businessId) {
@@ -270,7 +270,7 @@ class BookingController {
             }
             // Verify staff exists if provided
             if (staffId) {
-                const staff = await prisma_js_1.default.staff.findUnique({
+                const staff = await prisma_1.default.staff.findUnique({
                     where: { id: staffId },
                 });
                 if (!staff || staff.businessId !== businessId) {
@@ -281,7 +281,7 @@ class BookingController {
                 }
             }
             // Get authenticated user details for booking
-            const user = await prisma_js_1.default.user.findUnique({
+            const user = await prisma_1.default.user.findUnique({
                 where: { id: userId },
             });
             if (!user) {
@@ -310,7 +310,7 @@ class BookingController {
             if (staffId) {
                 bookingData.staff = { connect: { id: staffId } };
             }
-            const booking = await prisma_js_1.default.booking.create({
+            const booking = await prisma_1.default.booking.create({
                 data: bookingData,
                 include: {
                     service: true,
@@ -324,7 +324,7 @@ class BookingController {
             try {
                 if (business.user?.email) {
                     const staffName = booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined;
-                    await email_service_js_1.emailService.sendNewBookingNotification(business.user.email, {
+                    await email_service_1.emailService.sendNewBookingNotification(business.user.email, {
                         customerName: booking.customerName,
                         customerEmail: booking.customerEmail,
                         customerPhone: booking.customerPhone,
@@ -343,7 +343,7 @@ class BookingController {
             }
             // Send confirmation email to authenticated user
             try {
-                await email_service_js_1.emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
+                await email_service_1.emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
                     customerName: booking.customerName,
                     serviceName: service.name,
                     startTime: booking.startTime,
@@ -386,7 +386,7 @@ class BookingController {
     async getBookingById(req, res) {
         try {
             const { id } = req.params;
-            const booking = await booking_service_js_1.default.getBookingById(Array.isArray(id) ? id[0] : id);
+            const booking = await booking_service_1.default.getBookingById(Array.isArray(id) ? id[0] : id);
             if (booking) {
                 res.status(200).json(booking);
             }
@@ -407,7 +407,7 @@ class BookingController {
             const { page, limit, status, staffId, verified, startDate, endDate } = req.query;
             const parseDate = (value) => typeof value === 'string' && !Number.isNaN(Date.parse(value)) ? new Date(value) : undefined;
             const verifiedValue = verified === 'true' ? true : verified === 'false' ? false : undefined;
-            const result = await booking_service_js_1.default.getBusinessBookings(Array.isArray(businessId) ? businessId[0] : businessId, page ? parseInt(page) : 1, limit ? parseInt(limit) : 10, status, typeof staffId === 'string' ? staffId : undefined, verifiedValue, parseDate(startDate), parseDate(endDate));
+            const result = await booking_service_1.default.getBusinessBookings(Array.isArray(businessId) ? businessId[0] : businessId, page ? parseInt(page) : 1, limit ? parseInt(limit) : 10, status, typeof staffId === 'string' ? staffId : undefined, verifiedValue, parseDate(startDate), parseDate(endDate));
             res.status(200).json(result);
         }
         catch (error) {
@@ -420,7 +420,7 @@ class BookingController {
     async getCustomerBookings(req, res) {
         try {
             const { userId } = req.params;
-            const bookings = await booking_service_js_1.default.getCustomerBookings(Array.isArray(userId) ? userId[0] : userId);
+            const bookings = await booking_service_1.default.getCustomerBookings(Array.isArray(userId) ? userId[0] : userId);
             res.status(200).json(bookings);
         }
         catch (error) {
@@ -435,7 +435,7 @@ class BookingController {
             const { id } = req.params;
             const { status } = req.body;
             // Fetch booking before updating to get all relations
-            const booking = await booking_service_js_1.default.getBookingById(Array.isArray(id) ? id[0] : id);
+            const booking = await booking_service_1.default.getBookingById(Array.isArray(id) ? id[0] : id);
             if (!booking) {
                 return res.status(404).json({
                     success: false,
@@ -443,7 +443,7 @@ class BookingController {
                 });
             }
             // Update the booking status
-            const updatedBooking = await booking_service_js_1.default.updateBookingStatus(Array.isArray(id) ? id[0] : id, status);
+            const updatedBooking = await booking_service_1.default.updateBookingStatus(Array.isArray(id) ? id[0] : id, status);
             // Send notification based on status
             try {
                 if (!booking?.userId) {
@@ -451,15 +451,15 @@ class BookingController {
                     return;
                 }
                 // Fetch business name for notification messages
-                const business = await prisma_js_1.default.business.findUnique({
+                const business = await prisma_1.default.business.findUnique({
                     where: { id: booking.businessId },
                     select: { name: true }
                 });
                 const businessName = business?.name || 'the business';
                 if (status === 'CONFIRMED') {
-                    const notification = await notification_service_js_1.default.sendBookingConfirmation(booking.id, booking.userId);
+                    const notification = await notification_service_1.default.sendBookingConfirmation(booking.id, booking.userId);
                     // Broadcast real-time notification
-                    notification_sse_service_js_1.default.broadcastToUser(booking.userId, {
+                    notification_sse_service_1.default.broadcastToUser(booking.userId, {
                         id: notification.id,
                         title: 'Booking Confirmed',
                         message: `Your booking has been confirmed!`,
@@ -485,7 +485,7 @@ class BookingController {
                     // })
                 }
                 else if (status === 'CANCELLED') {
-                    const notification = await notification_service_js_1.default.createNotification({
+                    const notification = await notification_service_1.default.createNotification({
                         userId: booking.userId,
                         type: 'BOOKING_CANCELLATION',
                         title: 'Booking Cancelled',
@@ -493,7 +493,7 @@ class BookingController {
                         bookingId: booking.id,
                     });
                     // Broadcast real-time notification
-                    notification_sse_service_js_1.default.broadcastToUser(booking.userId, {
+                    notification_sse_service_1.default.broadcastToUser(booking.userId, {
                         id: notification.id,
                         title: 'Booking Cancelled',
                         message: `Your booking with ${businessName} has been cancelled.`,
@@ -503,9 +503,7 @@ class BookingController {
                 }
             }
             catch (notificationError) {
-                console.error('[v0] Error sending notification:', notificationError instanceof Error ? notificationError.message : notificationError);
-                console.error('[v0] Full error:', notificationError);
-                // Don't fail the request if notification fails
+                console.error('[v0] Error sending notification after booking status update:', notificationError);
             }
             res.status(200).json({
                 success: true,
@@ -528,7 +526,7 @@ class BookingController {
     async updateBooking(req, res) {
         try {
             const { id } = req.params;
-            const booking = await booking_service_js_1.default.updateBooking(Array.isArray(id) ? id[0] : id, req.body);
+            const booking = await booking_service_1.default.updateBooking(Array.isArray(id) ? id[0] : id, req.body);
             res.status(200).json(booking);
         }
         catch (error) {
@@ -541,7 +539,7 @@ class BookingController {
     async cancelBooking(req, res) {
         try {
             const { id } = req.params;
-            const booking = await booking_service_js_1.default.cancelBooking(Array.isArray(id) ? id[0] : id);
+            const booking = await booking_service_1.default.cancelBooking(Array.isArray(id) ? id[0] : id);
             res.status(200).json(booking);
         }
         catch (error) {
@@ -554,7 +552,7 @@ class BookingController {
     async deleteBooking(req, res) {
         try {
             const { id } = req.params;
-            await booking_service_js_1.default.deleteBooking(Array.isArray(id) ? id[0] : id);
+            await booking_service_1.default.deleteBooking(Array.isArray(id) ? id[0] : id);
             res.status(204).send(); // No Content
         }
         catch (error) {
@@ -581,7 +579,7 @@ class BookingController {
             const parsedDate = new Date(year, month - 1, day);
             // Optional staffId - if provided, filter slots for that specific staff
             const staffIdStr = typeof staffId === 'string' ? staffId : undefined;
-            const slots = await booking_service_js_1.default.getAvailableSlots(Array.isArray(serviceId) ? serviceId[0] : serviceId, Array.isArray(businessId) ? businessId[0] : businessId, parsedDate, staffIdStr);
+            const slots = await booking_service_1.default.getAvailableSlots(Array.isArray(serviceId) ? serviceId[0] : serviceId, Array.isArray(businessId) ? businessId[0] : businessId, parsedDate, staffIdStr);
             res.status(200).json({
                 success: true,
                 data: slots
@@ -621,7 +619,7 @@ class BookingController {
             }
             // Note: Full email validation will happen after customer verifies email
             // Verify business exists
-            const business = await prisma_js_1.default.business.findUnique({
+            const business = await prisma_1.default.business.findUnique({
                 where: { id: businessId },
                 include: { user: true },
             });
@@ -647,7 +645,7 @@ class BookingController {
                 });
             }
             // Verify service exists and belongs to this business
-            const service = await prisma_js_1.default.service.findUnique({
+            const service = await prisma_1.default.service.findUnique({
                 where: { id: serviceId },
             });
             if (!service || service.businessId !== businessId) {
@@ -658,7 +656,7 @@ class BookingController {
             }
             // Verify staff exists if provided
             if (staffId) {
-                const staff = await prisma_js_1.default.staff.findUnique({
+                const staff = await prisma_1.default.staff.findUnique({
                     where: { id: staffId },
                 });
                 if (!staff || staff.businessId !== businessId) {
@@ -671,7 +669,7 @@ class BookingController {
             // Check if customer already exists
             let customer;
             let isNewCustomer = false;
-            const existingCustomer = await prisma_js_1.default.customer.findUnique({
+            const existingCustomer = await prisma_1.default.customer.findUnique({
                 where: {
                     businessId_email: {
                         businessId,
@@ -687,7 +685,7 @@ class BookingController {
             else {
                 // New customer - create a new record
                 try {
-                    customer = await prisma_js_1.default.customer.create({
+                    customer = await prisma_1.default.customer.create({
                         data: {
                             businessId,
                             name: customerName,
@@ -735,7 +733,7 @@ class BookingController {
             if (staffId) {
                 bookingData.staff = { connect: { id: staffId } };
             }
-            const booking = await prisma_js_1.default.booking.create({
+            const booking = await prisma_1.default.booking.create({
                 data: bookingData,
                 include: {
                     service: true,
@@ -748,7 +746,7 @@ class BookingController {
             // Send email notification to business owner
             try {
                 if (business.user?.email) {
-                    await email_service_js_1.emailService.sendNewBookingNotification(business.user.email, {
+                    await email_service_1.emailService.sendNewBookingNotification(business.user.email, {
                         customerName,
                         customerEmail,
                         customerPhone,
@@ -768,7 +766,7 @@ class BookingController {
             if (!customerIsVerified && verificationToken) {
                 try {
                     const staffName = booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined;
-                    const verificationSent = await email_service_js_1.emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
+                    const verificationSent = await email_service_1.emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
                         customerName,
                         serviceName: service.name,
                         date: booking.startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
@@ -829,7 +827,7 @@ class BookingController {
                 });
             }
             // Find booking by verification token
-            const booking = await prisma_js_1.default.booking.findUnique({
+            const booking = await prisma_1.default.booking.findUnique({
                 where: { verificationToken: token },
                 include: { service: true, business: true }
             });
@@ -855,13 +853,13 @@ class BookingController {
             }
             // Persist verification for future bookings from the same customer.
             if (booking.customerId) {
-                await prisma_js_1.default.customer.update({
+                await prisma_1.default.customer.update({
                     where: { id: booking.customerId },
                     data: { isEmailVerified: true },
                 });
             }
             // Update booking to CONFIRMED status and mark email as verified
-            const confirmedBooking = await prisma_js_1.default.booking.update({
+            const confirmedBooking = await prisma_1.default.booking.update({
                 where: { id: booking.id },
                 data: {
                     status: 'CONFIRMED',
@@ -873,7 +871,7 @@ class BookingController {
             });
             // Send confirmation email to customer
             try {
-                await email_service_js_1.emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
+                await email_service_1.emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
                     customerName: booking.customerName,
                     serviceName: confirmedBooking.service.name,
                     startTime: confirmedBooking.startTime,
@@ -914,7 +912,7 @@ class BookingController {
         try {
             const { businessId } = req.params;
             const { days } = req.query;
-            const trends = await booking_service_js_1.default.getBookingTrends(Array.isArray(businessId) ? businessId[0] : businessId, days ? parseInt(days) : 30);
+            const trends = await booking_service_1.default.getBookingTrends(Array.isArray(businessId) ? businessId[0] : businessId, days ? parseInt(days) : 30);
             return res.status(200).json(trends);
         }
         catch (error) {

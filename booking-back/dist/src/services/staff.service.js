@@ -4,15 +4,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StaffService = void 0;
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
-const staff_verification_service_js_1 = require("./staff-verification.service.js");
+const prisma_1 = __importDefault(require("../lib/prisma"));
+const staff_verification_service_1 = require("./staff-verification.service");
 class StaffService {
     /**
      * Create a new staff member
      */
     async createStaff(data) {
         const { serviceIds, ...staffData } = data;
-        const staff = await prisma_js_1.default.staff.create({
+        const staff = await prisma_1.default.staff.create({
             data: {
                 ...staffData,
                 workingHours: staffData.workingHours,
@@ -28,7 +28,7 @@ class StaffService {
         });
         // Connect services if provided
         if (serviceIds && serviceIds.length > 0) {
-            await prisma_js_1.default.staffService.createMany({
+            await prisma_1.default.staffService.createMany({
                 data: serviceIds.map((serviceId) => ({
                     staffId: staff.id,
                     serviceId,
@@ -39,7 +39,7 @@ class StaffService {
             // Send verification email asynchronously (don't wait)
             if (updatedStaff) {
                 try {
-                    staff_verification_service_js_1.staffVerificationService.sendVerificationEmail(updatedStaff.id, updatedStaff.email, updatedStaff.firstName, updatedStaff.businessId).catch(err => console.error('[v0] Failed to send verification email:', err));
+                    staff_verification_service_1.staffVerificationService.sendVerificationEmail(updatedStaff.id, updatedStaff.email, updatedStaff.firstName, updatedStaff.businessId).catch(err => console.error('[v0] Failed to send verification email:', err));
                 }
                 catch (error) {
                     console.error('[v0] Error importing verification service:', error);
@@ -49,7 +49,7 @@ class StaffService {
         }
         // Send verification email asynchronously (don't wait)
         try {
-            staff_verification_service_js_1.staffVerificationService.sendVerificationEmail(staff.id, staff.email, staff.firstName, staff.businessId).catch(err => console.error('[v0] Failed to send verification email:', err));
+            staff_verification_service_1.staffVerificationService.sendVerificationEmail(staff.id, staff.email, staff.firstName, staff.businessId).catch(err => console.error('[v0] Failed to send verification email:', err));
         }
         catch (error) {
             console.error('[v0] Error importing verification service:', error);
@@ -60,7 +60,7 @@ class StaffService {
      * Get staff by ID
      */
     async getStaffById(id) {
-        return prisma_js_1.default.staff.findUnique({
+        return prisma_1.default.staff.findUnique({
             where: { id },
             include: {
                 services: {
@@ -83,7 +83,7 @@ class StaffService {
      * Get all staff for a business
      */
     async getBusinessStaff(businessId, includeInactive = false) {
-        return prisma_js_1.default.staff.findMany({
+        return prisma_1.default.staff.findMany({
             where: {
                 businessId,
                 ...(includeInactive ? {} : { isActive: true }),
@@ -107,7 +107,7 @@ class StaffService {
      * Get staff who can perform a specific service
      */
     async getStaffForService(serviceId) {
-        const staffServices = await prisma_js_1.default.staffService.findMany({
+        const staffServices = await prisma_1.default.staffService.findMany({
             where: { serviceId },
             include: {
                 staff: {
@@ -131,7 +131,7 @@ class StaffService {
     async updateStaff(id, data) {
         const { serviceIds, ...staffData } = data;
         // Update staff basic info
-        await prisma_js_1.default.staff.update({
+        await prisma_1.default.staff.update({
             where: { id },
             data: {
                 ...staffData,
@@ -142,12 +142,12 @@ class StaffService {
         // Update services if provided
         if (serviceIds !== undefined) {
             // Remove existing service connections
-            await prisma_js_1.default.staffService.deleteMany({
+            await prisma_1.default.staffService.deleteMany({
                 where: { staffId: id },
             });
             // Add new service connections
             if (serviceIds.length > 0) {
-                await prisma_js_1.default.staffService.createMany({
+                await prisma_1.default.staffService.createMany({
                     data: serviceIds.map((serviceId) => ({
                         staffId: id,
                         serviceId,
@@ -161,7 +161,7 @@ class StaffService {
      * Delete staff member
      */
     async deleteStaff(id) {
-        return prisma_js_1.default.staff.delete({
+        return prisma_1.default.staff.delete({
             where: { id },
         });
     }
@@ -169,10 +169,10 @@ class StaffService {
      * Toggle staff active status
      */
     async toggleStaffStatus(id) {
-        const staff = await prisma_js_1.default.staff.findUnique({ where: { id } });
+        const staff = await prisma_1.default.staff.findUnique({ where: { id } });
         if (!staff)
             throw new Error("Staff not found");
-        return prisma_js_1.default.staff.update({
+        return prisma_1.default.staff.update({
             where: { id },
             data: { isActive: !staff.isActive },
         });
@@ -181,7 +181,7 @@ class StaffService {
      * Get available time slots for a staff member on a specific date
      */
     async getStaffAvailability(staffId, date, serviceDuration) {
-        const staff = await prisma_js_1.default.staff.findUnique({
+        const staff = await prisma_1.default.staff.findUnique({
             where: { id: staffId },
             include: { business: true },
         });
@@ -203,7 +203,7 @@ class StaffService {
         startOfDay.setHours(0, 0, 0, 0);
         const endOfDay = new Date(date);
         endOfDay.setHours(23, 59, 59, 999);
-        const existingBookings = await prisma_js_1.default.booking.findMany({
+        const existingBookings = await prisma_1.default.booking.findMany({
             where: {
                 staffId,
                 startTime: { gte: startOfDay, lte: endOfDay },
@@ -263,10 +263,10 @@ class StaffService {
             where.startTime = { gte: startDate, lte: endDate };
         }
         const [totalBookings, completedBookings, cancelledBookings, revenue] = await Promise.all([
-            prisma_js_1.default.booking.count({ where }),
-            prisma_js_1.default.booking.count({ where: { ...where, status: "COMPLETED" } }),
-            prisma_js_1.default.booking.count({ where: { ...where, status: "CANCELLED" } }),
-            prisma_js_1.default.booking.findMany({
+            prisma_1.default.booking.count({ where }),
+            prisma_1.default.booking.count({ where: { ...where, status: "COMPLETED" } }),
+            prisma_1.default.booking.count({ where: { ...where, status: "CANCELLED" } }),
+            prisma_1.default.booking.findMany({
                 where: { ...where, status: "COMPLETED" },
                 include: { service: true },
             }),
@@ -286,7 +286,7 @@ class StaffService {
      * Get staff info by staffCode (public)
      */
     async getStaffByCode(staffCode) {
-        const staff = await prisma_js_1.default.staff.findUnique({
+        const staff = await prisma_1.default.staff.findUnique({
             where: { staffCode },
             include: {
                 services: {
@@ -328,7 +328,7 @@ class StaffService {
      * Get staff bookings by staffCode (public)
      */
     async getBookingsByStaffCode(staffCode) {
-        const staff = await prisma_js_1.default.staff.findUnique({
+        const staff = await prisma_1.default.staff.findUnique({
             where: { staffCode },
             include: {
                 bookings: {
@@ -384,7 +384,7 @@ class StaffService {
         startOfDay.setHours(0, 0, 0, 0);
         const endOfDay = new Date(date);
         endOfDay.setHours(23, 59, 59, 999);
-        const staff = await prisma_js_1.default.staff.findUnique({
+        const staff = await prisma_1.default.staff.findUnique({
             where: { staffCode },
             include: {
                 bookings: {

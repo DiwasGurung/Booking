@@ -1,6 +1,6 @@
-import  prisma  from '../lib/prisma.js'
+import  prisma  from '../lib/prisma'
 import crypto from 'crypto'
-import { emailService } from './email.service.js'
+import { emailService } from './email.service'
 
 class StaffVerificationService {
   /**

@@ -1,4 +1,4 @@
-import  prisma  from '../lib/prisma.js'
+import  prisma  from '../lib/prisma'
 import type { Subscription, Prisma, SubscriptionStatus, SubscriptionPlan, Business } from '@prisma/client'
 
 // Type definitions for service methods

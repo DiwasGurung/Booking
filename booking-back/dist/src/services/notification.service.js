@@ -4,13 +4,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NotificationService = void 0;
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
+const prisma_1 = __importDefault(require("../lib/prisma"));
 class NotificationService {
     /**
      * Create a new notification
      */
     async createNotification(data) {
-        return prisma_js_1.default.notification.create({
+        return prisma_1.default.notification.create({
             data,
         });
     }
@@ -18,7 +18,7 @@ class NotificationService {
      * Get notification by ID
      */
     async getNotificationById(id) {
-        return prisma_js_1.default.notification.findUnique({
+        return prisma_1.default.notification.findUnique({
             where: { id },
         });
     }
@@ -31,13 +31,13 @@ class NotificationService {
         if (unreadOnly)
             where.isRead = false;
         const [notifications, total] = await Promise.all([
-            prisma_js_1.default.notification.findMany({
+            prisma_1.default.notification.findMany({
                 where,
                 skip,
                 take: limit,
                 orderBy: { createdAt: "desc" },
             }),
-            prisma_js_1.default.notification.count({ where }),
+            prisma_1.default.notification.count({ where }),
         ]);
         return { notifications, total };
     }
@@ -45,7 +45,7 @@ class NotificationService {
      * Mark notification as read
      */
     async markAsRead(id) {
-        return prisma_js_1.default.notification.update({
+        return prisma_1.default.notification.update({
             where: { id },
             data: { isRead: true },
         });
@@ -54,7 +54,7 @@ class NotificationService {
      * Mark all notifications as read for a user
      */
     async markAllAsRead(userId) {
-        const result = await prisma_js_1.default.notification.updateMany({
+        const result = await prisma_1.default.notification.updateMany({
             where: { userId, isRead: false },
             data: { isRead: true },
         });
@@ -64,7 +64,7 @@ class NotificationService {
      * Delete notification
      */
     async deleteNotification(id) {
-        return prisma_js_1.default.notification.delete({
+        return prisma_1.default.notification.delete({
             where: { id },
         });
     }
@@ -72,7 +72,7 @@ class NotificationService {
      * Get unread count
      */
     async getUnreadCount(userId) {
-        return prisma_js_1.default.notification.count({
+        return prisma_1.default.notification.count({
             where: { userId, isRead: false },
         });
     }

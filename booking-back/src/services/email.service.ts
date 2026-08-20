@@ -19,10 +19,17 @@ const initializeTransporter = () => {
   if (transporter) return transporter
 
   transporter = nodemailer.createTransport({
-    host: emailHost,
-    port: emailPort,
-    secure: emailPort === 465,
-    auth: { user: emailUser, pass: emailPassword },
+   host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT) || 465,
+  secure: true, // Crucial: Must be true for port 465
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD,
+  },
+  // Add this block to allow Nest Nepal's self-signed certificates
+  tls: {
+    rejectUnauthorized: false
+  }
   })
 
   // Verify connection
@@ -38,7 +45,15 @@ const initializeTransporter = () => {
   return transporter
 }
 
+
 export const emailService = {
+
+  /** Verify the Nest Nepal SMTP connection before sending mail. */
+  async verifyTransporter() {
+    const smtp = initializeTransporter()
+    await smtp.verify()
+    return { host: emailHost, port: emailPort, user: emailUser }
+  },
 
   /**
    * Send verification email to customer for public booking

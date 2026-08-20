@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
+const prisma_1 = __importDefault(require("../lib/prisma"));
 class SubscriptionService {
     /**
      * Create subscription with 1 month free trial
@@ -14,7 +14,7 @@ class SubscriptionService {
             const now = new Date();
             const trialEndsAt = new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000); // 15 days trial
             const trialDays = Math.floor((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-            const plan = await prisma_js_1.default.subscriptionPlan.findUnique({
+            const plan = await prisma_1.default.subscriptionPlan.findUnique({
                 where: { id: data.planId },
             });
             if (!plan) {
@@ -22,10 +22,10 @@ class SubscriptionService {
             }
             console.log(`[v0] Found plan: ${plan.displayName} with ID: ${plan.id}, Plan durationDays: ${plan.durationDays}`);
             console.log(`[v0] Creating trial for ${trialDays} days, trial ends at: ${trialEndsAt}`);
-            await prisma_js_1.default.subscription.deleteMany({
+            await prisma_1.default.subscription.deleteMany({
                 where: { businessId: data.businessId },
             });
-            const subscription = await prisma_js_1.default.subscription.create({
+            const subscription = await prisma_1.default.subscription.create({
                 data: {
                     businessId: data.businessId,
                     planId: data.planId,
@@ -55,7 +55,7 @@ class SubscriptionService {
      */
     async getSubscriptionById(id) {
         try {
-            const subscription = await prisma_js_1.default.subscription.findUnique({
+            const subscription = await prisma_1.default.subscription.findUnique({
                 where: { id },
                 include: {
                     plan: true,
@@ -74,7 +74,7 @@ class SubscriptionService {
      */
     async getBusinessSubscription(businessId) {
         try {
-            const subscription = await prisma_js_1.default.subscription.findUnique({
+            const subscription = await prisma_1.default.subscription.findUnique({
                 where: { businessId },
                 include: {
                     plan: true,
@@ -128,7 +128,7 @@ class SubscriptionService {
      */
     async getSubscriptionStatus(businessId) {
         try {
-            const subscription = await prisma_js_1.default.subscription.findUnique({
+            const subscription = await prisma_1.default.subscription.findUnique({
                 where: { businessId },
                 include: {
                     plan: true,
@@ -200,7 +200,7 @@ class SubscriptionService {
         try {
             console.log(`[v0] Activating subscription: ${subscriptionId}`);
             // Fetch subscription to get billing period
-            const currentSubscription = await prisma_js_1.default.subscription.findUnique({
+            const currentSubscription = await prisma_1.default.subscription.findUnique({
                 where: { id: subscriptionId },
             });
             if (!currentSubscription) {
@@ -225,7 +225,7 @@ class SubscriptionService {
                 default: endDate.setDate(endDate.getDate() + (data.durationDays || 30));
             }
             const billingCycleEndDate = new Date(endDate);
-            const subscription = await prisma_js_1.default.subscription.update({
+            const subscription = await prisma_1.default.subscription.update({
                 where: { id: subscriptionId },
                 data: {
                     status: 'ACTIVE',
@@ -253,7 +253,7 @@ class SubscriptionService {
      */
     async updateSubscription(subscriptionId, data) {
         try {
-            const subscription = await prisma_js_1.default.subscription.update({
+            const subscription = await prisma_1.default.subscription.update({
                 where: { id: subscriptionId },
                 data,
                 include: {
@@ -294,7 +294,7 @@ class SubscriptionService {
     async getExpiredSubscriptions() {
         try {
             const now = new Date();
-            const subscriptions = await prisma_js_1.default.subscription.findMany({
+            const subscriptions = await prisma_1.default.subscription.findMany({
                 where: {
                     status: 'ACTIVE',
                     endDate: {
@@ -320,7 +320,7 @@ class SubscriptionService {
         try {
             const now = new Date();
             const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-            const subscriptions = await prisma_js_1.default.subscription.findMany({
+            const subscriptions = await prisma_1.default.subscription.findMany({
                 where: {
                     status: 'ACTIVE',
                     endDate: {
@@ -385,7 +385,7 @@ class SubscriptionService {
             if (plan.maxStaff === -1) {
                 return { allowed: true };
             }
-            const staffCount = await prisma_js_1.default.staff.count({
+            const staffCount = await prisma_1.default.staff.count({
                 where: { businessId },
             });
             if (staffCount >= plan.maxStaff) {
@@ -416,7 +416,7 @@ class SubscriptionService {
             if (plan.maxServices === -1) {
                 return { allowed: true };
             }
-            const serviceCount = await prisma_js_1.default.service.count({
+            const serviceCount = await prisma_1.default.service.count({
                 where: { businessId },
             });
             if (serviceCount >= plan.maxServices) {
@@ -440,7 +440,7 @@ class SubscriptionService {
     async resetMonthlyUsage(businessId) {
         try {
             const now = new Date();
-            await prisma_js_1.default.subscription.updateMany({
+            await prisma_1.default.subscription.updateMany({
                 where: { businessId },
                 data: {
                     appointmentsThisMonth: 0,
@@ -464,8 +464,8 @@ class SubscriptionService {
                 return null;
             }
             const plan = subscription.plan;
-            const staffCount = await prisma_js_1.default.staff.count({ where: { businessId } });
-            const serviceCount = await prisma_js_1.default.service.count({ where: { businessId } });
+            const staffCount = await prisma_1.default.staff.count({ where: { businessId } });
+            const serviceCount = await prisma_1.default.service.count({ where: { businessId } });
             const staffOverLimit = plan.maxStaff !== -1 && staffCount > plan.maxStaff;
             const servicesOverLimit = plan.maxServices !== -1 && serviceCount > plan.maxServices;
             const appointmentsOverLimit = plan.maxAppointmentsPerMonth !== -1 && subscription.appointmentsThisMonth > plan.maxAppointmentsPerMonth;
@@ -506,21 +506,21 @@ class SubscriptionService {
     async upgradeSubscription(businessId, newPlanId, paymentId) {
         try {
             console.log(`[v0] Upgrading subscription for business: ${businessId} to plan: ${newPlanId}`);
-            const subscription = await prisma_js_1.default.subscription.findUnique({
+            const subscription = await prisma_1.default.subscription.findUnique({
                 where: { businessId },
                 include: { plan: true },
             });
             if (!subscription) {
                 throw new Error('No subscription found for this business');
             }
-            const newPlan = await prisma_js_1.default.subscriptionPlan.findUnique({
+            const newPlan = await prisma_1.default.subscriptionPlan.findUnique({
                 where: { id: newPlanId },
             });
             if (!newPlan) {
                 throw new Error('Plan not found');
             }
             const now = new Date();
-            const updated = await prisma_js_1.default.subscription.update({
+            const updated = await prisma_1.default.subscription.update({
                 where: { id: subscription.id },
                 data: {
                     planId: newPlanId,
@@ -548,20 +548,20 @@ class SubscriptionService {
     async downgradeSubscription(businessId, newPlanId, paymentId) {
         try {
             console.log(`[v0] Downgrading subscription for business: ${businessId} to plan: ${newPlanId}`);
-            const subscription = await prisma_js_1.default.subscription.findUnique({
+            const subscription = await prisma_1.default.subscription.findUnique({
                 where: { businessId },
                 include: { plan: true },
             });
             if (!subscription) {
                 throw new Error('No subscription found for this business');
             }
-            const newPlan = await prisma_js_1.default.subscriptionPlan.findUnique({
+            const newPlan = await prisma_1.default.subscriptionPlan.findUnique({
                 where: { id: newPlanId },
             });
             if (!newPlan) {
                 throw new Error('Plan not found');
             }
-            const updated = await prisma_js_1.default.subscription.update({
+            const updated = await prisma_1.default.subscription.update({
                 where: { id: subscription.id },
                 data: {
                     planId: newPlanId,
@@ -588,7 +588,7 @@ class SubscriptionService {
             console.log(`[v0] Renewing subscription: ${subscriptionId}`);
             const now = new Date();
             const newEndDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-            const updated = await prisma_js_1.default.subscription.update({
+            const updated = await prisma_1.default.subscription.update({
                 where: { id: subscriptionId },
                 data: {
                     status: 'ACTIVE',
@@ -617,7 +617,7 @@ class SubscriptionService {
      */
     async incrementAppointmentUsage(businessId, count = 1) {
         try {
-            await prisma_js_1.default.subscription.updateMany({
+            await prisma_1.default.subscription.updateMany({
                 where: { businessId },
                 data: {
                     appointmentsThisMonth: {
@@ -702,7 +702,7 @@ class SubscriptionService {
      * Cancel a subscription
      */
     async cancelSubscription(data) {
-        const subscription = await prisma_js_1.default.subscription.findUnique({
+        const subscription = await prisma_1.default.subscription.findUnique({
             where: { id: data.subscriptionId },
             include: { plan: true, business: true },
         });
@@ -710,7 +710,7 @@ class SubscriptionService {
             throw new Error(`Subscription not found: ${data.subscriptionId}`);
         }
         console.log(`[v0] Cancelling subscription ${data.subscriptionId}`);
-        const updated = await prisma_js_1.default.subscription.update({
+        const updated = await prisma_1.default.subscription.update({
             where: { id: data.subscriptionId },
             data: {
                 status: 'CANCELLED',

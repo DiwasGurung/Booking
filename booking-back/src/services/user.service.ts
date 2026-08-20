@@ -1,6 +1,6 @@
-import prisma  from "../lib/prisma.js"
+import prisma  from "../lib/prisma"
 import bcrypt from "bcrypt"
-import { emailService } from "./email.service.js"
+import { emailService } from "./email.service"
 import crypto from "crypto"
 
 

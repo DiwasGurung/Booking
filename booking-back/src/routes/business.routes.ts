@@ -1,6 +1,6 @@
 import { Router } from "express"
-import BusinessController from "../controllers/business.controller.js"
-import { auth } from '../middleware/auth.middleware.js';
+import BusinessController from "../controllers/business.controller"
+import { auth } from '../middleware/auth.middleware';
 
 const businessRoutes = Router()
 

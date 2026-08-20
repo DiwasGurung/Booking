@@ -4,9 +4,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.staffVerificationService = void 0;
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
+const prisma_1 = __importDefault(require("../lib/prisma"));
 const crypto_1 = __importDefault(require("crypto"));
-const email_service_js_1 = require("./email.service.js");
+const email_service_1 = require("./email.service");
 class StaffVerificationService {
     /**
      * Generate a verification token for staff
@@ -20,7 +20,7 @@ class StaffVerificationService {
     async sendVerificationEmail(staffId, staffEmail, staffName, businessId) {
         try {
             // Check if staff exists
-            const staff = await prisma_js_1.default.staff.findUnique({
+            const staff = await prisma_1.default.staff.findUnique({
                 where: { id: staffId },
                 include: { business: true },
             });
@@ -31,7 +31,7 @@ class StaffVerificationService {
             const verificationToken = this.generateVerificationToken();
             const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
             // Update staff with verification token
-            await prisma_js_1.default.staff.update({
+            await prisma_1.default.staff.update({
                 where: { id: staffId },
                 data: {
                     verificationToken,
@@ -39,7 +39,7 @@ class StaffVerificationService {
                 },
             });
             // Send verification email to staff
-            await email_service_js_1.emailService.sendStaffVerificationEmail(staffEmail, staffName, verificationToken, staff.business.name);
+            await email_service_1.emailService.sendStaffVerificationEmail(staffEmail, staffName, verificationToken, staff.business.name);
             return { success: true, message: 'Verification email sent' };
         }
         catch (error) {
@@ -51,7 +51,7 @@ class StaffVerificationService {
      * Send a fresh first-login verification link by email.
      */
     async requestVerificationEmail(email) {
-        const staff = await prisma_js_1.default.staff.findUnique({
+        const staff = await prisma_1.default.staff.findUnique({
             where: { email: email.trim().toLowerCase() },
         });
         if (!staff) {
@@ -69,8 +69,8 @@ class StaffVerificationService {
     async verifyEmail(token, staffId) {
         try {
             const staff = staffId
-                ? await prisma_js_1.default.staff.findUnique({ where: { id: staffId } })
-                : await prisma_js_1.default.staff.findUnique({ where: { verificationToken: token } });
+                ? await prisma_1.default.staff.findUnique({ where: { id: staffId } })
+                : await prisma_1.default.staff.findUnique({ where: { verificationToken: token } });
             if (!staff) {
                 throw new Error('Invalid verification link');
             }
@@ -82,7 +82,7 @@ class StaffVerificationService {
             }
             // Keep the token until the password is set. The set-password endpoint
             // uses this same token to authorize the first password creation.
-            await prisma_js_1.default.staff.update({
+            await prisma_1.default.staff.update({
                 where: { id: staff.id },
                 data: { emailVerified: true },
             });
@@ -99,9 +99,9 @@ class StaffVerificationService {
     async resendVerificationEmail(staffId, token) {
         try {
             const staff = staffId
-                ? await prisma_js_1.default.staff.findUnique({ where: { id: staffId } })
+                ? await prisma_1.default.staff.findUnique({ where: { id: staffId } })
                 : token
-                    ? await prisma_js_1.default.staff.findUnique({ where: { verificationToken: token } })
+                    ? await prisma_1.default.staff.findUnique({ where: { verificationToken: token } })
                     : null;
             if (!staff) {
                 throw new Error('Staff not found for this verification link');
@@ -123,7 +123,7 @@ class StaffVerificationService {
      */
     async getVerificationStatus(staffId) {
         try {
-            const staff = await prisma_js_1.default.staff.findUnique({
+            const staff = await prisma_1.default.staff.findUnique({
                 where: { id: staffId },
                 select: {
                     id: true,

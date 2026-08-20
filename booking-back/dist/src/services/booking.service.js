@@ -4,13 +4,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BookingService = void 0;
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
+const prisma_1 = __importDefault(require("../lib/prisma"));
 class BookingService {
     /**
      * Create a new booking
      */
     async createBooking(data) {
-        return prisma_js_1.default.booking.create({
+        return prisma_1.default.booking.create({
             data,
         });
     }
@@ -18,7 +18,7 @@ class BookingService {
      * Get booking by ID
      */
     async getBookingById(id) {
-        return prisma_js_1.default.booking.findUnique({
+        return prisma_1.default.booking.findUnique({
             where: { id },
             include: {
                 service: true,
@@ -45,14 +45,14 @@ class BookingService {
             where.startTime = { ...(startDate ? { gte: startDate } : {}), ...(endDate ? { lte: endDate } : {}) };
         }
         const [bookings, total] = await Promise.all([
-            prisma_js_1.default.booking.findMany({
+            prisma_1.default.booking.findMany({
                 where,
                 skip,
                 take: limit,
                 include: { service: true, customer: true, staff: true },
                 orderBy: { startTime: "desc" },
             }),
-            prisma_js_1.default.booking.count({ where }),
+            prisma_1.default.booking.count({ where }),
         ]);
         return { bookings, total };
     }
@@ -60,7 +60,7 @@ class BookingService {
      * Get bookings for a customer
      */
     async getCustomerBookings(userId) {
-        return prisma_js_1.default.booking.findMany({
+        return prisma_1.default.booking.findMany({
             where: { userId },
             include: { service: true, business: true, staff: true },
             orderBy: { startTime: "desc" },
@@ -70,7 +70,7 @@ class BookingService {
      * Update booking status
      */
     async updateBookingStatus(id, status) {
-        return prisma_js_1.default.booking.update({
+        return prisma_1.default.booking.update({
             where: { id },
             data: { status },
         });
@@ -79,7 +79,7 @@ class BookingService {
      * Update booking
      */
     async updateBooking(id, data) {
-        return prisma_js_1.default.booking.update({
+        return prisma_1.default.booking.update({
             where: { id },
             data,
         });
@@ -88,7 +88,7 @@ class BookingService {
      * Cancel booking
      */
     async cancelBooking(id) {
-        return prisma_js_1.default.booking.update({
+        return prisma_1.default.booking.update({
             where: { id },
             data: { status: "CANCELLED" },
         });
@@ -97,7 +97,7 @@ class BookingService {
      * Delete booking
      */
     async deleteBooking(id) {
-        return prisma_js_1.default.booking.delete({
+        return prisma_1.default.booking.delete({
             where: { id },
         });
     }
@@ -105,7 +105,7 @@ class BookingService {
     * Get available slots for a service on a specific date
     */
     async getAvailableSlots(serviceId, businessId, date, staffId) {
-        const service = await prisma_js_1.default.service.findUnique({
+        const service = await prisma_1.default.service.findUnique({
             where: { id: serviceId },
         });
         if (!service)
@@ -117,7 +117,7 @@ class BookingService {
         endOfDay.setHours(23, 59, 59, 999);
         // Get business hours for the day
         const dayOfWeek = date.getDay();
-        const businessHours = await prisma_js_1.default.businessHours.findUnique({
+        const businessHours = await prisma_1.default.businessHours.findUnique({
             where: {
                 businessId_dayOfWeek: {
                     businessId,
@@ -134,7 +134,7 @@ class BookingService {
         let staffStaffServices;
         if (staffId) {
             // If specific staff is selected, verify they're assigned to this service
-            staffStaffServices = await prisma_js_1.default.staffService.findMany({
+            staffStaffServices = await prisma_1.default.staffService.findMany({
                 where: {
                     staffId: staffId,
                     serviceId: serviceId
@@ -150,7 +150,7 @@ class BookingService {
         else {
             // If no staff selected, get all staff for this service and business
             // First get all StaffService records for this service
-            const allStaffServices = await prisma_js_1.default.staffService.findMany({
+            const allStaffServices = await prisma_1.default.staffService.findMany({
                 where: {
                     serviceId: serviceId
                 },
@@ -168,7 +168,7 @@ class BookingService {
         // Extract staff list
         const staffList = staffStaffServices.map((ss) => ss.staff);
         // Get all CONFIRMED bookings for the service on this date
-        const bookings = await prisma_js_1.default.booking.findMany({
+        const bookings = await prisma_1.default.booking.findMany({
             where: {
                 serviceId,
                 startTime: {
@@ -179,7 +179,7 @@ class BookingService {
             },
         });
         // Get timeoffs for all staff on this date
-        const timeOffs = await prisma_js_1.default.timeOff.findMany({
+        const timeOffs = await prisma_1.default.timeOff.findMany({
             where: {
                 staffId: {
                     in: staffList.map((s) => s.id)
@@ -236,7 +236,7 @@ class BookingService {
     async getBookingTrends(businessId, days = 30) {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
-        const bookings = await prisma_js_1.default.booking.findMany({
+        const bookings = await prisma_1.default.booking.findMany({
             where: {
                 businessId,
                 createdAt: { gte: startDate },

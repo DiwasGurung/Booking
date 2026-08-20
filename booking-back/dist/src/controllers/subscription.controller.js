@@ -3,21 +3,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const subscription_service_js_1 = __importDefault(require("../services/subscription.service.js"));
-const index_js_1 = require("../validators/index.js");
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
+const subscription_service_1 = __importDefault(require("../services/subscription.service"));
+const index_1 = require("../validators/index");
+const prisma_1 = __importDefault(require("../lib/prisma"));
 class SubscriptionController {
     /**
      * Create subscription with free trial
      */
     async createWithTrial(req, res) {
         try {
-            const validation = (0, index_js_1.parseAndValidate)(index_js_1.CreateSubscriptionTrialSchema, req.body);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_1.parseAndValidate)(index_1.CreateSubscriptionTrialSchema, req.body);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId, planId } = validation.data;
-            const subscription = await subscription_service_js_1.default.createSubscriptionWithTrial({
+            const subscription = await subscription_service_1.default.createSubscriptionWithTrial({
                 businessId,
                 planId,
             });
@@ -36,13 +36,13 @@ class SubscriptionController {
      */
     async getStatus(req, res) {
         try {
-            const validation = (0, index_js_1.parseAndValidate)(index_js_1.SubscriptionBusinessParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_1.parseAndValidate)(index_1.SubscriptionBusinessParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 console.error('[v0] Validation error for getStatus:', validation.error);
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId } = validation.data;
-            const status = await subscription_service_js_1.default.getSubscriptionStatus(businessId);
+            const status = await subscription_service_1.default.getSubscriptionStatus(businessId);
             // Return default subscription status if none exists (first-time user)
             if (!status.hasSubscription) {
                 return res.json({
@@ -66,12 +66,12 @@ class SubscriptionController {
      */
     async checkValidity(req, res) {
         try {
-            const validation = (0, index_js_1.parseAndValidate)(index_js_1.SubscriptionBusinessParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_1.parseAndValidate)(index_1.SubscriptionBusinessParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId } = validation.data;
-            const isValid = await subscription_service_js_1.default.isSubscriptionValid(businessId);
+            const isValid = await subscription_service_1.default.isSubscriptionValid(businessId);
             res.json({
                 businessId,
                 isValid,
@@ -87,17 +87,17 @@ class SubscriptionController {
      */
     async activate(req, res) {
         try {
-            const paramsValidation = (0, index_js_1.parseAndValidate)(index_js_1.SubscriptionParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(paramsValidation)) {
+            const paramsValidation = (0, index_1.parseAndValidate)(index_1.SubscriptionParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(paramsValidation)) {
                 return res.status(400).json({ message: paramsValidation.error });
             }
-            const bodyValidation = (0, index_js_1.parseAndValidate)(index_js_1.ActivateSubscriptionSchema, req.body);
-            if ((0, index_js_1.isValidationError)(bodyValidation)) {
+            const bodyValidation = (0, index_1.parseAndValidate)(index_1.ActivateSubscriptionSchema, req.body);
+            if ((0, index_1.isValidationError)(bodyValidation)) {
                 return res.status(400).json({ message: bodyValidation.error });
             }
             const { subscriptionId } = paramsValidation.data;
             const { paymentId, durationDays } = bodyValidation.data;
-            const subscription = await subscription_service_js_1.default.activateSubscription(subscriptionId, {
+            const subscription = await subscription_service_1.default.activateSubscription(subscriptionId, {
                 paymentId,
                 durationDays,
             });
@@ -116,12 +116,12 @@ class SubscriptionController {
      */
     async checkTrialExpiration(req, res) {
         try {
-            const validation = (0, index_js_1.parseAndValidate)(index_js_1.SubscriptionBusinessParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_1.parseAndValidate)(index_1.SubscriptionBusinessParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId } = validation.data;
-            const expired = await subscription_service_js_1.default.hasTrialExpired(businessId);
+            const expired = await subscription_service_1.default.hasTrialExpired(businessId);
             res.json({
                 businessId,
                 trialExpired: expired,
@@ -137,8 +137,8 @@ class SubscriptionController {
      */
     async cancelSubscription(req, res) {
         try {
-            const validation = (0, index_js_1.parseAndValidate)(index_js_1.SubscriptionParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_1.parseAndValidate)(index_1.SubscriptionParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
             const { subscriptionId } = validation.data;
@@ -146,7 +146,7 @@ class SubscriptionController {
             if (!userId) {
                 return res.status(401).json({ message: 'Unauthorized' });
             }
-            const result = await subscription_service_js_1.default.cancelSubscription({
+            const result = await subscription_service_1.default.cancelSubscription({
                 subscriptionId,
                 userId,
             });
@@ -165,7 +165,7 @@ class SubscriptionController {
      */
     async getExpired(req, res) {
         try {
-            const subscriptions = await subscription_service_js_1.default.getExpiredSubscriptions();
+            const subscriptions = await subscription_service_1.default.getExpiredSubscriptions();
             res.json({
                 count: subscriptions.length,
                 subscriptions,
@@ -181,7 +181,7 @@ class SubscriptionController {
      */
     async getExpiringSoon(req, res) {
         try {
-            const subscriptions = await subscription_service_js_1.default.getExpiringSoonSubscriptions();
+            const subscriptions = await subscription_service_1.default.getExpiringSoonSubscriptions();
             res.json({
                 count: subscriptions.length,
                 subscriptions,
@@ -199,12 +199,12 @@ class SubscriptionController {
      */
     async checkAppointmentLimit(req, res) {
         try {
-            const validation = (0, index_js_1.parseAndValidate)(index_js_1.SubscriptionBusinessParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_1.parseAndValidate)(index_1.SubscriptionBusinessParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId } = validation.data;
-            const result = await subscription_service_js_1.default.canAddAppointment(businessId);
+            const result = await subscription_service_1.default.canAddAppointment(businessId);
             res.json(result);
         }
         catch (error) {
@@ -217,12 +217,12 @@ class SubscriptionController {
      */
     async checkStaffLimit(req, res) {
         try {
-            const validation = (0, index_js_1.parseAndValidate)(index_js_1.SubscriptionBusinessParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_1.parseAndValidate)(index_1.SubscriptionBusinessParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId } = validation.data;
-            const result = await subscription_service_js_1.default.canAddStaff(businessId);
+            const result = await subscription_service_1.default.canAddStaff(businessId);
             res.json(result);
         }
         catch (error) {
@@ -235,12 +235,12 @@ class SubscriptionController {
      */
     async checkServiceLimit(req, res) {
         try {
-            const validation = (0, index_js_1.parseAndValidate)(index_js_1.SubscriptionBusinessParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_1.parseAndValidate)(index_1.SubscriptionBusinessParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId } = validation.data;
-            const result = await subscription_service_js_1.default.canAddService(businessId);
+            const result = await subscription_service_1.default.canAddService(businessId);
             res.json(result);
         }
         catch (error) {
@@ -253,12 +253,12 @@ class SubscriptionController {
      */
     async getUsageDetails(req, res) {
         try {
-            const validation = (0, index_js_1.parseAndValidate)(index_js_1.SubscriptionBusinessParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_1.parseAndValidate)(index_1.SubscriptionBusinessParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ success: false, message: validation.error });
             }
             const { businessId } = validation.data;
-            const usage = await subscription_service_js_1.default.getUsageDetails(businessId);
+            const usage = await subscription_service_1.default.getUsageDetails(businessId);
             if (!usage) {
                 return res.status(404).json({ success: false, message: 'No subscription found for this business' });
             }
@@ -290,7 +290,7 @@ class SubscriptionController {
      */
     async getAllPlans(req, res) {
         try {
-            const plans = await prisma_js_1.default.subscriptionPlan.findMany({
+            const plans = await prisma_1.default.subscriptionPlan.findMany({
                 where: { active: true },
                 orderBy: { priceNPR: 'asc' },
             });
@@ -309,12 +309,12 @@ class SubscriptionController {
      */
     async upgrade(req, res) {
         try {
-            const validation = (0, index_js_1.parseAndValidate)(index_js_1.UpgradeSubscriptionSchema, req.body);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_1.parseAndValidate)(index_1.UpgradeSubscriptionSchema, req.body);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId, newPlanId, paymentId } = validation.data;
-            const subscription = await subscription_service_js_1.default.upgradeSubscription(businessId, newPlanId, paymentId);
+            const subscription = await subscription_service_1.default.upgradeSubscription(businessId, newPlanId, paymentId);
             res.json({
                 message: 'Subscription upgraded successfully',
                 subscription,
@@ -330,12 +330,12 @@ class SubscriptionController {
      */
     async downgrade(req, res) {
         try {
-            const validation = (0, index_js_1.parseAndValidate)(index_js_1.DowngradeSubscriptionSchema, req.body);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_1.parseAndValidate)(index_1.DowngradeSubscriptionSchema, req.body);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId, newPlanId, paymentId } = validation.data;
-            const subscription = await subscription_service_js_1.default.downgradeSubscription(businessId, newPlanId, paymentId);
+            const subscription = await subscription_service_1.default.downgradeSubscription(businessId, newPlanId, paymentId);
             res.json({
                 message: 'Subscription downgraded successfully. Changes take effect on next billing cycle.',
                 subscription,
@@ -351,12 +351,12 @@ class SubscriptionController {
      */
     async renew(req, res) {
         try {
-            const validation = (0, index_js_1.parseAndValidate)(index_js_1.RenewSubscriptionSchema, req.body);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_1.parseAndValidate)(index_1.RenewSubscriptionSchema, req.body);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
             const { subscriptionId, paymentId, durationDays } = validation.data;
-            const subscription = await subscription_service_js_1.default.renewSubscription(subscriptionId, paymentId, durationDays || 30);
+            const subscription = await subscription_service_1.default.renewSubscription(subscriptionId, paymentId, durationDays || 30);
             res.json({
                 message: 'Subscription renewed successfully',
                 subscription,
@@ -372,12 +372,12 @@ class SubscriptionController {
      */
     async getNextRenewal(req, res) {
         try {
-            const validation = (0, index_js_1.parseAndValidate)(index_js_1.SubscriptionBusinessParamsSchema, req.params);
-            if ((0, index_js_1.isValidationError)(validation)) {
+            const validation = (0, index_1.parseAndValidate)(index_1.SubscriptionBusinessParamsSchema, req.params);
+            if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
             const { businessId } = validation.data;
-            const renewalDate = await subscription_service_js_1.default.getNextRenewalDate(businessId);
+            const renewalDate = await subscription_service_1.default.getNextRenewalDate(businessId);
             res.json({
                 businessId,
                 nextRenewalDate: renewalDate,

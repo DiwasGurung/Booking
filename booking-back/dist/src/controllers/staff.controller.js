@@ -4,21 +4,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getStaffBookingsByDate = exports.addTimeOff = exports.getTimeOff = exports.getStaffAuthenticatedBookings = exports.getStaffBookings = exports.getStaffByCode = exports.getStaffStats = exports.getStaffAvailability = exports.toggleStaffStatus = exports.deleteStaff = exports.updateStaff = exports.getStaffPerformance = exports.getStaffForService = exports.getBusinessStaff = exports.getStaffById = exports.createStaff = void 0;
-const staff_service_js_1 = __importDefault(require("../services/staff.service.js"));
-const index_js_1 = require("../validators/index.js");
-const subscription_service_js_1 = __importDefault(require("../services/subscription.service.js"));
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
+const staff_service_1 = __importDefault(require("../services/staff.service"));
+const index_1 = require("../validators/index");
+const subscription_service_1 = __importDefault(require("../services/subscription.service"));
+const prisma_1 = __importDefault(require("../lib/prisma"));
 /**
  * Create a new staff member
  */
 const createStaff = async (req, res) => {
     try {
-        const validation = (0, index_js_1.parseAndValidate)(index_js_1.CreateStaffSchema, req.body);
+        const validation = (0, index_1.parseAndValidate)(index_1.CreateStaffSchema, req.body);
         if (!validation.success) {
             return res.status(400).json({ error: validation.error });
         }
         // Check subscription staff limit
-        const staffLimit = await subscription_service_js_1.default.canAddStaff(validation.data.businessId);
+        const staffLimit = await subscription_service_1.default.canAddStaff(validation.data.businessId);
         if (!staffLimit.allowed) {
             console.warn('[v0] Staff limit exceeded for business:', validation.data.businessId);
             return res.status(429).json({
@@ -29,7 +29,7 @@ const createStaff = async (req, res) => {
                 overLimit: true,
             });
         }
-        const staff = await staff_service_js_1.default.createStaff(validation.data);
+        const staff = await staff_service_1.default.createStaff(validation.data);
         res.status(201).json({ success: true, staff });
     }
     catch (error) {
@@ -43,11 +43,11 @@ exports.createStaff = createStaff;
  */
 const getStaffById = async (req, res) => {
     try {
-        const validation = (0, index_js_1.parseAndValidate)(index_js_1.StaffParamsSchema, req.params);
+        const validation = (0, index_1.parseAndValidate)(index_1.StaffParamsSchema, req.params);
         if (!validation.success) {
             return res.status(400).json({ error: validation.error });
         }
-        const staff = await staff_service_js_1.default.getStaffById(validation.data.staffId);
+        const staff = await staff_service_1.default.getStaffById(validation.data.staffId);
         if (!staff) {
             return res.status(404).json({ error: "Staff not found" });
         }
@@ -64,12 +64,12 @@ exports.getStaffById = getStaffById;
  */
 const getBusinessStaff = async (req, res) => {
     try {
-        const validation = (0, index_js_1.parseAndValidate)(index_js_1.BusinessIdParamsSchema, req.params);
+        const validation = (0, index_1.parseAndValidate)(index_1.BusinessIdParamsSchema, req.params);
         if (!validation.success) {
             return res.status(400).json({ error: validation.error });
         }
         const includeInactive = req.query.includeInactive === "true";
-        const staff = await staff_service_js_1.default.getBusinessStaff(validation.data.businessId, includeInactive);
+        const staff = await staff_service_1.default.getBusinessStaff(validation.data.businessId, includeInactive);
         res.json({ staff });
     }
     catch (error) {
@@ -84,7 +84,7 @@ exports.getBusinessStaff = getBusinessStaff;
 const getStaffForService = async (req, res) => {
     try {
         const serviceId = req.params.serviceId;
-        const staff = await staff_service_js_1.default.getStaffForService(serviceId);
+        const staff = await staff_service_1.default.getStaffForService(serviceId);
         res.json({ staff });
     }
     catch (error) {
@@ -100,22 +100,25 @@ exports.getStaffForService = getStaffForService;
 const getStaffPerformance = async (req, res) => {
     try {
         const staffId = req.params.staffId;
-        const staffMember = await prisma_js_1.default.staff.findUnique({ where: { id: staffId }, select: { businessId: true } });
+        const staffMember = await prisma_1.default.staff.findUnique({ where: { id: staffId }, select: { businessId: true } });
         if (!staffMember)
             return res.status(404).json({ error: 'Staff member not found' });
-        const subscription = await subscription_service_js_1.default.getSubscriptionStatus(staffMember.businessId);
-        if (!subscription.hasSubscription || !subscription.planName?.toLowerCase().includes('enterprise')) {
+        const subscription = await subscription_service_1.default.getSubscriptionStatus(staffMember.businessId);
+        const planName = String(subscription?.planName || '').trim().toLowerCase();
+        const isEnterprise = planName.includes('enterprise');
+        const hasAccess = isEnterprise && (subscription?.hasSubscription === true || subscription?.status === 'ACTIVE' || subscription?.status === 'CANCELLED');
+        if (!hasAccess) {
             return res.status(403).json({ error: 'Staff performance analytics require an Enterprise subscription' });
         }
         const startDate = typeof req.query.startDate === 'string' ? new Date(req.query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
         const endDate = typeof req.query.endDate === 'string' ? new Date(req.query.endDate) : new Date();
         const dateFilter = { gte: startDate, lte: endDate };
         const [totalBookings, servedCustomers, pendingBookings, unverifiedBookings, customers] = await Promise.all([
-            prisma_js_1.default.booking.count({ where: { staffId, startTime: dateFilter } }),
-            prisma_js_1.default.booking.count({ where: { staffId, status: 'COMPLETED', startTime: dateFilter } }),
-            prisma_js_1.default.booking.count({ where: { staffId, status: 'PENDING', startTime: dateFilter } }),
-            prisma_js_1.default.booking.count({ where: { staffId, isEmailVerified: false, startTime: dateFilter } }),
-            prisma_js_1.default.booking.findMany({ where: { staffId, startTime: dateFilter }, distinct: ['customerEmail'], select: { customerEmail: true } }),
+            prisma_1.default.booking.count({ where: { staffId, startTime: dateFilter } }),
+            prisma_1.default.booking.count({ where: { staffId, status: 'COMPLETED', startTime: dateFilter } }),
+            prisma_1.default.booking.count({ where: { staffId, status: 'PENDING', startTime: dateFilter } }),
+            prisma_1.default.booking.count({ where: { staffId, isEmailVerified: false, startTime: dateFilter } }),
+            prisma_1.default.booking.findMany({ where: { staffId, startTime: dateFilter }, distinct: ['customerEmail'], select: { customerEmail: true } }),
         ]);
         res.json({
             totalBookings,
@@ -141,7 +144,7 @@ const updateStaff = async (req, res) => {
     try {
         const id = req.params.id;
         const { firstName, lastName, email, phone, avatar, role, isActive, workingHours, breakTimes, serviceIds } = req.body;
-        const staff = await staff_service_js_1.default.updateStaff(id, {
+        const staff = await staff_service_1.default.updateStaff(id, {
             firstName,
             lastName,
             email,
@@ -167,7 +170,7 @@ exports.updateStaff = updateStaff;
 const deleteStaff = async (req, res) => {
     try {
         const id = req.params.id;
-        await staff_service_js_1.default.deleteStaff(id);
+        await staff_service_1.default.deleteStaff(id);
         res.json({ success: true, message: "Staff member deleted" });
     }
     catch (error) {
@@ -182,7 +185,7 @@ exports.deleteStaff = deleteStaff;
 const toggleStaffStatus = async (req, res) => {
     try {
         const id = req.params.id;
-        const staff = await staff_service_js_1.default.toggleStaffStatus(id);
+        const staff = await staff_service_1.default.toggleStaffStatus(id);
         res.json({ success: true, staff });
     }
     catch (error) {
@@ -201,7 +204,7 @@ const getStaffAvailability = async (req, res) => {
         if (!date || !duration) {
             return res.status(400).json({ error: "Date and duration are required" });
         }
-        const slots = await staff_service_js_1.default.getStaffAvailability(staffId, new Date(date), parseInt(duration, 10));
+        const slots = await staff_service_1.default.getStaffAvailability(staffId, new Date(date), parseInt(duration, 10));
         res.json({ slots });
     }
     catch (error) {
@@ -217,7 +220,7 @@ const getStaffStats = async (req, res) => {
     try {
         const staffId = req.params.staffId;
         const { startDate, endDate } = req.query;
-        const stats = await staff_service_js_1.default.getStaffStats(staffId, startDate ? new Date(startDate) : undefined, endDate ? new Date(endDate) : undefined);
+        const stats = await staff_service_1.default.getStaffStats(staffId, startDate ? new Date(startDate) : undefined, endDate ? new Date(endDate) : undefined);
         res.json({ stats });
     }
     catch (error) {
@@ -235,7 +238,7 @@ const getStaffByCode = async (req, res) => {
         if (!staffCode) {
             return res.status(400).json({ error: "Staff code is required" });
         }
-        const staff = await staff_service_js_1.default.getStaffByCode(staffCode);
+        const staff = await staff_service_1.default.getStaffByCode(staffCode);
         if (!staff) {
             return res.status(404).json({ error: "Staff member not found" });
         }
@@ -256,7 +259,7 @@ const getStaffBookings = async (req, res) => {
         if (!staffCode) {
             return res.status(400).json({ error: "Staff code is required" });
         }
-        const result = await staff_service_js_1.default.getBookingsByStaffCode(staffCode);
+        const result = await staff_service_1.default.getBookingsByStaffCode(staffCode);
         if (!result) {
             return res.status(404).json({ error: "Staff member not found" });
         }
@@ -279,7 +282,7 @@ const getStaffAuthenticatedBookings = async (req, res) => {
         if (staffId !== requestingStaffId) {
             return res.status(403).json({ error: "Unauthorized: You can only view your own bookings" });
         }
-        const bookings = await prisma_js_1.default.booking.findMany({
+        const bookings = await prisma_1.default.booking.findMany({
             where: {
                 staffId,
                 status: "CONFIRMED",
@@ -325,7 +328,7 @@ const getTimeOff = async (req, res) => {
             return res.status(400).json({ error: "Staff ID is required" });
         }
         // Verify staff exists
-        const staff = await prisma_js_1.default.staff.findUnique({
+        const staff = await prisma_1.default.staff.findUnique({
             where: { id: staffId },
         });
         if (!staff) {
@@ -351,7 +354,7 @@ const getTimeOff = async (req, res) => {
                 },
             ];
         }
-        const timeOffs = await prisma_js_1.default.timeOff.findMany({
+        const timeOffs = await prisma_1.default.timeOff.findMany({
             where: whereClause,
             orderBy: { startDate: "asc" },
         });
@@ -384,7 +387,7 @@ const addTimeOff = async (req, res) => {
             return res.status(400).json({ error: "Staff ID, start date, and end date are required" });
         }
         // Verify staff exists
-        const staff = await prisma_js_1.default.staff.findUnique({
+        const staff = await prisma_1.default.staff.findUnique({
             where: { id: staffId },
         });
         if (!staff) {
@@ -406,7 +409,7 @@ const addTimeOff = async (req, res) => {
             });
         }
         // Use createMany for bulk insert
-        const result = await prisma_js_1.default.timeOff.createMany({
+        const result = await prisma_1.default.timeOff.createMany({
             data: timeOffs,
             skipDuplicates: true,
         });
@@ -433,7 +436,7 @@ const getStaffBookingsByDate = async (req, res) => {
             return res.status(400).json({ error: "Staff code and date are required" });
         }
         // Verify staff exists
-        const staff = await prisma_js_1.default.staff.findUnique({
+        const staff = await prisma_1.default.staff.findUnique({
             where: { staffCode },
         });
         if (!staff) {
@@ -447,7 +450,7 @@ const getStaffBookingsByDate = async (req, res) => {
         const dayEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
         // Fetch bookings for this staff member on the specified date
         // Include both PENDING and CONFIRMED bookings to block time slots for guests
-        const bookings = await prisma_js_1.default.booking.findMany({
+        const bookings = await prisma_1.default.booking.findMany({
             where: {
                 staffId: staff.id,
                 startTime: {

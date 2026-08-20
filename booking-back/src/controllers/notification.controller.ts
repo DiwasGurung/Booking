@@ -1,5 +1,5 @@
 import { Request, Response } from "express"
-import NotificationService from "../services/notification.service.js"
+import NotificationService from "../services/notification.service"
 
 class NotificationController {
   /**

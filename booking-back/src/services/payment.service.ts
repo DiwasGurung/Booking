@@ -1,4 +1,4 @@
-import  prisma  from "../lib/prisma.js"
+import  prisma  from "../lib/prisma"
 import type { Payment, PaymentStatus, Prisma } from "@prisma/client"
 export class PaymentService {
   

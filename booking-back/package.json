@@ -4,18 +4,17 @@
   "description": "",
   "main": "dist/src/index.js",
   "scripts": {
-  "prisma": "prisma",
-  "vercel-build": "prisma generate && tsc",
-  "build": "tsc",
-  "start": "node dist/src/index.js",
-  "dev": "tsx src/index.ts",
-  "clean": "rimraf dist node_modules/.cache"
-},
+    "prisma": "prisma",
+    "vercel-build": "prisma generate && tsc",
+    "build": "tsc",
+    "start": "node dist/src/index.js",
+    "dev": "tsx src/index.ts",
+    "clean": "rimraf dist node_modules/.cache"
+  },
   "prisma": {
     "seed": "tsx scripts/seed-plans.ts"
   },
   "dependencies": {
-    "dotenv": "^17.4.2",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "bcrypt": "^6.0.0",
@@ -23,6 +22,7 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "deep-email-validator": "^0.1.27",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firebase": "^12.12.1",
     "firebase-admin": "^13.8.0",
@@ -47,7 +47,6 @@
     "@types/pg": "^8.20.0",
     "@types/web-push": "^3.6.4",
     "cross-env": "^7.0.0",
-    
     "esbuild": "^0.28.1",
     "nodemon": "^3.1.11",
     "prisma": "^7.8.0",

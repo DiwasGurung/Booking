@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express'
-import { staffVerificationService } from '../services/staff-verification.service.js'
-import { parseAndValidate, isValidationError } from '../validators/index.js'
+import { staffVerificationService } from '../services/staff-verification.service'
+import { parseAndValidate, isValidationError } from '../validators/index'
 import z from 'zod'
 
 const staffVerificationRoutes = express.Router()

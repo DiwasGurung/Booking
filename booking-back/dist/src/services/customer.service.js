@@ -4,13 +4,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CustomerService = void 0;
-const prisma_js_1 = __importDefault(require("../lib/prisma.js"));
+const prisma_1 = __importDefault(require("../lib/prisma"));
 class CustomerService {
     /**
      * Create a new customer
      */
     async createCustomer(data) {
-        return prisma_js_1.default.customer.create({
+        return prisma_1.default.customer.create({
             data,
         });
     }
@@ -18,7 +18,7 @@ class CustomerService {
      * Enterprise customer observations and visit-frequency loyalty insights.
      */
     async getBusinessInsights(businessId) {
-        const customers = await prisma_js_1.default.customer.findMany({
+        const customers = await prisma_1.default.customer.findMany({
             where: { businessId },
             select: {
                 id: true, name: true, email: true, notes: true,
@@ -38,7 +38,7 @@ class CustomerService {
      * Get customer by ID
      */
     async getCustomerById(id) {
-        return prisma_js_1.default.customer.findUnique({
+        return prisma_1.default.customer.findUnique({
             where: { id },
             include: {
                 bookings: true,
@@ -51,14 +51,14 @@ class CustomerService {
     async getBusinessCustomers(businessId, page = 1, limit = 10) {
         const skip = (page - 1) * limit;
         const [customers, total] = await Promise.all([
-            prisma_js_1.default.customer.findMany({
+            prisma_1.default.customer.findMany({
                 where: { businessId },
                 skip,
                 take: limit,
                 include: { _count: { select: { bookings: true } } },
                 orderBy: { lastVisit: "desc" },
             }),
-            prisma_js_1.default.customer.count({ where: { businessId } }),
+            prisma_1.default.customer.count({ where: { businessId } }),
         ]);
         return { customers, total };
     }
@@ -66,7 +66,7 @@ class CustomerService {
      * Update customer
      */
     async updateCustomer(id, data) {
-        return prisma_js_1.default.customer.update({
+        return prisma_1.default.customer.update({
             where: { id },
             data,
         });
@@ -75,7 +75,7 @@ class CustomerService {
      * Delete customer
      */
     async deleteCustomer(id) {
-        return prisma_js_1.default.customer.delete({
+        return prisma_1.default.customer.delete({
             where: { id },
         });
     }
@@ -83,7 +83,7 @@ class CustomerService {
      * Get or create customer
      */
     async getOrCreateCustomer(data) {
-        return prisma_js_1.default.customer.upsert({
+        return prisma_1.default.customer.upsert({
             where: {
                 businessId_email: {
                     businessId: data.businessId,
@@ -98,7 +98,7 @@ class CustomerService {
         });
     }
     async getCustomerStats(customerId) {
-        const customer = await prisma_js_1.default.customer.findUnique({
+        const customer = await prisma_1.default.customer.findUnique({
             where: { id: customerId },
             include: {
                 bookings: true,
@@ -121,7 +121,7 @@ class CustomerService {
      * Search customers
      */
     async searchCustomers(businessId, query, limit = 10) {
-        return prisma_js_1.default.customer.findMany({
+        return prisma_1.default.customer.findMany({
             where: {
                 businessId,
                 OR: [

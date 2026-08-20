@@ -1,5 +1,5 @@
 import { Request, Response } from "express"
-import NotificationSSEService from "../services/notification-sse.service.js"
+import NotificationSSEService from "../services/notification-sse.service"
 
 class NotificationSSEController {
   /**

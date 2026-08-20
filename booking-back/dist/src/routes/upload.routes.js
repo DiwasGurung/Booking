@@ -7,7 +7,7 @@ const express_1 = require("express");
 const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
-const auth_middleware_js_1 = require("../middleware/auth.middleware.js");
+const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 // Configure multer for file storage
 const storage = multer_1.default.diskStorage({
@@ -80,7 +80,7 @@ const upload = (0, multer_1.default)({
  * @desc Upload a business document (registration certificate, PAN, etc.)
  * @access Private
  */
-router.post('/document', auth_middleware_js_1.auth, upload.single('file'), async (req, res) => {
+router.post('/document', auth_middleware_1.auth, upload.single('file'), async (req, res) => {
     try {
         const userId = req.user?.id || req.userId;
         if (!userId) {
@@ -121,7 +121,7 @@ router.post('/document', auth_middleware_js_1.auth, upload.single('file'), async
  * @desc Delete an uploaded document
  * @access Private
  */
-router.delete('/document/:filename', auth_middleware_js_1.auth, async (req, res) => {
+router.delete('/document/:filename', auth_middleware_1.auth, async (req, res) => {
     try {
         const userId = req.user?.id || req.userId;
         if (!userId) {
@@ -148,7 +148,7 @@ router.delete('/document/:filename', auth_middleware_js_1.auth, async (req, res)
  * @desc Upload a business logo
  * @access Private
  */
-router.post('/logo', auth_middleware_js_1.auth, logoUpload.single('logo'), async (req, res) => {
+router.post('/logo', auth_middleware_1.auth, logoUpload.single('logo'), async (req, res) => {
     try {
         const userId = req.user?.id || req.userId;
         if (!userId) {
@@ -182,7 +182,7 @@ router.post('/logo', auth_middleware_js_1.auth, logoUpload.single('logo'), async
  * @desc Delete a business logo
  * @access Private
  */
-router.delete('/logo/:filename', auth_middleware_js_1.auth, async (req, res) => {
+router.delete('/logo/:filename', auth_middleware_1.auth, async (req, res) => {
     try {
         const userId = req.user?.id || req.userId;
         if (!userId) {

@@ -2,26 +2,27 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import userRoutes from "./routes/user.routes.js"; // Adjust path if needed
-import bookingRoutes from "./routes/booking.routes.js";
-import businessRoutes from "./routes/business.routes.js";
-import customerRoutes from "./routes/customer.routes.js";
-import businessHoursRoutes from "./routes/businessHours.routes.js";
-import notificationRoutes from "./routes/notification.routes.js";
-import paymentRoutes from "./routes/payment.routes.js";
-import reviewRoutes from "./routes/review.routes.js";
-import serviceRoutes from "./routes/service.routes.js";
+import userRoutes from "./routes/user.routes"; // Adjust path if needed
+import bookingRoutes from "./routes/booking.routes";
+import businessRoutes from "./routes/business.routes";
+import customerRoutes from "./routes/customer.routes";
+import businessHoursRoutes from "./routes/businessHours.routes";
+import notificationRoutes from "./routes/notification.routes";
+import paymentRoutes from "./routes/payment.routes";
+import reviewRoutes from "./routes/review.routes";
+import serviceRoutes from "./routes/service.routes";
 import cookieParser from "cookie-parser";
-import authRoutes from './routes/auth.routes.js'
-import sseRoutes from "./routes/sse.routes.js";
-import subscriptionRoutes from "./routes/subscription.routes.js";
-import seedRoutes from "./routes/seed.routes.js"
-import pushSubscriptionRoutes from "./routes/push-subscription.route.js"
-import staffRoutes from "./routes/staff.routes.js" 
-import subscriptionPaymentRoutes from "./routes/subscription-payment.routes.js"
-import uploadRoutes from "./routes/upload.routes.js"
-import StaffAuthRoutes from "./routes/staff-auth.routes.js"
-import staffVerificationRoutes from "./routes/staff-verification.routes.js"
+import authRoutes from './routes/auth.routes'
+import sseRoutes from "./routes/sse.routes";
+import subscriptionRoutes from "./routes/subscription.routes";
+import seedRoutes from "./routes/seed.routes";
+import pushSubscriptionRoutes from "./routes/push-subscription.route";
+import staffRoutes from "./routes/staff.routes"; 
+import subscriptionPaymentRoutes from "./routes/subscription-payment.routes";
+import uploadRoutes from "./routes/upload.routes";
+import StaffAuthRoutes from "./routes/staff-auth.routes";
+import staffVerificationRoutes from "./routes/staff-verification.routes";
+import { emailService } from "./services/email.service";
 
 
 dotenv.config();
@@ -101,4 +102,13 @@ app.use( (req, res) => {
 
 
 app.listen(PORT, () => {
+
+  emailService.verifyTransporter()
+    .then(({ host, port, user }) => console.log(`[Email Service] SMTP ready: ${host}:${port} (${user})`))
+    .catch((error: any) => console.error('[Email Service] SMTP verification failed:', {
+      code: error.code,
+      responseCode: error.responseCode,
+      command: error.command,
+      message: error.message,
+    }))
 });
