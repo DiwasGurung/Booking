@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { Card } from '@/components/ui/card'
 import { AlertCircle, ArrowLeft, BarChart3, CalendarDays, CheckCircle2, Loader2, Users, type LucideIcon } from 'lucide-react'
-import { staffApi, subscriptionApi, type Staff, type StaffPerformance } from '@/lib/api'
+import { staffApi, type Staff, type StaffPerformance } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
 
 export default function StaffPerformancePage() {
@@ -17,7 +17,7 @@ export default function StaffPerformancePage() {
   const [performance, setPerformance] = useState<StaffPerformance | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isEnterprise, setIsEnterprise] = useState(false)
+  const [needsUpgrade, setNeedsUpgrade] = useState(false)
 
   const dates = useMemo(() => {
     const end = new Date()
@@ -31,27 +31,38 @@ export default function StaffPerformancePage() {
 
   useEffect(() => {
     if (!businessId) return
-    Promise.all([staffApi.getBusinessStaff(businessId), subscriptionApi.getStatus(businessId)])
-      .then(([staffResponse, subscriptionResponse]) => {
-        const members = staffResponse.data?.staff || []
+    staffApi.getBusinessStaff(businessId)
+      .then(response => {
+        const members = response.data?.staff || []
         setStaff(members)
         setStaffId(current => current || members[0]?.id || '')
-        const subscription = subscriptionResponse.data
-        const planName = String(subscription?.planName || subscription?.planName || '').trim().toLowerCase()
-         const isActive = subscription?.status === 'ACTIVE' || subscription?.status === 'CANCELLED' || subscription?.hasSubscription === true
-        setIsEnterprise(Boolean(isActive && planName.includes('enterprise')))
       })
-      .catch(() => setError('Unable to load staff performance.'))
-      .finally(() => setLoading(false))
+      .catch(() => setStaff([]))
   }, [businessId])
 
+  // Access is enforced by the backend; the UI reacts to the actual response.
   useEffect(() => {
-    if (!staffId || !isEnterprise) return
+    if (!staffId) { setLoading(false); return }
+    setLoading(true)
     setError(null)
     staffApi.getPerformance(staffId, dates.start, dates.end)
-      .then(response => setPerformance(response.data || null))
+      .then(response => {
+        if (response.data) {
+          setPerformance(response.data)
+          setNeedsUpgrade(false)
+          return
+        }
+        if (response.error && response.error.toLowerCase().includes('enterprise')) {
+          setNeedsUpgrade(true)
+          setPerformance(null)
+          return
+        }
+        setPerformance(null)
+        setError(response.error || 'Unable to load performance for this period.')
+      })
       .catch(() => { setPerformance(null); setError('Unable to load performance for this period.') })
-  }, [staffId, dates, isEnterprise])
+      .finally(() => setLoading(false))
+  }, [staffId, dates])
 
   const selectedStaff = staff.find(member => member.id === staffId)
   const metrics: Array<{ label: string; value: string | number; Icon: LucideIcon }> = performance ? [
@@ -75,7 +86,7 @@ export default function StaffPerformancePage() {
           <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm"><BarChart3 className="h-5 w-5 text-blue-600" />Enterprise analytics</div>
         </div>
 
-        {!businessLoading && !loading && !isEnterprise ? (
+        {!businessLoading && needsUpgrade ? (
           <Card className="border-amber-200 bg-amber-50 p-6"><h2 className="font-semibold text-amber-950">Performance analytics require Enterprise</h2><p className="mt-1 text-sm text-amber-800">Upgrade to compare staff activity and completion rates.</p><Link href="/dashboard/subscription" className="mt-4 inline-block text-sm font-semibold text-amber-950 underline">View plans</Link></Card>
         ) : (
           <>
