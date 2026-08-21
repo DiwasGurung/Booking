@@ -1,12 +1,14 @@
 import nodemailer from 'nodemailer'
 import { validate } from 'deep-email-validator'
 
-// 1. Point to your new custom environment variables
 const emailUser = process.env.EMAIL_USER || ''
 const emailPassword = process.env.EMAIL_PASSWORD || ''
 const emailHost = process.env.EMAIL_HOST || ''
 const emailPort = Number(process.env.EMAIL_PORT || 465)
-const emailFrom = process.env.EMAIL_FROM || emailUser
+// The From header MUST use the authenticated mailbox address, otherwise
+// cPanel/Nest Nepal mail servers drop or spam-file the message.
+const rawFrom = process.env.EMAIL_FROM || emailUser
+const emailFrom = rawFrom.includes(emailUser) ? rawFrom : `Appoint-Nepal <${emailUser}>`
 const businessTimeZone = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
 
 const formatBookingDate = (value: Date, options: Intl.DateTimeFormatOptions) =>
@@ -18,36 +20,32 @@ let transporter: nodemailer.Transporter | null = null
 const initializeTransporter = () => {
   if (transporter) return transporter
 
-  transporter = nodemailer.createTransport({
-   host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT) || 465,
-  secure: true, // Crucial: Must be true for port 465
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-  // Add this block to allow Nest Nepal's self-signed certificates
-  tls: {
-    rejectUnauthorized: false
+  if (!emailHost || !emailUser || !emailPassword) {
+    throw new Error('EMAIL_HOST, EMAIL_USER, and EMAIL_PASSWORD must be configured')
   }
-  })
 
-  // Verify connection
-  transporter.verify((error, success) => {
-    if (error) {
-      console.error('[Email Service] Connection error. Please check your EMAIL_USER and EMAIL_PASSWORD environment variables:', error.message)
-      console.error('[Email Setup] Make sure you are using a Gmail App Password, not your regular password.')
-      console.error('[Email Setup] See: https://support.google.com/accounts/answer/185833')
-    } else {
+
+  transporter = nodemailer.createTransport(
+    {
+      host: emailHost,
+      port: emailPort,
+      secure: emailPort === 465,
+      auth: { user: emailUser, pass: emailPassword },
+      // Nest Nepal shared hosting mail servers often present self-signed certs.
+      tls: { rejectUnauthorized: false },
+    },
+    {
+      // Force every message's From + envelope sender to the authenticated mailbox.
+      from: emailFrom,
+      sender: emailUser,
+      replyTo: emailFrom,
     }
-  })
+  )
 
   return transporter
 }
 
-
 export const emailService = {
-
   /** Verify the Nest Nepal SMTP connection before sending mail. */
   async verifyTransporter() {
     const smtp = initializeTransporter()
@@ -55,73 +53,6 @@ export const emailService = {
     return { host: emailHost, port: emailPort, user: emailUser }
   },
 
-  /**
-   * Send verification email to customer for public booking
-   */
-  async sendVerificationCustomerEmail(email: string, verificationToken: string, bookingDetails: {
-    customerName: string
-    serviceName: string
-    date: string
-    time: string
-    staffName?: string
-  }): Promise<boolean> {
-    try {
-      const transporter = initializeTransporter()
-
-      const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/book/verify/${verificationToken}`
-
-      const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h2 style="color: #333; margin: 0;">Verify Your Booking</h2>
-          </div>
-
-          <p style="color: #555; font-size: 16px;">Hi ${bookingDetails.customerName},</p>
-
-          <p style="color: #555; line-height: 1.6;">
-            Thank you for booking with us! To confirm your appointment, please verify your email address by clicking the button below.
-          </p>
-
-          <div style="margin: 30px 0; text-align: center;">
-            <a href="${verificationLink}" style="background-color: #007bff; color: white; padding: 12px 32px; text-decoration: none; border-radius: 4px; font-size: 16px; display: inline-block;">
-              Verify Email & Confirm Booking
-            </a>
-          </div>
-
-          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; margin: 20px 0;">
-            <p style="color: #333; font-weight: bold; margin: 0 0 10px 0;">Booking Details:</p>
-            <ul style="margin: 0; padding-left: 20px; color: #555;">
-              <li><strong>Service:</strong> ${bookingDetails.serviceName}</li>
-              <li><strong>Date:</strong> ${bookingDetails.date}</li>
-              <li><strong>Time:</strong> ${bookingDetails.time}</li>
-              ${bookingDetails.staffName ? `<li><strong>Staff:</strong> ${bookingDetails.staffName}</li>` : ''}
-            </ul>
-          </div>
-
-          <p style="color: #777; font-size: 14px; margin-top: 20px;">
-            This link will expire in 24 hours. If you did not make this booking, please ignore this email.
-          </p>
-
-          <p style="color: #777; font-size: 12px; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
-            Appoint-Nepal - Appointment Booking System<br>
-            ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}
-          </p>
-        </div>
-      `
-
-      const result = await transporter.sendMail({
-        from: emailFrom,
-        to: email,
-        subject: `Verify Your Booking - ${bookingDetails.serviceName}`,
-        html,
-      })
-
-      return true
-    } catch (error: any) {
-      console.error('[Email Service] Failed to send verification email:', error.message)
-      return false
-    }
-  },
   /**
    * Send email verification code
    */
@@ -132,11 +63,11 @@ export const emailService = {
       const mailOptions = {
         from: emailFrom,
         to: email,
-        subject: 'Verify Your Email Address - Appoint-Nepal',
+        subject: 'Verify Your Email Address - BookFlow',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-              <h2 style="color: #333; margin: 0;">Welcome to Appoint-Nepal!</h2>
+              <h2 style="color: #333; margin: 0;">Welcome to BookFlow!</h2>
             </div>
             
             <p style="color: #666; font-size: 16px; line-height: 1.6;">
@@ -167,24 +98,24 @@ export const emailService = {
       }
 
       const result = await transporter.sendMail(mailOptions)
+      console.log('[Email Service] Verification code sent to:', email, 'Message ID:', result.messageId)
       return result
     } catch (error: any) {
-      console.error('[Email Service] Failed to send verification email:', error.message)
-      
-      // Provide helpful error messages
+      console.error('[Email Service] Failed to send verification email:', {
+        code: error.code,
+        responseCode: error.responseCode,
+        command: error.command,
+        message: error.message,
+      })
       if (error.code === 'EAUTH') {
-        console.error('[Email Setup] Authentication failed. Please:')
-        console.error('1. Enable 2-Factor Authentication on your Google Account')
-        console.error('2. Generate an App Password: https://myaccount.google.com/apppasswords')
-        console.error('3. Set EMAIL_PASSWORD to the 16-character App Password (without spaces)')
-        console.error('4. Make sure EMAIL_USER is your full Gmail address')
+        console.error('[Email Setup] SMTP authentication failed. Confirm EMAIL_USER is the full Nest Nepal mailbox and EMAIL_PASSWORD is its mailbox password.')
       }
       
       throw error
     }
   },
 
-    /**
+  /**
    * Send password reset email
    */
   async sendPasswordResetEmail(email: string, resetToken: string, accountType: 'business' | 'staff' = 'staff') {
@@ -193,9 +124,9 @@ export const emailService = {
       const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${encodeURIComponent(resetToken)}&type=${accountType}`
 
       const mailOptions = {
-       from: emailFrom,
+        from: emailFrom,
         to: email,
-        subject: 'Reset Your Password - Appoint-Nepal',
+        subject: 'Reset Your Password - BookFlow',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -221,12 +152,14 @@ export const emailService = {
       }
 
       const result = await transporter.sendMail(mailOptions)
+      console.log('[Email Service] Password reset email sent to:', email)
       return result
     } catch (error: any) {
       console.error('[Email Service] Failed to send password reset email:', error.message)
       throw error
     }
   },
+
   /**
    * Send new booking notification to business owner
    */
@@ -244,21 +177,20 @@ export const emailService = {
     try {
       const transporter = initializeTransporter()
       
-       const formattedDate = formatBookingDate(bookingDetails.startTime, {
+      const formattedDate = formatBookingDate(bookingDetails.startTime, {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       })
-      
       const formattedStartTime = formatBookingDate(bookingDetails.startTime, {
         hour: '2-digit', minute: '2-digit'
       })
-      
-     const formattedEndTime = formatBookingDate(bookingDetails.endTime, {
+      const formattedEndTime = formatBookingDate(bookingDetails.endTime, {
         hour: '2-digit', minute: '2-digit'
       })
 
       const mailOptions = {
         from: emailFrom,
         to: ownerEmail,
-        subject: `New Booking Received - ${bookingDetails.serviceName} - Appoint-Nepal`,
+        subject: `New Booking Received - ${bookingDetails.serviceName} - BookFlow`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
@@ -336,7 +268,7 @@ export const emailService = {
               </div>
               
               <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                This is an automated notification from Appoint-Nepal.<br/>
+                This is an automated notification from BookFlow.<br/>
                 Please do not reply to this email.
               </p>
             </div>
@@ -345,6 +277,7 @@ export const emailService = {
       }
 
       const result = await transporter.sendMail(mailOptions)
+      console.log('[Email Service] New booking notification sent to owner:', ownerEmail)
       return result
     } catch (error: any) {
       console.error('[Email Service] Failed to send new booking notification:', error.message)
@@ -368,21 +301,20 @@ export const emailService = {
     try {
       const transporter = initializeTransporter()
       
-       const formattedDate = formatBookingDate(bookingDetails.startTime, {
+      const formattedDate = formatBookingDate(bookingDetails.startTime, {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
       })
-      
       const formattedStartTime = formatBookingDate(bookingDetails.startTime, {
         hour: '2-digit', minute: '2-digit'
       })
-        const formattedEndTime = formatBookingDate(bookingDetails.endTime, {
+      const formattedEndTime = formatBookingDate(bookingDetails.endTime, {
         hour: '2-digit', minute: '2-digit'
       })
-      
-   
+
       const mailOptions = {
-        from: emailUser,
+        from: emailFrom,
         to: customerEmail,
-        subject: `Booking Confirmed - ${bookingDetails.businessName} - Appoint-Nepal`,
+        subject: `Booking Confirmed - ${bookingDetails.businessName} - BookFlow`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
@@ -434,7 +366,7 @@ export const emailService = {
               ` : ''}
               
               <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                Thank you for booking with Appoint-Nepal!
+                Thank you for booking with BookFlow!
               </p>
             </div>
           </div>
@@ -442,6 +374,7 @@ export const emailService = {
       }
 
       const result = await transporter.sendMail(mailOptions)
+      console.log('[Email Service] Booking confirmation sent to customer:', customerEmail)
       return result
     } catch (error: any) {
       console.error('[Email Service] Failed to send booking confirmation to customer:', error.message)
@@ -460,13 +393,13 @@ export const emailService = {
       const verificationLink = `${baseUrl}/staff/verify-email?token=${verificationToken}`
 
       const mailOptions = {
-        from: emailUser,
+        from: emailFrom,
         to: staffEmail,
         subject: `Verify Your Email - ${businessName} Staff Portal`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
-              <h2 style="color: white; margin: 0;">Welcome to Appoint-Nepal Staff Portal!</h2>
+              <h2 style="color: white; margin: 0;">Welcome to BookFlow Staff Portal!</h2>
             </div>
             
             <div style="border: 1px solid #e0e0e0; border-top: none; padding: 30px; border-radius: 0 0 8px 8px;">
@@ -518,10 +451,148 @@ export const emailService = {
       }
 
       const result = await transporter.sendMail(mailOptions)
+      console.log('[Email Service] Staff verification email sent to:', staffEmail)
       return result
     } catch (error: any) {
       console.error('[Email Service] Failed to send staff verification email:', error.message)
       throw error
+    }
+  },
+
+  /**
+   * Validate email address using deep-email-validator
+   * Checks format, typo, disposable status, MX records, and SMTP verification
+   */
+  async validateEmailAddress(email: string): Promise<{ isValid: boolean; reason?: string }> {
+    try {
+      console.log('[Email Service] Validating email:', email)
+      
+      // Do NOT run an outbound SMTP probe: most hosts (including Nest Nepal)
+      // block outbound port 25, so validateSMTP falsely rejects valid inboxes
+      // and prevents real emails from ever being sent. Format + MX is enough.
+      const result = await validate({
+        email,
+        sender: emailUser,
+        validateSMTP: false,
+      })
+
+      console.log('[Email Service] Email validation result:', {
+        email,
+        valid: result.valid,
+        validators: result.validators,
+        reason: result.reason,
+      })
+
+      if (result.valid) {
+        console.log('[Email Service] Email validation SUCCESSFUL for:', email)
+        return { isValid: true }
+      }
+
+      // Email failed validation - check if it's a timeout or actual invalid email
+      const smtpValidator = result.validators?.smtp
+      const smtpReason = smtpValidator?.reason?.toLowerCase() || ''
+
+      // If SMTP timed out, allow the email (temporary network issue)
+      if (smtpReason.includes('timeout') || smtpReason.includes('econnrefused') || smtpReason.includes('econnreset')) {
+        console.log('[Email Service] SMTP timeout for', email, '- allowing due to temporary network issue')
+        return { isValid: true }
+      }
+
+      // Otherwise reject - email doesn't exist or other permanent failure
+      console.warn('[Email Service] Email validation FAILED for:', email, 'SMTP Reason:', smtpReason, 'Overall reason:', result.reason)
+      return {
+        isValid: false,
+        reason: result.reason || 'smtp'
+      }
+    } catch (error: any) {
+      console.error('[Email Service] Email validation exception:', error.message)
+
+      // Check if error is a timeout
+      const errorMsg = error.message?.toLowerCase() || ''
+      
+      if (errorMsg.includes('timeout') || errorMsg.includes('econnrefused') || errorMsg.includes('econnreset')) {
+        console.log('[Email Service] Email validation timeout - allowing booking')
+        return { isValid: true }
+      }
+
+      // Other errors - be more strict
+      if (errorMsg.includes('invalid') || errorMsg.includes('malformed')) {
+        return { isValid: false, reason: 'invalid_format' }
+      }
+
+      // Unknown error - reject to be safe
+      console.warn('[Email Service] Unknown validation error, rejecting email:', errorMsg)
+      return { isValid: false, reason: 'validation_error' }
+    }
+  },
+
+  /**
+   * Send verification email to customer for public booking
+   */
+  async sendVerificationCustomerEmail(email: string, verificationToken: string, bookingDetails: {
+    customerName: string
+    serviceName: string
+    date: string
+    time: string
+    staffName?: string
+  }): Promise<boolean> {
+    try {
+      console.log('[Email Service] Sending verification email to:', email)
+      const transporter = initializeTransporter()
+
+      const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/booking/verify/${verificationToken}`
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="color: #333; margin: 0;">Verify Your Booking</h2>
+          </div>
+
+          <p style="color: #555; font-size: 16px;">Hi ${bookingDetails.customerName},</p>
+
+          <p style="color: #555; line-height: 1.6;">
+            Thank you for booking with us! To confirm your appointment, please verify your email address by clicking the button below.
+          </p>
+
+          <div style="margin: 30px 0; text-align: center;">
+            <a href="${verificationLink}" style="background-color: #007bff; color: white; padding: 12px 32px; text-decoration: none; border-radius: 4px; font-size: 16px; display: inline-block;">
+              Verify Email & Confirm Booking
+            </a>
+          </div>
+
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <p style="color: #333; font-weight: bold; margin: 0 0 10px 0;">Booking Details:</p>
+            <ul style="margin: 0; padding-left: 20px; color: #555;">
+              <li><strong>Service:</strong> ${bookingDetails.serviceName}</li>
+              <li><strong>Date:</strong> ${bookingDetails.date}</li>
+              <li><strong>Time:</strong> ${bookingDetails.time}</li>
+              ${bookingDetails.staffName ? `<li><strong>Staff:</strong> ${bookingDetails.staffName}</li>` : ''}
+            </ul>
+          </div>
+
+          <p style="color: #777; font-size: 14px; margin-top: 20px;">
+            This link will expire in 24 hours. If you did not make this booking, please ignore this email.
+          </p>
+
+          <p style="color: #777; font-size: 12px; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+            BookFlow - Appointment Booking System<br>
+            ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}
+          </p>
+        </div>
+      `
+
+      const result = await transporter.sendMail({
+        from: emailFrom,
+        to: email,
+        subject: `Verify Your Booking - ${bookingDetails.serviceName}`,
+        html,
+      })
+
+      console.log('[Email Service] Verification email sent successfully')
+      return true
+    } catch (error: any) {
+      console.error('[Email Service] Failed to send verification email:', error.message)
+      return false
     }
   },
 }
