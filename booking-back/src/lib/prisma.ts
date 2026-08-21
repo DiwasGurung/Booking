@@ -11,7 +11,6 @@ const prismaClientSingleton = () => {
   // 2. Configure the Node-pg pool using the environment string
   const pool = new Pool({ 
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false } // Prevents SSL connection issues with Neon
   });
   
   const adapter = new PrismaPg(pool);
