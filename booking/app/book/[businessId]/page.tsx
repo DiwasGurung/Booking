@@ -273,6 +273,7 @@ function BookingPageContent() {
         })
       }
 
+     
 
       if (response.success && response.data) {
         const bookingId = response.data.booking?.id || response.data.id || ''
@@ -396,14 +397,7 @@ function BookingPageContent() {
                   </a>
                 )} */}
                 <Button
-                  onClick={() => router.push(`/bookings/${bookingId}`)}
-                  variant="outline"
-                  className="w-full h-12 font-semibold"
-                >
-                  View Booking Details
-                </Button>
-                <Button
-                  onClick={() => window.location.href = `/bookings/${business?.id}`}
+                  onClick={() => window.location.href = `/book/${business?.id}`}
                   className="w-full h-12 bg-primary hover:bg-primary/90 font-semibold"
                 >
                   Book Another Service
@@ -644,26 +638,9 @@ function BookingPageContent() {
                       placeholder="Phone Number *"
                       value={customerPhone}
                       onChange={user ? undefined : (e => setCustomerPhone(e.target.value))}
-                      disabled={!!user}
                       className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
                     />
                   </div>
-                  <Input
-                    type="email"
-                    placeholder="Email Address *"
-                    value={customerEmail}
-                    onChange={user ? undefined : (e => setCustomerEmail(e.target.value))}
-                    disabled={!!user}
-                    className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
-                  />
-                  <Input
-                    type="tel"
-                    placeholder="Phone Number *"
-                    value={customerPhone}
-                    onChange={user ? undefined : (e => setCustomerPhone(e.target.value))}
-                    disabled={!!user}
-                    className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
-                  />
                   <textarea
                     placeholder="Notes (optional)"
                     value={notes}
