@@ -34,13 +34,16 @@ const PORT = process.env.PORT || 5001;
 
 app.use(
   cors({
-    origin: ['http://localhost:3000',
-    'https://api.appoint-nepal.com',
-    'https://appoint-nepal.com',
-   'https://www.appoint-nepal.com'],
+    origin: [
+      'http://localhost:3000',
+      'https://appoint-nepal.com',
+      'https://www.appoint-nepal.com'
+    ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
     credentials: true, 
+    preflightContinue: false,
+    optionsSuccessStatus: 204
   })
 );
 
