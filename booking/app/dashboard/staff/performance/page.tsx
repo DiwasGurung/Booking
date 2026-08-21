@@ -9,6 +9,15 @@ import { AlertCircle, ArrowLeft, BarChart3, CalendarDays, CheckCircle2, Loader2,
 import { staffApi, type Staff, type StaffPerformance } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
 
+const formatDateRange = (startISO: string, endISO: string) => {
+  const startDate = new Date(startISO);
+  const endDate = new Date(endISO);
+  const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+  const startStr = startDate.toLocaleDateString(undefined, options);
+  const endStr = endDate.toLocaleDateString(undefined, options);
+  return `${startStr} to ${endStr}`;
+};
+
 export default function StaffPerformancePage() {
   const { businessId, loading: businessLoading } = useBusinessId()
   const [staff, setStaff] = useState<Staff[]>([])
@@ -19,6 +28,7 @@ export default function StaffPerformancePage() {
   const [error, setError] = useState<string | null>(null)
   const [needsUpgrade, setNeedsUpgrade] = useState(false)
 
+  
   const dates = useMemo(() => {
     const end = new Date()
     const start = new Date(end)
@@ -39,6 +49,8 @@ export default function StaffPerformancePage() {
       })
       .catch(() => setStaff([]))
   }, [businessId])
+
+  
 
   // Access is enforced by the backend; the UI reacts to the actual response.
   useEffect(() => {
@@ -92,7 +104,7 @@ export default function StaffPerformancePage() {
           <>
             <Card className="mb-6 border-slate-200 bg-white/85 p-5 shadow-sm"><div className="grid gap-4 md:grid-cols-[1fr_220px]"><div><label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Staff member</label><div className="flex items-center gap-3"><Users className="h-5 w-5 text-blue-600" /><select value={staffId} onChange={event => setStaffId(event.target.value)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="">Select staff</option>{staff.map(member => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}</select></div></div><div><label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Reporting period</label><select value={range} onChange={event => setRange(event.target.value as typeof range)} className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="today">Today</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option></select></div></div></Card>
             {error && <Card className="mb-6 flex items-start gap-3 border-red-200 bg-red-50 p-4 text-sm text-red-800"><AlertCircle className="h-5 w-5 shrink-0" />{error}</Card>}
-            {loading ? <Card className="flex items-center justify-center p-12 text-slate-500"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Loading performance data...</Card> : performance ? <><div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{metrics.map(({ label, value, Icon }) => <Card key={label} className="border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><p className="text-sm text-slate-500">{label}</p><Icon className="h-5 w-5 text-blue-600" /></div><p className="mt-3 text-3xl font-bold text-slate-900">{value}</p></Card>)}</div><Card className="border-slate-200 bg-white p-6 shadow-sm"><h2 className="font-semibold text-slate-900">{selectedStaff ? `${selectedStaff.firstName} ${selectedStaff.lastName}` : 'Staff member'} overview</h2><p className="mt-2 text-sm text-slate-500">{performance.startDate} to {performance.endDate}. Completion metrics are based on bookings marked completed by the business.</p></Card></> : <Card className="p-12 text-center text-slate-500">Select a staff member to view performance.</Card>}
+            {loading ? <Card className="flex items-center justify-center p-12 text-slate-500"><Loader2 className="mr-2 h-5 w-5 animate-spin" />Loading performance data...</Card> : performance ? <><div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{metrics.map(({ label, value, Icon }) => <Card key={label} className="border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><p className="text-sm text-slate-500">{label}</p><Icon className="h-5 w-5 text-blue-600" /></div><p className="mt-3 text-3xl font-bold text-slate-900">{value}</p></Card>)}</div><Card className="border-slate-200 bg-white p-6 shadow-sm"><h2 className="font-semibold text-slate-900">{selectedStaff ? `${selectedStaff.firstName} ${selectedStaff.lastName}` : 'Staff member'} overview</h2><p className="mt-2 text-sm text-slate-500">{formatDateRange(performance.startDate, performance.endDate)}. Completion metrics are based on bookings marked completed by the business.</p></Card></> : <Card className="p-12 text-center text-slate-500">Select a staff member to view performance.</Card>}
           </>
         )}
       </main>
