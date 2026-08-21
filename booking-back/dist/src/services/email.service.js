@@ -24,12 +24,6 @@ const initializeTransporter = () => {
     if (!emailHost || !emailUser || !emailPassword) {
         throw new Error('EMAIL_HOST, EMAIL_USER, and EMAIL_PASSWORD must be configured');
     }
-    console.log('[Email Service] Initializing SMTP transporter:', {
-        host: emailHost,
-        port: emailPort,
-        secure: emailPort === 465,
-        user: emailUser,
-    });
     transporter = nodemailer_1.default.createTransport({
         host: emailHost,
         port: emailPort,
@@ -37,9 +31,6 @@ const initializeTransporter = () => {
         auth: { user: emailUser, pass: emailPassword },
         // Nest Nepal shared hosting mail servers often present self-signed certs.
         tls: { rejectUnauthorized: false },
-        // Print the full SMTP conversation to the server console for debugging.
-        logger: process.env.EMAIL_DEBUG === 'true',
-        debug: process.env.EMAIL_DEBUG === 'true',
     }, {
         // Force every message's From + envelope sender to the authenticated mailbox.
         from: emailFrom,
