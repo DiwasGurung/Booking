@@ -635,11 +635,17 @@ function BookingPageContent() {
                     <label className="text-sm font-medium text-foreground mb-1">Phone Number *</label>
                     <Input
                       type="tel"
-                      placeholder="Phone Number *"
+                      inputMode="numeric"
+                      placeholder="98XXXXXXXX"
                       value={customerPhone}
-                      onChange={user ? undefined : (e => setCustomerPhone(e.target.value))}
-                      className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
+                      onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      maxLength={10}
+                      className="bg-background border-border text-foreground"
+                      required
                     />
+                    {customerPhone.length > 0 && customerPhone.length !== 10 && (
+                      <p className="mt-1 text-xs text-destructive">Phone number must be exactly 10 digits.</p>
+                    )}
                   </div>
                   <textarea
                     placeholder="Notes (optional)"
