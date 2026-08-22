@@ -24,6 +24,12 @@ const initializeTransporter = () => {
     throw new Error('EMAIL_HOST, EMAIL_USER, and EMAIL_PASSWORD must be configured')
   }
 
+  console.log('[Email Service] Initializing SMTP transporter:', {
+    host: emailHost,
+    port: emailPort,
+    secure: emailPort === 465,
+    user: emailUser,
+  })
 
   transporter = nodemailer.createTransport(
     {
@@ -33,6 +39,9 @@ const initializeTransporter = () => {
       auth: { user: emailUser, pass: emailPassword },
       // Nest Nepal shared hosting mail servers often present self-signed certs.
       tls: { rejectUnauthorized: false },
+      // Print the full SMTP conversation to the server console for debugging.
+      logger: process.env.EMAIL_DEBUG === 'true',
+      debug: process.env.EMAIL_DEBUG === 'true',
     },
     {
       // Force every message's From + envelope sender to the authenticated mailbox.
@@ -583,15 +592,36 @@ export const emailService = {
 
       const result = await transporter.sendMail({
         from: emailFrom,
+        sender: emailUser,
+        replyTo: emailFrom,
         to: email,
+        envelope: { from: emailUser, to: email },
         subject: `Verify Your Booking - ${bookingDetails.serviceName}`,
         html,
       })
 
-      console.log('[Email Service] Verification email sent successfully')
+      // Log the real SMTP outcome so we can tell delivery from silent rejection.
+      console.log('[Email Service] Verification email SMTP result:', {
+        to: email,
+        messageId: result.messageId,
+        accepted: result.accepted,
+        rejected: result.rejected,
+        response: result.response,
+      })
+
+      if (result.rejected && result.rejected.length > 0) {
+        console.error('[Email Service] Recipient was REJECTED by the mail server:', result.rejected)
+        return false
+      }
+
       return true
     } catch (error: any) {
-      console.error('[Email Service] Failed to send verification email:', error.message)
+      console.error('[Email Service] Failed to send verification email:', {
+        code: error.code,
+        responseCode: error.responseCode,
+        command: error.command,
+        message: error.message,
+      })
       return false
     }
   },
