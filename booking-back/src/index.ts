@@ -103,12 +103,12 @@ app.use( (req, res) => {
 
 app.listen(PORT, () => {
 
-  emailService.verifyTransporter()
-    .then(({ host, port, user }) => console.log(`[Email Service] SMTP ready: ${host}:${port} (${user})`))
-    .catch((error: any) => console.error('[Email Service] SMTP verification failed:', {
-      code: error.code,
-      responseCode: error.responseCode,
-      command: error.command,
-      message: error.message,
-    }))
+  // emailService.verifyTransporter()
+  //   .then(({ host, port, user }) => console.log(`[Email Service] SMTP ready: ${host}:${port} (${user})`))
+  //   .catch((error: any) => console.error('[Email Service] SMTP verification failed:', {
+  //     code: error.code,
+  //     responseCode: error.responseCode,
+  //     command: error.command,
+  //     message: error.message,
+  //   }))
 });
