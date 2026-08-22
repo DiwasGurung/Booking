@@ -99,22 +99,25 @@ class BookingController {
    * Create a BUSINESS PUBLIC booking for guests
    * Separate from staff individual bookings to keep flows independent
    */
-  async createBusinessPublicBooking(req: Request, res: Response): Promise<Response | void> {
+  async createBusinessPublicBooking(req: Request, res: Response): Promise<void> {
     try {
       const { businessId, staffId, serviceId, startTime: bodyStartTime, endTime: bodyEndTime, customerName, customerEmail, customerPhone, notes } = req.body
       const startTime = bodyStartTime ? new Date(bodyStartTime) : null
 
       if (!businessId || !serviceId || !startTime || !customerEmail) {
-        return res.status(400).json({ 
+      res.status(400).json({ 
           success: false,
           message: "Missing required fields"
         })
+        return
       }
 
       const service = await prisma.service.findUnique({ where: { id: serviceId } })
       if (!service) {
-        return res.status(404).json({ success: false, message: "Service not found" })
+    res.status(404).json({ success: false, message: "Service not found" })
+    return
       }
+      
 
       const finalEndTime = bodyEndTime ? new Date(bodyEndTime) : new Date(startTime.getTime() + (service.duration || 60) * 60000)
 
@@ -136,17 +139,21 @@ class BookingController {
           where: { businessId, services: { some: { serviceId } } }
         })
         if (!availableStaff) {
-          return res.status(400).json({
+         res.status(400).json({
             success: false,
             message: "No staff members are assigned to this service."
           })
+          return
         }
         assignedStaffId = availableStaff.id
       }
 
-      // Generate verification token
-      const verificationToken = randomBytes(32).toString('hex')
-      const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000)
+      // If the customer already verified their email before, confirm directly.
+      // Otherwise create as UNVERIFIED and send a verification email.
+      const alreadyVerified = customer.isEmailVerified === true
+
+      const verificationToken = alreadyVerified ? null : randomBytes(32).toString('hex')
+      const verificationTokenExpires = alreadyVerified ? null : new Date(Date.now() + 24 * 60 * 60 * 1000)
 
       const booking = await prisma.booking.create({
         data: {
@@ -156,47 +163,69 @@ class BookingController {
           customerEmail,
           customerPhone: customerPhone || '',
           notes: notes || '',
-          status: 'UNVERIFIED',
-          isEmailVerified: false,
+          status: alreadyVerified ? 'CONFIRMED' : 'UNVERIFIED',
+          isEmailVerified: alreadyVerified,
           verificationToken,
           verificationTokenExpires,
           customer: { connect: { id: customer.id } },
           service: { connect: { id: serviceId } },
           business: { connect: { id: businessId } },
           staff: { connect: { id: assignedStaffId } }
-          
-        }
-        ,
-        include: { staff: true }
+        },
+        include: { staff: true, service: true, business: true }
       })
 
-      // Send verification email with booking details
+      const bookingDate = startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+      const bookingTime = startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+
+      if (alreadyVerified) {
+        // Verified customer: send booking confirmation directly, no verification step.
+        try {
+          await emailService.sendBookingConfirmationToCustomer(customerEmail, {
+            customerName,
+            serviceName: booking.service.name,
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            businessName: booking.business.name,
+            businessPhone: booking.business.phone || '',
+            businessAddress: booking.business.address || '',
+          })
+        } catch (emailError) {
+          console.error('[v0] Failed to send confirmation email:', emailError)
+        }
+
+       res.status(201).json({
+          success: true,
+          message: "Booking confirmed! Check your email for the details.",
+          booking: { id: booking.id, status: booking.status }
+        })
+        return
+      }
+
+      // Unverified customer: send verification email with booking details.
       try {
-        const bookingDate = startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-        const bookingTime = startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-        
-        await emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
+        await emailService.sendVerificationCustomerEmail(customerEmail, verificationToken!, {
           customerName,
           serviceName: service.name,
           date: bookingDate,
           time: bookingTime,
-          staffName: booking.staff?.firstName ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined,
+          staffName: booking.staff?.email ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined,
         })
       } catch (emailError) {
         console.error('[v0] Failed to send verification email:', emailError)
       }
 
-      return res.status(201).json({
+     res.status(201).json({
         success: true,
         message: "Booking created! Check your email to verify.",
-        booking: { id: booking.id }
+        booking: { id: booking.id, status: booking.status }
       })
+      return
     } catch (error: any) {
       console.error('[v0] Business public booking error:', error)
       res.status(500).json({ success: false, error: error?.message || "Failed to create booking" })
     }
   }
-
   /**
    * Get available slots for BUSINESS BOOKINGS
    * Separate from staff individual bookings to keep flows independent
