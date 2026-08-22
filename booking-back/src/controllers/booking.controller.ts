@@ -49,31 +49,48 @@ class BookingController {
 
       const finalEndTime = endTime || new Date(startTime.getTime() + (service.duration || 60) * 60000)
 
-      // Auto-assign staff if not provided
+       // Auto-assign staff if not provided — pick one who is actually FREE at this
+      // time so bookings spread across staff and slots fill up correctly.
       let assignedStaffId = staffId
       if (!assignedStaffId) {
-        const availableStaff = await prisma.staff.findFirst({
-          where: {
-            businessId,
-            services: { some: { serviceId } }
-          }
+        const candidates = await prisma.staff.findMany({
+          where: { businessId, isActive: true, services: { some: { serviceId } } }
         })
-        if (!availableStaff) {
+        if (candidates.length === 0) {
           return res.status(400).json({
             success: false,
             message: "No staff members are assigned to this service."
           })
         }
-        assignedStaffId = availableStaff.id
+
+        const conflicts = await prisma.booking.findMany({
+          where: {
+            staffId: { in: candidates.map(c => c.id) },
+            status: "CONFIRMED",
+            startTime: { lt: finalEndTime },
+            endTime: { gt: startTime },
+          },
+          select: { staffId: true }
+        })
+        const busyStaff = new Set(conflicts.map(c => c.staffId))
+        const freeStaff = candidates.find(c => !busyStaff.has(c.id))
+
+        if (!freeStaff) {
+          return res.status(400).json({
+            success: false,
+            message: "No staff members are available at this time. Please pick another slot."
+          })
+        }
+        assignedStaffId = freeStaff.id
       }
 
       const booking = await prisma.booking.create({
         data: {
           startTime,
           endTime: finalEndTime,
-          customerName: `${user.firstName} ${user.lastName}`.trim() || 'Guest',
-          customerEmail: user.email,
-          customerPhone: user.phone || '',
+          customerName: user?.firstName || 'Guest',
+          customerEmail: user?.email,
+          customerPhone: user?.phone || '',
           notes: notes || '',
           status: 'CONFIRMED',
           isEmailVerified: true,
@@ -132,20 +149,43 @@ class BookingController {
         })
       }
 
-      // Auto-assign staff if not provided
+      // Auto-assign staff if not provided — must pick one who is actually FREE at
+      // this time, otherwise every booking piles onto the same staff member and
+      // slots never show as fully booked.
       let assignedStaffId = staffId
       if (!assignedStaffId) {
-        const availableStaff = await prisma.staff.findFirst({
-          where: { businessId, services: { some: { serviceId } } }
+        const candidates = await prisma.staff.findMany({
+          where: { businessId, isActive: true, services: { some: { serviceId } } }
         })
-        if (!availableStaff) {
-         res.status(400).json({
+        if (candidates.length === 0) {
+           res.status(400).json({
             success: false,
             message: "No staff members are assigned to this service."
           })
           return
         }
-        assignedStaffId = availableStaff.id
+
+        // Absolute-instant overlap check against confirmed bookings.
+        const conflicts = await prisma.booking.findMany({
+          where: {
+            staffId: { in: candidates.map(c => c.id) },
+            status: "CONFIRMED",
+            startTime: { lt: finalEndTime },
+            endTime: { gt: startTime },
+          },
+          select: { staffId: true }
+        })
+        const busyStaff = new Set(conflicts.map(c => c.staffId))
+        const freeStaff = candidates.find(c => !busyStaff.has(c.id))
+
+        if (!freeStaff) {
+           res.status(400).json({
+            success: false,
+            message: "No staff members are available at this time. Please pick another slot."
+          })
+          return
+        }
+        assignedStaffId = freeStaff.id
       }
 
       // If the customer already verified their email before, confirm directly.
@@ -194,7 +234,7 @@ class BookingController {
           console.error('[v0] Failed to send confirmation email:', emailError)
         }
 
-       res.status(201).json({
+         res.status(201).json({
           success: true,
           message: "Booking confirmed! Check your email for the details.",
           booking: { id: booking.id, status: booking.status }
@@ -209,7 +249,7 @@ class BookingController {
           serviceName: service.name,
           date: bookingDate,
           time: bookingTime,
-          staffName: booking.staff?.email ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined,
+          staffName: booking.staff?`${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined,
         })
       } catch (emailError) {
         console.error('[v0] Failed to send verification email:', emailError)
