@@ -45,7 +45,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         localStorage.setItem("authToken", newToken)
       } catch (e) {
-        console.warn("[v0] Failed to persist token to localStorage", e)
+        // Failed to persist token to localStorage
       }
     }
   }
@@ -92,11 +92,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (error: any) {
       clearTimeout((error as any).timeoutId)
-      if (error.name === "AbortError") {
-        console.warn("[v0] Auth check timeout - backend not responding fast enough")
-      } else {
-        console.warn("[v0] Auth check error:", error.message)
-      }
       setUser(null)
     } finally {
       setLoading(false)
@@ -144,7 +139,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         credentials: "include",
       })
     } catch (error) {
-      console.error("[v0] Logout error:", error)
     } finally {
       setUser(null)
       setTokenState(null)
