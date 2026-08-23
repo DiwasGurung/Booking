@@ -58,13 +58,10 @@ export default function PaymentsDashboardPage() {
 
       const response = await paymentApi.getBusinessPayments(businessId as string, currentPage, 10)
       
-      // response.data contains the entire backend response { success, data, pagination }
-      // So we need to extract the payments array from response.data.data
+      // Correct extraction: response.data contains { success, data, pagination }
       const backendResponse = response.data as any
-      const paymentsData = (backendResponse?.data && Array.isArray(backendResponse.data)) 
-        ? backendResponse.data 
-        : []
-      
+      const paymentsData = Array.isArray(backendResponse?.data) ? backendResponse.data : []
+
       setPayments(paymentsData)
     } catch (err) {
       console.error('[Payment] Failed to load payments:', err)
@@ -110,6 +107,12 @@ export default function PaymentsDashboardPage() {
     }
   }
 
+  // Helper to format Date strings
+  const formatDate = (dateStr: string | Date) => {
+    const dateObj = typeof dateStr === 'string' ? new Date(dateStr) : dateStr
+    return dateObj.toLocaleDateString()
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -147,6 +150,7 @@ export default function PaymentsDashboardPage() {
 
         {/* Payment Status Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {/* Completed */}
           <Card className="border border-slate-200 shadow-sm p-6 bg-white">
             <div className="flex items-center justify-between">
               <div>
@@ -158,7 +162,7 @@ export default function PaymentsDashboardPage() {
               </div>
             </div>
           </Card>
-
+          {/* Pending */}
           <Card className="border border-slate-200 shadow-sm p-6 bg-white">
             <div className="flex items-center justify-between">
               <div>
@@ -170,7 +174,7 @@ export default function PaymentsDashboardPage() {
               </div>
             </div>
           </Card>
-
+          {/* Failed */}
           <Card className="border border-slate-200 shadow-sm p-6 bg-white">
             <div className="flex items-center justify-between">
               <div>
@@ -184,7 +188,7 @@ export default function PaymentsDashboardPage() {
           </Card>
         </div>
 
-        {/* Filters */}
+        {/* Filters for status */}
         <div className="mb-8 flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-slate-500" />
@@ -234,11 +238,13 @@ export default function PaymentsDashboardPage() {
                 <tbody className="divide-y divide-slate-200">
                   {filteredPayments.map((payment) => (
                     <tr key={payment.id} className="hover:bg-slate-50 transition-colors">
+                      {/* Amount */}
                       <td className="px-6 py-4">
                         <span className="font-semibold text-slate-900">
                           {payment.currency} {payment.amount.toFixed(2)}
                         </span>
                       </td>
+                      {/* Status */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           {getStatusIcon(payment.status)}
@@ -247,13 +253,15 @@ export default function PaymentsDashboardPage() {
                           </Badge>
                         </div>
                       </td>
+                      {/* Subscription ID */}
                       <td className="px-6 py-4">
                         <span className="text-sm text-slate-600 font-mono">
                           {payment.subscriptionId.slice(0, 8)}...
                         </span>
                       </td>
+                      {/* Created Date */}
                       <td className="px-6 py-4 text-sm text-slate-500">
-                        {new Date(payment.createdAt).toLocaleDateString()}
+                        {formatDate(payment.createdAt)}
                       </td>
                     </tr>
                   ))}
@@ -290,4 +298,3 @@ export default function PaymentsDashboardPage() {
     </div>
   )
 }
-
