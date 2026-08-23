@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { useBusinessId } from '@/hooks/useBusinessId'
-import { businessHoursApi, businessApi } from '@/lib/api'
+import { businessApi, businessHoursApi } from '@/lib/api'
 import { Loader, AlertCircle, Save, Settings, Bell, Lock, Trash2, Copy, Check, Upload, X } from 'lucide-react'
 
 interface BusinessSettings {
@@ -98,61 +98,86 @@ export default function SettingsPage() {
     }
   }
 
-  // Handle logo upload
+  // Compress an image file to a small PNG data URL. Storing the logo directly on
+  // the business record avoids ephemeral disk storage and localhost/mixed-content
+  // URL problems that made the previous upload endpoint fail.
+  const compressToDataUrl = (file: File, maxSize = 400): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onerror = () => reject(new Error('Could not read the selected image'))
+      reader.onload = () => {
+        const img = new Image()
+        img.onerror = () => reject(new Error('Could not load the selected image'))
+        img.onload = () => {
+          const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
+          const w = Math.max(1, Math.round(img.width * scale))
+          const h = Math.max(1, Math.round(img.height * scale))
+          const canvas = document.createElement('canvas')
+          canvas.width = w
+          canvas.height = h
+          const ctx = canvas.getContext('2d')
+          if (!ctx) return reject(new Error('Your browser does not support image processing'))
+          ctx.drawImage(img, 0, 0, w, h)
+          resolve(canvas.toDataURL('image/png'))
+        }
+        img.src = reader.result as string
+      }
+      reader.readAsDataURL(file)
+    })
+
+  // Handle logo upload — persist directly to the business via the settings API.
   const handleLogoUpload = async () => {
-    if (!logoFile) return
-    
+    if (!logoFile || !businessId || !formData) return
+
     setIsLoadingLogo(true)
     try {
-      const formDataToSend = new FormData()
-      formDataToSend.append('logo', logoFile)
-      
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      const response = await fetch(`${API_URL}/api/upload/logo`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formDataToSend,
-      })
+      const dataUrl = await compressToDataUrl(logoFile)
+      const updated = { ...formData, logo: dataUrl }
+      const response = await businessApi.updateSettings(businessId, updated)
 
-      if (!response.ok) throw new Error('Failed to upload logo')
-      
-      const data = await response.json()
-      setFormData(prev => prev ? { ...prev, logo: data.logoUrl } : null)
+      if (!response.success && !response.data) {
+        throw new Error(response.error || 'Failed to save logo')
+      }
+
+      setFormData(updated)
+      setSettings(updated)
       setLogoFile(null)
-      setLogoPreview(data.logoUrl)
-      alert('Logo uploaded successfully!')
+      setLogoPreview(dataUrl)
+      setProfileCompletion(calculateProfileCompletion(updated))
+      setSuccess('Logo uploaded successfully')
+      setTimeout(() => setSuccess(null), 3000)
     } catch (error: any) {
       console.error('[v0] Logo upload error:', error)
-      alert('Failed to upload logo')
+      setError(error?.message || 'Failed to upload logo')
+      setTimeout(() => setError(null), 4000)
     } finally {
       setIsLoadingLogo(false)
     }
   }
 
-  // Remove logo
+  // Remove logo — persist the removal so it does not reappear after refresh.
   const handleRemoveLogo = async () => {
-    if (!formData?.logo) return
-    
-    try {
-      // Extract filename from logo URL
-      const filename = formData.logo.split('/').pop()
-      if (!filename) throw new Error('Invalid logo URL')
-      
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      const response = await fetch(`${API_URL}/api/upload/logo/${filename}`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-      })
+    if (!formData || !businessId) return
 
-      if (!response.ok) throw new Error('Failed to remove logo')
-      
-      setFormData(prev => prev ? { ...prev, logo: undefined } : null)
+    try {
+      const updated = { ...formData, logo: '' }
+      const response = await businessApi.updateSettings(businessId, updated)
+
+      if (!response.success && !response.data) {
+        throw new Error(response.error || 'Failed to remove logo')
+      }
+
+      setFormData(updated)
+      setSettings(updated)
+      setLogoFile(null)
       setLogoPreview(null)
-      alert('Logo removed successfully!')
+      setProfileCompletion(calculateProfileCompletion(updated))
+      setSuccess('Logo removed successfully')
+      setTimeout(() => setSuccess(null), 3000)
     } catch (error: any) {
       console.error('[v0] Logo removal error:', error)
-      alert('Failed to remove logo')
+      setError(error?.message || 'Failed to remove logo')
+      setTimeout(() => setError(null), 4000)
     }
   }
 
@@ -204,7 +229,7 @@ export default function SettingsPage() {
       return
     }
     try {
-      const response = await businessHoursApi.getBusinessHours(businessId )
+      const response = await businessHoursApi.getBusinessHours(businessId)
       // Check if business hours exist
       const hours = response.data || response
       setHasBusinessHours(
@@ -224,11 +249,12 @@ export default function SettingsPage() {
     try {
       setLoading(true)
       const response = await businessApi.getSettings(businessId)
-      const settingsData = response.data ?? response
-      setFormData(settingsData)
-      setProfileCompletion(calculateProfileCompletion(settingsData as BusinessSettings))
-      if ((settingsData as BusinessSettings).logo) {
-        setLogoPreview((settingsData as BusinessSettings).logo ?? null)
+      setFormData((response.data ?? response) as BusinessSettings)
+      setProfileCompletion(
+        calculateProfileCompletion((response.data ?? response) as BusinessSettings)
+      )
+      if (response.logo) {
+        setLogoPreview(response.logo)
       }
       if (response.success && response.data) {
         setSettings(response.data)

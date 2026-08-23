@@ -11,9 +11,9 @@ import { AuthWrapper } from '@/components/AuthWrapper'
 import Link from 'next/link'
 import {
   Loader, Calendar, CheckCircle, TrendingUp, AlertCircle,
-  Eye, ArrowRight, BarChart3
+  Eye, ArrowRight, BarChart3, Clock
 } from 'lucide-react'
-import { businessApi, bookingsApi, paymentApi } from '@/lib/api'
+import { businessApi, bookingsApi, paymentApi, businessHoursApi } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 
@@ -64,13 +64,17 @@ export default function BusinessDashboardPage() {
   const [recentPayments, setRecentPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // null = still loading; true/false once hours are known
+  const [hoursConfigured, setHoursConfigured] = useState<boolean | null>(null)
 
   // Check subscription status and redirect if no subscription
   useEffect(() => {
     if (!subscriptionLoading && subscriptionStatus) {
+      console.log('[dashboard] Subscription status:', subscriptionStatus)
       
       // Redirect only if no subscription, or if CANCELLED and already expired
       if (subscriptionStatus.hasSubscription === false) {
+        console.log('[dashboard] No subscription found, redirecting to subscription page...')
         router.push('/subscription?from=setup')
       }
     }
@@ -89,11 +93,16 @@ export default function BusinessDashboardPage() {
       setLoading(true)
       setError(null)
 
-      const [statsResponse, bookingsResponse, paymentsResponse] = await Promise.all([
+      const [statsResponse, bookingsResponse, paymentsResponse, hoursResponse] = await Promise.all([
         businessApi.getStats(businessId),
         bookingsApi.getBusinessBookings(businessId, 1, 5),
         paymentApi.getBusinessPayments(businessId, 1, 5),
+        businessHoursApi.getBusinessHours(businessId).catch(() => null),
       ])
+
+      // Hours are "configured" only if there is at least one open day.
+      const hours = hoursResponse?.data
+      setHoursConfigured(Array.isArray(hours) && hours.some((h: any) => !h.isClosed))
 
       if (statsResponse.data && typeof statsResponse.data === 'object') {
         setStats(statsResponse.data as BusinessStats)
@@ -137,14 +146,14 @@ export default function BusinessDashboardPage() {
       bg: 'bg-emerald-50',
       href: '/dashboard/bookings'
     },
-    // {
-    //   title: 'Avg Rating',
-    //   value: stats?.averageRating?.toFixed(1) ?? '0.0',
-    //   icon: TrendingUp,
-    //   color: 'text-amber-600',
-    //   bg: 'bg-amber-50',
-    //   href: '/dashboard/analytics'
-    // },
+    {
+      title: 'Avg Rating',
+      value: stats?.averageRating?.toFixed(1) ?? '0.0',
+      icon: TrendingUp,
+      color: 'text-amber-600',
+      bg: 'bg-amber-50',
+      href: '/dashboard/analytics'
+    },
   ]
 
   return (
@@ -210,7 +219,7 @@ export default function BusinessDashboardPage() {
                 <p className="text-xs md:text-sm text-muted-foreground">
                   {subscriptionStatus.status === 'TRIAL' 
                     ? 'You are on a free trial. Please set up payment to continue using after trial ends.' 
-                   : subscriptionStatus.expiresAt && !Number.isNaN(new Date(subscriptionStatus.expiresAt).getTime())
+                    : subscriptionStatus.expiresAt && !Number.isNaN(new Date(subscriptionStatus.expiresAt).getTime())
                     ? `Expires on ${new Date(subscriptionStatus.expiresAt).toLocaleDateString()}`
                     : 'Subscription expiry date unavailable'}
                 </p>
@@ -222,6 +231,27 @@ export default function BusinessDashboardPage() {
                   </Button>
                 </Link>
               )}
+            </div>
+          )}
+
+          {/* Business Hours Setup Banner - blocks bookings until configured */}
+          {!loading && hoursConfigured === false && (
+            <div className="mb-4 md:mb-6 p-4 md:p-5 rounded-lg border border-amber-300 bg-amber-50 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <Clock className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="font-semibold text-amber-900 text-sm md:text-base">Set up your business hours</p>
+                  <p className="text-xs md:text-sm text-amber-800 mt-0.5">
+                    Customers can&apos;t book appointments until you configure your operating hours. Online booking stays locked until then.
+                  </p>
+                </div>
+              </div>
+              <Link href="/dashboard/business-hours" className="w-full sm:w-auto flex-shrink-0">
+                <Button size="sm" className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white">
+                  Configure Hours
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+              </Link>
             </div>
           )}
 
@@ -306,7 +336,7 @@ export default function BusinessDashboardPage() {
                             }`} />
                             <span className="text-sm text-slate-600">{payment.gateway}</span>
                           </div>
-                          <span className="font-semibold text-slate-900">Rs.{payment.amount.toFixed(2)}</span>
+                          <span className="font-semibold text-slate-900">${payment.amount.toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
@@ -384,7 +414,7 @@ export default function BusinessDashboardPage() {
                                 <p>{new Date(booking.startTime).toLocaleDateString()} {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                               </div>
                               <span className="text-sm font-semibold text-slate-900 flex-shrink-0">
-                                Rs.{(booking.service?.price || 0).toFixed(2)}
+                                ${(booking.service?.price || 0).toFixed(2)}
                               </span>
                             </div>
                           </div>

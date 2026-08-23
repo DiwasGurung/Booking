@@ -43,30 +43,45 @@ class BookingController {
                 return res.status(404).json({ success: false, message: "Service not found" });
             }
             const finalEndTime = endTime || new Date(startTime.getTime() + (service.duration || 60) * 60000);
-            // Auto-assign staff if not provided
+            // Auto-assign staff if not provided — pick one who is actually FREE at this
+            // time so bookings spread across staff and slots fill up correctly.
             let assignedStaffId = staffId;
             if (!assignedStaffId) {
-                const availableStaff = await prisma_1.default.staff.findFirst({
-                    where: {
-                        businessId,
-                        services: { some: { serviceId } }
-                    }
+                const candidates = await prisma_1.default.staff.findMany({
+                    where: { businessId, isActive: true, services: { some: { serviceId } } }
                 });
-                if (!availableStaff) {
+                if (candidates.length === 0) {
                     return res.status(400).json({
                         success: false,
                         message: "No staff members are assigned to this service."
                     });
                 }
-                assignedStaffId = availableStaff.id;
+                const conflicts = await prisma_1.default.booking.findMany({
+                    where: {
+                        staffId: { in: candidates.map(c => c.id) },
+                        status: "CONFIRMED",
+                        startTime: { lt: finalEndTime },
+                        endTime: { gt: startTime },
+                    },
+                    select: { staffId: true }
+                });
+                const busyStaff = new Set(conflicts.map(c => c.staffId));
+                const freeStaff = candidates.find(c => !busyStaff.has(c.id));
+                if (!freeStaff) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "No staff members are available at this time. Please pick another slot."
+                    });
+                }
+                assignedStaffId = freeStaff.id;
             }
             const booking = await prisma_1.default.booking.create({
                 data: {
                     startTime,
                     endTime: finalEndTime,
-                    customerName: `${user.firstName} ${user.lastName}`.trim() || 'Guest',
-                    customerEmail: user.email,
-                    customerPhone: user.phone || '',
+                    customerName: user?.firstName || 'Guest',
+                    customerEmail: user?.email,
+                    customerPhone: user?.phone || '',
                     notes: notes || '',
                     status: 'CONFIRMED',
                     isEmailVerified: true,
@@ -96,14 +111,16 @@ class BookingController {
             const { businessId, staffId, serviceId, startTime: bodyStartTime, endTime: bodyEndTime, customerName, customerEmail, customerPhone, notes } = req.body;
             const startTime = bodyStartTime ? new Date(bodyStartTime) : null;
             if (!businessId || !serviceId || !startTime || !customerEmail) {
-                return res.status(400).json({
+                res.status(400).json({
                     success: false,
                     message: "Missing required fields"
                 });
+                return;
             }
             const service = await prisma_1.default.service.findUnique({ where: { id: serviceId } });
             if (!service) {
-                return res.status(404).json({ success: false, message: "Service not found" });
+                res.status(404).json({ success: false, message: "Service not found" });
+                return;
             }
             const finalEndTime = bodyEndTime ? new Date(bodyEndTime) : new Date(startTime.getTime() + (service.duration || 60) * 60000);
             // Check/create customer
@@ -115,23 +132,47 @@ class BookingController {
                     data: { businessId, name: customerName, email: customerEmail, phone: customerPhone || '' }
                 });
             }
-            // Auto-assign staff if not provided
+            // Auto-assign staff if not provided — must pick one who is actually FREE at
+            // this time, otherwise every booking piles onto the same staff member and
+            // slots never show as fully booked.
             let assignedStaffId = staffId;
             if (!assignedStaffId) {
-                const availableStaff = await prisma_1.default.staff.findFirst({
-                    where: { businessId, services: { some: { serviceId } } }
+                const candidates = await prisma_1.default.staff.findMany({
+                    where: { businessId, isActive: true, services: { some: { serviceId } } }
                 });
-                if (!availableStaff) {
-                    return res.status(400).json({
+                if (candidates.length === 0) {
+                    res.status(400).json({
                         success: false,
                         message: "No staff members are assigned to this service."
                     });
+                    return;
                 }
-                assignedStaffId = availableStaff.id;
+                // Absolute-instant overlap check against confirmed bookings.
+                const conflicts = await prisma_1.default.booking.findMany({
+                    where: {
+                        staffId: { in: candidates.map(c => c.id) },
+                        status: "CONFIRMED",
+                        startTime: { lt: finalEndTime },
+                        endTime: { gt: startTime },
+                    },
+                    select: { staffId: true }
+                });
+                const busyStaff = new Set(conflicts.map(c => c.staffId));
+                const freeStaff = candidates.find(c => !busyStaff.has(c.id));
+                if (!freeStaff) {
+                    res.status(400).json({
+                        success: false,
+                        message: "No staff members are available at this time. Please pick another slot."
+                    });
+                    return;
+                }
+                assignedStaffId = freeStaff.id;
             }
-            // Generate verification token
-            const verificationToken = (0, crypto_1.randomBytes)(32).toString('hex');
-            const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+            // If the customer already verified their email before, confirm directly.
+            // Otherwise create as UNVERIFIED and send a verification email.
+            const alreadyVerified = customer.isEmailVerified === true;
+            const verificationToken = alreadyVerified ? null : (0, crypto_1.randomBytes)(32).toString('hex');
+            const verificationTokenExpires = alreadyVerified ? null : new Date(Date.now() + 24 * 60 * 60 * 1000);
             const booking = await prisma_1.default.booking.create({
                 data: {
                     startTime,
@@ -140,8 +181,8 @@ class BookingController {
                     customerEmail,
                     customerPhone: customerPhone || '',
                     notes: notes || '',
-                    status: 'UNVERIFIED',
-                    isEmailVerified: false,
+                    status: alreadyVerified ? 'CONFIRMED' : 'UNVERIFIED',
+                    isEmailVerified: alreadyVerified,
                     verificationToken,
                     verificationTokenExpires,
                     customer: { connect: { id: customer.id } },
@@ -149,28 +190,52 @@ class BookingController {
                     business: { connect: { id: businessId } },
                     staff: { connect: { id: assignedStaffId } }
                 },
-                include: { staff: true }
+                include: { staff: true, service: true, business: true }
             });
-            // Send verification email with booking details
+            const bookingDate = startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const bookingTime = startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            if (alreadyVerified) {
+                // Verified customer: send booking confirmation directly, no verification step.
+                try {
+                    await email_service_1.emailService.sendBookingConfirmationToCustomer(customerEmail, {
+                        customerName,
+                        serviceName: booking.service.name,
+                        startTime: booking.startTime,
+                        endTime: booking.endTime,
+                        businessName: booking.business.name,
+                        businessPhone: booking.business.phone || '',
+                        businessAddress: booking.business.address || '',
+                    });
+                }
+                catch (emailError) {
+                    console.error('[v0] Failed to send confirmation email:', emailError);
+                }
+                res.status(201).json({
+                    success: true,
+                    message: "Booking confirmed! Check your email for the details.",
+                    booking: { id: booking.id, status: booking.status }
+                });
+                return;
+            }
+            // Unverified customer: send verification email with booking details.
             try {
-                const bookingDate = startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                const bookingTime = startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
                 await email_service_1.emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
                     customerName,
                     serviceName: service.name,
                     date: bookingDate,
                     time: bookingTime,
-                    staffName: booking.staff?.firstName ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined,
+                    staffName: booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined,
                 });
             }
             catch (emailError) {
                 console.error('[v0] Failed to send verification email:', emailError);
             }
-            return res.status(201).json({
+            res.status(201).json({
                 success: true,
                 message: "Booking created! Check your email to verify.",
-                booking: { id: booking.id }
+                booking: { id: booking.id, status: booking.status }
             });
+            return;
         }
         catch (error) {
             console.error('[v0] Business public booking error:', error);

@@ -167,62 +167,85 @@ class BookingService {
         }
         // Extract staff list
         const staffList = staffStaffServices.map((ss) => ss.staff);
-        // Get all CONFIRMED bookings for the service on this date
-        const bookings = await prisma_1.default.booking.findMany({
+        // Business timezone: slots are generated as wall-clock times in this zone,
+        // and stored bookings (absolute UTC instants) are converted to the same zone
+        // before comparison. This avoids the server-local vs UTC mismatch that left
+        // fully-booked slots looking free.
+        const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
+        // Wall-clock date (YYYY-MM-DD) + minutes-since-midnight for a Date in the business zone.
+        const toBusinessWallClock = (d) => {
+            const parts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: BUSINESS_TZ,
+                hour12: false,
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit',
+            }).formatToParts(d);
+            const get = (t) => parts.find(p => p.type === t)?.value || '00';
+            const hour = Number(get('hour')) % 24;
+            return {
+                dateStr: `${get('year')}-${get('month')}-${get('day')}`,
+                minutes: hour * 60 + Number(get('minute')),
+            };
+        };
+        // The requested calendar date, reconstructed from the server-local Date the
+        // controller built from the "YYYY-MM-DD" query string.
+        const pad = (n) => String(n).padStart(2, '0');
+        const requestedDateStr = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+        // Widen the query window by a day on each side so no booking is dropped by
+        // the timezone offset, then filter precisely by business-zone wall clock.
+        const windowStart = new Date(startOfDay.getTime() - 24 * 60 * 60 * 1000);
+        const windowEnd = new Date(endOfDay.getTime() + 24 * 60 * 60 * 1000);
+        // Confirmed bookings for ANY service the staff are handling that day — a staff
+        // booked for a different service is still busy.
+        const rawBookings = await prisma_1.default.booking.findMany({
             where: {
-                serviceId,
-                startTime: {
-                    gte: startOfDay,
-                    lt: endOfDay,
-                },
+                staffId: { in: staffList.map(s => s.id) },
+                startTime: { gte: windowStart, lt: windowEnd },
                 status: "CONFIRMED",
             },
+            select: { staffId: true, startTime: true, endTime: true },
         });
+        // Pre-compute each booking's busy minute range on the requested day.
+        const busyRanges = rawBookings
+            .map(b => {
+            const start = toBusinessWallClock(b.startTime);
+            const end = toBusinessWallClock(b.endTime);
+            return { staffId: b.staffId, dateStr: start.dateStr, startMin: start.minutes, endMin: end.minutes };
+        })
+            .filter(b => b.dateStr === requestedDateStr);
         // Get timeoffs for all staff on this date
         const timeOffs = await prisma_1.default.timeOff.findMany({
             where: {
-                staffId: {
-                    in: staffList.map((s) => s.id)
-                },
-                startDate: {
-                    lte: endOfDay
-                },
-                endDate: {
-                    gte: startOfDay
-                }
-            }
+                staffId: { in: staffList.map(s => s.id) },
+                startDate: { lte: endOfDay },
+                endDate: { gte: startOfDay },
+            },
         });
         const slots = [];
         const slotDuration = service.duration;
         const SLOT_INTERVAL = 15; // 15-minute intervals
-        // Generate slots in 15-minute intervals
+        const closeMinutes = closeHour * 60 + closeMin;
+        // Generate slots in 15-minute intervals (business-local wall clock)
         for (let hour = openHour; hour < closeHour; hour++) {
             for (let min = hour === openHour ? openMin : 0; min < 60; min += SLOT_INTERVAL) {
-                const slotStart = new Date(startOfDay);
-                slotStart.setHours(hour, min, 0, 0);
-                const slotEnd = new Date(slotStart);
-                slotEnd.setMinutes(slotEnd.getMinutes() + slotDuration);
-                // Check if slot end time is past closing time
-                if (slotEnd > new Date(startOfDay.getTime() + closeHour * 60 * 60 * 1000))
-                    break;
-                // Check if at least one staff member is available for this slot
+                const slotStartMin = hour * 60 + min;
+                const slotEndMin = slotStartMin + slotDuration;
+                // Skip slots whose service would run past closing time
+                if (slotEndMin > closeMinutes)
+                    continue;
+                // Slot is available if AT LEAST ONE staff has no conflicting booking/timeoff.
                 const isSlotAvailable = staffList.some((staff) => {
-                    // Check if this staff has any conflicting bookings
-                    const hasBookingConflict = bookings.some((booking) => {
-                        return booking.staffId === staff.id &&
-                            slotStart < booking.endTime &&
-                            slotEnd > booking.startTime;
-                    });
-                    // Check if this staff has timeoff on this date
-                    const hasTimeOff = timeOffs.some((timeOff) => {
-                        return timeOff.staffId === staff.id &&
-                            slotStart < new Date(timeOff.endDate) &&
-                            slotEnd > new Date(timeOff.startDate);
-                    });
+                    const hasBookingConflict = busyRanges.some(b => b.staffId === staff.id && slotStartMin < b.endMin && slotEndMin > b.startMin);
+                    const slotStartDate = new Date(startOfDay);
+                    slotStartDate.setHours(hour, min, 0, 0);
+                    const slotEndDate = new Date(slotStartDate);
+                    slotEndDate.setMinutes(slotEndDate.getMinutes() + slotDuration);
+                    const hasTimeOff = timeOffs.some((timeOff) => timeOff.staffId === staff.id &&
+                        slotStartDate < new Date(timeOff.endDate) &&
+                        slotEndDate > new Date(timeOff.startDate));
                     return !hasBookingConflict && !hasTimeOff;
                 });
                 if (isSlotAvailable) {
-                    // Format as HH:MM string
                     const timeStr = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
                     slots.push(timeStr);
                 }

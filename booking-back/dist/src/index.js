@@ -27,18 +27,20 @@ const subscription_payment_routes_1 = __importDefault(require("./routes/subscrip
 const upload_routes_1 = __importDefault(require("./routes/upload.routes"));
 const staff_auth_routes_1 = __importDefault(require("./routes/staff-auth.routes"));
 const staff_verification_routes_1 = __importDefault(require("./routes/staff-verification.routes"));
-const email_service_1 = require("./services/email.service");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5001;
 app.use((0, cors_1.default)({
-    origin: ['http://localhost:3000',
-        'https://api.appoint-nepal.com',
+    origin: [
+        'http://localhost:3000',
         'https://appoint-nepal.com',
-        'https://www.appoint-nepal.com'],
+        'https://www.appoint-nepal.com'
+    ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
     credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204
 }));
 app.use((0, cookie_parser_1.default)());
 app.use(express_1.default.json());
@@ -69,12 +71,12 @@ app.use((req, res) => {
     res.status(404).send('Not Found');
 });
 app.listen(PORT, () => {
-    email_service_1.emailService.verifyTransporter()
-        .then(({ host, port, user }) => console.log(`[Email Service] SMTP ready: ${host}:${port} (${user})`))
-        .catch((error) => console.error('[Email Service] SMTP verification failed:', {
-        code: error.code,
-        responseCode: error.responseCode,
-        command: error.command,
-        message: error.message,
-    }));
+    // emailService.verifyTransporter()
+    //   .then(({ host, port, user }) => console.log(`[Email Service] SMTP ready: ${host}:${port} (${user})`))
+    //   .catch((error: any) => console.error('[Email Service] SMTP verification failed:', {
+    //     code: error.code,
+    //     responseCode: error.responseCode,
+    //     command: error.command,
+    //     message: error.message,
+    //   }))
 });
