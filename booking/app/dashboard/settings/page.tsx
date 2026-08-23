@@ -626,7 +626,7 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* Notifications Tab */}
+          {/* Notifications Tab
           <TabsContent value="notifications" className="space-y-6">
             <Card className="border border-border">
               <CardHeader>
@@ -648,18 +648,6 @@ export default function SettingsPage() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">SMS Notifications</p>
-                      <p className="text-sm text-muted-foreground">Receive text message updates</p>
-                    </div>
-                    <Switch
-                      checked={formData?.notificationSettings?.smsNotifications || false}
-                      onCheckedChange={(checked) =>
-                        handleNotificationChange('smsNotifications', checked)
-                      }
-                    />
-                  </div>
 
                   <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                     <div className="flex-1">
@@ -720,7 +708,7 @@ export default function SettingsPage() {
                 </Button>
               </CardContent>
             </Card>
-          </TabsContent>
+          </TabsContent> */}
 
           {/* Social Media Tab */}
           <TabsContent value="business" className="space-y-6">
