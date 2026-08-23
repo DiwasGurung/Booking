@@ -274,8 +274,8 @@ class BusinessService {
                     description: settings.description,
                     website: settings.website,
                     category: settings.category,
-                    ...(settings.logo && { logo: settings.logo }),
-                    ...(settings.coverImage && { coverImage: settings.coverImage }),
+                    ...(settings.logo !== undefined && { logo: settings.logo || null }),
+                    ...(settings.coverImage !== undefined && { coverImage: settings.coverImage || null }),
                     ...(settings.socialMedia && { socialMedia: settings.socialMedia }),
                     ...(settings.notificationSettings && { notificationSettings: settings.notificationSettings }),
                 }
