@@ -62,17 +62,20 @@ useEffect(() => {
     }
   }, [businessId])
 
- const loadBookings = async () => {
+const loadBookings = async () => {
   if (!businessId) return
   try {
     setLoading(true)
     const { startDate, endDate } = getDateRange()
     const staffParam = filterStaffId !== 'ALL' ? filterStaffId : undefined
+
     const response = await bookingsApi.getBusinessBookings(
       businessId,
       page,
       10,
       filterStatus !== 'ALL' ? filterStatus : undefined,
+      startDate,
+      endDate,
       staffParam
     )
     setBookings(Array.isArray(response.data) ? response.data : response.data?.bookings || [])

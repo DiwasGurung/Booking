@@ -45,12 +45,7 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
     {
       label: 'Bookings',
       href: '/dashboard/bookings',
-      icon: Calendar,
-      children: [
-        { label: 'All Bookings', href: '/dashboard/bookings', icon: Calendar },
-        { label: 'Pending', href: '/dashboard/bookings?status=PENDING', icon: Calendar },
-        { label: 'Completed', href: '/dashboard/bookings?status=COMPLETED', icon: Calendar },
-      ]
+      icon: Calendar, 
     },
     {
       label: 'Services',

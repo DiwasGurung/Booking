@@ -520,10 +520,19 @@ export const bookingsApi = {
     }),
 
   // Get all bookings for a specific business
-  getBusinessBookings: (businessId: string, page = 1, limit = 10, status?: string, p0?: string | undefined, p1?: boolean | undefined, startDate?: string, endDate?: string) => {
+  getBusinessBookings: (businessId: string, page = 1, limit = 10, status?: string, startDate?: string, endDate?: string, staffId?: string) => {
     let url = `/api/booking/businesses/${businessId}/bookings?page=${page}&limit=${limit}`
     if (status) {
       url += `&status=${status}`
+    }
+    if (startDate) {
+      url += `&startDate=${startDate}`
+    }
+    if (endDate) {
+      url += `&endDate=${endDate}`
+    }
+    if (staffId) {
+      url += `&staffId=${staffId}`
     }
     return apiCall<Booking[] | { bookings: Booking[] }>(url)
   },

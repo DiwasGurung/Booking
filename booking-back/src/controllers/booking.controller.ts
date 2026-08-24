@@ -520,32 +520,71 @@ class BookingController {
     }
   }
 
-  /**
-   * Get all bookings for a business
+/**
+   * Get all bookings for a business with optional filters
    */
   async getBusinessBookings(req: Request, res: Response): Promise<void> {
     try {
-      const { businessId } = req.params;
-      const { page, limit, status, staffId, verified, startDate, endDate } = req.query;
-      const parseDate = (value: unknown) => typeof value === 'string' && !Number.isNaN(Date.parse(value)) ? new Date(value) : undefined
+      const { businessId } = req.params
+
+      // Explicitly type req.query
+      const {
+        page,
+        limit,
+        status,
+        staffId,
+        verified,
+        startDate,
+        endDate,
+      } : {
+        page?: string;
+        limit?: string;
+        status?: string;
+        staffId?: string;
+        verified?: string;
+        startDate?: string;
+        endDate?: string;
+      } = req.query
+
+      // Helper to parse date strings into Date objects
+      const parseDate = (value?: string): Date | undefined => {
+        if (value && !Number.isNaN(Date.parse(value))) {
+          return new Date(value)
+        }
+        return undefined
+      }
+
+      const parsedStartDate = parseDate(startDate)
+      const parsedEndDate = parseDate(endDate)
+
+      // Convert verified string to boolean
       const verifiedValue = verified === 'true' ? true : verified === 'false' ? false : undefined
 
+      // Validate status against BookingStatus enum
+      const validStatuses: BookingStatus[] = ['PENDING', 'CONFIRMED', 'CANCELLED']
+      let validatedStatus: BookingStatus | undefined
+      if (status && validStatuses.includes(status as BookingStatus)) {
+        validatedStatus = status as BookingStatus
+      }
+
+      // Call service with validated and parsed parameters
       const result = await BookingService.getBusinessBookings(
         Array.isArray(businessId) ? businessId[0] : businessId,
-        page ? parseInt(page as string) : 1,
-        limit ? parseInt(limit as string) : 10,
-        status as BookingStatus | undefined,
-        typeof staffId === 'string' ? staffId : undefined,
+        page ? parseInt(page) : 1,
+        limit ? parseInt(limit) : 10,
+        validatedStatus,
+        staffId,
         verifiedValue,
-        parseDate(startDate),
-        parseDate(endDate)
-      );
+        parsedStartDate,
+        parsedEndDate
+      )
 
-      res.status(200).json(result);
+      res.status(200).json(result)
     } catch (error) {
-      res.status(500).json({ message: "Error getting business bookings", error });
+      res.status(500).json({ message: 'Error getting business bookings', error })
     }
   }
+
 
   /**
    * Get bookings for a customer
