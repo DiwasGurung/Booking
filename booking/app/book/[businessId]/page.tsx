@@ -9,6 +9,8 @@ import { Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, MessageCircle, U
 import { servicesApi, bookingsApi, businessApi, staffApi, type Service, type Business, type Staff } from '@/lib/api'
 import { useAuth } from '@/context/authContext'
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
+
 function BookingPageContent() {
   const searchParams = useParams()
   const router = useRouter()
@@ -19,12 +21,12 @@ function BookingPageContent() {
   const [selectedService, setSelectedService] = useState<Service | null>(null)
   const [servicesLoading, setServicesLoading] = useState(false)
   const [business, setBusiness] = useState<Business | null>(null)
-  
+
   // Staff state
   const [staffMembers, setStaffMembers] = useState<Staff[]>([])
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null)
   const [staffLoading, setStaffLoading] = useState(false)
-  
+
   const [date, setDate] = useState('')
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [availableSlots, setAvailableSlots] = useState<string[]>([])
@@ -33,6 +35,9 @@ function BookingPageContent() {
   const [customerEmail, setCustomerEmail] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [notes, setNotes] = useState('')
+  const [businessHours, setBusinessHours] = useState<any[]>([])
+  const [closedDates, setClosedDates] = useState<Map<string, string>>(new Map())
+  const [closedReason, setClosedReason] = useState<string | null>(null)
 
   // Pre-fill customer info from logged-in user
   useEffect(() => {
@@ -89,9 +94,11 @@ function BookingPageContent() {
       setServicesLoading(true)
       setError('')
 
-      const [servicesRes, businessRes] = await Promise.all([
+      const [servicesRes, businessRes, hoursRes, closedDatesRes] = await Promise.all([
         servicesApi.getBusinessServices(businessId),
         businessApi.getBusinessById(businessId),
+        fetch(`${API_URL}/api/business-hours/business/${businessId}`),
+        fetch(`${API_URL}/api/business-hours/${businessId}/closed-dates`), // Fetch closed dates
       ])
 
       if (servicesRes.data) {
@@ -109,6 +116,25 @@ function BookingPageContent() {
         if (typeof businessRes.data === 'object') {
           setBusiness(businessRes.data as Business)
         }
+      }
+
+      // Fetch business hours
+      if (hoursRes.ok) {
+        const hoursData = await hoursRes.json()
+        setBusinessHours(hoursData)
+      }
+
+      // Fetch closed dates
+      if (closedDatesRes.ok) {
+        const closedDatesData = await closedDatesRes.json()
+        const closedDatesMap = new Map<string, string>()
+        if (closedDatesData.success && closedDatesData.data) {
+          closedDatesData.data.forEach((cd: any) => {
+            const dateStr = new Date(cd.date).toISOString().split('T')[0]
+            closedDatesMap.set(dateStr, cd.reason || 'Business is closed')
+          })
+        }
+        setClosedDates(closedDatesMap)
       }
     } catch (err) {
       console.error('[v0] Error loading business data:', err)
@@ -145,7 +171,7 @@ function BookingPageContent() {
 
     try {
       setLoading(true)
-      
+
       const response = await bookingsApi.getBusinessAvailableSlots(businessId, selectedService.id, date, selectedStaff?.id)
 
       if (response.success) {
@@ -156,8 +182,8 @@ function BookingPageContent() {
         } else if (response.data && typeof response.data === 'object' && 'data' in response.data && Array.isArray((response.data as any).data)) {
           slots = (response.data as any).data
         }
-        
-        
+
+
         if (slots.length > 0) {
           // Store time strings directly
           setAvailableSlots(slots as any)
@@ -183,7 +209,7 @@ function BookingPageContent() {
     try {
       // Handle both "HH:MM" format and ISO date strings
       let hours: number, minutes: number
-      
+
       if (timeString.includes('T') || timeString.includes(':') && timeString.length > 5) {
         // ISO date string like "2026-08-06T11:00:00"
         const date = new Date(timeString)
@@ -195,7 +221,7 @@ function BookingPageContent() {
         hours = parseInt(parts[0], 10)
         minutes = parseInt(parts[1], 10)
       }
-      
+
       // Format as 12-hour time
       const period = hours >= 12 ? 'PM' : 'AM'
       const displayHours = hours % 12 || 12
@@ -226,6 +252,12 @@ function BookingPageContent() {
   const handleConfirmBooking = async () => {
     if (!selectedService || !date || !selectedTime) {
       setError('Please select service, date, and time')
+      return
+    }
+
+    // Check if the date is a closed date
+    if (closedDates.has(date)) {
+      setError(closedDates.get(date) || 'The business is closed on this date')
       return
     }
 
@@ -273,7 +305,7 @@ function BookingPageContent() {
         })
       }
 
-     
+
 
       if (response.success && response.data) {
         const bookingId = response.data.booking?.id || response.data.id || ''
@@ -356,11 +388,11 @@ function BookingPageContent() {
                   <div className="flex items-start gap-3">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Date:</div>
                     <div className="text-sm text-foreground">
-                      {new Date(date + 'T00:00:00').toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
+                      {new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
                       })}
                     </div>
                   </div>
@@ -371,7 +403,7 @@ function BookingPageContent() {
                   <div className="h-px bg-border my-1"></div>
                   <div className="flex items-start gap-3">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Booking ID:</div>
-                    <code className="text-xs bg-secondary/50 px-3 py-2 rounded font-mono text-foreground cursor-pointer hover:bg-secondary transition-colors" 
+                    <code className="text-xs bg-secondary/50 px-3 py-2 rounded font-mono text-foreground cursor-pointer hover:bg-secondary transition-colors"
                       onClick={() => {
                         navigator.clipboard.writeText(bookingId)
                       }}
@@ -463,11 +495,10 @@ function BookingPageContent() {
                         setDate('')
                         setSelectedTime(null)
                       }}
-                      className={`p-4 rounded-lg border-2 text-left transition-all ${
-                        selectedService?.id === service.id
-                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                          : 'bg-card text-foreground border-border hover:border-primary'
-                      }`}
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${selectedService?.id === service.id
+                        ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                        : 'bg-card text-foreground border-border hover:border-primary'
+                        }`}
                     >
                       <div className="font-semibold">{service.name}</div>
                       {service.description && <div className="text-sm opacity-75 mt-1">{service.description}</div>}
@@ -487,7 +518,7 @@ function BookingPageContent() {
               )}
             </div>
 
-            {/* Step 2: Date */}
+            {/* Step 2: Select Date */}
             {selectedService && (
               <div className="mb-8">
                 <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
@@ -497,18 +528,36 @@ function BookingPageContent() {
                 <Input
                   type="date"
                   value={date}
-                  onChange={e => {
-                    setDate(e.target.value)
-                    setSelectedTime(null)
+                  onChange={(e) => {
+                    const selectedDate = e.target.value;
+                    setDate(selectedDate);
+                    setSelectedTime(null);
+
+                    // Check if the selected date is closed
+                    if (closedDates.has(selectedDate)) {
+                      setClosedReason(closedDates.get(selectedDate) || 'Business is closed');
+                    } else {
+                      setClosedReason(null);
+                    }
                   }}
                   min={new Date().toISOString().split('T')[0]}
                   className="h-12"
                 />
+
+                {/* Show closed message if applicable */}
+                {closedReason && (
+                  <div className="flex items-center justify-center py-6 border border-input rounded-md bg-amber-50 border-amber-200 mt-4">
+                    <AlertCircle className="w-4 h-4 mr-2 text-amber-600" />
+                    <span className="text-sm text-amber-600">{closedReason || 'Business is closed'}</span>
+                  </div>
+                )}
               </div>
             )}
 
+
+
             {/* Step 3: Staff Selection (Optional) - Show after date is selected */}
-            {selectedService && date && staffMembers.length > 0 && (
+          {selectedService && date && staffMembers.length > 0 && !closedReason && (
               <div className="mb-8">
                 <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
                   <User className="w-4 h-4 text-primary" />
@@ -524,11 +573,10 @@ function BookingPageContent() {
                           setSelectedStaff(staff)
                           setSelectedTime(null)
                         }}
-                        className={`p-4 rounded-lg border-2 text-center transition-all ${
-                          selectedStaff?.id === staff.id
-                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                            : 'bg-card text-foreground border-border hover:border-primary'
-                        }`}
+                        className={`p-4 rounded-lg border-2 text-center transition-all ${selectedStaff?.id === staff.id
+                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                          : 'bg-card text-foreground border-border hover:border-primary'
+                          }`}
                       >
                         <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-2">
                           {staff.avatar ? (
@@ -542,7 +590,7 @@ function BookingPageContent() {
                       </button>
                     ))}
                   </div>
-                  
+
                   {selectedStaff && (
                     <button
                       onClick={() => {
@@ -559,7 +607,7 @@ function BookingPageContent() {
             )}
 
             {/* Step 4: Time */}
-            {selectedService && date && (
+            {selectedService && date  && !closedReason && (
               <div className="mb-8">
                 <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-primary" />
@@ -581,11 +629,10 @@ function BookingPageContent() {
                       <button
                         key={idx}
                         onClick={() => setSelectedTime(slot)}
-                        className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                          selectedTime === slot
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'bg-card text-foreground border-border hover:border-primary'
-                        }`}
+                        className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${selectedTime === slot
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-card text-foreground border-border hover:border-primary'
+                          }`}
                       >
                         {formatTimeSlot(slot)}
                       </button>
@@ -731,3 +778,7 @@ export default function BookingPage() {
     </Suspense>
   )
 }
+function setClosedDates(closedDatesMap: Map<string, string>) {
+  throw new Error('Function not implemented.')
+}
+
