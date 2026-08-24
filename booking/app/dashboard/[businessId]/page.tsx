@@ -146,14 +146,6 @@ export default function BusinessDashboardPage() {
       bg: 'bg-emerald-50',
       href: '/dashboard/bookings'
     },
-    {
-      title: 'Avg Rating',
-      value: stats?.averageRating?.toFixed(1) ?? '0.0',
-      icon: TrendingUp,
-      color: 'text-amber-600',
-      bg: 'bg-amber-50',
-      href: '/dashboard/analytics'
-    },
   ]
 
   return (
@@ -336,7 +328,7 @@ export default function BusinessDashboardPage() {
                             }`} />
                             <span className="text-sm text-slate-600">{payment.gateway}</span>
                           </div>
-                          <span className="font-semibold text-slate-900">${payment.amount.toFixed(2)}</span>
+                          <span className="font-semibold text-slate-900">Rs.{payment.amount.toFixed(2)}</span>
                         </div>
                       ))}
                     </div>

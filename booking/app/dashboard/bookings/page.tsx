@@ -29,7 +29,7 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState('ALL')
-  const [filterStaffId, setFilterStaffId] = useState('ALL')
+  const [filterStaffId, setFilterStaffId] = useState<string>('ALL')
   const [filterVerification, setFilterVerification] = useState('ALL')
   const [filterRange, setFilterRange] = useState<'today' | 'week' | 'month'>('month')
   const [staff, setStaff] = useState<Staff[]>([])
@@ -38,6 +38,7 @@ export default function BookingsPage() {
   const [newStatus, setNewStatus] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [updateError, setUpdateError] = useState('')
+  
 
   const getDateRange = () => {
     const end = new Date()
@@ -61,31 +62,26 @@ useEffect(() => {
     }
   }, [businessId])
 
-  const loadBookings = async () => {
-    if (!businessId) return
-    try {
-      setLoading(true)
-      const { startDate, endDate } = getDateRange()
-      const response = await bookingsApi.getBusinessBookings(
-        businessId,
-        page,
-        10,
-        filterStatus !== 'ALL' ? filterStatus : undefined,
-        filterStaffId !== 'ALL' ? filterStaffId : undefined,
-        filterVerification === 'ALL' ? undefined : filterVerification === 'VERIFIED',
-        startDate,
-        endDate
-      )
-      const data = Array.isArray(response.data) ? response.data : response.data?.bookings || []
-      setBookings(data)
-      setError(null)
-    } catch (err) {
-      setError('Failed to load bookings')
-      console.error('[v0] Error loading bookings:', err)
-    } finally {
-      setLoading(false)
-    }
+ const loadBookings = async () => {
+  if (!businessId) return
+  try {
+    setLoading(true)
+    const { startDate, endDate } = getDateRange()
+    const staffParam = filterStaffId !== 'ALL' ? filterStaffId : undefined
+    const response = await bookingsApi.getBusinessBookings(
+      businessId,
+      page,
+      10,
+      filterStatus !== 'ALL' ? filterStatus : undefined,
+      staffParam
+    )
+    setBookings(Array.isArray(response.data) ? response.data : response.data?.bookings || [])
+  } catch (err) {
+    console.error(err)
+  } finally {
+    setLoading(false)
   }
+}
 
   const handleUpdateStatus = async () => {
     if (!selectedBookingId || !newStatus) return

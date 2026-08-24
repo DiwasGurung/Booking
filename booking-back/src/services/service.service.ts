@@ -43,6 +43,7 @@ class ServiceService {
     name: string
     description?: string
     price: number
+    offerPrice?: number | null
     duration: number
     businessId: string
   }) {
@@ -64,6 +65,7 @@ class ServiceService {
       description?: string
       price?: number
       duration?: number
+      offerPrice?: number | null
     }
   ) {
     return await prisma.service.update({

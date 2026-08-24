@@ -80,9 +80,11 @@ class ServiceController {
         return res.status(400).json({ message: validation.error })
       }
 
-      const { businessId, name, description, price, duration } = validation.data
+      const { businessId, name, description, price, duration, offerPrice } = validation.data
 
-   
+      // Convert offerPrice to number or null
+      const offerPriceNumber = offerPrice !== undefined ? (offerPrice !== null ? Number(offerPrice) : null) : undefined
+
       const serviceLimit = await subscriptionService.canAddService(businessId)
       
       if (!serviceLimit.allowed) {
@@ -102,6 +104,7 @@ class ServiceController {
         description,
         price,
         duration,
+        offerPrice: offerPriceNumber,
       })
       res.status(201).json({ data: service })
     } catch (error) {
@@ -127,19 +130,34 @@ class ServiceController {
         return res.status(400).json({ message: bodyValidation.error })
       }
 
-      const { name, description, price, duration } = bodyValidation.data
-      const service = await ServiceService.updateService(paramsValidation.data.id, {
-        name,
-        description,
-        price,
-        duration,
-      })
-      res.json({ data: service })
-    } catch (error) {
-      console.error('[v0] Error updating service:', error)
-      res.status(500).json({ message: "Failed to update service", error })
+  
+    const { name, description, price, duration, offerPrice } = bodyValidation.data
+
+    // Convert offerPrice to number or null
+    const offerPriceNumber = offerPrice !== undefined ? (offerPrice !== null ? Number(offerPrice) : null) : undefined
+
+    const updateData: any = {
+      name,
+      description,
+      price,
+      duration,
     }
+
+    if (offerPrice !== undefined) {
+      updateData.offerPrice = offerPriceNumber
+    }
+
+    const service = await ServiceService.updateService(
+      paramsValidation.data.id,
+      updateData
+    )
+
+    res.json({ data: service })
+  } catch (error) {
+    console.error('[v0] Error updating service:', error)
+    res.status(500).json({ message: "Failed to update service", error })
   }
+}
 
   /**
    * Delete service

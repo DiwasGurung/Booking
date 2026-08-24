@@ -42,7 +42,6 @@ export default function ServicesPage() {
   const router = useRouter()
   const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
   const [services, setServices] = useState<Service[]>([])
-  const [hours, setHours] = useState<BusinessHours[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -54,13 +53,10 @@ export default function ServicesPage() {
   const [description, setDescription] = useState('')
   const [capacity, setCapacity] = useState('1')
   const [isServiceActive, setIsServiceActive] = useState(true)
-  const [dayOfWeek, setDayOfWeek] = useState('0')
-  const [openTime, setOpenTime] = useState('')
-  const [closeTime, setCloseTime] = useState('')
-  const [isClosed, setIsClosed] = useState(false)
   const bookingUrl = businessId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/book/${businessId}` : ''
   const [isSubmitting, setIsSubmitting] = useState(false)
    const { usage: subscriptionUsage } = useSubscriptionUsage(businessId)
+
 
   useEffect(() => {
     if (businessId) {
@@ -113,19 +109,6 @@ export default function ServicesPage() {
     }
   }
 
-  // const loadHours = async () => {
-  //   try {
-  //     const response = await fetch(`http://localhost:5001/api/business-hours/business/${businessId}`, {
-  //       credentials: 'include',
-  //     })
-  //     if (response.ok) {
-  //       const data = await response.json()
-  //       setHours(data)
-  //     }
-  //   } catch (err) {
-  //     console.error('[v0] Error loading hours:', err)
-  //   }
-  // }
 
   const handleEditClick = (service: Service) => {
     setEditingServiceId(service.id)
@@ -165,7 +148,9 @@ export default function ServicesPage() {
     if (!businessId || isSubmitting) return
     try {
 
-       setIsSubmitting(true)
+      setIsSubmitting(true)
+
+      const offerPriceNumber = offerPrice ? Number(offerPrice) : null
       const serviceData: any = {
         businessId,
         name,
@@ -174,10 +159,7 @@ export default function ServicesPage() {
         description,
         capacity: Number(capacity),
         isActive: isServiceActive,
-      }
-
-      if (offerPrice) {
-        serviceData.offerPrice = Number(offerPrice)
+        offerPrice: offerPriceNumber,
       }
 
       if (editingServiceId) {
@@ -195,29 +177,6 @@ export default function ServicesPage() {
       setIsSubmitting(false)
     }
   }
-
-  // const createHours = async (e: React.FormEvent) => {
-  //   e.preventDefault()
-  //   try {
-  //     await fetch('http://localhost:5001/api/business-hours', {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       credentials: 'include',
-  //       body: JSON.stringify({
-  //         businessId,
-  //         dayOfWeek: Number(dayOfWeek),
-  //         openTime,
-  //         closeTime,
-  //         isClosed,
-  //       }),
-  //     })
-  //     loadHours()
-  //   } catch (err) {
-  //     setError('Failed to save hours')
-  //     console.error('[v0] Error saving hours:', err)
-  //   }
-  // }
-
   const copyToClipboard = () => {
     navigator.clipboard.writeText(bookingUrl)
     setCopied(true)
@@ -371,12 +330,12 @@ export default function ServicesPage() {
                   required
                 />
 
-                <Input
+                {/* <Input
                   type="number"
                   placeholder="Capacity"
                   value={capacity}
                   onChange={(e) => setCapacity(e.target.value)}
-                />
+                /> */}
 
                 <Textarea
                   placeholder="Description"
@@ -460,14 +419,14 @@ export default function ServicesPage() {
                             Save {Math.round(((service.price - service.offerPrice) / service.price) * 100)}%
                           </Badge>
                           <Badge variant="outline" className="line-through">
-                            ${service.price.toFixed(2)}
+                            Rs.{service.price.toFixed(2)}
                           </Badge>
                           <Badge className="bg-accent text-accent-foreground">
-                            ${service.offerPrice.toFixed(2)}
+                            Rs.{service.offerPrice.toFixed(2)}
                           </Badge>
                         </>
                       ) : (
-                        <Badge>${service.price.toFixed(2)}</Badge>
+                        <Badge>Rs.{service.price.toFixed(2)}</Badge>
                       )}
                       <Badge variant={service.isActive ? 'default' : 'secondary'}>
                         {service.isActive ? 'Active' : 'Inactive'}
@@ -484,96 +443,7 @@ export default function ServicesPage() {
           </Card>
         </div>
 
- 
-        {/* <Card>
-          <CardHeader>
-            <CardTitle>Business Hours</CardTitle>
-            <CardDescription>Set your operating hours for each day</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-8 lg:grid-cols-3">
-       
-              <div className="p-4 rounded-lg bg-muted border border-border">
-                <h3 className="font-semibold mb-4">Add/Update Hours</h3>
-                <form onSubmit={createHours} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="day">Day of Week</Label>
-                    <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
-                      <SelectTrigger id="day">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {days.map((day, i) => (
-                          <SelectItem key={i} value={String(i)}>
-                            {day}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="open">Open Time</Label>
-                      <Input
-                        id="open"
-                        type="time"
-                        value={openTime}
-                        onChange={(e) => setOpenTime(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="close">Close Time</Label>
-                      <Input
-                        id="close"
-                        type="time"
-                        value={closeTime}
-                        onChange={(e) => setCloseTime(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="closed"
-                      checked={isClosed}
-                      onCheckedChange={(checked) => setIsClosed(checked as boolean)}
-                    />
-                    <Label htmlFor="closed" className="font-normal cursor-pointer">
-                      Closed this day
-                    </Label>
-                  </div>
-
-                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                    Save Hours
-                  </Button>
-                </form>
-              </div>
-
-    
-              <div className="lg:col-span-2">
-                <h3 className="font-semibold mb-4">Current Hours</h3>
-                {hours.length === 0 ? (
-                  <p className="text-muted-foreground">No hours set yet</p>
-                ) : (
-                  <div className="space-y-2">
-                    {hours.map((h) => (
-                      <div
-                        key={h.id}
-                        className="flex items-center justify-between p-3 border border-border rounded-lg bg-card"
-                      >
-                        <span className="font-medium text-foreground">{days[h.dayOfWeek]}</span>
-                        <span className="text-muted-foreground">
-                          {h.isClosed ? 'Closed' : `${h.openTime} - ${h.closeTime}`}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card> */}
       </main>
     </div>
   )
