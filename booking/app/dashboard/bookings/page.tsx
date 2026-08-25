@@ -31,7 +31,7 @@ export default function BookingsPage() {
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [filterStaffId, setFilterStaffId] = useState<string>('ALL')
   const [filterVerification, setFilterVerification] = useState('ALL')
-  const [filterRange, setFilterRange] = useState<'today' | 'week' | 'month'>('month')
+  const [filterRange, setFilterRange] = useState<'today' | 'tomorrow' | 'week' | 'month'>('month')
   const [staff, setStaff] = useState<Staff[]>([])
   const [page, setPage] = useState(1)
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
@@ -43,9 +43,17 @@ export default function BookingsPage() {
   const getDateRange = () => {
     const end = new Date()
     const start = new Date(end)
-    if (filterRange === 'today') start.setHours(0, 0, 0, 0)
-    if (filterRange === 'week') start.setDate(end.getDate() - 7)
-    if (filterRange === 'month') start.setDate(end.getDate() - 30)
+  if (filterRange === 'today') {
+    start.setHours(0, 0, 0, 0)
+  } else if (filterRange === 'tomorrow') {
+    start.setDate(end.getDate() + 1)
+    start.setHours(0, 0, 0, 0)
+    end.setDate(end.getDate() + 1)
+  } else if (filterRange === 'week') {
+    start.setDate(end.getDate() - 7)
+  } else if (filterRange === 'month') {
+    start.setDate(end.getDate() - 30)
+  }
      end.setHours(23, 59, 59, 999)
     return { startDate: start.toISOString(), endDate: end.toISOString() }
   }
@@ -166,7 +174,7 @@ const loadBookings = async () => {
         <Card className="mb-6 border-slate-200 bg-white/80 p-4 shadow-sm">
           <div className="grid gap-2 sm:grid-cols-2">
             <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Staff member</label><select value={filterStaffId} onChange={event => { setFilterStaffId(event.target.value); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">All staff</option>{staff.map(member => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}</select></div>
-            <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Date range</label><select value={filterRange} onChange={event => { setFilterRange(event.target.value as typeof filterRange); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="today">Today</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option></select></div>
+            <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Date range</label><select value={filterRange} onChange={event => { setFilterRange(event.target.value as typeof filterRange); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="today">Today</option>  <option value="tomorrow">Tomorrow</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option></select></div>
             <div className="flex items-end"><Link href="/dashboard/staff/performance" className="text-sm font-semibold text-blue-700 hover:underline">View staff performance</Link></div>
           </div>
         </Card>
