@@ -29,6 +29,9 @@ const initializeTransporter = () => {
       port: emailPort,
       secure: emailPort === 465,
       auth: { user: emailUser, pass: emailPassword },
+      tls: { rejectUnauthorized: false },
+    logger: true,
+    debug: true,
  
     },
     {
