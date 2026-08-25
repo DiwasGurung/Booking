@@ -105,7 +105,7 @@ export default function SubscriptionPage() {
 
   const formatDate = (date: string | null | undefined) => {
     if (!date) return 'N/A'
-    return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    return new Date(date).toLocaleDateString('ne-NP', { year: 'numeric', month: 'short', day: 'numeric' })
   }
 
   if (loading || subscriptionLoading || fetchingBusinessId) {

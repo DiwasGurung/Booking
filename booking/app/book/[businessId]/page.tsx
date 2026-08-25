@@ -388,7 +388,7 @@ function BookingPageContent() {
                   <div className="flex items-start gap-3">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Date:</div>
                     <div className="text-sm text-foreground">
-                      {new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
+                      {new Date(date + 'T00:00:00').toLocaleDateString('ne-NP', {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',

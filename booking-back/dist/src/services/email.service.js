@@ -15,7 +15,7 @@ const emailPort = Number(process.env.EMAIL_PORT || 465);
 const rawFrom = process.env.EMAIL_FROM || emailUser;
 const emailFrom = rawFrom.includes(emailUser) ? rawFrom : `Appoint-Nepal <${emailUser}>`;
 const businessTimeZone = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
-const formatBookingDate = (value, options) => new Intl.DateTimeFormat('en-US', { ...options, timeZone: businessTimeZone }).format(new Date(value));
+const formatBookingDate = (value, options) => new Intl.DateTimeFormat('ne-NP', { ...options, timeZone: businessTimeZone }).format(new Date(value));
 // Verify transporter configuration on startup
 let transporter = null;
 const initializeTransporter = () => {

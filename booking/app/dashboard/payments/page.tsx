@@ -342,7 +342,7 @@ export default function PaymentsDashboardPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-500">
-                          {new Date(payment.createdAt).toLocaleDateString('en-US', {
+                          {new Date(payment.createdAt).toLocaleDateString('ne-NP', {
                             year: 'numeric',
                             month: 'short',
                             day: 'numeric',

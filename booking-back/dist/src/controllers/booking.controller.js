@@ -192,8 +192,8 @@ class BookingController {
                 },
                 include: { staff: true, service: true, business: true }
             });
-            const bookingDate = startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            const bookingTime = startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            const bookingDate = startTime.toLocaleDateString('ne-NP', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const bookingTime = startTime.toLocaleTimeString('ne-NP', { hour: '2-digit', minute: '2-digit' });
             if (alreadyVerified) {
                 // Verified customer: send booking confirmation directly, no verification step.
                 try {
@@ -851,8 +851,8 @@ class BookingController {
                     const verificationSent = await email_service_1.emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
                         customerName,
                         serviceName: service.name,
-                        date: booking.startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-                        time: booking.startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                        date: booking.startTime.toLocaleDateString('ne-NP', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+                        time: booking.startTime.toLocaleTimeString('ne-NP', { hour: '2-digit', minute: '2-digit' }),
                         staffName,
                     });
                     if (!verificationSent) {

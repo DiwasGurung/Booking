@@ -217,8 +217,8 @@ class BookingController {
 
        // Format in the business timezone so the server's UTC clock doesn't shift the time.
       const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
-      const bookingDate = startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: BUSINESS_TZ })
-      const bookingTime = startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: BUSINESS_TZ })
+      const bookingDate = startTime.toLocaleDateString('ne-NP', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: BUSINESS_TZ })
+      const bookingTime = startTime.toLocaleTimeString('ne-NP', { hour: '2-digit', minute: '2-digit', timeZone: BUSINESS_TZ })
 
       if (alreadyVerified) {
         // Verified customer: send booking confirmation directly, no verification step.
@@ -251,6 +251,8 @@ class BookingController {
           serviceName: service.name,
           date: bookingDate,
           time: bookingTime,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
           staffName: booking.staff?`${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined,
         })
       } catch (emailError) {
@@ -987,8 +989,10 @@ class BookingController {
           const verificationSent = await emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
             customerName,
             serviceName: service.name,
-            date: booking.startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-            time: booking.startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            date: booking.startTime.toLocaleDateString('ne-NP', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+            time: booking.startTime.toLocaleTimeString('ne-NP', { hour: '2-digit', minute: '2-digit' }),
+            startTime: booking.startTime,
+            endTime: booking.endTime,
             staffName,
           })
           
