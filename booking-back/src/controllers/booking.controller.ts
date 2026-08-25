@@ -215,8 +215,10 @@ class BookingController {
         include: { staff: true, service: true, business: true }
       })
 
-      const bookingDate = startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-      const bookingTime = startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+       // Format in the business timezone so the server's UTC clock doesn't shift the time.
+      const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
+      const bookingDate = startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: BUSINESS_TZ })
+      const bookingTime = startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: BUSINESS_TZ })
 
       if (alreadyVerified) {
         // Verified customer: send booking confirmation directly, no verification step.

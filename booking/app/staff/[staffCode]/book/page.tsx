@@ -47,6 +47,7 @@ export default function StaffBookPage() {
   const [closedReason, setClosedReason] = useState<string | null>(null)
   const [closedDates, setClosedDates] = useState<Map<string, string>>(new Map())
   const [businessHours, setBusinessHours] = useState<any[]>([])
+  const [showVerificationNotice, setShowVerificationNotice] = useState(false)
   const [formData, setFormData] = useState<FormData>({
     customerName: '',
     email: '',
@@ -435,7 +436,17 @@ export default function StaffBookPage() {
         // Create appointment details message
         const serviceName = staff?.services?.find((s: any) => s.serviceId === formData.serviceId)?.service?.name || 'Service'
         const appointmentDetails = `${serviceName} on ${formData.date} at ${formData.time}`
-        
+        const isUserVerified = bookingData.userVerified; // adjust based on actual response
+
+        if (!isUserVerified) {
+    // Show verification notice
+    setShowVerificationNotice(true);
+  } else {
+    // Redirect for verified user
+    setTimeout(() => {
+      router.push('/search');
+    }, 2000);
+  }
         if (bookingData.warnings && bookingData.warnings.length > 0) {
           toast({
             title: 'Booking Created with Warnings',
@@ -448,6 +459,7 @@ export default function StaffBookPage() {
             description: `Your appointment for ${appointmentDetails} has been scheduled successfully`,
           })
         }
+        
         
         // Redirect after a short delay
         setTimeout(() => {
@@ -771,6 +783,25 @@ export default function StaffBookPage() {
           </CardContent>
         </Card>
       </div>
+      {showVerificationNotice && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded shadow max-w-sm w-full text-center">
+          <h2 className="text-xl font-semibold mb-4">Verify Your Email</h2>
+          <p className="mb-4">
+            A verification email has been sent to your email address. Please verify your email to access all features and future bookings.
+          </p>
+          <button
+            className="bg-primary text-primary-foreground px-4 py-2 rounded"
+            onClick={() => {
+              setShowVerificationNotice(false);
+              router.push('/search');
+            }}
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    )}
     </div>
   )
 }
