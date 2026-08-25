@@ -98,27 +98,27 @@ const loadBookings = async () => {
     setLoading(false)
   }
 }
- // Handle booking status update
-  const handleUpdateStatus = async () => {
-    if (!selectedBookingId || !newStatus) return
-    try {
-      setUpdatingStatus(true)
-      setUpdateError('')
-      const response = await bookingsApi.updateBookingStatus(selectedBookingId, newStatus)
-      if (response.success) {
-        setBookings(prev => prev.map(b => b.id === selectedBookingId ? { ...b, status: newStatus } : b))
-        setSelectedBookingId(null)
-        setNewStatus(null)
-      } else {
-        setUpdateError(response.error || 'Failed to update booking status')
-      }
-    } catch (err) {
-      setUpdateError('Error updating booking status')
-      console.error('[v0] Error updating status:', err)
-    } finally {
-      setUpdatingStatus(false)
+const handleUpdateStatus = async () => {
+  if (!selectedBookingId || !newStatus) return
+  try {
+    setUpdatingStatus(true)
+    setUpdateError('')
+    const response = await bookingsApi.updateBookingStatus(selectedBookingId, newStatus)
+    if (response.success) {
+      setBookings(prev => prev.map(b => b.id === selectedBookingId ? { ...b, status: newStatus } : b))
+    } else {
+      setUpdateError(response.error || 'Failed to update booking status')
     }
+  } catch (err) {
+    setUpdateError('Error updating booking status')
+    console.error('[v0] Error updating status:', err)
+  } finally {
+    // Reset modal state regardless of success or failure
+    setSelectedBookingId(null)
+    setNewStatus(null)
+    setUpdatingStatus(false)
   }
+}
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -262,7 +262,7 @@ const loadBookings = async () => {
                                 }}
                                 title={booking.status === 'PENDING' ? 'Confirm booking' : 'Mark as completed'}
                               >
-                                {booking.status === 'PENDING' ? 'Confirm' : booking.status === 'CONFIRMED' ? 'Complete' : 'Done'}
+                                {booking.status === 'PENDING' ? 'Confirm' : booking.status === 'CONFIRMED' ? 'Complete' : null}
                               </Button>
                               <Button 
                                 size="sm" 
