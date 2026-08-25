@@ -48,6 +48,7 @@ export default function StaffBookPage() {
   const [closedDates, setClosedDates] = useState<Map<string, string>>(new Map())
   const [businessHours, setBusinessHours] = useState<any[]>([])
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false)
+  const [countdown, setCountdown] = useState(10)
   const [formData, setFormData] = useState<FormData>({
     customerName: '',
     email: '',
@@ -57,6 +58,23 @@ export default function StaffBookPage() {
     time: '',
     notes: '',
   })
+
+  useEffect(() => {
+  if (!isVerificationModalOpen) return
+  
+  // Reset countdown to 10 whenever the modal opens
+  setCountdown(10)
+}, [isVerificationModalOpen])
+
+useEffect(() => {
+  if (countdown <= 0) return
+
+  const timer = setInterval(() => {
+    setCountdown((prev) => prev - 1)
+  }, 1000)
+
+  return () => clearInterval(timer)
+}, [countdown])
 
   // Fetch staff info and check user authentication
   useEffect(() => {
@@ -785,24 +803,32 @@ export default function StaffBookPage() {
         </Card>
       </div>
       {isVerificationModalOpen && (
-  <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50">
-    <div className="bg-white p-6 rounded shadow max-w-sm w-full relative">
-      <h2 className="text-xl font-semibold mb-2">Verify Your Email</h2>
-      <p className="text-sm text-muted-foreground mb-6">
-        We sent a verification link to your email address. Please verify your account to complete your first booking. Future bookings will not require this step.
-      </p>
-      <button
-        className="w-full bg-primary text-primary-foreground font-medium px-4 py-2 rounded transition-colors hover:bg-primary/90"
-        onClick={() => {
-          setIsVerificationModalOpen(false)
-          router.push('/')
-        }}
-      >
-        Got it, thanks
-      </button>
-    </div>
-  </div>
-)}
+      <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50">
+        <div className="bg-white p-6 rounded shadow max-w-sm w-full relative flex flex-col">
+          <h2 className="text-xl font-semibold mb-2">Verify Your Email</h2>
+          
+          <p className="text-sm text-muted-foreground mb-6">
+            We sent a verification link to your email address. Please verify your account to complete your first booking. Future bookings will not require this step.
+          </p>
+
+          {/* Primary Action Button */}
+          <button
+            className={`w-full font-medium px-4 py-2 rounded transition-colors ${
+              countdown > 0 
+                ? 'bg-muted text-muted-foreground cursor-not-allowed' 
+                : 'bg-primary text-primary-foreground hover:bg-primary/90'
+            }`}
+            disabled={countdown > 0}
+            onClick={() => {
+              setIsVerificationModalOpen(false)
+              router.push('/')
+            }}
+          >
+            {countdown > 0 ? `Please wait (${countdown}s)` : 'Got it, thanks'}
+          </button>
+        </div>
+      </div>
+    )}
 
     </div>
   )
