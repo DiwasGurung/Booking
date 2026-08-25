@@ -63,11 +63,11 @@ export const emailService = {
       const mailOptions = {
         from: emailFrom,
         to: email,
-        subject: 'Verify Your Email Address - BookFlow',
+        subject: 'Verify Your Email Address - Appoint-Nepal',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-              <h2 style="color: #333; margin: 0;">Welcome to BookFlow!</h2>
+              <h2 style="color: #333; margin: 0;">Welcome to Appoint-Nepal!</h2>
             </div>
             
             <p style="color: #666; font-size: 16px; line-height: 1.6;">
@@ -121,12 +121,12 @@ export const emailService = {
   async sendPasswordResetEmail(email: string, resetToken: string, accountType: 'business' | 'staff' = 'staff') {
     try {
       const transporter = initializeTransporter()
-      const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${encodeURIComponent(resetToken)}&type=${accountType}`
+      const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || ''}/reset-password?token=${encodeURIComponent(resetToken)}&type=${accountType}`
 
       const mailOptions = {
         from: emailFrom,
         to: email,
-        subject: 'Reset Your Password - BookFlow',
+        subject: 'Reset Your Password - Appoint-Nepal',
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -190,7 +190,7 @@ export const emailService = {
       const mailOptions = {
         from: emailFrom,
         to: ownerEmail,
-        subject: `New Booking Received - ${bookingDetails.serviceName} - BookFlow`,
+        subject: `New Booking Received - ${bookingDetails.serviceName} - Appoint Nepal`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
@@ -261,14 +261,14 @@ export const emailService = {
               </div>
               
               <div style="text-align: center; margin-top: 20px;">
-                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/bookings" 
+                <a href="${process.env.NEXT_PUBLIC_APP_URL || ''}/dashboard/bookings" 
                    style="background-color: #008B8B; color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">
                   View in Dashboard
                 </a>
               </div>
               
               <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                This is an automated notification from BookFlow.<br/>
+                This is an automated notification from Appoint-Nepal.<br/>
                 Please do not reply to this email.
               </p>
             </div>
@@ -314,7 +314,7 @@ export const emailService = {
       const mailOptions = {
         from: emailFrom,
         to: customerEmail,
-        subject: `Booking Confirmed - ${bookingDetails.businessName} - BookFlow`,
+        subject: `Booking Confirmed - ${bookingDetails.businessName} - Appoint Nepal`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
@@ -366,7 +366,7 @@ export const emailService = {
               ` : ''}
               
               <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                Thank you for booking with BookFlow!
+                Thank you for booking with Appoint Nepal!
               </p>
             </div>
           </div>
@@ -389,7 +389,7 @@ export const emailService = {
     try {
       const transporter = initializeTransporter()
 
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || ''
       const verificationLink = `${baseUrl}/staff/verify-email?token=${verificationToken}`
 
       const mailOptions = {
@@ -399,7 +399,7 @@ export const emailService = {
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
-              <h2 style="color: white; margin: 0;">Welcome to BookFlow Staff Portal!</h2>
+              <h2 style="color: white; margin: 0;">Welcome to Appoint Nepal Staff Portal!</h2>
             </div>
             
             <div style="border: 1px solid #e0e0e0; border-top: none; padding: 30px; border-radius: 0 0 8px 8px;">
@@ -534,13 +534,25 @@ export const emailService = {
     serviceName: string
     date: string
     time: string
+    startTime: Date
+    endTime: Date
     staffName?: string
   }): Promise<boolean> {
     try {
       console.log('[Email Service] Sending verification email to:', email)
       const transporter = initializeTransporter()
 
-      const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/booking/verify/${verificationToken}`
+        const formattedDate = formatBookingDate(bookingDetails.startTime, {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      })
+      const formattedStartTime = formatBookingDate(bookingDetails.startTime, {
+        hour: '2-digit', minute: '2-digit'
+      })
+      const formattedEndTime = formatBookingDate(bookingDetails.endTime, {
+        hour: '2-digit', minute: '2-digit'
+      })
+
+      const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || ''}/booking/verify/${verificationToken}`
 
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -564,8 +576,8 @@ export const emailService = {
             <p style="color: #333; font-weight: bold; margin: 0 0 10px 0;">Booking Details:</p>
             <ul style="margin: 0; padding-left: 20px; color: #555;">
               <li><strong>Service:</strong> ${bookingDetails.serviceName}</li>
-              <li><strong>Date:</strong> ${bookingDetails.date}</li>
-              <li><strong>Time:</strong> ${bookingDetails.time}</li>
+              <li><strong>Date:</strong> ${formattedDate}</li>
+             <li><strong>Time:</strong> ${formattedStartTime} - ${formattedEndTime}</li>
               ${bookingDetails.staffName ? `<li><strong>Staff:</strong> ${bookingDetails.staffName}</li>` : ''}
             </ul>
           </div>
@@ -575,8 +587,8 @@ export const emailService = {
           </p>
 
           <p style="color: #777; font-size: 12px; margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
-            BookFlow - Appointment Booking System<br>
-            ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}
+            Appoint-Nepal - Appointment Booking System<br>
+            ${process.env.NEXT_PUBLIC_APP_URL || ''}
           </p>
         </div>
       `
