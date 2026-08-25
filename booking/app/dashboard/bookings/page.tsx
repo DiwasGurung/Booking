@@ -164,9 +164,8 @@ const loadBookings = async () => {
         </div>
 
         <Card className="mb-6 border-slate-200 bg-white/80 p-4 shadow-sm">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2">
             <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Staff member</label><select value={filterStaffId} onChange={event => { setFilterStaffId(event.target.value); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">All staff</option>{staff.map(member => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}</select></div>
-            <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Customer verification</label><select value={filterVerification} onChange={event => { setFilterVerification(event.target.value); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">All customers</option><option value="VERIFIED">Verified</option><option value="UNVERIFIED">Unverified</option></select></div>
             <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Date range</label><select value={filterRange} onChange={event => { setFilterRange(event.target.value as typeof filterRange); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="today">Today</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option></select></div>
             <div className="flex items-end"><Link href="/dashboard/staff/performance" className="text-sm font-semibold text-blue-700 hover:underline">View staff performance</Link></div>
           </div>
