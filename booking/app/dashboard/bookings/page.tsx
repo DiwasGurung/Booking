@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
 import { bookingsApi, staffApi, type Staff } from '@/lib/api'
-import { Calendar, Loader, AlertCircle, Eye, Edit, Trash2, Plus } from 'lucide-react'
+import { Calendar, Loader, AlertCircle,  Edit, Trash2, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { useBusinessId } from '@/hooks/useBusinessId'
 
@@ -16,11 +16,13 @@ interface Booking {
   customerName: string
   customerEmail?: string
   serviceId: string
+  customerPhone?: string
   service?: { name: string; price: number }
   startTime: string
   endTime: string
   status: string
   notes?: string
+  staff?: { firstName: string; lastName: string }
 }
 
 export default function BookingsPage() {
@@ -208,8 +210,10 @@ const loadBookings = async () => {
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Customer</th>
+                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Phone</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Service</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Date & Time</th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Staff</th> 
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Status</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Amount</th>
                     <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Actions</th>
@@ -224,6 +228,7 @@ const loadBookings = async () => {
                           <p className="text-sm text-slate-500">{booking.customerEmail}</p>
                         </div>
                       </td>
+                                 <td className="px-6 py-4 text-sm">{booking.customerPhone || 'N/A'}</td>
                       <td className="px-6 py-4 text-slate-900">{booking.service?.name || 'N/A'}</td>
                       <td className="px-6 py-4 text-slate-900">
                         {new Date(booking.startTime).toLocaleDateString()}
@@ -232,6 +237,10 @@ const loadBookings = async () => {
                           {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </td>
+                      {/* Staff Name */}
+  <td className="px-6 py-4">
+    {booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}` : 'N/A'}
+  </td>
                       <td className="px-6 py-4">
                         <Badge className={getStatusColor(booking.status)}>
                           {booking.status}
@@ -242,11 +251,11 @@ const loadBookings = async () => {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2 items-center">
-                          <Link href={`/dashboard/bookings/${booking.id}`}>
+                          {/* <Link href={`/dashboard/bookings/${booking.id}`}>
                             <Button size="sm" variant="ghost" title="View details">
                               <Eye className="w-4 h-4" />
                             </Button>
-                          </Link>
+                          </Link> */}
                           {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
                             <>
                               <Button 
