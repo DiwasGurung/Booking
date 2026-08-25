@@ -72,7 +72,9 @@ class ServiceController {
             if ((0, index_1.isValidationError)(validation)) {
                 return res.status(400).json({ message: validation.error });
             }
-            const { businessId, name, description, price, duration } = validation.data;
+            const { businessId, name, description, price, duration, offerPrice } = validation.data;
+            // Convert offerPrice to number or null
+            const offerPriceNumber = offerPrice !== undefined ? (offerPrice !== null ? Number(offerPrice) : null) : undefined;
             const serviceLimit = await subscription_service_1.default.canAddService(businessId);
             if (!serviceLimit.allowed) {
                 console.warn('[v0] Service limit exceeded for business:', businessId);
@@ -90,6 +92,7 @@ class ServiceController {
                 description,
                 price,
                 duration,
+                offerPrice: offerPriceNumber,
             });
             res.status(201).json({ data: service });
         }
@@ -111,13 +114,19 @@ class ServiceController {
             if ((0, index_1.isValidationError)(bodyValidation)) {
                 return res.status(400).json({ message: bodyValidation.error });
             }
-            const { name, description, price, duration } = bodyValidation.data;
-            const service = await service_service_1.default.updateService(paramsValidation.data.id, {
+            const { name, description, price, duration, offerPrice } = bodyValidation.data;
+            // Convert offerPrice to number or null
+            const offerPriceNumber = offerPrice !== undefined ? (offerPrice !== null ? Number(offerPrice) : null) : undefined;
+            const updateData = {
                 name,
                 description,
                 price,
                 duration,
-            });
+            };
+            if (offerPrice !== undefined) {
+                updateData.offerPrice = offerPriceNumber;
+            }
+            const service = await service_service_1.default.updateService(paramsValidation.data.id, updateData);
             res.json({ data: service });
         }
         catch (error) {

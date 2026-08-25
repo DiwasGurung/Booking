@@ -76,6 +76,7 @@ exports.CreateServiceSchema = zod_1.z.object({
     name: zod_1.z.string().min(2, 'Service name is required').max(100),
     description: zod_1.z.string().max(500).optional(),
     price: zod_1.z.number().positive('Price must be positive'),
+    offerPrice: zod_1.z.number().nullable().optional(),
     duration: zod_1.z.number().int().positive('Duration must be positive'),
     category: zod_1.z.string().max(50).optional(),
 });

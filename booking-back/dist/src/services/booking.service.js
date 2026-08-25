@@ -29,9 +29,6 @@ class BookingService {
             },
         });
     }
-    /**
-     * Get all bookings for a business
-     */
     async getBusinessBookings(businessId, page = 1, limit = 10, status, staffId, verified, startDate, endDate) {
         const skip = (page - 1) * limit;
         const where = { businessId };
