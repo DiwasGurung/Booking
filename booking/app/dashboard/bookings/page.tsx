@@ -98,20 +98,15 @@ const loadBookings = async () => {
     setLoading(false)
   }
 }
-
+ // Handle booking status update
   const handleUpdateStatus = async () => {
     if (!selectedBookingId || !newStatus) return
-
     try {
       setUpdatingStatus(true)
       setUpdateError('')
       const response = await bookingsApi.updateBookingStatus(selectedBookingId, newStatus)
-      
       if (response.success) {
-        // Update the booking in the list
-        setBookings(bookings.map(b => 
-          b.id === selectedBookingId ? { ...b, status: newStatus } : b
-        ))
+        setBookings(prev => prev.map(b => b.id === selectedBookingId ? { ...b, status: newStatus } : b))
         setSelectedBookingId(null)
         setNewStatus(null)
       } else {
