@@ -1075,7 +1075,7 @@ const bookingTime = dt.setLocale('en').toLocaleString({
 
     // Check if token has expired
     if (booking.verificationTokenExpires) {
-      const expiresAt = DateTime.fromISO(booking.verificationTokenExpires).toUTC();
+      const expiresAt = DateTime.fromJSDate(booking.verificationTokenExpires).toUTC();
       const now = DateTime.now().toUTC();
 
       if (expiresAt < now) {

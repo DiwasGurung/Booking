@@ -10,6 +10,7 @@ const notification_sse_service_1 = __importDefault(require("../services/notifica
 const email_service_1 = require("../services/email.service");
 const subscription_service_1 = __importDefault(require("../services/subscription.service"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
+const luxon_1 = require("luxon");
 class BookingController {
     /**
      * Create a booking for BUSINESS - Authenticated User
@@ -911,10 +912,6 @@ class BookingController {
             });
         }
     }
-    /**
-     * Verify booking email and confirm the booking
-     * Called when customer clicks verification link in email
-     */
     async verifyBookingEmail(req, res) {
         try {
             const tokenParam = req.params.token;
@@ -922,85 +919,75 @@ class BookingController {
             if (!token) {
                 return res.status(400).json({
                     success: false,
-                    message: "Verification token is required"
+                    message: "Verification token is required",
                 });
             }
-            // Find booking by verification token
+            // Fetch booking by verification token
             const booking = await prisma_1.default.booking.findUnique({
                 where: { verificationToken: token },
-                include: { service: true, business: true }
+                include: { service: true, business: true, customer: true },
             });
             if (!booking) {
                 return res.status(404).json({
                     success: false,
-                    message: "Booking not found. The verification link may be invalid or expired."
+                    message: "Booking not found. The verification link may be invalid or expired.",
                 });
             }
             // Check if token has expired
-            if (booking.verificationTokenExpires && booking.verificationTokenExpires < new Date()) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Verification link has expired. Please create a new booking."
-                });
+            if (booking.verificationTokenExpires) {
+                const expiresAt = luxon_1.DateTime.fromJSDate(booking.verificationTokenExpires).toUTC();
+                const now = luxon_1.DateTime.now().toUTC();
+                if (expiresAt < now) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Verification link has expired. Please create a new booking.",
+                    });
+                }
             }
             // Check if already verified
             if (booking.isEmailVerified) {
                 return res.status(400).json({
                     success: false,
-                    message: "This booking has already been verified."
+                    message: "This booking has already been verified.",
                 });
             }
-            // Persist verification for future bookings from the same customer.
-            if (booking.customerId) {
+            // Mark customer as verified if customer exists
+            if (booking.customer && !booking.customer.isEmailVerified) {
                 await prisma_1.default.customer.update({
-                    where: { id: booking.customerId },
+                    where: { id: booking.customer.id },
                     data: { isEmailVerified: true },
                 });
             }
-            // Update booking to CONFIRMED status and mark email as verified
+            // Update booking to CONFIRMED and clear token fields
             const confirmedBooking = await prisma_1.default.booking.update({
                 where: { id: booking.id },
                 data: {
                     status: 'CONFIRMED',
                     isEmailVerified: true,
-                    verificationToken: null, // Clear token after verification
+                    verificationToken: null,
                     verificationTokenExpires: null,
                 },
-                include: { service: true, business: true, customer: true }
             });
-            // Send confirmation email to customer
-            try {
-                await email_service_1.emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
-                    customerName: booking.customerName,
-                    serviceName: confirmedBooking.service.name,
-                    startTime: confirmedBooking.startTime,
-                    endTime: confirmedBooking.endTime,
-                    businessName: confirmedBooking.business.name,
-                    businessPhone: confirmedBooking.business.phone || '',
-                    businessAddress: confirmedBooking.business.address || '',
-                });
-            }
-            catch (emailError) {
-                console.error('[v0] Failed to send confirmation email:', emailError);
-                // Don't fail the verification if email send fails - booking is already confirmed
-            }
+            // Send confirmation email to customer (optional, can be omitted if not needed)
+            // await emailService.sendBookingConfirmationToCustomer(confirmedBooking.customerEmail, { ... })
+            // Respond success
             return res.status(200).json({
                 success: true,
-                message: 'Email verified! Your booking is now confirmed. Check your email for booking details.',
+                message: 'Email verified! Your booking is now confirmed.',
                 booking: {
                     id: confirmedBooking.id,
                     startTime: confirmedBooking.startTime,
                     endTime: confirmedBooking.endTime,
                     status: confirmedBooking.status,
-                }
+                },
             });
         }
         catch (error) {
-            console.error('[v0] Error verifying booking email:', error instanceof Error ? error.message : String(error));
-            res.status(500).json({
+            console.error("[v0] Error verifying booking email:", error);
+            return res.status(500).json({
                 success: false,
-                message: "Error verifying booking",
-                error: error instanceof Error ? error.message : String(error)
+                message: "An error occurred during verification.",
+                error: error instanceof Error ? error.message : String(error),
             });
         }
     }
