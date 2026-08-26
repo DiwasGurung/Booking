@@ -12,7 +12,7 @@ import {
 import { paymentApi } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import { useBusinessId } from '@/hooks/useBusinessId'
-
+import {DateTime} from 'luxon';
 interface PaymentPlan {
   id: string
   name: string
@@ -342,12 +342,12 @@ export default function PaymentsDashboardPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-500">
-                          {new Date(payment.createdAt).toLocaleDateString('ne-NP', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </td>
+  {DateTime.fromISO(payment.createdAt, { zone: 'Asia/Kathmandu' }).setLocale('en').toLocaleString({
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })}
+</td>
                       </tr>
                     )
                   })}

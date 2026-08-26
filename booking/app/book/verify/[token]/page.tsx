@@ -22,7 +22,7 @@ export default function VerifyBookingPage() {
           return
         }
 
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5001'
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || ''
         const response = await fetch(`${apiBaseUrl}/api/booking/verify-email/${token}`, {
           method: 'POST',
           headers: {

@@ -12,7 +12,7 @@ const emailFrom = rawFrom.includes(emailUser) ? rawFrom : `Appoint-Nepal <${emai
 const businessTimeZone = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
 
 const formatBookingDate = (value: Date, options: Intl.DateTimeFormatOptions) =>
-  new Intl.DateTimeFormat('ne-NP', { ...options, timeZone: businessTimeZone }).format(new Date(value))
+  new Intl.DateTimeFormat('en-US', { ...options, timeZone: businessTimeZone }).format(new Date(value))
 
 // Verify transporter configuration on startup
 let transporter: nodemailer.Transporter | null = null
@@ -552,7 +552,7 @@ export const emailService = {
         hour: '2-digit', minute: '2-digit'
       })
 
-      const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || ''}/booking/verify/${verificationToken}`
+      const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || ''}/book/verify/${verificationToken}`
 
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

@@ -13,6 +13,7 @@ import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 import Link from 'next/link'
 import { Loader, AlertCircle, CreditCard, Calendar, CheckCircle, ArrowRight, Trash2, ArrowUpRight, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
+import { DateTime } from 'luxon';
 
 interface SubscriptionDetails {
   id?: string
@@ -103,10 +104,13 @@ export default function SubscriptionPage() {
     }
   }
 
-  const formatDate = (date: string | null | undefined) => {
-    if (!date) return 'N/A'
-    return new Date(date).toLocaleDateString('ne-NP', { year: 'numeric', month: 'short', day: 'numeric' })
-  }
+const formatDate = (date: string | null | undefined) => {
+  if (!date) return 'N/A';
+
+  return DateTime.fromISO(date, { zone: 'Asia/Kathmandu' })
+    .setLocale('en')
+    .toLocaleString({ year: 'numeric', month: 'short', day: 'numeric' });
+}
 
   if (loading || subscriptionLoading || fetchingBusinessId) {
     return (

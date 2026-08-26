@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card'
 import { Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, MessageCircle, User } from 'lucide-react'
 import { servicesApi, bookingsApi, businessApi, staffApi, type Service, type Business, type Staff } from '@/lib/api'
 import { useAuth } from '@/context/authContext'
+import { DateTime } from 'luxon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -387,14 +388,16 @@ function BookingPageContent() {
                   <div className="h-px bg-border my-1"></div>
                   <div className="flex items-start gap-3">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Date:</div>
-                    <div className="text-sm text-foreground">
-                      {new Date(date + 'T00:00:00').toLocaleDateString('ne-NP', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </div>
+                    
+
+<div className="text-sm text-foreground">
+  {DateTime.fromISO(date + 'T00:00:00', { zone: 'Asia/Kathmandu' }).setLocale('en').toLocaleString({
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })}
+</div>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Time:</div>
