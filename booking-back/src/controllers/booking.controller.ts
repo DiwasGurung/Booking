@@ -931,18 +931,15 @@ const bookingTime = dt.setLocale('en').toLocaleString({
         }
       }
 
-       const customerIsVerified = customer.isEmailVerified === true || (customer as { isEmailVerified?: boolean }).isEmailVerified === true
+        const alreadyVerified = customer.isEmailVerified === true
 
-      let verificationToken = null
-      let verificationTokenExpires = null
+      const verificationToken = alreadyVerified ? null : randomBytes(32).toString('hex')
+      const verificationTokenExpires = alreadyVerified ? null : new Date(Date.now() + 24 * 60 * 60 * 1000)
       
-       if (!customerIsVerified) {
-        verificationToken = randomBytes(32).toString('hex')
-        verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000)
-      }
+       
 
-       const bookingStatus = customerIsVerified ? 'CONFIRMED' : 'UNVERIFIED'
-      const isEmailVerified = customerIsVerified
+       const bookingStatus = alreadyVerified ? 'CONFIRMED' : 'UNVERIFIED'
+      const isEmailVerified = alreadyVerified
 
       // Create a guest booking
       const bookingData: any = {
@@ -998,7 +995,7 @@ const bookingTime = dt.setLocale('en').toLocaleString({
       }
 
       // Send verification email only for NEW customers (existing customers are auto-confirmed)
-      if (!customerIsVerified && verificationToken) {
+      if (!alreadyVerified && verificationToken) {
         try {
           const staffName = booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined
           const verificationSent = await emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
@@ -1024,7 +1021,7 @@ const bookingTime = dt.setLocale('en').toLocaleString({
 
       res.status(201).json({
         success: true,
-        message: customerIsVerified
+        message: alreadyVerified
           ? 'Booking confirmed! Your appointment is scheduled.'
           : (emailWarnings.length > 0
               ? 'Booking created! Please verify your email to confirm your appointment.'
