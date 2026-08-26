@@ -1,20 +1,17 @@
 "use client"
 
+import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import { AlertCircle, ArrowRight } from "lucide-react"
 import { toast } from "sonner"
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { BUSINESS_CATEGORIES } from "@/components/constants/businessCategories"
+import { NEPAL_PROVINCES, getDistrictsByProvince } from "@/components/constants/nepalLocations"
 import { useAuth } from "@/context/authContext"
 
 interface BusinessFormData {
@@ -31,16 +28,9 @@ interface BusinessFormData {
   website: string
   description: string
 }
-const NEPAL_DISTRICTS = [
-  'Kathmandu', 'Bhaktapur', 'Lalitpur', 'Pokhara', 'Biratnagar', 'Janakpur', 'Butwal', 'Nepalgunj',
-  'Dharan', 'Itahari', 'Birgunj', 'Chitwan', 'Jhapa', 'Morang', 'Sunsari', 'Illam', 'Panchthar',
-  'Taplejung', 'Dhankuta', 'Khotang', 'Udayapur', 'Okhaldhunga', 'Sindhuli', 'Ramechhap', 'Dolakha',
-  'Nuwakot', 'Rasuwa', 'Sindhpalchok', 'Kavre', 'Makwanpur', 'Rautahat', 'Bara', 'Parsa', 'Saptari',
-  'Sarlahi', 'Mahottari', 'Dhanusa', 'Banke', 'Bardiya', 'Kailali', 'Kanchanpur', 'Doti', 'Achham',
-  'Baitadi', 'Dadeldhura', 'Bajhang', 'Bajura', 'Humla', 'Jumla', 'Kalikot', 'Mugu', 'Gorkha',
-  'Lamjung', 'Tanahu', 'Syangja', 'Palpa', 'Nawalparasi', 'Rupandehi', 'Arghakhanchi', 'Gulmi',
-  'Pyuthan', 'Baglung', 'Myagdi', 'Parbat', 'Dolpa', 'Mustang', 'Manang',
-]
+
+const STEPS = ["basic", "location", "details", "review"] as const
+type Step = (typeof STEPS)[number]
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
 
@@ -49,10 +39,14 @@ export const SetupBusinessForm = () => {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
-  const [currentStep, setCurrentStep] = useState<"basic" | "location" | "details" | "review">("basic")
+  const [currentStep, setCurrentStep] = useState<Step>("basic")
+
+  // The email the user registered their account with, offered as a shortcut below.
+  const accountEmail = user?.email?.trim() || ""
+  const [useAccountEmail, setUseAccountEmail] = useState(false)
 
   const [formData, setFormData] = useState<BusinessFormData>({
-    userId: user?.id || "", 
+    userId: user?.id || "",
     name: "",
     email: "",
     phone: "",
@@ -60,17 +54,34 @@ export const SetupBusinessForm = () => {
     address: "",
     city: "",
     state: "",
-    zipCode: "",
+    zipCode: "0000",
     country: "Nepal",
     website: "",
     description: "",
   })
 
+  // Districts available for the currently selected province.
+  const availableDistricts = getDistrictsByProvince(formData.state)
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
+    // Editing the email by hand means it is no longer mirroring the account email.
+    if (name === "email" && useAccountEmail) {
+      setUseAccountEmail(false)
+    }
     setFormData((prev) => ({
       ...prev,
       [name]: value,
+    }))
+  }
+
+  // Checking the box copies the registered account email in; unchecking clears it for a fresh entry.
+  const handleUseAccountEmailChange = (checked: boolean) => {
+    if (checked && !accountEmail) return
+    setUseAccountEmail(checked)
+    setFormData((prev) => ({
+      ...prev,
+      email: checked ? accountEmail : "",
     }))
   }
 
@@ -81,12 +92,28 @@ export const SetupBusinessForm = () => {
     }))
   }
 
+  // Selecting a new province resets the city so you can never submit a mismatched pair.
+  const handleStateChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      state: value,
+      city: getDistrictsByProvince(value).includes(prev.city) ? prev.city : "",
+    }))
+  }
+
+  const handleCityChange = (value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      city: value,
+    }))
+  }
+
   const isBasicStepValid = () => {
     return formData.name && formData.email && formData.phone && formData.category
   }
 
   const isLocationStepValid = () => {
-    return formData.address && formData.city && formData.state && formData.zipCode && formData.country
+    return formData.address && formData.state && formData.city && formData.country
   }
 
   const handleNextStep = () => {
@@ -99,18 +126,16 @@ export const SetupBusinessForm = () => {
       return
     }
 
-    const steps: Array<"basic" | "location" | "details" | "review"> = ["basic", "location", "details", "review"]
-    const currentIndex = steps.indexOf(currentStep)
-    if (currentIndex < steps.length - 1) {
-      setCurrentStep(steps[currentIndex + 1])
+    const currentIndex = STEPS.indexOf(currentStep)
+    if (currentIndex < STEPS.length - 1) {
+      setCurrentStep(STEPS[currentIndex + 1])
     }
   }
 
   const handlePrevStep = () => {
-    const steps: Array<"basic" | "location" | "details" | "review"> = ["basic", "location", "details", "review"]
-    const currentIndex = steps.indexOf(currentStep)
+    const currentIndex = STEPS.indexOf(currentStep)
     if (currentIndex > 0) {
-      setCurrentStep(steps[currentIndex - 1])
+      setCurrentStep(STEPS[currentIndex - 1])
     }
   }
 
@@ -119,31 +144,36 @@ export const SetupBusinessForm = () => {
     setIsLoading(true)
     setError("")
 
-    // Check if user is authenticated
     if (!user) {
       setError("You must be logged in to create a business")
       setIsLoading(false)
       return
     }
 
+    if (!isLocationStepValid()) {
+      setError("Please select both a province and a district before submitting")
+      setIsLoading(false)
+      setCurrentStep("location")
+      return
+    }
+
     try {
       // Prioritize localStorage token (most reliable), then fall back to context token
-      let currentToken = null
-      if (typeof window !== 'undefined') {
-        currentToken = localStorage.getItem('authToken')
+      let currentToken: string | null = null
+      if (typeof window !== "undefined") {
+        currentToken = localStorage.getItem("authToken")
       }
       if (!currentToken) {
         currentToken = token
       }
 
-
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       }
       if (currentToken) {
-        headers['Authorization'] = `Bearer ${currentToken}`
+        headers["Authorization"] = `Bearer ${currentToken}`
       } else {
-        console.warn('[v0] SetupBusinessForm: No token available!')
+        console.warn("[v0] SetupBusinessForm: No token available!")
       }
 
       const response = await fetch(`${API_URL}/api/businesses`, {
@@ -153,26 +183,24 @@ export const SetupBusinessForm = () => {
         body: JSON.stringify(formData),
       })
 
-
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
         const errorMsg = data.error || data.message || data.details || "Failed to register business"
-        console.error('[v0] Business setup error response:', data)
+        console.error("[v0] Business setup error response:", data)
         throw new Error(errorMsg)
       }
 
-      const businessData = await response.json()
+      await response.json()
 
       // Refresh user to update role and business info
       await refreshUser()
-      
+
       // Small delay to ensure role update is processed
-      await new Promise(resolve => setTimeout(resolve, 500))
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
       toast.success("Business registered successfully!")
-      // Add a parameter to indicate we're coming from setup to prevent auto-redirects
       router.push("/subscription?from=setup")
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[v0] Business registration error:", error)
       const errorMessage = error instanceof Error ? error.message : "An error occurred"
       setError(errorMessage)
@@ -188,40 +216,36 @@ export const SetupBusinessForm = () => {
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-foreground mb-2">Setup Your Business</h1>
-          <p className="text-muted-foreground text-sm">
-            Follow the steps to complete your business registration
-          </p>
+          <p className="text-muted-foreground text-sm">Follow the steps to complete your business registration</p>
         </div>
 
         {/* Step Progress Indicator */}
         <div className="mb-8 flex gap-2">
-          {(["basic", "location", "details", "review"] as const).map((step, index) => {
-            const steps: Array<"basic" | "location" | "details" | "review"> = ["basic", "location", "details", "review"]
-            const currentIndex = steps.indexOf(currentStep)
-            const stepIndex = steps.indexOf(step)
+          {STEPS.map((step, index) => {
+            const currentIndex = STEPS.indexOf(currentStep)
+            const stepIndex = STEPS.indexOf(step)
             const isCompleted = stepIndex < currentIndex
             const isCurrent = step === currentStep
 
             return (
               <div key={step} className="flex items-center gap-2 flex-1">
                 <button
+                  type="button"
                   onClick={() => setCurrentStep(step)}
+                  aria-current={isCurrent ? "step" : undefined}
                   className={`w-8 h-8 rounded-full font-semibold text-sm flex items-center justify-center transition ${
                     isCurrent
                       ? "bg-primary text-primary-foreground"
                       : isCompleted
-                      ? "bg-primary/20 text-primary"
-                      : "bg-muted text-muted-foreground"
+                        ? "bg-primary/20 text-primary"
+                        : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {index + 1}
+                  <span className="sr-only">{step}</span>
                 </button>
-                {index < 3 && (
-                  <div
-                    className={`flex-1 h-1 rounded-full ${
-                      isCompleted ? "bg-primary" : "bg-muted"
-                    }`}
-                  />
+                {index < STEPS.length - 1 && (
+                  <div className={`flex-1 h-1 rounded-full ${isCompleted ? "bg-primary" : "bg-muted"}`} />
                 )}
               </div>
             )
@@ -270,8 +294,35 @@ export const SetupBusinessForm = () => {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="business@example.com"
+                  aria-describedby="useAccountEmail-hint"
                   required
                 />
+
+                <div className="flex items-start gap-2 pt-1">
+                  <Checkbox
+                    id="useAccountEmail"
+                    checked={useAccountEmail}
+                    onCheckedChange={(checked) => handleUseAccountEmailChange(checked === true)}
+                    disabled={!accountEmail}
+                    className="mt-0.5"
+                  />
+                  <Label
+                    htmlFor="useAccountEmail"
+                    className={`text-sm font-normal leading-relaxed ${
+                      accountEmail ? "text-muted-foreground cursor-pointer" : "text-muted-foreground/60"
+                    }`}
+                  >
+                    Use my registered email
+                    {accountEmail ? <span className="text-foreground font-medium"> ({accountEmail})</span> : null}
+                  </Label>
+                </div>
+                <p id="useAccountEmail-hint" className="text-xs text-muted-foreground">
+                  {!accountEmail
+                    ? "No email is on your account yet, so enter your business email manually."
+                    : useAccountEmail
+                      ? "Your business email is synced with your account email. Uncheck to enter a different one."
+                      : "Check the box above to reuse the email you signed up with."}
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -283,7 +334,7 @@ export const SetupBusinessForm = () => {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="+1 (555) 000-0000"
+                  placeholder="+977 98-0000-0000"
                   required
                 />
               </div>
@@ -293,7 +344,7 @@ export const SetupBusinessForm = () => {
                   Business Category *
                 </Label>
                 <Select value={formData.category} onValueChange={handleCategoryChange}>
-                  <SelectTrigger>
+                  <SelectTrigger id="category" className="w-full">
                     <SelectValue placeholder="Select your business category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -308,91 +359,81 @@ export const SetupBusinessForm = () => {
             </div>
           )}
 
+          {/* STEP 2: Location */}
           {currentStep === "location" && (
-  <div className="bg-card/50 border border-border rounded-lg p-6 space-y-4">
-    <div>
-      <h2 className="text-lg font-semibold text-foreground mb-1">Business Location</h2>
-      <p className="text-sm text-muted-foreground">Where is your business located?</p>
-    </div>
+            <div className="bg-card/50 border border-border rounded-lg p-6 space-y-4">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground mb-1">Business Location</h2>
+                <p className="text-sm text-muted-foreground">Where is your business located?</p>
+              </div>
 
-    <div className="space-y-2">
-      <Label htmlFor="address" className="text-sm font-medium">
-        Street Address *
-      </Label>
-      <Input
-        id="address"
-        name="address"
-        value={formData.address}
-        onChange={handleChange}
-        placeholder="123 Business Street"
-        required
-      />
-    </div>
+              <div className="space-y-2">
+                <Label htmlFor="address" className="text-sm font-medium">
+                  Street Address *
+                </Label>
+                <Input
+                  id="address"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  placeholder="123 Business Street"
+                  required
+                />
+              </div>
 
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* City Dropdown */}
-      <div className="space-y-2">
-        <Label htmlFor="city" className="text-sm font-medium">
-          City *
-        </Label>
-        <Select
-          value={formData.city}
-          onValueChange={(value) => setFormData((prev) => ({ ...prev, city: value }))}
-        >
-          <SelectTrigger id="city">
-            <SelectValue placeholder="Select a city" />
-          </SelectTrigger>
-          <SelectContent>
-            {NEPAL_DISTRICTS.map((district) => (
-              <SelectItem key={district} value={district}>
-                {district}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Province / State first — it drives the district list */}
+                <div className="space-y-2">
+                  <Label htmlFor="state" className="text-sm font-medium">
+                    Province / State *
+                  </Label>
+                  <Select value={formData.state} onValueChange={handleStateChange}>
+                    <SelectTrigger id="state" className="w-full">
+                      <SelectValue placeholder="Select a province" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NEPAL_PROVINCES.map((province) => (
+                        <SelectItem key={province} value={province}>
+                          {province}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-      {/* State Dropdown */}
-      <div className="space-y-2">
-        <Label htmlFor="state" className="text-sm font-medium">
-          State / Province *
-        </Label>
-        <Select
-          value={formData.state}
-          onValueChange={(value) => setFormData((prev) => ({ ...prev, state: value }))}
-        >
-          <SelectTrigger id="state">
-            <SelectValue placeholder="Select a state" />
-          </SelectTrigger>
-          <SelectContent>
-            {NEPAL_DISTRICTS.map((district) => (
-              <SelectItem key={district} value={district}>
-                {district}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
+                {/* District / City — options depend on the selected province */}
+                <div className="space-y-2">
+                  <Label htmlFor="city" className="text-sm font-medium">
+                    District / City *
+                  </Label>
+                  <Select value={formData.city} onValueChange={handleCityChange} disabled={!formData.state}>
+                    <SelectTrigger id="city" className="w-full">
+                      <SelectValue placeholder={formData.state ? "Select a district" : "Select a province first"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableDistricts.map((district) => (
+                        <SelectItem key={district} value={district}>
+                          {district}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {formData.state && (
+                    <p className="text-xs text-muted-foreground">
+                      {availableDistricts.length} districts in {formData.state} Province
+                    </p>
+                  )}
+                </div>
+              </div>
 
-    {/* Zip / Postal Code
-    <div className="space-y-2">
-      <Label htmlFor="zipCode" className="text-sm font-medium">
-        Zip / Postal Code *
-      </Label>
-      <Input
-        id="zipCode"
-        name="zipCode"
-        value={formData.zipCode}
-        onChange={handleChange}
-        placeholder="12345"
-        required
-      />
-    </div> */}
-
-    
-  </div>
-)}
+              <div className="space-y-2">
+                <Label htmlFor="country" className="text-sm font-medium">
+                  Country *
+                </Label>
+                <Input id="country" name="country" value={formData.country} onChange={handleChange} readOnly required />
+              </div>
+            </div>
+          )}
 
           {/* STEP 3: Additional Details */}
           {currentStep === "details" && (
@@ -469,15 +510,17 @@ export const SetupBusinessForm = () => {
                     <p className="font-medium">{formData.address || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">City, State</p>
-                    <p className="font-medium">{formData.city && formData.state ? `${formData.city}, ${formData.state}` : "—"}</p>
+                    <p className="text-muted-foreground">District, Province</p>
+                    <p className="font-medium">
+                      {formData.city && formData.state ? `${formData.city}, ${formData.state}` : "—"}
+                    </p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-muted-foreground">Zip Code</p>
-                    <p className="font-medium">{formData.zipCode || "—"}</p>
+                    <p className="text-muted-foreground">Country</p>
+                    <p className="font-medium">{formData.country || "—"}</p>
                   </div>
                 </div>
 
@@ -503,7 +546,7 @@ export const SetupBusinessForm = () => {
             <Button
               type="button"
               variant="outline"
-              className="flex-1"
+              className="flex-1 bg-transparent"
               onClick={handlePrevStep}
               disabled={currentStep === "basic"}
             >

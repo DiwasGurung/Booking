@@ -1110,7 +1110,7 @@ const bookingTime = dt.setLocale('en').toLocaleString({
       },
     });
 
-    // Send confirmation email to customer (optional, can be omitted if not needed)
+  
     // await emailService.sendBookingConfirmationToCustomer(confirmedBooking.customerEmail, { ... })
 
     // Respond success
