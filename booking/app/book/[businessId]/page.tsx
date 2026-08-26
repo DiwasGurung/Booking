@@ -276,22 +276,18 @@ function BookingPageContent() {
 // Define your business timezone, e.g., 'Asia/Kathmandu'
 const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
 
-// Parse date and time in the business timezone
 const startDateTime = DateTime.fromISO(`${date}T${selectedTime}`, { zone: BUSINESS_TZ });
+const startTimeISO = startDateTime.toISO();
 
-// Convert to JavaScript Date object for Prisma
-const startTime = startDateTime.toJSDate();
-
-// Calculate endTime in the same timezone and convert
 const endDateTime = startDateTime.plus({ minutes: selectedService.duration });
-const endTime = endDateTime.toJSDate();
+const endTimeISO = endDateTime.toISO();
      
 
       const basePayload: any = {
         serviceId: selectedService.id,
         businessId,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
+        startTime: startTimeISO,
+        endTime: endTimeISO,
         notes,
       }
 

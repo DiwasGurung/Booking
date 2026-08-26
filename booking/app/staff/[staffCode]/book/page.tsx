@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { AlertCircle, Calendar, Clock,Loader , MailIcon, Phone} from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { getCurrentUser } from '@/lib/auth'
+import {DateTime} from 'luxon';
 
 
 import { Staff } from '@/lib/api'
@@ -411,14 +412,31 @@ useEffect(() => {
       setSubmitting(true)
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
-      // Create booking with customer details
-      const startDateTime = new Date(`${formData.date}T${formData.time}`)
-      const endDateTime = new Date(startDateTime)
+    
 
-      // Get service duration
-      const selectedStaffService = staff?.services?.find((ss: any) => ss.serviceId === formData.serviceId)
-      const duration = selectedStaffService?.service?.duration || 60
-      endDateTime.setMinutes(endDateTime.getMinutes() + duration)
+     // Define BUSINESS_TZ before creating DateTime objects
+const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
+
+// Get service duration
+const selectedStaffService = staff?.services?.find((ss: any) => ss.serviceId === formData.serviceId);
+
+if (!selectedStaffService) {
+  // Handle error: service not found
+  toast({ title: 'Service not found', variant: 'destructive' });
+  return;
+}
+
+// Create timezone-aware start DateTime
+const startDateTime = DateTime.fromISO(`${formData.date}T${formData.time}`, { zone: BUSINESS_TZ });
+const startTimeISO = startDateTime.toISO(); // ISO string with timezone info
+
+// Calculate end DateTime by adding service duration
+const durationMinutes = selectedStaffService.service?.duration || 60;
+const endDateTime = startDateTime.plus({ minutes: durationMinutes });
+const endTimeISO = endDateTime.toISO(); // ISO string with timezone info
+
+
+
 
       // Use public booking endpoint for guests, authenticated booking for logged-in users
       const endpoint = currentUser ? '/api/booking' : '/api/booking/public'
@@ -426,8 +444,8 @@ useEffect(() => {
         businessId: staff?.businessId,
         staffId: staff?.id,
         serviceId: formData.serviceId,
-        startTime: startDateTime.toISOString(),
-        endTime: endDateTime.toISOString(),
+        startTime: startTimeISO,
+        endTime: endTimeISO,
         notes: formData.notes,
       }
 
