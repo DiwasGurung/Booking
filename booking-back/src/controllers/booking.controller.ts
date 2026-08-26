@@ -146,7 +146,7 @@ class BookingController {
 
       if (!customer) {
         customer = await prisma.customer.create({
-          data: { businessId, name: customerName, email: customerEmail, phone: customerPhone || '' }
+          data: { businessId, name: customerName, email: customerEmail, phone: customerPhone || '', isEmailVerified:false }
         })
       }
 
