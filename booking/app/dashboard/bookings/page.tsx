@@ -25,15 +25,15 @@ interface Booking {
   staff?: { firstName: string; lastName: string }
 }
 
-type StatusFilter = 'ALL' | 'UNVERIFIED' | 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
+type StatusFilter = 'ALL' | 'UNVERIFIED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
 type RangeFilter = 'today' | 'tomorrow' | 'week' | 'nextWeek' | 'month'
 
-const STATUS_FILTERS: StatusFilter[] = ['ALL', 'UNVERIFIED', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED']
+const STATUS_FILTERS: StatusFilter[] = ['ALL', 'UNVERIFIED','CONFIRMED', 'COMPLETED', 'CANCELLED']
 
 // Statuses the backend endpoint actually validates/accepts as a `status` query param.
 // Anything else must be filtered on the client (the server ignores unknown values
 // and returns everything, which is what made the filters look broken).
-const SERVER_SUPPORTED: StatusFilter[] = ['PENDING', 'CONFIRMED', 'CANCELLED']
+const SERVER_SUPPORTED: StatusFilter[] = [ 'CONFIRMED', 'CANCELLED']
 
 const PAGE_SIZE = 10
 

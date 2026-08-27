@@ -494,18 +494,12 @@ export default function StaffBookPage() {
           staff?.services?.find((s: any) => s.serviceId === formData.serviceId)?.service?.name || 'Service'
         const appointmentDetails = `${serviceName} on ${formData.date} at ${formData.time}`
 
-        // The backend may report verification in a few shapes - accept any of them
         const isUserVerified =
-          bookingData.userVerified ??
-          bookingData.isVerified ??
-          bookingData.customer?.emailVerified ??
-          bookingData.user?.emailVerified ??
+          bookingData.user?.isEmailVerified ??
+          bookingData.customer?.isEmailVerified ??
           false
 
         if (!isUserVerified) {
-          // Unverified customer: show the countdown notice immediately and
-          // do NOT auto-redirect, otherwise the page navigates away before
-          // the customer can read the message.
           setVerificationEmail(bookingData.customerEmail || bookingData.customer?.email || formData.email)
           setIsVerificationModalOpen(true)
 

@@ -16,6 +16,7 @@ export interface User {
   role: "CUSTOMER" | "BUSINESS_OWNER"
   googleId?: string
   authProvider?: "EMAIL" | "GOOGLE"
+  isEmailVerified:boolean
   business?: {
     id: string
     name?: string
