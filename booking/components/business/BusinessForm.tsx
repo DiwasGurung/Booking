@@ -217,11 +217,19 @@ export const UnifiedBusinessRegister = () => {
         headers['Authorization'] = `Bearer ${token}`
       }
 
+      const userId=registeredUserId
+
+      if (!userId) {
+        throw new Error('User not authenticated')
+      }
+
+
       const response = await fetch(`${API_URL}/api/businesses`, {
         method: 'POST',
         headers,
         credentials: 'include',
         body: JSON.stringify({
+          userId:userId,
           name: businessName,
           email: businessEmail,
           phone: businessPhone,
