@@ -230,7 +230,7 @@ export const UnifiedBusinessRegister = () => {
           city: businessCity,
           state: businessProvince,
           zipCode: '00000',
-          country: businessCountry,
+          country: 'Nepal',
           description: businessDescription,
         }),
       })
@@ -565,26 +565,27 @@ export const UnifiedBusinessRegister = () => {
 
             {/* LOCATION */}
             {businessStep === 'location' && (
-              <Card className="p-6 space-y-5">
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground mb-1">Business Location</h2>
-                  <p className="text-sm text-muted-foreground">Where is your business located?</p>
+              <Card className="border-border/80 bg-card p-7 shadow-sm md:p-10">
+                <div className="mb-8 space-y-2">
+                  <h2 className="text-2xl font-semibold tracking-tight text-foreground">Business Location</h2>
+                  <p className="text-base leading-6 text-muted-foreground">Where is your business located?</p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="businessAddress">Street Address *</Label>
+                  <Label htmlFor="businessAddress" className="text-base font-semibold">Street Address *</Label>
                   <Input
                     id="businessAddress"
                     placeholder="123 Business Street"
                     value={businessAddress}
                     onChange={(e) => setBusinessAddress(e.target.value)}
+                    className="h-12 text-base"
                     required
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="my-8 grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="businessProvince">Province *</Label>
+                    <Label htmlFor="businessProvince" className="text-base font-semibold">City *</Label>
                     <Select
                       value={businessProvince}
                       onValueChange={(value) => {
@@ -592,8 +593,8 @@ export const UnifiedBusinessRegister = () => {
                         setBusinessCity('')
                       }}
                     >
-                      <SelectTrigger id="businessProvince">
-                        <SelectValue placeholder="Select a province" />
+                      <SelectTrigger id="businessProvince" className="h-12 text-base">
+                        <SelectValue placeholder="Select your city" />
                       </SelectTrigger>
                       <SelectContent>
                         {NEPAL_PROVINCES.map((province) => (
@@ -604,10 +605,10 @@ export const UnifiedBusinessRegister = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="businessCity">District *</Label>
+                    <Label htmlFor="businessCity" className="text-base font-semibold">District *</Label>
                     <Select value={businessCity} onValueChange={setBusinessCity} disabled={!businessProvince}>
-                      <SelectTrigger id="businessCity">
-                        <SelectValue placeholder={businessProvince ? 'Select a district' : 'Select province first'} />
+                      <SelectTrigger id="businessCity" className="h-12 text-base">
+                        <SelectValue placeholder={businessProvince ? 'Select your district' : 'Select a city first'} />
                       </SelectTrigger>
                       <SelectContent>
                         {getNepalDistricts(businessProvince).map((district) => (
@@ -619,12 +620,12 @@ export const UnifiedBusinessRegister = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="businessCountry">Country *</Label>
+                  <Label htmlFor="businessCountry" className="text-base font-semibold">Country *</Label>
                   <Input
                     id="businessCountry"
                     value={businessCountry}
-                    onChange={(e) => setBusinessCountry(e.target.value)}
                     readOnly
+                    className="h-12 bg-muted/40 text-base"
                     required
                   />
                 </div>
