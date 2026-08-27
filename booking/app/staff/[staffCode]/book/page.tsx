@@ -7,11 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { AlertCircle, Calendar, Clock,Loader , MailIcon, Phone} from 'lucide-react'
+import { AlertCircle, Loader, MailIcon, Phone } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { getCurrentUser } from '@/lib/auth'
-import {DateTime} from 'luxon';
-
+import { DateTime } from 'luxon'
 
 import { Staff } from '@/lib/api'
 
@@ -29,6 +28,9 @@ interface FormData {
   time: string
   notes: string
 }
+
+// How long the customer must read the verification notice before continuing
+const VERIFY_COUNTDOWN_SECONDS = 10
 
 export default function StaffBookPage() {
   const params = useParams()
@@ -49,7 +51,8 @@ export default function StaffBookPage() {
   const [closedDates, setClosedDates] = useState<Map<string, string>>(new Map())
   const [businessHours, setBusinessHours] = useState<any[]>([])
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false)
-  const [countdown, setCountdown] = useState(10)
+  const [verificationEmail, setVerificationEmail] = useState<string>('')
+  const [countdown, setCountdown] = useState(VERIFY_COUNTDOWN_SECONDS)
   const [formData, setFormData] = useState<FormData>({
     customerName: '',
     email: '',
@@ -60,33 +63,57 @@ export default function StaffBookPage() {
     notes: '',
   })
 
+  // Countdown runs ONLY while the verification modal is open.
+  // It restarts at VERIFY_COUNTDOWN_SECONDS each time the modal opens and
+  // stops cleanly at 0 (previously it ticked down on page load, so the
+  // message was often already expired by the time the modal appeared).
   useEffect(() => {
-  if (!isVerificationModalOpen) return
-  
-  // Reset countdown to 10 whenever the modal opens
-  setCountdown(10)
-}, [isVerificationModalOpen])
+    if (!isVerificationModalOpen) {
+      setCountdown(VERIFY_COUNTDOWN_SECONDS)
+      return
+    }
 
-useEffect(() => {
-  if (countdown <= 0) return
+    setCountdown(VERIFY_COUNTDOWN_SECONDS)
 
-  const timer = setInterval(() => {
-    setCountdown((prev) => prev - 1)
-  }, 1000)
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
 
-  return () => clearInterval(timer)
-}, [countdown])
+    return () => clearInterval(timer)
+  }, [isVerificationModalOpen])
+
+  // Prevent background scroll while the notice is up
+  useEffect(() => {
+    if (!isVerificationModalOpen) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [isVerificationModalOpen])
+
+  const closeVerificationModal = () => {
+    if (countdown > 0) return
+    setIsVerificationModalOpen(false)
+    router.push('/')
+  }
 
   // Fetch staff info and check user authentication
   useEffect(() => {
     const fetchStaffInfo = async () => {
       try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-        
+
         // Check if user is authenticated
         const user = await getCurrentUser()
         setCurrentUser(user)
-        
+
         const response = await fetch(`${API_URL}/api/staff/code/${staffCode}`)
 
         if (!response.ok) {
@@ -104,7 +131,7 @@ useEffect(() => {
         if (data.services && data.services.length > 0) {
           setFormData((prev) => ({ ...prev, serviceId: data.services[0].serviceId }))
         }
-        
+
         // Pre-fill customer info if user is authenticated
         if (user) {
           setFormData((prev) => ({
@@ -114,7 +141,7 @@ useEffect(() => {
             phone: user.phone || '',
           }))
         }
-        
+
         // Fetch business hours and closed dates for the business
         try {
           // Fetch business hours
@@ -123,7 +150,7 @@ useEffect(() => {
             const hoursData = await hoursRes.json()
             setBusinessHours(hoursData)
           }
-          
+
           // Fetch closed dates
           const closedDatesRes = await fetch(`${API_URL}/api/business-hours/${data.businessId}/closed-dates`)
           if (closedDatesRes.ok) {
@@ -240,12 +267,12 @@ useEffect(() => {
         console.error('[v0] Error fetching bookings:', err)
       }
 
-      // Generate available slots (9 AM to 6 PM, 30-min intervals)
+      // Generate available slots from business hours, 30-min intervals
       const selectedDateObj = new Date(selectedDate)
       const dayOfWeek = selectedDateObj.getDay()
       const now = new Date()
       const isToday = selectedDateObj.toISOString().split('T')[0] === now.toISOString().split('T')[0]
-      
+
       // Check if date is in closed dates from database
       if (closedDates.has(selectedDate)) {
         setAvailableSlots([])
@@ -253,13 +280,13 @@ useEffect(() => {
         setLoadingSlots(false)
         return
       }
-      
+
       // Get business hours for this day of week from database
       // Note: dayOfWeek from Date is 0-6 (Sun-Sat), but our business hours uses 0-6 (Mon-Sun)
       // So we need to adjust: 0 (Sun) -> 6, 1 (Mon) -> 0, ..., 6 (Sat) -> 5
       const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1
       const dayHours = businessHours.find((bh: any) => bh.dayOfWeek === adjustedDayOfWeek)
-      
+
       if (!dayHours || dayHours.isClosed) {
         setAvailableSlots([])
         setClosedReason(dayHours ? 'Business is closed on this day' : 'Business hours not found')
@@ -275,7 +302,7 @@ useEffect(() => {
         const [closingHour, closingMin] = closingTime.split(':').map(Number)
         const closingDateTime = new Date(selectedDateObj)
         closingDateTime.setHours(closingHour, closingMin, 0, 0)
-        
+
         if (now > closingDateTime) {
           setAvailableSlots([])
           setClosedReason('Business is closed for today')
@@ -283,27 +310,27 @@ useEffect(() => {
           return
         }
       }
-      
+
       // Clear closed reason if business is open
       setClosedReason(null)
 
       const allSlots = generateTimeSlots(openingTime, closingTime)
-      
+
       // Filter slots: remove past times for today and booked times
       const availableSlotsList = allSlots.map((slot) => {
         let isAvailable = !bookedTimes.has(slot.time)
-        
+
         // For today, filter out past times
         if (isToday && isAvailable) {
           const [slotHour, slotMin] = slot.time.split(':').map(Number)
           const slotDateTime = new Date(selectedDateObj)
           slotDateTime.setHours(slotHour, slotMin, 0, 0)
-          
+
           if (now > slotDateTime) {
             isAvailable = false
           }
         }
-        
+
         return {
           ...slot,
           isAvailable,
@@ -412,31 +439,26 @@ useEffect(() => {
       setSubmitting(true)
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
-    
+      // Define BUSINESS_TZ before creating DateTime objects
+      const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
 
-     // Define BUSINESS_TZ before creating DateTime objects
-const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
+      // Get service duration
+      const selectedStaffService = staff?.services?.find((ss: any) => ss.serviceId === formData.serviceId)
 
-// Get service duration
-const selectedStaffService = staff?.services?.find((ss: any) => ss.serviceId === formData.serviceId);
+      if (!selectedStaffService) {
+        // Handle error: service not found
+        toast({ title: 'Service not found', variant: 'destructive' })
+        return
+      }
 
-if (!selectedStaffService) {
-  // Handle error: service not found
-  toast({ title: 'Service not found', variant: 'destructive' });
-  return;
-}
+      // Create timezone-aware start DateTime
+      const startDateTime = DateTime.fromISO(`${formData.date}T${formData.time}`, { zone: BUSINESS_TZ })
+      const startTimeISO = startDateTime.toISO() // ISO string with timezone info
 
-// Create timezone-aware start DateTime
-const startDateTime = DateTime.fromISO(`${formData.date}T${formData.time}`, { zone: BUSINESS_TZ });
-const startTimeISO = startDateTime.toISO(); // ISO string with timezone info
-
-// Calculate end DateTime by adding service duration
-const durationMinutes = selectedStaffService.service?.duration || 60;
-const endDateTime = startDateTime.plus({ minutes: durationMinutes });
-const endTimeISO = endDateTime.toISO(); // ISO string with timezone info
-
-
-
+      // Calculate end DateTime by adding service duration
+      const durationMinutes = selectedStaffService.service?.duration || 60
+      const endDateTime = startDateTime.plus({ minutes: durationMinutes })
+      const endTimeISO = endDateTime.toISO() // ISO string with timezone info
 
       // Use public booking endpoint for guests, authenticated booking for logged-in users
       const endpoint = currentUser ? '/api/booking' : '/api/booking/public'
@@ -459,31 +481,42 @@ const endTimeISO = endDateTime.toISO(); // ISO string with timezone info
 
       const bookingRes = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json',
-         },
-         credentials: currentUser ? 'include' : 'omit', // Include credentials only for authenticated users
+        headers: { 'Content-Type': 'application/json' },
+        credentials: currentUser ? 'include' : 'omit', // Include credentials only for authenticated users
         body: JSON.stringify(bookingPayload),
-        
       })
 
       if (bookingRes.ok) {
         const bookingData = await bookingRes.json()
-        
+
         // Create appointment details message
-        const serviceName = staff?.services?.find((s: any) => s.serviceId === formData.serviceId)?.service?.name || 'Service'
+        const serviceName =
+          staff?.services?.find((s: any) => s.serviceId === formData.serviceId)?.service?.name || 'Service'
         const appointmentDetails = `${serviceName} on ${formData.date} at ${formData.time}`
-        const isUserVerified = bookingData.userVerified; // adjust based on actual response
+
+        // The backend may report verification in a few shapes - accept any of them
+        const isUserVerified =
+          bookingData.userVerified ??
+          bookingData.isVerified ??
+          bookingData.customer?.emailVerified ??
+          bookingData.user?.emailVerified ??
+          false
 
         if (!isUserVerified) {
-    setTimeout(() => {
-    setIsVerificationModalOpen(true)
-  }, 5000)
-  } else {
-    // Redirect for verified user
-    setTimeout(() => {
-      router.push('/search');
-    }, 2000);
-  }
+          // Unverified customer: show the countdown notice immediately and
+          // do NOT auto-redirect, otherwise the page navigates away before
+          // the customer can read the message.
+          setVerificationEmail(bookingData.customerEmail || bookingData.customer?.email || formData.email)
+          setIsVerificationModalOpen(true)
+
+          toast({
+            title: 'One more step: verify your email',
+            description: `Your appointment (${appointmentDetails}) is pending until you confirm the verification link we just emailed you.`,
+            variant: 'default',
+          })
+          return
+        }
+
         if (bookingData.warnings && bookingData.warnings.length > 0) {
           toast({
             title: 'Booking Created with Warnings',
@@ -496,40 +529,31 @@ const endTimeISO = endDateTime.toISO(); // ISO string with timezone info
             description: `Your appointment for ${appointmentDetails} has been scheduled successfully`,
           })
         }
-        
-        
-        // Redirect after a short delay
+
+        // Redirect verified customers after a short delay
         setTimeout(() => {
-          if (currentUser && currentUser.role === 'CUSTOMER' ) {
-            
+          if (currentUser && currentUser.role === 'CUSTOMER') {
             // Redirect authenticated users to dashboard
             router.push('/search')
-          }else if (currentUser && currentUser.role === 'BUSINESS_OWNER') {
+          } else if (currentUser && currentUser.role === 'BUSINESS_OWNER') {
             // Redirect business owners to their dashboard
             router.push('/')
-          } 
-          else {
+          } else {
             // Redirect guests back to staff page
-            router.push("/")
+            router.push('/')
           }
         }, 2000)
       } else {
-     
-        
         let error
         try {
           error = await bookingRes.json()
-        
         } catch (parseErr) {
-   
           error = { message: 'Failed to parse error response' }
         }
-        
+
         let errorTitle = 'Booking Failed'
         let errorMessage = error.message || 'Failed to create booking'
-        
-    
-        
+
         if (bookingRes.status === 401) {
           errorTitle = 'Session Expired'
           errorMessage = 'Your session has expired. Please log in again to complete your booking.'
@@ -538,8 +562,6 @@ const endTimeISO = endDateTime.toISO(); // ISO string with timezone info
           if (error.reason) {
             errorTitle = 'Invalid Email Address'
             errorMessage = `${error.message}\n• Issue: Email validation`
-          } else if (error.reason) {
-            errorMessage = `${error.message}\n• Reason: ${error.reason}`
           } else {
             errorMessage = error.message || 'Please fill in all required fields correctly'
           }
@@ -547,14 +569,13 @@ const endTimeISO = endDateTime.toISO(); // ISO string with timezone info
           errorTitle = 'Booking Limit Reached'
           errorMessage = error.message || 'Booking limit reached. Please upgrade your subscription.'
         }
-      
-        
+
         toast({
           title: errorTitle,
           description: errorMessage,
           variant: 'destructive',
         })
-        
+
         setSubmitting(false)
       }
     } catch (err: any) {
@@ -569,8 +590,7 @@ const endTimeISO = endDateTime.toISO(); // ISO string with timezone info
         variant: 'destructive',
       })
       setSubmitting(false)
-    } 
-    finally {
+    } finally {
       setSubmitting(false)
     }
   }
@@ -644,62 +664,62 @@ const endTimeISO = endDateTime.toISO(); // ISO string with timezone info
               <div className="space-y-4">
                 <h3 className="font-semibold text-sm">Your Information</h3>
 
-                  <div>
-                    <Label htmlFor="customerName" className={validationErrors.has('customerName') ? 'text-red-600' : ''}>
-                      Name * {currentUser && <span className="text-xs text-primary">(verified)</span>}
-                    </Label>
-                    <Input
-                      id="customerName"
-                      name="customerName"
-                      type="text"
-                      placeholder="Your full name"
-                      value={formData.customerName}
-                      onChange={handleInputChange}
-                      disabled={submitting || !!currentUser}
-                      className={`${validationErrors.has('customerName') ? 'border-red-500 focus:border-red-500' : ''} ${currentUser ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
-                      required
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="customerName" className={validationErrors.has('customerName') ? 'text-red-600' : ''}>
+                    Name * {currentUser && <span className="text-xs text-primary">(verified)</span>}
+                  </Label>
+                  <Input
+                    id="customerName"
+                    name="customerName"
+                    type="text"
+                    placeholder="Your full name"
+                    value={formData.customerName}
+                    onChange={handleInputChange}
+                    disabled={submitting || !!currentUser}
+                    className={`${validationErrors.has('customerName') ? 'border-red-500 focus:border-red-500' : ''} ${currentUser ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
+                    required
+                  />
+                </div>
 
-                  <div>
-                    <Label htmlFor="email" className={validationErrors.has('email') ? 'text-red-600' : ''}>
-                      Email * {currentUser && <span className="text-xs text-primary">(verified)</span>}
-                    </Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="Your email address"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      disabled={submitting || !!currentUser}
-                      className={`${validationErrors.has('email') ? 'border-red-500 focus:border-red-500' : ''} ${currentUser ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
-                      required
-                    />
-                    {validationErrors.has('email') && (
-                      <p className="text-xs text-red-600 mt-1">Please enter a valid email address</p>
-                    )}
-                  </div>
+                <div>
+                  <Label htmlFor="email" className={validationErrors.has('email') ? 'text-red-600' : ''}>
+                    Email * {currentUser && <span className="text-xs text-primary">(verified)</span>}
+                  </Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="Your email address"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    disabled={submitting || !!currentUser}
+                    className={`${validationErrors.has('email') ? 'border-red-500 focus:border-red-500' : ''} ${currentUser ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
+                    required
+                  />
+                  {validationErrors.has('email') && (
+                    <p className="text-xs text-red-600 mt-1">Please enter a valid email address</p>
+                  )}
+                </div>
 
-                  <div>
-                    <Label htmlFor="phone" className={validationErrors.has('phone') ? 'text-red-600' : ''}>
-                      Phone *
-                    </Label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      placeholder="Your phone number"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      disabled={submitting}
-                      className={`${validationErrors.has('phone') ? 'border-red-500 focus:border-red-500' : ''}`}
-                      required
-                    />
-                    {validationErrors.has('phone') && (
-                      <p className="text-xs text-red-600 mt-1">Please enter a valid phone number (at least 10 digits)</p>
-                    )}
-                  </div>
+                <div>
+                  <Label htmlFor="phone" className={validationErrors.has('phone') ? 'text-red-600' : ''}>
+                    Phone *
+                  </Label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    placeholder="Your phone number"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                    className={`${validationErrors.has('phone') ? 'border-red-500 focus:border-red-500' : ''}`}
+                    required
+                  />
+                  {validationErrors.has('phone') && (
+                    <p className="text-xs text-red-600 mt-1">Please enter a valid phone number (at least 10 digits)</p>
+                  )}
+                </div>
               </div>
 
               {/* Service Selection */}
@@ -775,8 +795,8 @@ const endTimeISO = endDateTime.toISO(); // ISO string with timezone info
                               formData.time === slot.time && slot.isAvailable
                                 ? 'bg-primary text-primary-foreground border-primary'
                                 : slot.isAvailable
-                                ? 'border-input hover:border-primary hover:bg-primary/10'
-                                : 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
+                                  ? 'border-input hover:border-primary hover:bg-primary/10'
+                                  : 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
                             }`}
                           >
                             {slot.time}
@@ -786,9 +806,7 @@ const endTimeISO = endDateTime.toISO(); // ISO string with timezone info
                     ) : formData.date ? (
                       <div className="flex items-center justify-center py-6 border border-input rounded-md bg-red-50 border-red-200">
                         <AlertCircle className="w-4 h-4 mr-2 text-red-600" />
-                        <span className="text-sm text-red-600">
-                          {closedReason || 'No available times on this date'}
-                        </span>
+                        <span className="text-sm text-red-600">{closedReason || 'No available times on this date'}</span>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center py-6 border border-input rounded-md bg-muted">
@@ -820,34 +838,79 @@ const endTimeISO = endDateTime.toISO(); // ISO string with timezone info
           </CardContent>
         </Card>
       </div>
+
+      {/* Unverified customer notice with countdown */}
       {isVerificationModalOpen && (
-      <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50">
-        <div className="bg-white p-6 rounded shadow max-w-sm w-full relative flex flex-col">
-          <h2 className="text-xl font-semibold mb-2">Verify Your Email</h2>
-          
-          <p className="text-sm text-muted-foreground mb-6">
-            We sent a verification link to your email address. Please verify your account to complete your first booking. Future bookings will not require this step.
-          </p>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="verify-title"
+          aria-describedby="verify-description"
+        >
+          <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-card-foreground shadow-lg">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <MailIcon className="h-5 w-5 text-primary" aria-hidden="true" />
+              </span>
+              <div className="flex flex-col gap-1">
+                <h2 id="verify-title" className="text-lg font-semibold leading-6">
+                  Verify your email to confirm
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Your appointment is on hold until your email is verified.
+                </p>
+              </div>
+            </div>
 
-          {/* Primary Action Button */}
-          <button
-            className={`w-full font-medium px-4 py-2 rounded transition-colors ${
-              countdown > 0 
-                ? 'bg-muted text-muted-foreground cursor-not-allowed' 
-                : 'bg-primary text-primary-foreground hover:bg-primary/90'
-            }`}
-            disabled={countdown > 0}
-            onClick={() => {
-              setIsVerificationModalOpen(false)
-              router.push('/')
-            }}
-          >
-            {countdown > 0 ? `Please wait (${countdown}s)` : 'Got it, thanks'}
-          </button>
+            <p id="verify-description" className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              We sent a verification link to{' '}
+              <span className="font-medium text-foreground">{verificationEmail || 'your email address'}</span>. Open that
+              link to confirm this booking. You&apos;ll only need to do this once &mdash; future bookings are confirmed
+              instantly.
+            </p>
+
+            <div
+              className="mt-5 flex items-center gap-3 rounded-md border border-border bg-muted/50 px-4 py-3"
+              aria-live="polite"
+              aria-atomic="true"
+            >
+              {countdown > 0 ? (
+                <>
+                  <span className="relative flex h-9 w-9 shrink-0 items-center justify-center">
+                    <Loader className="absolute h-9 w-9 animate-spin text-primary/40" aria-hidden="true" />
+                    <span className="text-xs font-semibold tabular-nums text-foreground">{countdown}</span>
+                  </span>
+                  <p className="text-sm text-muted-foreground">
+                    Please check your inbox. You can continue in{' '}
+                    <span className="font-medium tabular-nums text-foreground">
+                      {countdown} second{countdown === 1 ? '' : 's'}
+                    </span>
+                    .
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Didn&apos;t get the email? Check your spam folder, then request a new link from your account page.
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              className={`mt-5 w-full rounded-md px-4 py-2 font-medium transition-colors ${
+                countdown > 0
+                  ? 'cursor-not-allowed bg-muted text-muted-foreground'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              }`}
+              disabled={countdown > 0}
+              onClick={closeVerificationModal}
+            >
+              {countdown > 0 ? `Please wait (${countdown}s)` : 'Got it, thanks'}
+            </button>
+          </div>
         </div>
-      </div>
-    )}
-
+      )}
     </div>
   )
 }

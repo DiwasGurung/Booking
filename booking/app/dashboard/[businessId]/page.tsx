@@ -321,7 +321,7 @@ export default function BusinessDashboardPage() {
                       {recentPayments.slice(0, 3).map((payment) => (
                         <div key={payment.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
                           <div className="flex items-center gap-3">
-                            <div className={`w-2 h-2 rounded-full ${
+                            <div className={`w-2 h-2 rounded-full {
                               payment.status === 'COMPLETED' ? 'bg-green-500' :
                               payment.status === 'PENDING' ? 'bg-yellow-500' :
                               'bg-red-500'
@@ -406,7 +406,7 @@ export default function BusinessDashboardPage() {
                                 <p>{new Date(booking.startTime).toLocaleDateString()} {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                               </div>
                               <span className="text-sm font-semibold text-slate-900 flex-shrink-0">
-                                ${(booking.service?.price || 0).toFixed(2)}
+                                Rs.{(booking.service?.price || 0).toFixed(2)}
                               </span>
                             </div>
                           </div>
