@@ -178,20 +178,29 @@ export class BusinessHoursService {
     })
   }
 
-  /**
-   * Add a closed date
-   */
-  async addClosedDate(businessId: string, data: { date: string; reason?: string }): Promise<ClosedDate> {
-    const dateObj = new Date(data.date)
-    
-    return prisma.closedDate.create({
-      data: {
+async addClosedDate(businessId: string, data: { date: string; reason?: string }): Promise<ClosedDate> {
+  // Normalize date to YYYY-MM-DD at midnight UTC to prevent timezone shifts
+  const pureDateString = data.date.split("T")[0];
+  const dateObj = new Date(`${pureDateString}T00:00:00.000Z`);
+  
+  return prisma.closedDate.upsert({
+    where: {
+      businessId_date: {
         businessId,
         date: dateObj,
-        reason: data.reason,
       },
-    })
-  }
+    }, 
+    update: {
+      reason: data.reason, // Updates reason if already blocked
+    },
+    create: {
+      businessId,
+      date: dateObj,
+      reason: data.reason,
+    },
+  });
+}
+
 
   /**
    * Remove a closed date
