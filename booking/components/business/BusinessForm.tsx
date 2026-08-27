@@ -17,19 +17,9 @@ import {
   SelectItem,
 } from '@/components/ui/select'
 import { BUSINESS_CATEGORIES } from '@/components/constants/businessCategories'
+import { NEPAL_PROVINCES, getNepalDistricts, isValidNepalLocation } from '@/components/constants/nepalLocations'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-
-const NEPAL_DISTRICTS = [
-  'Kathmandu', 'Bhaktapur', 'Lalitpur', 'Pokhara', 'Biratnagar', 'Janakpur', 'Butwal', 'Nepalgunj',
-  'Dharan', 'Itahari', 'Birgunj', 'Chitwan', 'Jhapa', 'Morang', 'Sunsari', 'Illam', 'Panchthar',
-  'Taplejung', 'Dhankuta', 'Khotang', 'Udayapur', 'Okhaldhunga', 'Sindhuli', 'Ramechhap', 'Dolakha',
-  'Nuwakot', 'Rasuwa', 'Sindhpalchok', 'Kavre', 'Makwanpur', 'Rautahat', 'Bara', 'Parsa', 'Saptari',
-  'Sarlahi', 'Mahottari', 'Dhanusa', 'Banke', 'Bardiya', 'Kailali', 'Kanchanpur', 'Doti', 'Achham',
-  'Baitadi', 'Dadeldhura', 'Bajhang', 'Bajura', 'Humla', 'Jumla', 'Kalikot', 'Mugu', 'Gorkha',
-  'Lamjung', 'Tanahu', 'Syangja', 'Palpa', 'Nawalparasi', 'Rupandehi', 'Arghakhanchi', 'Gulmi',
-  'Pyuthan', 'Baglung', 'Myagdi', 'Parbat', 'Dolpa', 'Mustang', 'Manang',
-]
 
 export const UnifiedBusinessRegister = () => {
   const router = useRouter()
@@ -62,7 +52,9 @@ export const UnifiedBusinessRegister = () => {
   const [businessPhone, setBusinessPhone] = useState('')
   const [businessCategory, setBusinessCategory] = useState('')
   const [businessAddress, setBusinessAddress] = useState('')
+  const [businessProvince, setBusinessProvince] = useState('')
   const [businessCity, setBusinessCity] = useState('')
+  const [businessCountry, setBusinessCountry] = useState('Nepal')
   const [businessDescription, setBusinessDescription] = useState('')
   const [useSameEmail, setUseSameEmail] = useState(true)
 
@@ -206,35 +198,39 @@ export const UnifiedBusinessRegister = () => {
       toast.error('Please fill in all business details')
       return
     }
-    
-    if (!businessAddress || !businessCity) {
-      toast.error('Please fill in all location fields')
+
+    if (!businessAddress || !businessProvince || !businessCity || !businessCountry || !isValidNepalLocation(businessProvince, businessCity)) {
+      toast.error('Please select a valid province and district')
       return
     }
 
     setIsLoading(true)
 
     try {
-      const userId = registeredUserId
-      if (!userId) {
-        throw new Error('User not authenticated')
+      // Get the token from localStorage if available
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
       }
 
       const response = await fetch(`${API_URL}/api/businesses`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         credentials: 'include',
         body: JSON.stringify({
-          userId: userId,
           name: businessName,
-          email: useSameEmail ? businessEmail : businessEmail,
+          email: businessEmail,
           phone: businessPhone,
           category: businessCategory,
           address: businessAddress,
           city: businessCity,
-          state: 'Nepal',
+          state: businessProvince,
           zipCode: '00000',
-          country: 'Nepal',
+          country: businessCountry,
           description: businessDescription,
         }),
       })
@@ -484,7 +480,7 @@ export const UnifiedBusinessRegister = () => {
           </div>
 
           {error && (
-            <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex gap-3">
+            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex gap-3">
               <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
               <p className="text-destructive text-sm">{error}</p>
             </div>
@@ -506,7 +502,7 @@ export const UnifiedBusinessRegister = () => {
                   <Label htmlFor="businessName">Business Name *</Label>
                   <Input
                     id="businessName"
-                    placeholder="Secha Salon"
+                    placeholder="My Awesome Business"
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
                     required
@@ -586,20 +582,51 @@ export const UnifiedBusinessRegister = () => {
                   />
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="businessProvince">Province *</Label>
+                    <Select
+                      value={businessProvince}
+                      onValueChange={(value) => {
+                        setBusinessProvince(value)
+                        setBusinessCity('')
+                      }}
+                    >
+                      <SelectTrigger id="businessProvince">
+                        <SelectValue placeholder="Select a province" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {NEPAL_PROVINCES.map((province) => (
+                          <SelectItem key={province} value={province}>{province}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="businessCity">District *</Label>
+                    <Select value={businessCity} onValueChange={setBusinessCity} disabled={!businessProvince}>
+                      <SelectTrigger id="businessCity">
+                        <SelectValue placeholder={businessProvince ? 'Select a district' : 'Select province first'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getNepalDistricts(businessProvince).map((district) => (
+                          <SelectItem key={district} value={district}>{district}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="businessCity">District *</Label>
-                  <Select value={businessCity} onValueChange={setBusinessCity}>
-                    <SelectTrigger id="businessCity">
-                      <SelectValue placeholder="Select a district" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {NEPAL_DISTRICTS.map((district) => (
-                        <SelectItem key={district} value={district}>
-                          {district}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="businessCountry">Country *</Label>
+                  <Input
+                    id="businessCountry"
+                    value={businessCountry}
+                    onChange={(e) => setBusinessCountry(e.target.value)}
+                    readOnly
+                    required
+                  />
                 </div>
               </Card>
             )}

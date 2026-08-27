@@ -40,6 +40,7 @@ export default function BookingsPage() {
   const [newStatus, setNewStatus] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [updateError, setUpdateError] = useState('')
+  const [hasMore, setHasMore] = useState(false)
   
 
   const getDateRange = () => {
@@ -91,7 +92,9 @@ const loadBookings = async () => {
       endDate,
       staffParam
     )
+    
     setBookings(Array.isArray(response.data) ? response.data : response.data?.bookings || [])
+    setHasMore(bookings.length === 10)
   } catch (err) {
     console.error(err)
   } finally {
@@ -153,7 +156,7 @@ const handleUpdateStatus = async () => {
             </Button>
           </Link> */}
         </div>
-
+  
         {/* Filters */}
         <div className="mb-6 flex gap-2">
           {['ALL', 'UNVERIFIED', 'CONFIRMED', 'COMPLETED', 'CANCELLED'].map((status) => (
@@ -294,6 +297,7 @@ const handleUpdateStatus = async () => {
               variant="outline"
               disabled={page === 1}
               onClick={() => setPage(p => p - 1)}
+              
             >
               Previous
             </Button>
@@ -301,6 +305,7 @@ const handleUpdateStatus = async () => {
             <Button
               variant="outline"
               onClick={() => setPage(p => p + 1)}
+              disabled={!hasMore}
             >
               Next
             </Button>

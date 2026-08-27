@@ -102,3 +102,7 @@ export const getDistrictsByProvince = (province: string): string[] =>
 
 export const isProvince = (value: string): value is NepalProvince =>
   (NEPAL_PROVINCES as readonly string[]).includes(value)
+
+export const getNepalDistricts = getDistrictsByProvince
+export const isValidNepalLocation = (province: string, district: string) =>
+  isProvince(province) && getDistrictsByProvince(province).includes(district)
