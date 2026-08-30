@@ -282,7 +282,7 @@ export const getStaffBookings = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Staff code is required" })
     }
 
-    const result = await staffService.getBookingsByStaffCode(staffCode)
+    const result = await staffService.getBookingsByStaffCodeUsingBooking(staffCode)
 
     if (!result) {
       return res.status(404).json({ error: "Staff member not found" })

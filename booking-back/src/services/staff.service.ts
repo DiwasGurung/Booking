@@ -39,30 +39,6 @@ export interface UpdateStaffData {
   breakTimes?: BreakTime[]
   serviceIds?: string[]
 }
-interface StaffBookingsResult {
-  staffName: string;
-  staffCode: string;
-  bookings: {
-    id: string;
-    customer: {
-      id: string;
-      name: string;
-      email: string;
-      phone: string;
-    };
-    service: {
-      id: string;
-      name: string;
-      duration: number;
-      price: number;
-    };
-    startTime: Date;
-    endTime: Date;
-    status: string;
-    notes: string | null;
-  }[];
-}
-
 
 export class StaffService {
   /**
@@ -433,76 +409,73 @@ export class StaffService {
     }
   }
 
-   async getBookingsByStaffCode(staffCode: string): Promise<StaffBookingsResult | null> {
+  /**
+   * Get staff bookings by staffCode (public)
+   */
+ async getBookingsByStaffCodeUsingBooking(staffCode: string) {
+  // Find the staff by staffCode to get staffId
   const staff = await prisma.staff.findUnique({
     where: { staffCode },
+    select: { id: true },
+  })
+
+  if (!staff) return null
+
+  // Fetch bookings directly from Booking model
+  const bookings = await prisma.booking.findMany({
+    where: {
+      staffId: staff.id,
+      status: { in: ['PENDING', 'CONFIRMED', 'COMPLETED'] }, // include all relevant statuses
+    },
     include: {
-      bookings: {
-        where: {
-          status: 'CONFIRMED',
-          startTime: {
-            gte: new Date(),
-          },
-        },
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-            },
-          },
-          service: {
-            select: {
-              id: true,
-              name: true,
-              duration: true,
-              price: true,
-            },
-          },
-        },
-        orderBy: {
-          startTime: 'asc',
+      customer: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
         },
       },
-      firstName: true,
-      lastName: true,
-      staffCode: true,
+      service: {
+        select: {
+          id: true,
+          name: true,
+          duration: true,
+          price: true,
+        },
+      },
     },
-  });
-
-  if (!staff) {
-    return null;
-  }
-
-  // Map bookings with non-null assertions
-  const bookings = staff.bookings.map((booking) => ({
-    id: booking.id,
-    customer: {
-      id: booking.customer?.id!,
-      name: booking.customer?.name!,
-      email: booking.customer?.email!,
-      phone: booking.customer?.phone!,
+    orderBy: {
+      startTime: 'asc',
     },
-    service: {
-      id: booking.service.id,
-      name: booking.service.name,
-      duration: booking.service.duration,
-      price: booking.service.price,
-    },
-    startTime: booking.startTime,
-    endTime: booking.endTime,
-    status: booking.status,
-    notes: booking.notes,
-  }));
+  })
 
+  // Return formatted data
   return {
-    staffName: `${staff.firstName} ${staff.lastName}`,
-    staffCode: staff.staffCode,
-    bookings,
-  };
+    staffName: '', // optional, can be fetched if needed
+    staffCode,
+    bookings: bookings.map((booking) => ({
+      id: booking.id,
+      customer: {
+        id: booking.customer?.id || '',
+        name: booking.customer?.name || '',
+        email: booking.customer?.email || '',
+        phone: booking.customer?.phone || '',
+      },
+      service: {
+        id: booking.service.id,
+        name: booking.service.name,
+        duration: booking.service.duration,
+        price: booking.service.price,
+      },
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      status: booking.status,
+      notes: booking.notes,
+    })),
+  }
 }
+
   // Inside your StaffService class
 async getBookingsByStaffCodeAndDate(staffCode: string, date: Date) {
   const startOfDay = new Date(date)
