@@ -147,9 +147,17 @@ export default function StaffDashboard() {
     })
   }
 
-  const upcomingBookings = bookings.filter(
-    (booking) => !['COMPLETED', 'CANCELLED'].includes(booking.status) && new Date(booking.startTime) >= new Date()
-  ).length
+const now = new Date()
+const upcomingBookings = bookings.filter(
+  (booking) =>
+    !['COMPLETED', 'CANCELLED'].includes(booking.status) &&
+    new Date(booking.startTime) >= now
+)
+
+const upcomingBookingsCount = bookings.filter((booking) => {
+  const start = new Date(booking.startTime)
+  return !['COMPLETED', 'CANCELLED'].includes(booking.status) && start >= now
+}).length
   const completedBookings = bookings.filter((booking) => booking.status === 'COMPLETED').length
   const pendingBookings = bookings.filter((booking) => ['PENDING', 'UNVERIFIED'].includes(booking.status)).length
 
@@ -212,7 +220,7 @@ export default function StaffDashboard() {
         <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
             { label: 'Total bookings', value: bookings.length, icon: Calendar, tone: 'bg-primary/10 text-primary' },
-            { label: 'Upcoming', value: upcomingBookings, icon: Clock, tone: 'bg-blue-500/10 text-blue-700' },
+            { label: 'Upcoming', value: upcomingBookingsCount, icon: Clock, tone: 'bg-blue-500/10 text-blue-700' },
             { label: 'Completed', value: completedBookings, icon: CheckCircle, tone: 'bg-emerald-500/10 text-emerald-700' },
             { label: 'Needs attention', value: pendingBookings, icon: AlertCircle, tone: 'bg-amber-500/10 text-amber-700' },
           ].map((stat) => {
@@ -325,7 +333,7 @@ export default function StaffDashboard() {
               </div>
             ) : (
               <div className="space-y-4">
-                {bookings.map((booking) => (
+                {upcomingBookings.map((booking) => (
                   <div key={booking.id} className="border rounded-lg p-4 hover:bg-accent/50 transition-colors">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Customer Info */}
