@@ -71,7 +71,7 @@ export function StaffSidebar({ staff, staffCode, onLogout }: StaffSidebarProps) 
       >
         <div className="border-b border-border px-6 py-6">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Staff workspace</p>
-          <h2 className="mt-2 text-xl font-semibold tracking-tight">Bookwise</h2>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight">Appoint-Nepal</h2>
           <p className="mt-1 truncate text-sm text-muted-foreground">{staff.email}</p>
         </div>
 

@@ -424,8 +424,9 @@ export class StaffService {
   // Fetch bookings directly from Booking model
   const bookings = await prisma.booking.findMany({
     where: {
+      startTime: { gte: new Date() },
       staffId: staff.id,
-      status: { in: ['PENDING', 'CONFIRMED', 'COMPLETED'] }, // include all relevant statuses
+      status: { in: ['CANCELLED', 'CONFIRMED', 'COMPLETED'] }, // include all relevant statuses
     },
     include: {
       customer: {

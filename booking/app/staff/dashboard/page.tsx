@@ -147,7 +147,9 @@ export default function StaffDashboard() {
     })
   }
 
-  const upcomingBookings = bookings.filter((booking) => !['COMPLETED', 'CANCELLED'].includes(booking.status)).length
+  const upcomingBookings = bookings.filter(
+    (booking) => !['COMPLETED', 'CANCELLED'].includes(booking.status) && new Date(booking.startTime) >= new Date()
+  ).length
   const completedBookings = bookings.filter((booking) => booking.status === 'COMPLETED').length
   const pendingBookings = bookings.filter((booking) => ['PENDING', 'UNVERIFIED'].includes(booking.status)).length
 
