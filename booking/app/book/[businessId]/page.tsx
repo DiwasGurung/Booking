@@ -5,12 +5,15 @@ import { Suspense, useEffect, useState } from 'react'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/card'
-import { Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, MessageCircle, User } from 'lucide-react'
+import { Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, MessageCircle, User, Mail, Loader2, X } from 'lucide-react'
 import { servicesApi, bookingsApi, businessApi, staffApi, type Service, type Business, type Staff } from '@/lib/api'
 import { useAuth } from '@/context/authContext'
 import { DateTime } from 'luxon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
+
+// Seconds the verification notice counts down before telling the user to check their inbox.
+const VERIFICATION_COUNTDOWN = 10
 
 function BookingPageContent() {
   const searchParams = useParams()
@@ -39,6 +42,10 @@ function BookingPageContent() {
   const [businessHours, setBusinessHours] = useState<any[]>([])
   const [closedDates, setClosedDates] = useState<Map<string, string>>(new Map())
   const [closedReason, setClosedReason] = useState<string | null>(null)
+
+  // Verification modal state
+  const [showVerificationModal, setShowVerificationModal] = useState(false)
+  const [countdown, setCountdown] = useState(VERIFICATION_COUNTDOWN)
 
   // Pre-fill customer info from logged-in user
   useEffect(() => {
@@ -89,6 +96,36 @@ function BookingPageContent() {
       loadAvailableSlots()
     }
   }, [selectedStaff])
+
+  // Countdown that only runs while the verification modal is open.
+  // It resets to the full duration each time the modal opens and stops cleanly at 0.
+  useEffect(() => {
+    if (!showVerificationModal) return
+
+    setCountdown(VERIFICATION_COUNTDOWN)
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [showVerificationModal])
+
+  // Lock body scroll while the modal is open.
+  useEffect(() => {
+    if (showVerificationModal) {
+      const original = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = original
+      }
+    }
+  }, [showVerificationModal])
 
   const loadBusinessData = async () => {
     try {
@@ -272,16 +309,16 @@ function BookingPageContent() {
 
     try {
       setLoading(true)
-      
-// Define your business timezone, e.g., 'Asia/Kathmandu'
-const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
 
-const startDateTime = DateTime.fromISO(`${date}T${selectedTime}`, { zone: BUSINESS_TZ });
-const startTimeISO = startDateTime.toISO();
+      // Define your business timezone, e.g., 'Asia/Kathmandu'
+      const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
 
-const endDateTime = startDateTime.plus({ minutes: selectedService.duration });
-const endTimeISO = endDateTime.toISO();
-     
+      const startDateTime = DateTime.fromISO(`${date}T${selectedTime}`, { zone: BUSINESS_TZ });
+      const startTimeISO = startDateTime.toISO();
+
+      const endDateTime = startDateTime.plus({ minutes: selectedService.duration });
+      const endTimeISO = endDateTime.toISO();
+
 
       const basePayload: any = {
         serviceId: selectedService.id,
@@ -311,14 +348,35 @@ const endTimeISO = endDateTime.toISO();
         })
       }
 
-
-
       if (response.success && response.data) {
-        const bookingId = response.data.booking?.id || response.data.id || ''
-        if (bookingId) {
-          setBookingId(bookingId)
-          setBookingSuccess(true)
+        const createdBooking = response.data.booking || response.data
+        const newBookingId = createdBooking?.id || ''
+
+        if (newBookingId) {
+          setBookingId(newBookingId)
+
+          // Treat every explicit false/unverified signal as requiring verification.
+          // The API can return these flags either on the response or inside booking.
+          const responsePayload = response.data as any
+          const requiresVerification =
+            responsePayload.requiresVerification === true ||
+            responsePayload.isEmailVerified === false ||
+            responsePayload.verified === false ||
+            responsePayload.status === 'UNVERIFIED' ||
+            createdBooking?.requiresVerification === true ||
+            createdBooking?.isEmailVerified === false ||
+            createdBooking?.verified === false ||
+            createdBooking?.status === 'UNVERIFIED' ||
+            (user ? user.isEmailVerified === false || user.isVerified === false || user.verified === false : false)
+
           setError('')
+
+          if (requiresVerification) {
+            // Show the countdown notice instead of the success screen.
+            setShowVerificationModal(true)
+          } else {
+            setBookingSuccess(true)
+          }
         } else {
           setError('Booking created but no ID returned. Please contact support.')
         }
@@ -393,16 +451,16 @@ const endTimeISO = endDateTime.toISO();
                   <div className="h-px bg-border my-1"></div>
                   <div className="flex items-start gap-3">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Date:</div>
-                    
 
-<div className="text-sm text-foreground">
-  {DateTime.fromISO(date + 'T00:00:00', { zone: 'Asia/Kathmandu' }).setLocale('en').toLocaleString({
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })}
-</div>
+
+                    <div className="text-sm text-foreground">
+                      {DateTime.fromISO(date + 'T00:00:00', { zone: 'Asia/Kathmandu' }).setLocale('en').toLocaleString({
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </div>
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Time:</div>
@@ -425,17 +483,6 @@ const endTimeISO = endDateTime.toISO();
 
               {/* Action Buttons */}
               <div className="space-y-3 mb-8">
-                {/* {business?.phone && (
-                  <a
-                    href={`https://wa.me/${String(business.phone).replace(/\D/g, '')}?text=Hi%20${encodeURIComponent(String(business.name))}%2C%20I%20have%20a%20booking%20with%20ID%20${bookingId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full h-12 bg-[#25D366] text-white rounded-lg hover:bg-[#20BA5A] transition-colors font-semibold shadow-md"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    Contact via WhatsApp
-                  </a>
-                )} */}
                 <Button
                   onClick={() => window.location.href = `/book/${business?.id}`}
                   className="w-full h-12 bg-primary hover:bg-primary/90 font-semibold"
@@ -565,7 +612,7 @@ const endTimeISO = endDateTime.toISO();
 
 
             {/* Step 3: Staff Selection (Optional) - Show after date is selected */}
-          {selectedService && date && staffMembers.length > 0 && !closedReason && (
+            {selectedService && date && staffMembers.length > 0 && !closedReason && (
               <div className="mb-8">
                 <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
                   <User className="w-4 h-4 text-primary" />
@@ -588,7 +635,7 @@ const endTimeISO = endDateTime.toISO();
                       >
                         <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-2">
                           {staff.avatar ? (
-                            <img src={staff.avatar} alt={staff.firstName} className="w-12 h-12 rounded-full object-cover" />
+                            <img src={staff.avatar || "/placeholder.svg"} alt={staff.firstName} className="w-12 h-12 rounded-full object-cover" />
                           ) : (
                             <User className="w-6 h-6" />
                           )}
@@ -615,7 +662,7 @@ const endTimeISO = endDateTime.toISO();
             )}
 
             {/* Step 4: Time */}
-            {selectedService && date  && !closedReason && (
+            {selectedService && date && !closedReason && (
               <div className="mb-8">
                 <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-primary" />
@@ -775,6 +822,83 @@ const endTimeISO = endDateTime.toISO();
           </div>
         </Card>
       </div>
+
+      {/* Unverified customer verification notice */}
+      {showVerificationModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="verification-title"
+          aria-describedby="verification-desc"
+        >
+          <Card className="relative w-full max-w-md border border-border shadow-2xl">
+            <div className="p-8 text-center">
+              {/* Close */}
+              <button
+                onClick={() => setShowVerificationModal(false)}
+                className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Icon */}
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
+                <Mail className="w-8 h-8 text-primary" />
+              </div>
+
+              <h2 id="verification-title" className="text-2xl font-bold text-foreground mb-2">
+                Verify your email
+              </h2>
+              <p id="verification-desc" className="text-sm text-muted-foreground mb-1">
+                Your appointment is <span className="font-semibold text-foreground">pending confirmation</span>. We&apos;ve sent a verification link to
+              </p>
+              <p className="text-sm font-semibold text-foreground mb-6 break-all">
+                {customerEmail}
+              </p>
+
+              {/* Countdown / status */}
+              <div
+                className="rounded-lg border border-border bg-secondary/30 p-4 mb-6"
+                aria-live="polite"
+              >
+                {countdown > 0 ? (
+                  <div className="flex items-center justify-center gap-3 text-foreground">
+                    <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                    <span className="text-sm">
+                      Waiting for verification&hellip;{' '}
+                      <span className="font-mono font-bold text-primary">{countdown}s</span>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3 text-left">
+                    <AlertCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-foreground">
+                      Didn&apos;t get the email? Please check your{' '}
+                      <span className="font-semibold">spam or junk</span> folder, then click the link to confirm your booking.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {bookingId && (
+                <p className="text-xs text-muted-foreground mb-6">
+                  Booking reference:{' '}
+                  <code className="font-mono text-foreground">{bookingId}</code>
+                </p>
+              )}
+
+              <Button
+                onClick={() => setShowVerificationModal(false)}
+                className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
+              >
+                Got it
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
@@ -786,7 +910,3 @@ export default function BookingPage() {
     </Suspense>
   )
 }
-function setClosedDates(closedDatesMap: Map<string, string>) {
-  throw new Error('Function not implemented.')
-}
-

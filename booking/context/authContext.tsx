@@ -5,6 +5,8 @@ import React, { createContext, useContext, useEffect, useState } from "react"
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
 
 export interface User {
+  isVerified: boolean
+  verified: boolean
   isPhoneVerified: boolean
   createdAt: any
   name: string
