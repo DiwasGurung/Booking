@@ -26,7 +26,7 @@ interface Booking {
 }
 
 type StatusFilter = 'ALL' | 'UNVERIFIED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
-type RangeFilter = 'today' | 'tomorrow' | 'week' | 'nextWeek' | 'month'
+type RangeFilter ='ALL'| 'today' | 'tomorrow' | 'week' | 'nextWeek' | 'month'
 
 const STATUS_FILTERS: StatusFilter[] = ['ALL', 'UNVERIFIED','CONFIRMED', 'COMPLETED', 'CANCELLED']
 
@@ -55,6 +55,10 @@ export default function BookingsPage() {
   const [hasMore, setHasMore] = useState(false)
 
   const getDateRange = () => {
+
+    if (filterRange === 'ALL') {
+      return { startDate: null, endDate: null }
+    }
     const end = new Date()
     const start = new Date(end)
     if (filterRange === 'today') {
@@ -108,8 +112,8 @@ export default function BookingsPage() {
         page,
         PAGE_SIZE,
         statusParam,
-        startDate,
-        endDate,
+        startDate || undefined,
+        endDate || undefined,
         staffParam
       )
 
@@ -280,6 +284,7 @@ export default function BookingsPage() {
                 }}
                 className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
               >
+                <option value="ALL">All Time</option>
                 <option value="today">Today</option>
                 <option value="tomorrow">Tomorrow</option>
                 <option value="week">Last 7 days</option>
