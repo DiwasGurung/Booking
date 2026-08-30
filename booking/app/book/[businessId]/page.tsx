@@ -366,8 +366,7 @@ function BookingPageContent() {
             createdBooking?.requiresVerification === true ||
             createdBooking?.isEmailVerified === false ||
             createdBooking?.verified === false ||
-            createdBooking?.status === 'UNVERIFIED' ||
-            (user ? user.isEmailVerified === false || user.isVerified === false || user.verified === false : false)
+            createdBooking?.status === 'UNVERIFIED'
 
           setError('')
 
