@@ -14,6 +14,7 @@ import { format } from 'date-fns'
 import { useRoleProtection } from '@/hooks/useRoleProtection'
 import { ProfilePhoneVerification } from '@/components/ProfilePhoneVerification'
 
+
 export default function ProfilePage() {
   const router = useRouter()
   const { user, loading: authLoading, refreshUser } = useAuth()
@@ -359,14 +360,14 @@ export default function ProfilePage() {
           {/* Security Tab */}
           <TabsContent value="security" className="space-y-6">
             {/* Phone Verification */}
-            <ProfilePhoneVerification
+            {/* <ProfilePhoneVerification
               phone={phone}
               isPhoneVerified={isPhoneVerified}
               onVerified={() => {
                 setIsPhoneVerified(true)
                 refreshUser()
               }}
-            />
+            /> */}
 
             {/* Change Password */}
             <Card className="p-6">
@@ -511,6 +512,28 @@ export default function ProfilePage() {
                               </p>
                             </div>
                           </div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <DollarSign className="mt-1 h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm text-muted-foreground">Price</p>
+
+                          {booking.service?.offerPrice != null &&
+                            booking.service.offerPrice < booking.service.price ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground line-through">
+                                Rs.{Number(booking.service.price).toFixed(2)}
+                              </span>
+                              <span className="font-semibold text-emerald-700">
+                                Rs.{Number(booking.service.offerPrice).toFixed(2)}
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="font-semibold text-foreground">
+                              Rs.{Number(booking.service?.price || 0).toFixed(2)}
+                            </p>
+                          )}
                         </div>
                       </div>
 

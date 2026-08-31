@@ -17,7 +17,7 @@ interface Booking {
   customerEmail?: string
   serviceId: string
   customerPhone?: string
-  service?: { name: string; price: number }
+ service?: { name: string; price: number; offerPrice?: number | null }
   startTime: string
   endTime: string
   status: string
@@ -369,9 +369,19 @@ export default function BookingsPage() {
                       <td className="px-6 py-4">
                         <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
                       </td>
-                      <td className="px-6 py-4 font-semibold text-slate-900">
-                        Rs.{booking.service?.price || 0}
-                      </td>
+                       {booking.service?.offerPrice != null &&
+                        booking.service.offerPrice < booking.service.price ? (
+                          <div className="flex flex-col">
+                            <span className="text-sm text-slate-400 line-through">
+                              Rs.{booking.service.price.toFixed(2)}
+                            </span>
+                            <span className="text-emerald-700">
+                              Rs.{booking.service.offerPrice.toFixed(2)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span>Rs.{(booking.service?.price ?? 0).toFixed(2)}</span>
+                        )}
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2 items-center">
                           {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
