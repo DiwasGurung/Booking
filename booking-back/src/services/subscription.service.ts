@@ -278,11 +278,7 @@ class SubscriptionService {
         trialEndsAt: subscription.trialEndsAt,
         expiresAt,
         autoRenew: subscription.autoRenew,
-         isTrialUsed: Boolean(
-          subscription.isTrialUsed ||
-          subscription.status === 'TRIAL' ||
-          subscription.trialEndsAt
-        ),
+        isTrialUsed:subscription.isTrialUsed,
       
       }
     } catch (error) {

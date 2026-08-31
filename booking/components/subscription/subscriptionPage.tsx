@@ -97,12 +97,6 @@ export default function SubscriptionPlan() {
 
   // Check if trial has been used
   useEffect(() => {
-    if (authLoading) return
-    if (!user || !token) {
-      setLoadingTrialStatus(false)
-      return
-    }
-
     const checkTrialStatus = async () => {
       try {
         setLoadingTrialStatus(true)
@@ -125,17 +119,8 @@ export default function SubscriptionPlan() {
             })
             
             if (subResponse.ok) {
-              const responseData = await subResponse.json()
-              const subData = responseData.data || responseData.subscription || responseData
-              // `isTrialUsed` is permanent; legacy trial records are also detected.
-              setTrialUsed(Boolean(
-                subData.isTrialUsed ||
-                subData.trialUsed ||
-                subData.trialExpired ||
-                subData.hasUsedTrial ||
-                subData.status === 'TRIAL' ||
-                subData.trialEndsAt
-              ))
+              const subData = await subResponse.json()
+              setTrialUsed(Boolean(subData.isTrialUsed))
             }
           }
         }
@@ -147,7 +132,7 @@ export default function SubscriptionPlan() {
     }
 
     checkTrialStatus()
-  }, [authLoading, user, token])
+  }, [])
 
   // Submit eSewa form when data is ready
   useEffect(() => {
