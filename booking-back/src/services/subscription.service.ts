@@ -474,7 +474,7 @@ class SubscriptionService {
         limit: plan.maxAppointmentsPerMonth,
       }
     } catch (error) {
-      console.error(`[v0] Failed to check appointment limit:`, error)
+
       return { allowed: false, reason: 'Error checking subscription' }
     }
   }
@@ -497,7 +497,7 @@ class SubscriptionService {
       }
 
       const staffCount = await prisma.staff.count({
-        where: { businessId },
+        where: { businessId, isActive:true },
       })
 
       if (staffCount >= plan.maxStaff) {
@@ -702,17 +702,40 @@ class SubscriptionService {
         throw new Error('Plan not found')
       }
 
-      const updated = await prisma.subscription.update({
-        where: { id: subscription.id },
-        data: {
-          planId: newPlanId,
-          lastPaymentId: paymentId,
-        },
-        include: {
-          plan: true,
-          business: true,
-        },
+        const updated = await prisma.$transaction(async (tx) => {
+        const result = await tx.subscription.update({
+          where: { id: subscription.id },
+          data: {
+            planId: newPlanId,
+            lastPaymentId: paymentId,
+          },
+          include: {
+            plan: true,
+            business: true,
+          },
+        })
+
+        // Never delete staff or alter historical bookings. If the new plan has a
+        // finite limit, deactivate only the newest excess active staff records.
+        if (newPlan.maxStaff !== -1) {
+          const activeStaff = await tx.staff.findMany({
+            where: { businessId, isActive: true },
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            select: { id: true },
+          })
+          const excessStaff = activeStaff.slice(newPlan.maxStaff)
+          if (excessStaff.length > 0) {
+            await tx.staff.updateMany({
+              where: { id: { in: excessStaff.map((staff) => staff.id) } },
+              data: { isActive: false },
+            })
+            console.log(`[v0] Deactivated ${excessStaff.length} excess staff after downgrade`)
+          }
+        }
+
+        return result
       })
+
 
       console.log(`[v0] Subscription downgraded successfully`)
       return updated as SubscriptionWithRelations

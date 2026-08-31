@@ -25,7 +25,7 @@ export function Footer() {
               <Link href="/search" className="text-sm hover:text-white transition block">
                 Browse Services
               </Link>
-              <Link href="/bookings/my-bookings" className="text-sm hover:text-white transition block">
+              <Link href="/profile" className="text-sm hover:text-white transition block">
                 My Bookings
               </Link>
               <Link href="/help" className="text-sm hover:text-white transition block">
@@ -38,11 +38,8 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold text-white mb-4">For Businesses</h4>
             <div className="space-y-2">
-              <Link href="/business/setup" className="text-sm hover:text-white transition block">
+              <Link href="/business/setup-business" className="text-sm hover:text-white transition block">
                 Get Started
-              </Link>
-              <Link href="/dashboard" className="text-sm hover:text-white transition block">
-                Dashboard
               </Link>
               <a href="/#pricing" className="text-sm hover:text-white transition block">
                 Pricing

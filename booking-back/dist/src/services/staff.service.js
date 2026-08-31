@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.StaffService = void 0;
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const staff_verification_service_1 = require("./staff-verification.service");
+const subscription_service_1 = __importDefault(require("./subscription.service"));
 class StaffService {
     /**
      * Create a new staff member
@@ -172,6 +173,15 @@ class StaffService {
         const staff = await prisma_1.default.staff.findUnique({ where: { id } });
         if (!staff)
             throw new Error("Staff not found");
+        // Reactivating staff must respect the current plan after a downgrade.
+        if (!staff.isActive) {
+            const limit = await subscription_service_1.default.canAddStaff(staff.businessId);
+            if (!limit.allowed) {
+                const error = new Error(limit.reason || 'Staff limit reached. Upgrade your plan to reactivate this staff member.');
+                error.code = 'STAFF_LIMIT_EXCEEDED';
+                throw error;
+            }
+        }
         return prisma_1.default.staff.update({
             where: { id },
             data: { isActive: !staff.isActive },
@@ -339,7 +349,7 @@ class StaffService {
         const bookings = await prisma_1.default.booking.findMany({
             where: {
                 staffId: staff.id,
-                status: { in: ['PENDING', 'CONFIRMED', 'COMPLETED'] }, // include all relevant statuses
+                status: { in: ['CANCELLED', 'CONFIRMED', 'COMPLETED'] }, // include all relevant statuses
             },
             include: {
                 customer: {

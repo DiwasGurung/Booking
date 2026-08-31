@@ -19,7 +19,7 @@ const faqItems: FAQItem[] = [
     id: '1',
     category: 'bookings',
     question: 'How do I book a service?',
-    answer: 'To book a service: 1) Search for a business, 2) Select a service, 3) Choose your preferred date and time, 4) Complete payment, 5) Receive confirmation.'
+    answer: 'To book a service: 1) Search for a business, 2) Select a service, 3) Choose your preferred date and time, 4) Receive confirmation.'
   },
   {
     id: '2',
@@ -27,62 +27,39 @@ const faqItems: FAQItem[] = [
     question: 'Can I cancel my booking?',
     answer: 'Yes, you can cancel bookings up to 24 hours before the appointment. Go to "My Bookings" and click the cancel button. Cancellation fees may apply depending on the business policy.'
   },
+
   {
     id: '3',
-    category: 'bookings',
-    question: 'How do I reschedule a booking?',
-    answer: 'To reschedule: 1) Go to "My Bookings", 2) Select the booking you want to reschedule, 3) Click "Reschedule", 4) Choose a new date/time, 5) Confirm changes.'
-  },
-  {
-    id: '4',
-    category: 'payment',
-    question: 'What payment methods do you accept?',
-    answer: 'We accept credit cards (Visa, Mastercard, American Express), debit cards, and digital wallets. All payments are processed securely through our payment gateway.'
-  },
-  {
-    id: '5',
-    category: 'payment',
-    question: 'Is my payment information secure?',
-    answer: 'Yes, all payments are encrypted and processed securely. We use industry-standard SSL encryption and comply with PCI DSS standards to protect your information.'
-  },
-  {
-    id: '6',
-    category: 'payment',
-    question: 'Can I get a refund?',
-    answer: 'Refunds are processed based on the business cancellation policy. If you cancel within the allowed timeframe, you will receive a refund. Refunds typically take 3-5 business days.'
-  },
-  {
-    id: '7',
     category: 'account',
     question: 'How do I create an account?',
     answer: 'Click "Sign Up" on the homepage, enter your email and create a password, then verify your email address. You can also sign up using your Google or social media account.'
   },
   {
-    id: '8',
+    id: '4',
     category: 'account',
     question: 'How do I reset my password?',
     answer: 'Click "Forgot Password" on the login page, enter your email, and we will send you a link to reset your password. Follow the instructions in the email to create a new password.'
   },
   {
-    id: '9',
+    id: '5',
     category: 'account',
     question: 'How do I update my profile?',
     answer: 'Go to Account Settings, click "Edit Profile", update your information, and click Save. You can change your name, phone number, email, and profile picture.'
   },
   {
-    id: '10',
+    id: '6',
     category: 'business',
     question: 'How do I become a business owner?',
     answer: 'Click "Become a Business Owner" on the homepage, fill out the business registration form, verify your information, and set up your services. Your business will be reviewed before going live.'
   },
   {
-    id: '11',
+    id: '7',
     category: 'business',
     question: 'How do I add services to my business?',
     answer: 'Log in to your business dashboard, go to "Services", click "Add Service", enter service details (name, description, price, duration), and save.'
   },
   {
-    id: '12',
+    id:'8',
     category: 'business',
     question: 'How do I manage my business hours?',
     answer: 'Go to Business Settings, click "Business Hours", set your operating hours for each day, and save. You can also set holidays when your business is closed.'

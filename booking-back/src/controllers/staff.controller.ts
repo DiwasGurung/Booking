@@ -196,7 +196,13 @@ export const toggleStaffStatus = async (req: AuthRequest, res: Response) => {
     const staff = await staffService.toggleStaffStatus(id)
     res.json({ success: true, staff })
   } catch (error: any) {
-    console.error("[Staff Controller] Toggle status error:", error.message)
+    if (error?.code === 'STAFF_LIMIT_EXCEEDED') {
+      return res.status(429).json({
+        error: error.code,
+        message: error.message,
+        overLimit: true,
+      })
+    }
     res.status(500).json({ error: "Failed to toggle staff status" })
   }
 }

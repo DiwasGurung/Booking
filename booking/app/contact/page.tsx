@@ -21,7 +21,7 @@ export default function ContactPage() {
           <Card className="border border-border shadow-lg p-6 text-center">
             <Mail className="w-12 h-12 text-primary mx-auto mb-4" />
             <h3 className="text-lg font-bold text-foreground mb-2">Email</h3>
-            <p className="text-muted-foreground mb-4">support@Appoint-Nepal.com</p>
+            <p className="text-muted-foreground mb-4">info@appoint-Nepal.com</p>
             <a href="mailto:support@Appoint-Nepal.com">
               <Button variant="outline" className="w-full">Send Email</Button>
             </a>
@@ -30,17 +30,10 @@ export default function ContactPage() {
           <Card className="border border-border shadow-lg p-6 text-center">
             <Phone className="w-12 h-12 text-primary mx-auto mb-4" />
             <h3 className="text-lg font-bold text-foreground mb-2">Phone</h3>
-            <p className="text-muted-foreground mb-4">+1 (555) 123-4567</p>
+            <p className="text-muted-foreground mb-4">+977 9814195023</p>
             <a href="tel:+15551234567">
               <Button variant="outline" className="w-full">Call Us</Button>
             </a>
-          </Card>
-
-          <Card className="border border-border shadow-lg p-6 text-center">
-            <MessageSquare className="w-12 h-12 text-primary mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-foreground mb-2">Live Chat</h3>
-            <p className="text-muted-foreground mb-4">Available 24/7</p>
-            <Button variant="outline" className="w-full">Start Chat</Button>
           </Card>
         </div>
 

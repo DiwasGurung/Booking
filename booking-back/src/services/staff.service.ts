@@ -1,5 +1,6 @@
 import  prisma  from "../lib/prisma"
 import { staffVerificationService } from "./staff-verification.service"
+import  SubscriptionService  from "./subscription.service"
 
 export interface WorkingHours {
   [day: string]: {
@@ -233,6 +234,17 @@ export class StaffService {
   async toggleStaffStatus(id: string) {
     const staff = await prisma.staff.findUnique({ where: { id } })
     if (!staff) throw new Error("Staff not found")
+
+       // Reactivating staff must respect the current plan after a downgrade.
+    if (!staff.isActive) {
+   
+      const limit = await SubscriptionService.canAddStaff(staff.businessId)
+      if (!limit.allowed) {
+        const error = new Error(limit.reason || 'Staff limit reached. Upgrade your plan to reactivate this staff member.')
+        ;(error as Error & { code?: string }).code = 'STAFF_LIMIT_EXCEEDED'
+        throw error
+      }
+    }
 
     return prisma.staff.update({
       where: { id },
