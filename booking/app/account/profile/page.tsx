@@ -438,136 +438,166 @@ export default function ProfilePage() {
 
           {/* Bookings Tab */}
           <TabsContent value="bookings" className="space-y-6">
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                My Bookings
-              </h2>
+            <Card className="overflow-hidden border-border/60 shadow-sm">
+              <div className="border-b border-border/60 bg-muted/20 px-5 py-5 sm:px-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="flex items-center gap-2 text-xl font-semibold">
+                      <Calendar className="h-5 w-5 text-primary" />
+                      My Bookings
+                    </h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      View and manage your upcoming and previous appointments.
+                    </p>
+                  </div>
 
-              {bookingsLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+                    {bookings.length}
+                  </span>
                 </div>
-              ) : bookings.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  <Calendar className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                  <p>No bookings yet. Start booking services today!</p>
-                  <Button className="mt-4" onClick={() => router.push('/search')}>
-                    Browse Services
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {bookings.map((booking: any) => (
-                    <Card key={booking.id} className="p-4 border border-border/40 hover:border-border/80 transition-colors">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Left Column */}
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Service</p>
-                            <p className="font-semibold text-foreground">{booking.service?.name || 'N/A'}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Business</p>
-                            <p className="font-semibold text-foreground">{booking.business?.name || 'N/A'}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant={
-                                booking.status === 'CONFIRMED'
-                                  ? 'default'
-                                  : booking.status === 'COMPLETED'
-                                    ? 'secondary'
-                                    : booking.status === 'CANCELLED'
-                                      ? 'destructive'
-                                      : 'outline'
-                              }
-                            >
-                              {booking.status}
-                            </Badge>
-                          </div>
-                        </div>
+              </div>
 
-                        {/* Right Column */}
-                        <div className="space-y-3">
-                          <div className="flex items-start gap-2">
-                            <Clock className="w-4 h-4 mt-1 text-muted-foreground" />
-                            <div>
-                              <p className="text-sm text-muted-foreground">Date & Time</p>
-                              <p className="font-semibold text-foreground">
-                                {format(new Date(booking.startTime), 'MMM dd, yyyy')}
+              <div className="p-4 sm:p-6">
+                {bookingsLoading ? (
+                  <div className="flex justify-center py-12">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  </div>
+                ) : bookings.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
+                    <Calendar className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
+                    <h3 className="font-semibold">No bookings yet</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Start booking a service to see your appointments here.
+                    </p>
+                    <Button className="mt-5" onClick={() => router.push('/search')}>
+                      Browse Services
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {bookings.map((booking: any) => {
+                      const price = Number(booking.service?.price ?? 0)
+                      const offerPrice =
+                        booking.service?.offerPrice != null
+                          ? Number(booking.service.offerPrice)
+                          : null
+
+                      const hasOffer =
+                        offerPrice !== null &&
+                        offerPrice >= 0 &&
+                        offerPrice < price
+
+                      const status = String(booking.status || '').toUpperCase()
+
+                      return (
+                        <article
+                          key={booking.id}
+                          className="overflow-hidden rounded-2xl border border-border/70 bg-card transition-shadow hover:shadow-md"
+                        >
+                          <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-3 flex flex-wrap items-center gap-2">
+                                <Badge
+                                  variant={
+                                    status === 'CONFIRMED'
+                                      ? 'default'
+                                      : status === 'COMPLETED'
+                                        ? 'secondary'
+                                        : status === 'CANCELLED'
+                                          ? 'destructive'
+                                          : 'outline'
+                                  }
+                                >
+                                  {status || 'PENDING'}
+                                </Badge>
+
+                                {hasOffer && (
+                                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                                    Special offer
+                                  </span>
+                                )}
+                              </div>
+
+                              <h3 className="truncate text-lg font-bold text-foreground">
+                                {booking.service?.name || 'Service'}
+                              </h3>
+
+                              <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                                <MapPin className="h-4 w-4 shrink-0" />
+                                {booking.business?.name || 'Business'}
                               </p>
-                              <p className="text-sm text-muted-foreground">
-                                {format(new Date(booking.startTime), 'h:mm a')} -{' '}
-                                {format(new Date(booking.endTime), 'h:mm a')}
+
+                              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                <div className="flex items-start gap-2">
+                                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                  <div>
+                                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                      Appointment
+                                    </p>
+                                    <p className="mt-0.5 text-sm font-semibold">
+                                      {format(new Date(booking.startTime), 'MMM dd, yyyy')}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {format(new Date(booking.startTime), 'h:mm a')} –{' '}
+                                      {format(new Date(booking.endTime), 'h:mm a')}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-start gap-2">
+                                  <DollarSign className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                  <div>
+                                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                      Service price
+                                    </p>
+
+                                    {hasOffer ? (
+                                      <div className="mt-0.5 flex flex-wrap items-baseline gap-2">
+                                        <span className="text-lg font-bold text-emerald-700">
+                                          Rs.{offerPrice.toFixed(2)}
+                                        </span>
+                                        <span className="text-sm text-muted-foreground line-through">
+                                          Rs.{price.toFixed(2)}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <p className="mt-0.5 text-lg font-bold">
+                                        Rs.{price.toFixed(2)}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex shrink-0 flex-col gap-2 border-t border-border/60 pt-4 lg:w-36 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+                              <p className="text-xs text-muted-foreground">
+                                {booking.business?.city || 'Location'}
+                                {booking.business?.state
+                                  ? `, ${booking.business.state}`
+                                  : ''}
                               </p>
+
+                              {status !== 'CANCELLED' &&
+                                status !== 'COMPLETED' && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={isLoading}
+                                    onClick={() => handleCancelBooking(booking.id)}
+                                  >
+                                    Cancel booking
+                                  </Button>
+                                )}
                             </div>
                           </div>
-                          <div className="flex items-start gap-2">
-                            <MapPin className="w-4 h-4 mt-1 text-muted-foreground" />
-                            <div>
-                              <p className="text-sm text-muted-foreground">Location</p>
-                              <p className="text-sm font-medium text-foreground">
-                                {booking.business?.city}, {booking.business?.state}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <DollarSign className="mt-1 h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm text-muted-foreground">Price</p>
-
-                          {booking.service?.offerPrice != null &&
-                            booking.service.offerPrice < booking.service.price ? (
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-muted-foreground line-through">
-                                Rs.{Number(booking.service.price).toFixed(2)}
-                              </span>
-                              <span className="font-semibold text-emerald-700">
-                                Rs.{Number(booking.service.offerPrice).toFixed(2)}
-                              </span>
-                            </div>
-                          ) : (
-                            <p className="font-semibold text-foreground">
-                              Rs.{Number(booking.service?.price || 0).toFixed(2)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Booking Notes */}
-                      {booking.notes && (
-                        <div className="mt-4 p-3 bg-muted/30 rounded text-sm">
-                          <p className="text-muted-foreground">Notes: {booking.notes}</p>
-                        </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div className="mt-4 flex gap-2">
-                        {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={isLoading}
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleCancelBooking(booking.id)}
-                          >
-                            {isLoading ? 'Cancelling...' : 'Cancel Booking'}
-                          </Button>
-                        )}
-                        {booking.status === 'COMPLETED' && (
-                          <Button variant="outline" size="sm">
-                            Completed
-                          </Button>
-                        )}
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
+                        </article>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </Card>
           </TabsContent>
         </Tabs>
