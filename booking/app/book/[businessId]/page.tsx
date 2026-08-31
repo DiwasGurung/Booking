@@ -835,7 +835,10 @@ function BookingPageContent() {
             <div className="p-8 text-center">
               {/* Close */}
               <button
-                onClick={() => setShowVerificationModal(false)}
+                 onClick={() => {
+                  setShowVerificationModal(false)
+                  router.replace(`/book/${businessId}`)
+                }}
                 className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
                 aria-label="Close"
               >
