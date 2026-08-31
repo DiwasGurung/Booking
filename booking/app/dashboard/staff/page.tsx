@@ -30,7 +30,7 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useBusinessId } from '@/hooks/useBusinessId'
-import { useSubscriptionUsage } from '@/hooks/useSusbcriptionUsage'
+import { useSubscriptionUsage } from '@/hooks/useSubscriptionUsage'
 
 
 const today = new Date().toISOString().split('T')[0];

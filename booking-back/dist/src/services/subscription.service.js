@@ -182,13 +182,18 @@ class SubscriptionService {
                 hasSubscription: hasValidSubscription,
                 status: subscription.status,
                 planName: subscription.plan.displayName,
+                planPrice: subscription.plan.priceMonthlyNPR,
+                currency: subscription.plan.currency,
+                maxStaff: subscription.plan.maxStaff,
+                maxAppointmentsPerMonth: subscription.plan.maxAppointmentsPerMonth,
+                maxServices: subscription.plan.maxServices,
+                maxCustomers: subscription.plan.maxCustomers,
                 daysRemaining: Math.max(0, daysRemaining),
                 trialEndsAt: subscription.trialEndsAt,
                 expiresAt,
+                startDate: subscription.startDate,
                 autoRenew: subscription.autoRenew,
-                isTrialUsed: Boolean(subscription.isTrialUsed ||
-                    subscription.status === 'TRIAL' ||
-                    subscription.trialEndsAt),
+                isTrialUsed: subscription.isTrialUsed,
             };
         }
         catch (error) {

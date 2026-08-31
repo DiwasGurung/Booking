@@ -34,14 +34,19 @@ type SubscriptionStatusResult = {
   id?: string
   hasSubscription: boolean
   status: SubscriptionStatus | null
+  planName?: string
+  planPrice?: number
+  currency?: string
+  maxStaff?: number
+  maxAppointmentsPerMonth?: number
+  maxServices?: number
+  maxCustomers?: number
   daysRemaining: number | null
-  startDate?: Date | null
-  endDate?: Date | null
-  isTrialUsed?: boolean
   trialEndsAt: Date | null
   expiresAt: Date | null
-  planName?: string
+  startDate?: Date | null
   autoRenew?: boolean
+  isTrialUsed:boolean
 }
 
 type UsageDetailsResult = {
@@ -274,9 +279,16 @@ class SubscriptionService {
         hasSubscription: hasValidSubscription,
         status: subscription.status,
         planName: subscription.plan.displayName,
+        planPrice: subscription.plan.priceMonthlyNPR,
+        currency: subscription.plan.currency,
+        maxStaff: subscription.plan.maxStaff,
+        maxAppointmentsPerMonth: subscription.plan.maxAppointmentsPerMonth,
+        maxServices: subscription.plan.maxServices,
+        maxCustomers: subscription.plan.maxCustomers,
         daysRemaining: Math.max(0, daysRemaining),
         trialEndsAt: subscription.trialEndsAt,
         expiresAt,
+        startDate: subscription.startDate,
         autoRenew: subscription.autoRenew,
         isTrialUsed:subscription.isTrialUsed,
       

@@ -3,18 +3,21 @@ import { useAuth } from '@/context/authContext'
 import { useBusinessId } from './useBusinessId'
 
 interface SubscriptionStatus {
-  maxSmsPerMonth: number
-  smsUsedThisMonth: number
   hasSubscription: boolean
   status: string | null
   planName?: string
-  startDate?: string | null
-  trialEndsAt?: string | null
-  endDate?: string | null
-  isTrialUsed?: boolean
+  planPrice?: number
+  currency?: string
+  maxStaff?: number
+  maxAppointmentsPerMonth?: number
+  maxServices?: number
+  maxCustomers?: number
   daysRemaining: number | null
+  trialEndsAt?: string | null
   expiresAt: string | null
+  startDate?: string | null
   autoRenew?: boolean
+  isTrialUsed?: boolean
 }
 
 export const useSubscriptionStatus = () => {
@@ -27,6 +30,7 @@ export const useSubscriptionStatus = () => {
   useEffect(() => {
     const fetchSubscriptionStatus = async () => {
       if (!businessId || businessLoading || authLoading) {
+        console.log('[v0] Waiting for: businessId, businessLoading, authLoading', { businessId, businessLoading, authLoading })
         return
       }
 
@@ -35,6 +39,8 @@ export const useSubscriptionStatus = () => {
         setError(null)
 
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+        console.log('[v0] Fetching subscription status for businessId:', businessId)
+        
         const response = await fetch(`${API_URL}/api/subscriptions/status/${businessId}`, {
           credentials: 'include',
           headers: {
@@ -43,16 +49,23 @@ export const useSubscriptionStatus = () => {
         })
 
         if (!response.ok) {
-          throw new Error('Failed to fetch subscription status')
+          const errorData = await response.json().catch(() => ({}))
+          const errorMessage = errorData?.message || `Server returned ${response.status}: ${response.statusText}`
+          console.error('[v0] Subscription status error response:', { status: response.status, error: errorData })
+          throw new Error(errorMessage)
         }
 
         const data = await response.json()
+        console.log('[v0] Subscription status fetched:', data)
         setSubscriptionStatus(data)
       } catch (err) {
-        console.error('[v0] Error fetching subscription status:', err)
-        setError(err instanceof Error ? err.message : 'Unknown error')
-        setSubscriptionStatus({          maxSmsPerMonth: 0,
-          smsUsedThisMonth: 0,          hasSubscription: false,
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+        console.error('[v0] Error fetching subscription status:', errorMessage)
+        setError(errorMessage)
+        
+        // Set default subscription status when there's an error
+        setSubscriptionStatus({
+          hasSubscription: false,
           status: null,
           daysRemaining: null,
           expiresAt: null,

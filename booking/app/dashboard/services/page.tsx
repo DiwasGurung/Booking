@@ -15,7 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { servicesApi } from '@/lib/api'
 import { Loader, AlertCircle, Edit, Trash2, Plus, Copy, Check } from 'lucide-react'
 import { useBusinessId } from '@/hooks/useBusinessId'
-import { useSubscriptionUsage } from '@/hooks/useSusbcriptionUsage'
+import { useSubscriptionUsage } from '@/hooks/useSubscriptionUsage'
 
 interface Service {
   id: string

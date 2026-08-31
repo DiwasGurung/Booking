@@ -110,6 +110,12 @@ export default function SubscriptionPlan() {
         if (response.ok) {
           const businessData = await response.json()
           const businessId = businessData.id || businessData.business?.id
+
+           if (!businessId) {
+        // If business ID is missing, navigate to home
+        router.push('/')
+        return
+      }
           
           if (businessId) {
             // Fetch subscription status to check if trial was used
