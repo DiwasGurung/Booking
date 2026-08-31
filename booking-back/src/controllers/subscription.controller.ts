@@ -70,6 +70,7 @@ class SubscriptionController {
           expiresAt: null,
           planName: 'No subscription',
           message: 'User can create a free trial subscription',
+           isTrialUsed: false,
         })
       }
 

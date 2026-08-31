@@ -20,8 +20,13 @@ class SubscriptionService {
             if (!plan) {
                 throw new Error(`Subscription plan not found: ${data.planId}`);
             }
-            console.log(`[v0] Found plan: ${plan.displayName} with ID: ${plan.id}, Plan durationDays: ${plan.durationDays}`);
-            console.log(`[v0] Creating trial for ${trialDays} days, trial ends at: ${trialEndsAt}`);
+            const existingSubscription = await prisma_1.default.subscription.findUnique({
+                where: { businessId: data.businessId },
+                select: { isTrialUsed: true },
+            });
+            if (existingSubscription?.isTrialUsed) {
+                throw new Error('Your free trial has already been used. Please choose a paid plan.');
+            }
             await prisma_1.default.subscription.deleteMany({
                 where: { businessId: data.businessId },
             });
@@ -142,6 +147,7 @@ class SubscriptionService {
                     daysRemaining: null,
                     trialEndsAt: null,
                     expiresAt: null,
+                    isTrialUsed: false,
                 };
             }
             const now = new Date();
@@ -180,16 +186,19 @@ class SubscriptionService {
                 trialEndsAt: subscription.trialEndsAt,
                 expiresAt,
                 autoRenew: subscription.autoRenew,
+                isTrialUsed: Boolean(subscription.isTrialUsed ||
+                    subscription.status === 'TRIAL' ||
+                    subscription.trialEndsAt),
             };
         }
         catch (error) {
-            console.error(`[v0] Failed to get subscription status:`, error);
             return {
                 hasSubscription: false,
                 status: null,
                 daysRemaining: null,
                 trialEndsAt: null,
                 expiresAt: null,
+                isTrialUsed: false,
             };
         }
     }
@@ -368,7 +377,6 @@ class SubscriptionService {
             };
         }
         catch (error) {
-            console.error(`[v0] Failed to check appointment limit:`, error);
             return { allowed: false, reason: 'Error checking subscription' };
         }
     }

@@ -93,9 +93,14 @@ class SubscriptionService {
       if (!plan) {
         throw new Error(`Subscription plan not found: ${data.planId}`)
       }
+       const existingSubscription = await prisma.subscription.findUnique({
+        where: { businessId: data.businessId },
+        select: { isTrialUsed: true },
+      })
+      if (existingSubscription?.isTrialUsed) {
+        throw new Error('Your free trial has already been used. Please choose a paid plan.')
+      }
 
-      console.log(`[v0] Found plan: ${plan.displayName} with ID: ${plan.id}, Plan durationDays: ${plan.durationDays}`)
-      console.log(`[v0] Creating trial for ${trialDays} days, trial ends at: ${trialEndsAt}`)
 
       await prisma.subscription.deleteMany({
         where: { businessId: data.businessId },
@@ -225,6 +230,7 @@ class SubscriptionService {
           daysRemaining: null,
           trialEndsAt: null,
           expiresAt: null,
+          isTrialUsed: false,
         }
       }
 
@@ -272,15 +278,22 @@ class SubscriptionService {
         trialEndsAt: subscription.trialEndsAt,
         expiresAt,
         autoRenew: subscription.autoRenew,
+         isTrialUsed: Boolean(
+          subscription.isTrialUsed ||
+          subscription.status === 'TRIAL' ||
+          subscription.trialEndsAt
+        ),
+      
       }
     } catch (error) {
-      console.error(`[v0] Failed to get subscription status:`, error)
-      return {
+            return {
         hasSubscription: false,
         status: null,
         daysRemaining: null,
         trialEndsAt: null,
         expiresAt: null,
+         isTrialUsed: false,
+        
       }
     }
   }
