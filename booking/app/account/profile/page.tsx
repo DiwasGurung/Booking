@@ -150,6 +150,34 @@ export default function ProfilePage() {
     }
   }
 
+  const handleCancelBooking = async (bookingId: string) => {
+    if (!window.confirm('Are you sure you want to cancel this booking?')) return
+
+    try {
+      setError('')
+      setIsLoading(true)
+
+      const response = await bookingsApi.cancelBooking(bookingId)
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to cancel booking')
+      }
+
+      setBookings((currentBookings) =>
+        currentBookings.map((booking) =>
+          booking.id === bookingId
+            ? { ...booking, status: 'CANCELLED' }
+            : booking
+        )
+      )
+
+      setSuccess('Booking cancelled successfully')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel booking')
+    } finally {
+      setIsLoading(false)
+    }
+  }
   if (isLoading || authLoading || roleCheckLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -448,10 +476,10 @@ export default function ProfilePage() {
                                 booking.status === 'CONFIRMED'
                                   ? 'default'
                                   : booking.status === 'COMPLETED'
-                                  ? 'secondary'
-                                  : booking.status === 'CANCELLED'
-                                  ? 'destructive'
-                                  : 'outline'
+                                    ? 'secondary'
+                                    : booking.status === 'CANCELLED'
+                                      ? 'destructive'
+                                      : 'outline'
                               }
                             >
                               {booking.status}
@@ -496,13 +524,20 @@ export default function ProfilePage() {
                       {/* Action Buttons */}
                       <div className="mt-4 flex gap-2">
                         {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
-                          <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
-                            Cancel Booking
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={isLoading}
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleCancelBooking(booking.id)}
+                          >
+                            {isLoading ? 'Cancelling...' : 'Cancel Booking'}
                           </Button>
                         )}
                         {booking.status === 'COMPLETED' && (
                           <Button variant="outline" size="sm">
-                            Leave Review
+                            Completed
                           </Button>
                         )}
                       </div>
