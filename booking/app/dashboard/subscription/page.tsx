@@ -40,6 +40,21 @@ export default function SubscriptionPage() {
   const [showCancelDialog, setShowCancelDialog] = useState(false)
   const [cancelling, setCancelling] = useState(false)
 
+  const planPrices: Record<string, { monthly: number }> = {
+  starter: {
+    monthly: 499,
+  },
+  professional: {
+    monthly: 999,
+  },
+  enterprise: {
+    monthly: 2499,
+  },
+};
+const currentPlanPrice = subscriptionStatus?.planName ? planPrices[subscriptionStatus.planName.toLowerCase()] : undefined;
+
+  
+
   // Redirect to login if business ID error
   useEffect(() => {
     if (!fetchingBusinessId && (businessIdError || !businessId)) {
@@ -57,7 +72,7 @@ export default function SubscriptionPage() {
   const loadSubscription = async () => {
     try {
       setLoading(true)
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
       
       const response = await fetch(`${API_URL}/api/subscriptions/status/${businessId}`, {
         credentials: 'include',
@@ -74,6 +89,8 @@ export default function SubscriptionPage() {
       setLoading(false)
     }
   }
+
+  
 
   const handleCancelSubscription = async () => {
     try {
@@ -218,7 +235,9 @@ const formatDate = (date: string | null | undefined) => {
                     {/* Price */}
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Monthly Price</p>
-                      <p className="text-2xl font-bold">₨{subscriptionStatus.planName === 'Professional' ? '5,999' : subscriptionStatus.planName === 'Enterprise' ? '9,999' : '2,999'}</p>
+                      <p className="text-2xl font-bold">
+  ₨{currentPlanPrice?.monthly?.toLocaleString() || 'N/A'}
+</p>
                     </div>
 
                     {/* Days Remaining */}
