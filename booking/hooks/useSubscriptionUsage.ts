@@ -69,7 +69,7 @@ export function useSubscriptionUsage(businessIdOverride?: string | null): UseSub
     try {
       setLoading(true); setError(undefined)
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      const response = await fetch(`${apiUrl}/api/subscription-payment/usage/${businessId}`, { credentials: 'include' })
+      const response = await fetch(`${apiUrl}/api/subscriptions/usage/${businessId}`, { credentials: 'include' })
       if (!response.ok) throw new Error('Failed to fetch subscription usage')
       const payload = await response.json()
       const result = payload.data || payload
