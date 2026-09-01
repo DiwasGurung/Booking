@@ -236,12 +236,19 @@ class SubscriptionService {
   async getSubscriptionStatus(businessId: string): Promise<SubscriptionStatusResult> {
     try {
       const subscription = await prisma.subscription.findUnique({
-        where: { businessId },
-        include: {
-          plan: true,
-          business: true,
-        },
-      })
+  where: { businessId },
+  select: {
+    id: true,
+    status: true,
+    trialEndsAt: true,
+    endDate: true,
+    startDate: true,
+    autoRenew: true,
+    isTrialUsed: true,
+    plan: true,
+    business: true,
+  },
+});
 
       if (!subscription) {
         return {
@@ -636,8 +643,10 @@ class SubscriptionService {
       const servicesOverLimit = plan.maxServices !== -1 && serviceCount > plan.maxServices
       const appointmentsOverLimit = plan.maxAppointmentsPerMonth !== -1 && subscription.appointmentsThisMonth > plan.maxAppointmentsPerMonth
 
+
       return {
         planName: plan.displayName,
+       
         currentUsage: {
           appointmentsThisMonth: subscription.appointmentsThisMonth,
           staff: staffCount,

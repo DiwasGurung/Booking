@@ -146,7 +146,14 @@ class SubscriptionService {
         try {
             const subscription = await prisma_1.default.subscription.findUnique({
                 where: { businessId },
-                include: {
+                select: {
+                    id: true,
+                    status: true,
+                    trialEndsAt: true,
+                    endDate: true,
+                    startDate: true,
+                    autoRenew: true,
+                    isTrialUsed: true,
                     plan: true,
                     business: true,
                 },

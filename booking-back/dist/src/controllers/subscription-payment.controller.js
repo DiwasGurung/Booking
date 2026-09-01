@@ -190,21 +190,14 @@ const handleEsewaSuccess = async (req, res) => {
                 esewaProductCode: esewa_service_1.default.getProductCode(),
             },
         });
-        console.log('[SubscriptionPayment] Payment created after verification:', payment.id);
-        // Apply the target plan only after provider verification and payment creation.
         if (payment.subscriptionId) {
-            await prisma_1.default.subscription.update({
-                where: { id: payment.subscriptionId },
-                data: {
-                    planId: targetPlan.id,
-                    billingPeriod: targetBillingPeriod,
-                },
-            });
-            await subscription_service_1.default.activateSubscription(payment.subscriptionId, {
+            await subscription_service_1.default.changePlanAndActivate({
+                subscriptionId: payment.subscriptionId,
+                targetPlanId: targetPlan.id,
                 paymentId: payment.id,
-                durationDays: targetPlan.durationDays || 30,
+                billingPeriod: targetBillingPeriod,
             });
-            console.log('[SubscriptionPayment] Subscription activated:', payment.subscriptionId);
+            console.log('[SubscriptionPayment] Subscription plan changed and activated:', payment.subscriptionId);
         }
         return res.redirect(`${FRONTEND_URL}/subscription?status=success&message=Payment successful`);
     }
