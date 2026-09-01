@@ -78,6 +78,7 @@ export default function SubscriptionPlan() {
   const [loadingTrialStatus, setLoadingTrialStatus] = useState(true)
   const esewaFormRef = useRef<HTMLFormElement>(null)
 
+
   const getDisplayPrice = (plan: Plan, period: BillingPeriod): number => {
     switch (period) {
       case 'QUARTERLY':
@@ -103,6 +104,7 @@ export default function SubscriptionPlan() {
     daysRemaining: number | null
   } | null>(null)
 
+  const isCurrentPlan = currentSubscription?.status === 'ACTIVE' && currentSubscription.planName === plans.find(p => p.id === selectedPlan)?.name
   useEffect(() => {
     const checkTrialStatus = async () => {
       try {
@@ -146,7 +148,7 @@ export default function SubscriptionPlan() {
 
 
   const hasAnySubscriptionHistory = currentSubscription?.status != null
-  const trialEligible = !trialUsed && !hasAnySubscriptionHistory
+  const trialEligible = !trialUsed 
 
   useEffect(() => {
     if (status === 'success') {
@@ -678,15 +680,16 @@ export default function SubscriptionPlan() {
                     )}
                   </Button>
                 )}
+
                 <Button
                   onClick={() => handleEsewaPayment(plan.id, selectedBillingPeriod)}
-                  disabled={isLoading || loadingTrialStatus}
+                  disabled={isLoading || loadingTrialStatus || isCurrentPlan}
                   variant="outline"
                   className="w-full gap-2"
                   size="lg"
                 >
                   <CreditCard className="w-4 h-4" />
-                  Pay with eSewa
+                  {isCurrentPlan ? 'Current Plan' : 'Pay with eSewa'}
                 </Button>
               </div>
             </Card>
