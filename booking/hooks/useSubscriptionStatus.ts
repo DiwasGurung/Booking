@@ -29,13 +29,15 @@ export const useSubscriptionStatus = () => {
 
   useEffect(() => {
     const fetchSubscriptionStatus = async () => {
+    if (!businessId) {
+      return
+    }
 
       try {
         setLoading(true)
         setError(null)
 
         const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
-        console.log('[v0] Fetching subscription status for businessId:', businessId)
         
         const response = await fetch(`${API_URL}/api/subscriptions/status/${businessId}`, {
           credentials: 'include',
