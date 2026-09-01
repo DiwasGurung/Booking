@@ -477,8 +477,8 @@ class SubscriptionService {
                 return null;
             }
             const plan = subscription.plan;
-            const staffCount = await prisma_1.default.staff.count({ where: { businessId } });
-            const serviceCount = await prisma_1.default.service.count({ where: { businessId } });
+            const staffCount = await prisma_1.default.staff.count({ where: { businessId, isActive: true } });
+            const serviceCount = await prisma_1.default.service.count({ where: { businessId, isActive: true } });
             const staffOverLimit = plan.maxStaff !== -1 && staffCount > plan.maxStaff;
             const servicesOverLimit = plan.maxServices !== -1 && serviceCount > plan.maxServices;
             const appointmentsOverLimit = plan.maxAppointmentsPerMonth !== -1 && subscription.appointmentsThisMonth > plan.maxAppointmentsPerMonth;
