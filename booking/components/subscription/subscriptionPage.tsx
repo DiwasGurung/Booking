@@ -16,6 +16,9 @@ interface Plan {
   name: string
   displayName?: string
   priceNPR: number
+  priceQuarterlyNPR?: number
+  priceSemiAnnualNPR?: number
+  priceAnnualNPR?: number
   description: string
   features?: string[]
   recommended?: boolean
@@ -74,13 +77,78 @@ export default function SubscriptionPlan() {
   const [trialUsed, setTrialUsed] = useState(false)
   const [loadingTrialStatus, setLoadingTrialStatus] = useState(true)
   const esewaFormRef = useRef<HTMLFormElement>(null)
-  
+
+  const getDisplayPrice = (plan: Plan, period: BillingPeriod): number => {
+    switch (period) {
+      case 'QUARTERLY':
+        return plan.priceQuarterlyNPR ?? Math.round(plan.priceNPR * 3 * 0.9)
+      case 'HALF_YEARLY':
+        return plan.priceSemiAnnualNPR ?? Math.round(plan.priceNPR * 6 * 0.8)
+      case 'YEARLY':
+        return plan.priceAnnualNPR ?? Math.round(plan.priceNPR * 12 * 0.75)
+      default:
+        return plan.priceNPR
+    }
+  }
+
   // Check URL params for payment status
   const status = searchParams.get('status')
   const message = searchParams.get('message')
   const fromSetup = searchParams.get('from') === 'setup'
+  const [currentSubscription, setCurrentSubscription] = useState<{
+    hasSubscription: boolean
+    status: string | null
+    planName?: string
+    isTrialUsed: boolean
+    daysRemaining: number | null
+  } | null>(null)
 
-   useEffect(() => {
+  useEffect(() => {
+    const checkTrialStatus = async () => {
+      try {
+        setLoadingTrialStatus(true)
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
+
+        const response = await fetch(`${API_URL}/api/businesses/current`, {
+          credentials: 'include',
+          headers: getAuthHeaders(),
+        })
+
+        if (response.ok) {
+          const businessData = await response.json()
+          const businessId = businessData.id || businessData.business?.id
+
+          if (!businessId) {
+            router.push('/')
+            return
+          }
+
+          const subResponse = await fetch(`${API_URL}/api/subscriptions/status/${businessId}`, {
+            credentials: 'include',
+            headers: getAuthHeaders(),
+          })
+
+          if (subResponse.ok) {
+            const subData = await subResponse.json()
+            setCurrentSubscription(subData)
+            setTrialUsed(Boolean(subData.isTrialUsed))
+          }
+        }
+      } catch (error) {
+        console.error('[v0] Error checking trial status:', error)
+      } finally {
+        setLoadingTrialStatus(false)
+      }
+    }
+
+    checkTrialStatus()
+  }, [])
+
+
+  const hasAnySubscriptionHistory = currentSubscription?.status != null
+  const trialEligible = !trialUsed && !hasAnySubscriptionHistory
+
+  useEffect(() => {
     if (status === 'success') {
       toast.success(message || 'Payment successful! Your subscription is now active.')
       // Redirect to dashboard after payment success
@@ -95,50 +163,7 @@ export default function SubscriptionPlan() {
     }
   }, [status, message, router])
 
-  // Check if trial has been used
-  useEffect(() => {
-    const checkTrialStatus = async () => {
-      try {
-        setLoadingTrialStatus(true)
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
-        
-        const response = await fetch(`${API_URL}/api/businesses/current`, {
-          credentials: 'include',
-          headers: getAuthHeaders(),
-        })
 
-        if (response.ok) {
-          const businessData = await response.json()
-          const businessId = businessData.id || businessData.business?.id
-
-           if (!businessId) {
-        // If business ID is missing, navigate to home
-        router.push('/')
-        return
-      }
-          
-          if (businessId) {
-            // Fetch subscription status to check if trial was used
-            const subResponse = await fetch(`${API_URL}/api/subscriptions/status/${businessId}`, {
-              credentials: 'include',
-              headers: getAuthHeaders(),
-            })
-            
-            if (subResponse.ok) {
-              const subData = await subResponse.json()
-              setTrialUsed(Boolean(subData.isTrialUsed))
-            }
-          }
-        }
-      } catch (error) {
-        console.error('[v0] Error checking trial status:', error)
-      } finally {
-        setLoadingTrialStatus(false)
-      }
-    }
-
-    checkTrialStatus()
-  }, [])
 
   // Submit eSewa form when data is ready
   useEffect(() => {
@@ -152,11 +177,11 @@ export default function SubscriptionPlan() {
     const fetchPlans = async () => {
       try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
-        
-        
+
+
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 10000) // 10 second timeout
-        
+
         const response = await fetch(`${API_URL}/api/subscription-payment/plans`, {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
@@ -167,7 +192,7 @@ export default function SubscriptionPlan() {
 
         if (!response.ok) {
           console.error('[v0] Plans fetch failed with status:', response.status)
-          
+
           // If no plans found, try to seed them
           if (response.status === 404 || response.status === 500) {
             try {
@@ -180,16 +205,16 @@ export default function SubscriptionPlan() {
               const seedData = await seedResponse.json().catch(() => ({ error: 'Failed to parse response' }))
 
               if (seedResponse.ok && seedData.plans) {
-                
+
                 // Wait a moment for database to be ready
                 await new Promise(resolve => setTimeout(resolve, 1000))
-                
+
                 const retryResponse = await fetch(`${API_URL}/api/subscription-payment/plans`, {
                   credentials: 'include',
                   headers: { 'Content-Type': 'application/json' },
                 })
 
-                
+
                 if (retryResponse.ok) {
                   const data = await retryResponse.json()
                   const sortedPlans = (data.plans || [])
@@ -216,7 +241,7 @@ export default function SubscriptionPlan() {
         }
 
         const data = await response.json()
-        
+
         // If no plans exist, seed them
         if (!data.plans || data.plans.length === 0) {
           try {
@@ -229,16 +254,16 @@ export default function SubscriptionPlan() {
             const seedData = await seedResponse.json().catch(() => ({ error: 'Failed to parse response' }))
 
             if (seedResponse.ok && seedData.plans) {
-              
+
               // Wait a moment for database to be ready
               await new Promise(resolve => setTimeout(resolve, 1000))
-              
+
               const retryResponse = await fetch(`${API_URL}/api/subscription-payment/plans`, {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
               })
 
-              
+
               if (retryResponse.ok) {
                 const retryData = await retryResponse.json()
                 const sortedPlans = (retryData.plans || [])
@@ -265,7 +290,7 @@ export default function SubscriptionPlan() {
           setIsLoadingPlans(false)
           throw new Error('No subscription plans available')
         }
-        
+
         // Sort plans by price and set recommended flag
         const sortedPlans = (data.plans || [])
           .sort((a: Plan, b: Plan) => a.priceNPR - b.priceNPR)
@@ -275,7 +300,7 @@ export default function SubscriptionPlan() {
           }))
 
         setPlans(sortedPlans)
-        
+
         // Check if plan is specified in URL params
         const planFromUrl = searchParams.get('plan')
         if (planFromUrl) {
@@ -369,56 +394,56 @@ export default function SubscriptionPlan() {
       setIsLoading(false)
     }
   }
-const handleEsewaPayment = async (planId: string, billingPeriod: BillingPeriod) => {
-  setIsLoading(true)
-  try {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
+  const handleEsewaPayment = async (planId: string, billingPeriod: BillingPeriod) => {
+    setIsLoading(true)
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
-    // Get current business
-    const businessResponse = await fetch(`${API_URL}/api/businesses/current`, {
-      credentials: 'include',
-      headers: getAuthHeaders(),
-    })
+      // Get current business
+      const businessResponse = await fetch(`${API_URL}/api/businesses/current`, {
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      })
 
-    if (!businessResponse.ok) {
-      const errorData = await businessResponse.json().catch(() => ({}))
-      throw new Error(errorData.error || errorData.message || 'Failed to get business information')
+      if (!businessResponse.ok) {
+        const errorData = await businessResponse.json().catch(() => ({}))
+        throw new Error(errorData.error || errorData.message || 'Failed to get business information')
+      }
+
+      const businessData = await businessResponse.json()
+      const businessId = businessData.id || businessData.business?.id
+
+      if (!businessId) {
+        throw new Error('Business ID not found')
+      }
+
+      const response = await fetch(`${API_URL}/api/subscription-payment/esewa/initiate`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ businessId, planId, billingPeriod }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to initiate payment')
+      }
+
+      const data = await response.json()
+
+      if (data.success && data.formData && data.paymentUrl) {
+        setEsewaPaymentUrl(data.paymentUrl)
+        setEsewaFormData(data.formData)
+        toast.info('Redirecting to eSewa...')
+      } else {
+        throw new Error('Invalid payment response')
+      }
+    } catch (error: any) {
+      console.error('[v0] eSewa payment error:', error)
+      toast.error(error.message || 'Failed to initiate payment')
+      setIsLoading(false)
     }
-
-    const businessData = await businessResponse.json()
-    const businessId = businessData.id || businessData.business?.id
-
-    if (!businessId) {
-      throw new Error('Business ID not found')
-    }
-
-    const response = await fetch(`${API_URL}/api/subscription-payment/esewa/initiate`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ businessId, planId, billingPeriod }),
-    })
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}))
-      throw new Error(data.error || 'Failed to initiate payment')
-    }
-
-    const data = await response.json()
-
-    if (data.success && data.formData && data.paymentUrl) {
-      setEsewaPaymentUrl(data.paymentUrl)
-      setEsewaFormData(data.formData)
-      toast.info('Redirecting to eSewa...')
-    } else {
-      throw new Error('Invalid payment response')
-    }
-  } catch (error: any) {
-    console.error('[v0] eSewa payment error:', error)
-    toast.error(error.message || 'Failed to initiate payment')
-    setIsLoading(false)
   }
-}
 
 
 
@@ -450,8 +475,8 @@ const handleEsewaPayment = async (planId: string, billingPeriod: BillingPeriod) 
             <p className="text-muted-foreground text-sm">
               We couldn&apos;t load the subscription plans at this time. Please try again or contact support if the issue persists.
             </p>
-            <Button 
-              onClick={() => window.location.reload()} 
+            <Button
+              onClick={() => window.location.reload()}
               className="w-full"
             >
               Try Again
@@ -515,11 +540,10 @@ const handleEsewaPayment = async (planId: string, billingPeriod: BillingPeriod) 
           {plans.map((plan) => (
             <Card
               key={plan.id}
-              className={`relative flex flex-col p-8 transition-all duration-300 ${
-                plan.recommended
-                  ? 'md:scale-105 border-primary shadow-lg'
-                  : 'border-border hover:border-primary/50'
-              }`}
+              className={`relative flex flex-col p-8 transition-all duration-300 ${plan.recommended
+                ? 'md:scale-105 border-primary shadow-lg'
+                : 'border-border hover:border-primary/50'
+                }`}
             >
               {plan.recommended && (
                 <div className="absolute top-0 right-0 -translate-y-1/2">
@@ -540,43 +564,39 @@ const handleEsewaPayment = async (planId: string, billingPeriod: BillingPeriod) 
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setSelectedBillingPeriod('MONTHLY')}
-                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                      selectedBillingPeriod === 'MONTHLY'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted hover:bg-muted/80 text-foreground'
-                    }`}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${selectedBillingPeriod === 'MONTHLY'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted hover:bg-muted/80 text-foreground'
+                      }`}
                   >
                     Monthly
                   </button>
                   <button
                     onClick={() => setSelectedBillingPeriod('QUARTERLY')}
-                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                      selectedBillingPeriod === 'QUARTERLY'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted hover:bg-muted/80 text-foreground'
-                    }`}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${selectedBillingPeriod === 'QUARTERLY'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted hover:bg-muted/80 text-foreground'
+                      }`}
                   >
                     <span>3 Months</span>
                     <span className="block text-xs opacity-75 font-normal">Save 10%</span>
                   </button>
                   <button
                     onClick={() => setSelectedBillingPeriod('HALF_YEARLY')}
-                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                      selectedBillingPeriod === 'HALF_YEARLY'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted hover:bg-muted/80 text-foreground'
-                    }`}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${selectedBillingPeriod === 'HALF_YEARLY'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted hover:bg-muted/80 text-foreground'
+                      }`}
                   >
                     <span>6 Months</span>
                     <span className="block text-xs opacity-75 font-normal">Save 20%</span>
                   </button>
                   <button
                     onClick={() => setSelectedBillingPeriod('YEARLY')}
-                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                      selectedBillingPeriod === 'YEARLY'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted hover:bg-muted/80 text-foreground'
-                    }`}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${selectedBillingPeriod === 'YEARLY'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted hover:bg-muted/80 text-foreground'
+                      }`}
                   >
                     <span>Yearly</span>
                     <span className="block text-xs opacity-75 font-normal">Save 25%</span>
@@ -588,24 +608,16 @@ const handleEsewaPayment = async (planId: string, billingPeriod: BillingPeriod) 
               <div className="mb-6">
                 <div className="flex items-baseline gap-1">
                   <span className="text-4xl font-bold text-foreground">
-                    Rs. {Math.round(
-                      selectedBillingPeriod === 'MONTHLY'
-                        ? plan.priceNPR
-                        : selectedBillingPeriod === 'QUARTERLY'
-                        ? plan.priceNPR * 3 * 0.9
-                        : selectedBillingPeriod === 'HALF_YEARLY'
-                        ? plan.priceNPR * 6 * 0.8
-                        : plan.priceNPR * 12 * 0.75
-                    ).toLocaleString()}
+                    Rs. {getDisplayPrice(plan, selectedBillingPeriod).toLocaleString()}
                   </span>
                   <span className="text-muted-foreground">
                     {selectedBillingPeriod === 'MONTHLY'
                       ? '/month'
                       : selectedBillingPeriod === 'QUARTERLY'
-                      ? '/3 months'
-                      : selectedBillingPeriod === 'HALF_YEARLY'
-                      ? '/6 months'
-                      : '/year'}
+                        ? '/3 months'
+                        : selectedBillingPeriod === 'HALF_YEARLY'
+                          ? '/6 months'
+                          : '/year'}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
@@ -640,10 +652,12 @@ const handleEsewaPayment = async (planId: string, billingPeriod: BillingPeriod) 
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                {trialUsed ? (
+                {!trialEligible ? (
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                     <p className="text-sm text-amber-900">
-                      Your free trial has already been used. Please select a paid plan to continue.
+                      {currentSubscription?.status === 'ACTIVE'
+                        ? `You're currently on the ${currentSubscription.planName} plan.`
+                        : 'Your free trial has already been used. Please select a paid plan to continue.'}
                     </p>
                   </div>
                 ) : (
@@ -687,9 +701,9 @@ const handleEsewaPayment = async (planId: string, billingPeriod: BillingPeriod) 
               Secure Payment with eSewa
             </h3>
             <div className="flex items-center gap-4 p-4 bg-primary/5 border border-primary/20 rounded-lg">
-              <img 
-                src="https://esewa.com.np/common/images/esewa-logo.png" 
-                alt="eSewa" 
+              <img
+                src="https://esewa.com.np/common/images/esewa-logo.png"
+                alt="eSewa"
                 className="h-10 object-contain"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none'

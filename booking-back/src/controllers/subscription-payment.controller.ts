@@ -202,14 +202,14 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
     const existingPayment = await prisma.payment.findUnique({ where: { transactionId: transaction_uuid } });
     if (existingPayment) {
       if (existingPayment.subscriptionId) {
-        const existingSubscription = await prisma.subscription.findUnique({ where: { id: existingPayment.subscriptionId } });
-        if (existingSubscription && (existingSubscription.status !== 'ACTIVE' || !existingSubscription.startDate || !existingSubscription.endDate)) {
-          await subscriptionService.activateSubscription(existingPayment.subscriptionId, {
-            paymentId: existingPayment.id,
-            durationDays: subscription.plan.durationDays || 30,
-          });
-        }
-      }
+  const existingSubscription = await prisma.subscription.findUnique({ where: { id: existingPayment.subscriptionId } });
+  if (existingSubscription && (existingSubscription.status !== 'ACTIVE' || !existingSubscription.startDate || !existingSubscription.endDate)) {
+    await subscriptionService.activateSubscription(existingPayment.subscriptionId, {
+      paymentId: existingPayment.id,
+      durationDays: subscription.plan.durationDays || 30,
+    });
+  }
+}
       return res.redirect(`${FRONTEND_URL}/subscription?status=success&message=Payment already processed`);
     }
 
@@ -226,25 +226,18 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
       },
     });
 
-    console.log('[SubscriptionPayment] Payment created after verification:', payment.id);
 
-    // Apply the target plan only after provider verification and payment creation.
+
     if (payment.subscriptionId) {
-      await prisma.subscription.update({
-        where: { id: payment.subscriptionId },
-        data: {
-          planId: targetPlan.id,
-          billingPeriod: targetBillingPeriod as BillingPeriod,
-        },
-      });
+  await subscriptionService.changePlanAndActivate({
+    subscriptionId: payment.subscriptionId,
+    targetPlanId: targetPlan.id,
+    paymentId: payment.id,
+    billingPeriod: targetBillingPeriod as BillingPeriod,
+  });
 
-      await subscriptionService.activateSubscription(payment.subscriptionId, {
-        paymentId: payment.id,
-        durationDays: targetPlan.durationDays || 30,
-      });
-
-      console.log('[SubscriptionPayment] Subscription activated:', payment.subscriptionId);
-    }
+  console.log('[SubscriptionPayment] Subscription plan changed and activated:', payment.subscriptionId);
+}
 
     return res.redirect(`${FRONTEND_URL}/subscription?status=success&message=Payment successful`);
   } catch (error: any) {

@@ -22,10 +22,21 @@ class SubscriptionService {
             }
             const existingSubscription = await prisma_1.default.subscription.findUnique({
                 where: { businessId: data.businessId },
-                select: { isTrialUsed: true },
+                select: { isTrialUsed: true, status: true, endDate: true, trialEndsAt: true },
             });
             if (existingSubscription?.isTrialUsed) {
                 throw new Error('Your free trial has already been used. Please choose a paid plan.');
+            }
+            // Never let a trial request delete an existing subscription that is
+            // currently valid — trial creation is only for businesses with no
+            // subscription history at all.
+            if (existingSubscription) {
+                const now = new Date();
+                const stillActive = (existingSubscription.status === 'ACTIVE' && existingSubscription.endDate && existingSubscription.endDate > now) ||
+                    (existingSubscription.status === 'TRIAL' && existingSubscription.trialEndsAt && existingSubscription.trialEndsAt > now);
+                if (stillActive) {
+                    throw new Error('You already have an active subscription. Please upgrade or downgrade instead of starting a trial.');
+                }
             }
             await prisma_1.default.subscription.deleteMany({
                 where: { businessId: data.businessId },
@@ -129,8 +140,8 @@ class SubscriptionService {
         }
     }
     /**
-     * Get subscription status details
-     */
+    * Get subscription status details
+    */
     async getSubscriptionStatus(businessId) {
         try {
             const subscription = await prisma_1.default.subscription.findUnique({
@@ -153,29 +164,43 @@ class SubscriptionService {
             const now = new Date();
             let daysRemaining = 0;
             let expiresAt = null;
-            let hasValidSubscription = true;
+            // Fail closed: only an explicitly validated branch below flips this to true.
+            let hasValidSubscription = false;
             if (subscription.status === 'TRIAL' && subscription.trialEndsAt) {
                 daysRemaining = Math.ceil((subscription.trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                 expiresAt = subscription.trialEndsAt;
-                // If trial has expired, subscription is no longer valid
-                if (daysRemaining <= 0) {
+                hasValidSubscription = daysRemaining > 0;
+                if (!hasValidSubscription) {
                     console.log(`[v0] Trial expired for business ${businessId}`);
+                }
+            }
+            else if (subscription.status === 'TRIAL' && !subscription.trialEndsAt) {
+                // Placeholder row created while a payment was initiated but never
+                // completed (see initiateEsewaPayment). Not a real trial, not paid.
+                console.log(`[v0] Incomplete/placeholder subscription for business ${businessId}`);
+                hasValidSubscription = false;
+            }
+            else if (subscription.status === 'ACTIVE' || subscription.status === 'CANCELLED') {
+                if (subscription.endDate) {
+                    daysRemaining = Math.ceil((subscription.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                    expiresAt = subscription.endDate;
+                    hasValidSubscription = daysRemaining > 0;
+                    if (!hasValidSubscription) {
+                        console.log(`[v0] ${subscription.status} subscription expired for business ${businessId}`);
+                    }
+                }
+                else {
+                    // ACTIVE/CANCELLED without an endDate is an inconsistent record —
+                    // never treat it as valid.
+                    console.log(`[v0] ${subscription.status} subscription missing endDate for business ${businessId}`);
                     hasValidSubscription = false;
                 }
             }
-            else if ((subscription.status === 'ACTIVE' || subscription.status === 'CANCELLED') && subscription.endDate) {
-                daysRemaining = Math.ceil((subscription.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                expiresAt = subscription.endDate;
-                // If CANCELLED and already expired, subscription is no longer valid
-                if (subscription.status === 'CANCELLED' && daysRemaining <= 0) {
-                    console.log(`[v0] Cancelled subscription expired for business ${businessId}`);
-                    hasValidSubscription = false;
-                }
-                // If ACTIVE but somehow expired, subscription is no longer valid
-                if (subscription.status === 'ACTIVE' && daysRemaining <= 0) {
-                    console.log(`[v0] Active subscription expired for business ${businessId}`);
-                    hasValidSubscription = false;
-                }
+            else {
+                // Any other/future status (e.g. EXPIRED, SUSPENDED, PENDING) is
+                // explicitly not valid unless handled above.
+                console.log(`[v0] Unhandled subscription status '${subscription.status}' for business ${businessId}`);
+                hasValidSubscription = false;
             }
             return {
                 id: subscription.id,
@@ -197,6 +222,7 @@ class SubscriptionService {
             };
         }
         catch (error) {
+            console.error(`[v0] Failed to get subscription status for business ${businessId}:`, error);
             return {
                 hasSubscription: false,
                 status: null,
@@ -552,6 +578,95 @@ class SubscriptionService {
         }
         catch (error) {
             console.error(`[v0] Failed to upgrade subscription:`, error);
+            throw error;
+        }
+    }
+    /**
+   * Change a subscription's plan (upgrade OR downgrade) and activate it after
+   * a verified payment. This is the single source of truth for what happens
+   * when a business moves between plans — used by both the payment webhook
+   * and any manual admin-triggered plan change, so staff-limit enforcement
+   * and usage resets are never skipped.
+   */
+    async changePlanAndActivate(data) {
+        try {
+            console.log(`[v0] Changing plan for subscription: ${data.subscriptionId} -> ${data.targetPlanId}`);
+            const current = await prisma_1.default.subscription.findUnique({
+                where: { id: data.subscriptionId },
+                include: { plan: true },
+            });
+            if (!current) {
+                throw new Error(`Subscription not found: ${data.subscriptionId}`);
+            }
+            const targetPlan = await prisma_1.default.subscriptionPlan.findUnique({
+                where: { id: data.targetPlanId },
+            });
+            if (!targetPlan) {
+                throw new Error(`Target plan not found: ${data.targetPlanId}`);
+            }
+            const now = new Date();
+            const billingPeriod = data.billingPeriod || current.billingPeriod;
+            // Use calendar periods so monthly/yearly expiry dates remain accurate.
+            const endDate = new Date(now);
+            switch (billingPeriod) {
+                case 'QUARTERLY':
+                    endDate.setMonth(endDate.getMonth() + 3);
+                    break;
+                case 'HALF_YEARLY':
+                    endDate.setMonth(endDate.getMonth() + 6);
+                    break;
+                case 'YEARLY':
+                    endDate.setFullYear(endDate.getFullYear() + 1);
+                    break;
+                case 'MONTHLY':
+                    endDate.setMonth(endDate.getMonth() + 1);
+                    break;
+                default: endDate.setDate(endDate.getDate() + 30);
+            }
+            const billingCycleEndDate = new Date(endDate);
+            const isDowngrade = targetPlan.priceMonthlyNPR < current.plan.priceMonthlyNPR;
+            const updated = await prisma_1.default.$transaction(async (tx) => {
+                const result = await tx.subscription.update({
+                    where: { id: data.subscriptionId },
+                    data: {
+                        planId: targetPlan.id,
+                        billingPeriod,
+                        status: 'ACTIVE',
+                        startDate: now,
+                        endDate,
+                        billingCycleEndDate,
+                        lastPaymentId: data.paymentId,
+                        nextRenewalDate: endDate,
+                        isTrialUsed: true,
+                        appointmentsThisMonth: 0,
+                        usageResetDate: now,
+                    },
+                    include: { plan: true, business: true },
+                });
+                // Never delete staff or alter historical bookings. If the new plan has
+                // a finite limit, deactivate only the newest excess active staff records.
+                if (targetPlan.maxStaff !== -1) {
+                    const activeStaff = await tx.staff.findMany({
+                        where: { businessId: current.businessId, isActive: true },
+                        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+                        select: { id: true },
+                    });
+                    const excessStaff = activeStaff.slice(targetPlan.maxStaff);
+                    if (excessStaff.length > 0) {
+                        await tx.staff.updateMany({
+                            where: { id: { in: excessStaff.map((staff) => staff.id) } },
+                            data: { isActive: false },
+                        });
+                        console.log(`[v0] Deactivated ${excessStaff.length} excess staff after plan change`);
+                    }
+                }
+                return result;
+            });
+            console.log(`[v0] Plan changed successfully (${isDowngrade ? 'downgrade' : 'upgrade/same-tier'}): ${data.subscriptionId} -> ${targetPlan.displayName}`);
+            return updated;
+        }
+        catch (error) {
+            console.error(`[v0] Failed to change plan:`, error);
             throw error;
         }
     }
