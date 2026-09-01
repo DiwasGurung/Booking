@@ -7,8 +7,8 @@ import esewaService from '../services/esewa.service';
 import subscriptionService from '../services/subscription.service';
 import { getPriceForPeriod, BillingPeriod } from '../utils/billing';
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+const FRONTEND_URL = process.env.FRONTEND_URL || '';
+const BACKEND_URL = process.env.BACKEND_URL || '';
 
 function getExpectedSubscriptionAmount(subscription: any, plan: any): number {
   return getPriceForPeriod(
