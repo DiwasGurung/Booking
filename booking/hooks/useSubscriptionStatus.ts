@@ -22,7 +22,7 @@ interface SubscriptionStatus {
 
 export const useSubscriptionStatus = () => {
   const { user, loading: authLoading } = useAuth()
-  const { businessId, loading: businessLoading } = useBusinessId()
+  const { businessId} = useBusinessId()
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -74,7 +74,7 @@ export const useSubscriptionStatus = () => {
     }
 
     fetchSubscriptionStatus()
-  }, [businessId, businessLoading, authLoading])
+  }, [businessId, authLoading])
 
   return {
     subscriptionStatus,
