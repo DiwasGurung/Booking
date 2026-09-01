@@ -404,6 +404,7 @@ export class StaffService {
       phone: staff.phone,
       avatar: staff.avatar,
       staffCode: staff.staffCode,
+      isActive: staff.isActive,
       businessId: staff.business.id,
       businessName: staff.business.name,
       services: staff.services.map(ss => ({
