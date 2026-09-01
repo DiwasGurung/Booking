@@ -53,6 +53,8 @@ export default function StaffBookPage() {
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false)
   const [verificationEmail, setVerificationEmail] = useState<string>('')
   const [countdown, setCountdown] = useState(VERIFY_COUNTDOWN_SECONDS)
+  const [inactiveNoticeOpen, setInactiveNoticeOpen] = useState(false)
+  const [inactiveCountdown, setInactiveCountdown] = useState(5)
   const [formData, setFormData] = useState<FormData>({
     customerName: '',
     email: '',
@@ -104,6 +106,26 @@ export default function StaffBookPage() {
     router.push('/')
   }
 
+  useEffect(() => {
+    if (!inactiveNoticeOpen) return
+    const timer = window.setInterval(() => {
+      setInactiveCountdown((value) => {
+        if (value <= 1) {
+          window.clearInterval(timer)
+          return 0
+        }
+        return value - 1
+      })
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [inactiveNoticeOpen])
+
+  useEffect(() => {
+    if (inactiveCountdown === 0 && inactiveNoticeOpen && staff?.businessId) {
+      router.replace(`/book/${staff.businessId}`)
+    }
+  }, [inactiveCountdown, inactiveNoticeOpen, router, staff?.businessId])
+
   // Fetch staff info and check user authentication
   useEffect(() => {
     const fetchStaffInfo = async () => {
@@ -127,6 +149,12 @@ export default function StaffBookPage() {
 
         const data = await response.json()
         setStaff(data)
+
+        if (data.isActive === false) {
+          setInactiveCountdown(5)
+          setInactiveNoticeOpen(true)
+          return
+        }
         // Set the first service's serviceId (from the join table)
         if (data.services && data.services.length > 0) {
           setFormData((prev) => ({ ...prev, serviceId: data.services[0].serviceId }))
@@ -832,6 +860,24 @@ export default function StaffBookPage() {
           </CardContent>
         </Card>
       </div>
+       {inactiveNoticeOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="inactive-staff-title">
+          <Card className="w-full max-w-md shadow-xl">
+            <CardHeader>
+              <CardTitle id="inactive-staff-title">Staff member unavailable</CardTitle>
+              <CardDescription>
+                This staff member is currently inactive and cannot accept bookings. You will be redirected to the business booking page.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md bg-muted px-4 py-3 text-center text-sm text-muted-foreground">
+                Redirecting in <span className="font-semibold text-foreground">{inactiveCountdown}</span> seconds...
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    
 
       {/* Unverified customer notice with countdown */}
       {isVerificationModalOpen && (

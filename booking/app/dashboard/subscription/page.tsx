@@ -113,7 +113,7 @@ const currentPlanPrice = subscriptionStatus?.planName ? planPrices[subscriptionS
 
       toast.success('Subscription cancelled successfully')
       setShowCancelDialog(false)
-      loadSubscription()
+      await loadSubscription()
     } catch (err: any) {
       toast.error(err.message || 'Failed to cancel subscription')
     } finally {
