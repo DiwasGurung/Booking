@@ -110,7 +110,6 @@ export default function PaymentsDashboardPage() {
       setTotalPayments(pagination?.total ?? paymentsData.length)
       setTotalPages(pagination?.pages ?? 1)
     } catch (err) {
-      console.error('[Payment] Failed to load payments:', err)
       setError('Failed to load payment data. Please try again.')
       setPayments([])
     } finally {

@@ -120,7 +120,6 @@ export default function BusinessDashboardPage() {
         setRecentPayments(payments)
       }
     } catch (error) {
-      console.error('[dashboard] Failed to load dashboard:', error)
       setError('Failed to load dashboard data. Please try again.')
     } finally {
       setLoading(false)

@@ -147,7 +147,6 @@ export default function SettingsPage() {
       setSuccess('Logo uploaded successfully')
       setTimeout(() => setSuccess(null), 3000)
     } catch (error: any) {
-      console.error('[v0] Logo upload error:', error)
       setError(error?.message || 'Failed to upload logo')
       setTimeout(() => setError(null), 4000)
     } finally {
@@ -175,7 +174,7 @@ export default function SettingsPage() {
       setSuccess('Logo removed successfully')
       setTimeout(() => setSuccess(null), 3000)
     } catch (error: any) {
-      console.error('[v0] Logo removal error:', error)
+
       setError(error?.message || 'Failed to remove logo')
       setTimeout(() => setError(null), 4000)
     }
@@ -237,7 +236,6 @@ export default function SettingsPage() {
         (Array.isArray(hours) ? hours.length > 0 : Object.keys(hours).length > 0)
       )
     } catch (err) {
-      console.error('[v0] Error checking business hours:', err)
       setHasBusinessHours(false)
     }
   }
@@ -270,7 +268,6 @@ export default function SettingsPage() {
       }
       setError(null)
     } catch (err) {
-      console.error('[v0] Error loading settings:', err)
       setSettings(defaultSettings)
       setFormData(defaultSettings)
       setError('Failed to load settings. Using default values.')
@@ -293,7 +290,7 @@ export default function SettingsPage() {
       }
     } catch (err) {
       setError('Failed to save settings')
-      console.error('[v0] Error saving settings:', err)
+
     } finally {
       setSaving(false)
     }

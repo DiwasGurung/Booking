@@ -44,7 +44,7 @@ class SubscriptionController {
             const { businessId } = validation.data;
             const status = await subscription_service_1.default.getSubscriptionStatus(businessId);
             // Return default subscription status if none exists (first-time user)
-            if (!status.hasSubscription) {
+            if (!status.isTrialUsed && status.planName === undefined) {
                 return res.json({
                     hasSubscription: false,
                     status: null,

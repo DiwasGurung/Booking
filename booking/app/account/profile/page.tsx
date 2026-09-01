@@ -64,7 +64,6 @@ export default function ProfilePage() {
       const response = await bookingsApi.getCustomerBookings(userId)
       setBookings(response.data || [])
     } catch (err) {
-      console.error('Error fetching bookings:', err)
       setBookings([])
     } finally {
       setBookingsLoading(false)

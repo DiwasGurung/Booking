@@ -41,7 +41,6 @@ export default function VerifyBookingPage() {
           setMessage(data.message || 'Failed to verify email')
         }
       } catch (error) {
-        console.error('Error verifying email:', error)
         setStatus('error')
         setMessage('An error occurred. Please try again or contact support.')
       }

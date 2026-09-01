@@ -72,7 +72,7 @@ export default function NotificationPreferencesPage() {
       setTimeout(() => setSuccess(false), 3000)
     } catch (err) {
       setError('Failed to save notification preferences')
-      console.error('[v0] Error saving preferences:', err)
+    
     } finally {
       setSaving(false)
     }

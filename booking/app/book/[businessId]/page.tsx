@@ -175,7 +175,6 @@ function BookingPageContent() {
         setClosedDates(closedDatesMap)
       }
     } catch (err) {
-      console.error('[v0] Error loading business data:', err)
       setError('Failed to load business information. Please try again.')
     } finally {
       setServicesLoading(false)
@@ -195,7 +194,6 @@ function BookingPageContent() {
         setSelectedStaff(null)
       }
     } catch (err) {
-      console.error('[v0] Error loading staff:', err)
       setStaffMembers([])
       setSelectedStaff(null)
     } finally {
@@ -235,7 +233,6 @@ function BookingPageContent() {
         setError(response.error || 'Unable to load available slots')
       }
     } catch (err) {
-      console.error('[v0] Error loading slots:', err)
       setAvailableSlots([])
       setError('Failed to load available slots')
     } finally {
@@ -383,7 +380,7 @@ function BookingPageContent() {
         setError(response.error || 'Failed to create booking')
       }
     } catch (err: any) {
-      console.error('[v0] Booking error:', err)
+     
       setError('Failed to book appointment. Please try again.')
     } finally {
       setLoading(false)

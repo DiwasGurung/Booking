@@ -62,7 +62,7 @@ class SubscriptionController {
 
 
       // Return default subscription status if none exists (first-time user)
-      if (!status.hasSubscription) {
+      if (!status.isTrialUsed && status.planName === undefined) {
         return res.json({
           hasSubscription: false,
           status: null,

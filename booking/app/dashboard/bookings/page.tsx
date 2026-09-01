@@ -132,7 +132,6 @@ export default function BookingsPage() {
       // Fix: derive hasMore from the data we JUST fetched, not stale state.
       setHasMore(fetched.length === PAGE_SIZE)
     } catch (err) {
-      console.error('[v0] Error loading bookings:', err)
       setError('Error loading bookings')
       setBookings([])
       setHasMore(false)
@@ -169,7 +168,6 @@ export default function BookingsPage() {
       }
     } catch (err) {
       setUpdateError('Error updating booking status')
-      console.error('[v0] Error updating status:', err)
     } finally {
       setSelectedBookingId(null)
       setNewStatus(null)

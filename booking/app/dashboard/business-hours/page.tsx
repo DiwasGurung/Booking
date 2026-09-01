@@ -186,8 +186,7 @@ export default function BusinessHoursPage() {
         }))
       )
     } catch (err) {
-      console.error('[v0] Error loading business hours:', err)
-      // Keep the 9-6 defaults visible even if loading fails
+    
       setDayHours(buildDefaultHours())
     } finally {
       setLoading(false)
@@ -327,7 +326,7 @@ export default function BusinessHoursPage() {
       // Only drop from state once the server confirms the deletes succeeded
       setClosedDates(prev => prev.filter(d => !(d.date >= start && d.date <= end)))
     } catch (err) {
-      console.error('[v0] Error removing closed dates:', err)
+    
       setError(err instanceof Error ? err.message : 'Failed to remove closed dates')
     } finally {
       setPendingRangeKeys(prev => {
@@ -381,7 +380,6 @@ export default function BusinessHoursPage() {
       setEditingRangeKey(null)
       setEditReason('')
     } catch (err) {
-      console.error('[v0] Error updating closed date reason:', err)
       setError(err instanceof Error ? err.message : 'Failed to update closed dates')
     } finally {
       setPendingRangeKeys(prev => {
@@ -434,7 +432,6 @@ export default function BusinessHoursPage() {
         router.push('/dashboard')
       }, 1500)
     } catch (err) {
-      console.error('[v0] Error saving business hours:', err)
       setError(err instanceof Error ? err.message : 'Failed to save business hours')
     } finally {
       setSaving(false)

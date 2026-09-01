@@ -118,7 +118,7 @@ export default function StaffPage() {
       setError(null)
     } catch (err) {
       setError('Failed to load staff members')
-      console.error('[Staff] Error loading staff:', err)
+
     } finally {
       setLoading(false)
     }

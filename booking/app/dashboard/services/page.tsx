@@ -103,7 +103,6 @@ export default function ServicesPage() {
     } catch (err: any) {
       const errorMessage = err?.message || 'Unknown error'
       setError(`Failed to load services: ${errorMessage}`)
-      console.error('[v0] Error loading services:', err)
     } finally {
       setLoading(false)
     }
@@ -139,7 +138,7 @@ export default function ServicesPage() {
       loadServices()
     } catch (err) {
       setError('Failed to delete service')
-      console.error('[v0] Error deleting service:', err)
+
     }
   }
 
@@ -172,7 +171,6 @@ export default function ServicesPage() {
       loadServices()
     } catch (err) {
       setError('Failed to save service')
-      console.error('[v0] Error saving service:', err)
     } finally {
       setIsSubmitting(false)
     }

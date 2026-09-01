@@ -66,7 +66,6 @@ export default function AnalyticsPage() {
       setError(null)
     } catch (err) {
       setError('Failed to load analytics')
-      console.error('[v0] Error loading analytics:', err)
     } finally {
       setLoading(false)
     }

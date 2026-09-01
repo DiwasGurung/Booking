@@ -127,7 +127,6 @@ export default function BusinessPage() {
         const data = await res.json()
         setUser(data.user || data) 
       } catch (err) {
-        console.error("Failed to fetch user:", err)
         router.push("/login")
       }
     }

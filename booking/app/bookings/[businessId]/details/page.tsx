@@ -53,7 +53,6 @@ export default function BusinessDetailPage() {
       setError(null)
     } catch (err) {
       setError('Failed to load business details')
-      console.error('[v0] Error loading business:', err)
     } finally {
       setLoading(false)
     }
