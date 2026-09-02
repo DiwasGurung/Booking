@@ -59,10 +59,10 @@ export default function BookingsPage() {
 
   const downloadBookingsPdf = () => {
     if (!canExportBookings || bookings.length === 0) return
-    const rows = bookings.map((booking) => `
+    const rows = visibleBookings.map((booking) => `
       <tr><td>${booking.customerName || 'N/A'}</td><td>${booking.customerEmail || 'N/A'}</td><td>${booking.service?.name || 'N/A'}</td><td>${new Date(booking.startTime).toLocaleString()}</td><td>${booking.status}</td><td>Rs. ${booking.service?.price || 0}</td></tr>`).join('')
-    const printWindow = window.open('', '_blank', 'noopener,noreferrer')
-    if (!printWindow) return
+    const printWindow = window.open('', '_blank')
+if (!printWindow) return
     printWindow.document.write(`<!doctype html><html><head><title>Bookings</title><style>body{font-family:Arial,sans-serif;padding:32px;color:#0f172a}h1{margin-bottom:4px}p{color:#64748b}table{width:100%;border-collapse:collapse;margin-top:24px}th,td{border:1px solid #cbd5e1;padding:9px;text-align:left;font-size:12px}th{background:#f1f5f9}</style></head><body><h1>Bookings</h1><p>Filtered bookings · ${new Date().toLocaleDateString()}</p><table><thead><tr><th>Customer</th><th>Email</th><th>Service</th><th>Date & Time</th><th>Status</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table></body></html>`)
     printWindow.document.close()
     printWindow.focus()
@@ -221,7 +221,7 @@ export default function BookingsPage() {
             <p className="text-slate-500">Manage all customer bookings</p>
           </div>
            {canExportBookings && (
-            <Button onClick={downloadBookingsPdf} disabled={loading || bookings.length === 0} variant="outline">
+            <Button onClick={downloadBookingsPdf} disabled={loading || visibleBookings.length === 0} variant="outline">
               <Download className="mr-2 h-4 w-4" />
               Download PDF
             </Button>
