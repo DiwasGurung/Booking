@@ -28,6 +28,8 @@ export function ProfilePhoneVerification({
   const [success, setSuccess] = useState('')
   const [timeLeft, setTimeLeft] = useState(0)
   const [showResend, setShowResend] = useState(false)
+  const entityType = user?.role === 'BUSINESS_OWNER' ? 'BUSINESS_OWNER' : 'USER'
+  const entityId = user?.id || ''
 
   // Format Nepali phone number
   const formatPhone = (value: string) => {
@@ -71,11 +73,11 @@ export function ProfilePhoneVerification({
     try {
       setIsLoading(true)
       const cleanedPhone = phone.replace(/\D/g, '')
-      const response = await fetch(`${apiUrl}/api/phone-verification/send-code`, {
+      const response = await fetch(`${apiUrl}/api/phone-verification/verify/${entityType}/${entityId}`, {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber: cleanedPhone }),
+        credentials: 'include',
+        body: JSON.stringify({ phoneNumber: cleanedPhone, code: otp }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Failed to send code')
