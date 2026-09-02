@@ -8,9 +8,9 @@ interface AuthRequest extends Request {
   userRole?: string
 }
 
-const router = express.Router()
+const phoneVerificationRouter = express.Router()
 
-router.use(auth)
+phoneVerificationRouter.use(auth)
 
 /**
  * Makes sure the logged-in user is only ever verifying THEIR OWN record:
@@ -52,7 +52,7 @@ async function authorizeEntity(req: AuthRequest, res: Response, next: NextFuncti
   }
 }
 
-router.post('/:entityType/:entityId/send-code', authorizeEntity, VerificationController.sendCode)
-router.post('/:entityType/:entityId/verify', authorizeEntity, VerificationController.verifyCode)
+phoneVerificationRouter.post('/:entityType/:entityId/send-code', authorizeEntity, VerificationController.sendCode)
+phoneVerificationRouter.post('/:entityType/:entityId/verify', authorizeEntity, VerificationController.verifyCode)
 
-export default router
+export default phoneVerificationRouter

@@ -22,7 +22,9 @@ import subscriptionPaymentRoutes from "./routes/subscription-payment.routes";
 import uploadRoutes from "./routes/upload.routes";
 import StaffAuthRoutes from "./routes/staff-auth.routes";
 import staffVerificationRoutes from "./routes/staff-verification.routes";
-import { emailService } from "./services/email.service";
+import PublicRouter from "./routes/public-verification.routes";
+import phoneVerificationRouter from "./routes/phone-verification.routes";
+
 
 
 dotenv.config();
@@ -83,6 +85,10 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/reviews", reviewRoutes);
 
 app.use("/api/services", serviceRoutes);
+
+app.use("/api/public-verification", PublicRouter)
+
+app.use("/api/phone-verification", phoneVerificationRouter)
 
 app.use('/api/push-subscriptions', pushSubscriptionRoutes)
 

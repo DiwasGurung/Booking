@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express'
 import VerificationController from '../controllers/phone-verification.controller'
 // import { publicRateLimit } from '../middleware/rate-limit.middleware' // recommended, see note below
 
-const router = express.Router()
+const publicRouter = express.Router()
 
 // PUBLIC — a customer fills these out mid-booking, before any session exists.
 // Do NOT add the `auth` middleware here the way verification.routes.ts does.
@@ -20,7 +20,7 @@ function forceBookingEntityType(req: Request, _res: Response, next: NextFunction
   next()
 }
 
-router.post('/bookings/:entityId/send-phone-verification', forceBookingEntityType, VerificationController.sendCode)
-router.post('/bookings/:entityId/verify-phone', forceBookingEntityType, VerificationController.verifyCode)
+publicRouter.post('/bookings/:entityId/send-phone-verification', forceBookingEntityType, VerificationController.sendCode)
+publicRouter.post('/bookings/:entityId/verify-phone', forceBookingEntityType, VerificationController.verifyCode)
 
-export default router
+export default publicRouter

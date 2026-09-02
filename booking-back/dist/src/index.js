@@ -27,6 +27,8 @@ const subscription_payment_routes_1 = __importDefault(require("./routes/subscrip
 const upload_routes_1 = __importDefault(require("./routes/upload.routes"));
 const staff_auth_routes_1 = __importDefault(require("./routes/staff-auth.routes"));
 const staff_verification_routes_1 = __importDefault(require("./routes/staff-verification.routes"));
+const public_verification_routes_1 = __importDefault(require("./routes/public-verification.routes"));
+const phone_verification_routes_1 = __importDefault(require("./routes/phone-verification.routes"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5001;
@@ -61,6 +63,8 @@ app.use("/api/seed", seed_routes_1.default);
 app.use("/api/payments", payment_routes_1.default);
 app.use("/api/reviews", review_routes_1.default);
 app.use("/api/services", service_routes_1.default);
+app.use("/api/public-verification", public_verification_routes_1.default);
+app.use("/api/phone-verification", phone_verification_routes_1.default);
 app.use('/api/push-subscriptions', push_subscription_route_1.default);
 app.use("/api/staff", staff_routes_1.default);
 app.use("/api/staff-verification", staff_verification_routes_1.default);

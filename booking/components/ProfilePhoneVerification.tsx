@@ -44,38 +44,32 @@ export function ProfilePhoneVerification({
 
   // Timer countdown
   useEffect(() => {
-
     if (timeLeft <= 0 || !timeLeft) {
       setShowResend(true)
       return
     }
-
     const timer = setInterval(() => {
       setTimeLeft((prev) => prev - 1)
     }, 1000)
-
     return () => clearInterval(timer)
   }, [timeLeft])
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+
+  // Call backend to send code
   const handleSendCode = async () => {
     setError('')
     setSuccess('')
-
-    // Check if user is authenticated
     if (!user?.id) {
       setError('Please log in to verify your phone number')
       return
     }
-
     if (!phone || phone.replace(/\D/g, '').length < 10) {
       setError('Please enter a valid phone number')
       return
     }
-
     try {
       setIsLoading(true)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      
       const cleanedPhone = phone.replace(/\D/g, '')
       const response = await fetch(`${apiUrl}/api/phone-verification/send-code`, {
         method: 'POST',
@@ -83,13 +77,8 @@ export function ProfilePhoneVerification({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phoneNumber: cleanedPhone }),
       })
-
       const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to send code')
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Failed to send code')
       setSuccess('Verification code sent to your phone!')
       setStep('verify')
       setTimeLeft(120)
@@ -101,70 +90,53 @@ export function ProfilePhoneVerification({
     }
   }
 
+  // Call backend to verify code
   const handleVerifyCode = async () => {
     setError('')
     setSuccess('')
-
     if (!user?.id) {
       setError('Please log in to verify your phone number')
       return
     }
-
     if (!otp || otp.length !== 6) {
       setError('Please enter a valid 6-digit code')
       return
     }
-
     try {
       setIsLoading(true)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      
       const cleanedPhone = phone.replace(/\D/g, '')
       const response = await fetch(`${apiUrl}/api/phone-verification/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          phoneNumber: cleanedPhone,
-          code: otp,
-        }),
+        body: JSON.stringify({ phoneNumber: cleanedPhone, code: otp }),
       })
-
       const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Invalid verification code')
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Invalid verification code')
       setSuccess('Phone number verified successfully!')
       setIsPhoneVerified(true)
       setStep('input')
       setOtp('')
       setTimeLeft(0)
       onVerified?.()
-
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
-
       setError(err instanceof Error ? err.message : 'Verification failed')
     } finally {
       setIsLoading(false)
     }
   }
 
+  // Call backend to resend code
   const handleResendCode = async () => {
     setError('')
     setSuccess('')
-
     if (!user?.id) {
       setError('Please log in to resend code')
       return
     }
-
     try {
       setIsLoading(true)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      
       const cleanedPhone = phone.replace(/\D/g, '')
       const response = await fetch(`${apiUrl}/api/phone-verification/resend-code`, {
         method: 'POST',
@@ -172,21 +144,14 @@ export function ProfilePhoneVerification({
         credentials: 'include',
         body: JSON.stringify({ phoneNumber: cleanedPhone }),
       })
-
       const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to resend code')
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Failed to resend code')
       setSuccess('New verification code sent!')
       setTimeLeft(120)
       setShowResend(false)
       setOtp('')
-
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
-
       setError(err instanceof Error ? err.message : 'Failed to resend code')
     } finally {
       setIsLoading(false)
@@ -195,6 +160,7 @@ export function ProfilePhoneVerification({
 
   return (
     <Card className="p-6 border border-border">
+      {/* Header & verification status */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
           <Smartphone className="w-5 h-5" />
@@ -208,13 +174,13 @@ export function ProfilePhoneVerification({
         )}
       </div>
 
+      {/* Error & success messages */}
       {error && (
         <div className="mb-4 p-3 bg-destructive/10 border border-destructive/30 rounded-lg flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
           <p className="text-destructive text-sm">{error}</p>
         </div>
       )}
-
       {success && (
         <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-start gap-3">
           <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
@@ -222,9 +188,12 @@ export function ProfilePhoneVerification({
         </div>
       )}
 
+      {/* Verified state */}
       {isPhoneVerified ? (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">Your phone number is verified and you&apos;ll receive SMS notifications for appointment updates.</p>
+          <p className="text-sm text-muted-foreground">
+            Your phone number is verified and you&apos;ll receive SMS notifications for appointment updates.
+          </p>
           <div className="p-3 bg-muted/50 rounded">
             <p className="text-sm font-medium text-foreground">{phone}</p>
           </div>
@@ -242,11 +211,11 @@ export function ProfilePhoneVerification({
           </Button>
         </div>
       ) : step === 'input' ? (
+        // Input state
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             Add and verify your phone number to receive appointment reminders and updates via SMS.
           </p>
-
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
               Nepali Phone Number
@@ -261,7 +230,6 @@ export function ProfilePhoneVerification({
             />
             <p className="text-xs text-muted-foreground mt-1">Format: 98XXXXXXXXXX (10 digits)</p>
           </div>
-
           <Button
             onClick={handleSendCode}
             disabled={isLoading || !phone}
@@ -271,11 +239,11 @@ export function ProfilePhoneVerification({
           </Button>
         </div>
       ) : (
+        // Verification code input
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
             Enter the 6-digit verification code sent to <strong>{phone}</strong>
           </p>
-
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
               Verification Code
@@ -290,7 +258,7 @@ export function ProfilePhoneVerification({
               className="font-mono text-center text-lg tracking-widest"
             />
           </div>
-
+          {/* Timer and resend */}
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-1 text-muted-foreground">
               <Clock className="w-4 h-4" />
@@ -311,7 +279,7 @@ export function ProfilePhoneVerification({
               </button>
             )}
           </div>
-
+          {/* Buttons */}
           <div className="flex gap-2">
             <Button
               variant="outline"

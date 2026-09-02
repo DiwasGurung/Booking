@@ -359,14 +359,14 @@ export default function ProfilePage() {
           {/* Security Tab */}
           <TabsContent value="security" className="space-y-6">
             {/* Phone Verification */}
-            {/* <ProfilePhoneVerification
+            <ProfilePhoneVerification
               phone={phone}
               isPhoneVerified={isPhoneVerified}
               onVerified={() => {
                 setIsPhoneVerified(true)
                 refreshUser()
               }}
-            /> */}
+            />
 
             {/* Change Password */}
             <Card className="p-6">
