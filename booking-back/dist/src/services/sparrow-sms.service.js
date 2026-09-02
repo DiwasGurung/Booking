@@ -119,7 +119,11 @@ async function sendAccountSms(phoneNumber, message, type) {
         return { success: false, error: response.data.message };
     }
     catch (error) {
-        console.error('[v0] Error sending account SMS via Sparrow:', error.message);
+        console.error('[v0] Error sending account SMS via Sparrow:', {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message,
+        });
         await subscription_sms_service_1.default.logSmsAttempt({
             phoneNumber: formattedPhone, message, type, status: 'FAILED', errorMessage: error.message,
         });
