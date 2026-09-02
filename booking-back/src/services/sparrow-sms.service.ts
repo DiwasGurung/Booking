@@ -116,6 +116,8 @@ async function sendSMS(
  * per-destination daily cap, not from a quota check.
  */
 async function sendAccountSms(phoneNumber: string, message: string, type: 'verification'): Promise<SendResult> {
+  const check = await fixieAxios.get('https://api.ipify.org?format=json')
+console.log('[v0] Egress IP via Fixie:', check.data.ip)
   if (!SPARROW_API_TOKEN || !SPARROW_SENDER_ID) {
     console.warn('[v0] Sparrow SMS not configured, skipping SMS')
     return { success: false, error: 'Sparrow SMS not configured' }
