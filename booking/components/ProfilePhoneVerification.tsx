@@ -73,7 +73,7 @@ export function ProfilePhoneVerification({
     try {
       setIsLoading(true)
       const cleanedPhone = phone.replace(/\D/g, '')
-      const response = await fetch(`${apiUrl}/api/phone-verification/send-code/${entityType}/${entityId}`, {
+      const response = await fetch(`${apiUrl}/api/phone-verification/${entityType}/${entityId}/send-code`, {
   method: 'POST',
   credentials: 'include',
   headers: { 'Content-Type': 'application/json' },
@@ -107,12 +107,12 @@ export function ProfilePhoneVerification({
     try {
       setIsLoading(true)
       const cleanedPhone = phone.replace(/\D/g, '')
-      const response = await fetch(`${apiUrl}/api/phone-verification/verify/${entityType}/${entityId}`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  credentials: 'include',
-  body: JSON.stringify({ phoneNumber: cleanedPhone, code: otp }),
-})
+      const response = await fetch(`${apiUrl}/api/phone-verification/${entityType}/${entityId}/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ phoneNumber: cleanedPhone, code: otp }),
+    })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Invalid verification code')
       setSuccess('Phone number verified successfully!')
