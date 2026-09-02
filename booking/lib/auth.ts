@@ -51,7 +51,6 @@ export async function login(email: string, password: string): Promise<LoginRespo
 
     return { success: true, user: data.user || data.data }
   } catch (err) {
-    console.error('[v0] Login error:', err)
     return { success: false, message: 'Network error - cannot reach server' }
   }
 }

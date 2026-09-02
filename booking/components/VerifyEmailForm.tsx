@@ -137,7 +137,6 @@ export function VerifyEmailForm({ initialEmail, shouldResendOnMount }: VerifyEma
         router.push('/dashboard')
       }, 2000)
     } catch (err: any) {
-      console.error('[v0] Verification error:', err)
       setError('An error occurred. Please try again.')
     } finally {
       setLoading(false)
@@ -180,7 +179,6 @@ export function VerifyEmailForm({ initialEmail, shouldResendOnMount }: VerifyEma
       // Focus on first input
       document.getElementById('code-0')?.focus()
     } catch (err: any) {
-      console.error('[v0] Resend error:', err)
       setError('An error occurred. Please try again.')
     } finally {
       setLoading(false)
@@ -249,7 +247,6 @@ export function VerifyEmailForm({ initialEmail, shouldResendOnMount }: VerifyEma
         document.getElementById('code-0')?.focus()
       }, 0)
     } catch (err: any) {
-      console.error('[v0] Error sending code to new email:', err)
       setError('An error occurred. Please try again.')
     } finally {
       setLoading(false)

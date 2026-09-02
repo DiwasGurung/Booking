@@ -137,7 +137,6 @@ export default function SubscriptionPlan() {
           }
         }
       } catch (error) {
-        console.error('[v0] Error checking trial status:', error)
       } finally {
         setLoadingTrialStatus(false)
       }
@@ -193,7 +192,6 @@ export default function SubscriptionPlan() {
         clearTimeout(timeout)
 
         if (!response.ok) {
-          console.error('[v0] Plans fetch failed with status:', response.status)
 
           // If no plans found, try to seed them
           if (response.status === 404 || response.status === 500) {
@@ -230,7 +228,7 @@ export default function SubscriptionPlan() {
                   return
                 } else {
                   const retryData = await retryResponse.json().catch(() => ({}))
-                  console.error('[v0] Retry fetch failed - status: ' + retryResponse.status, retryData)
+  
                 }
               } else {
                 console.error('[v0] Seeding failed - response ok: ' + seedResponse.ok + ', has plans:', !!seedData.plans)

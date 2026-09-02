@@ -11,6 +11,8 @@ import { Calendar, Loader, AlertCircle, Search, X, Download } from 'lucide-react
 import Link from 'next/link'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 interface Booking {
   id: string
@@ -58,17 +60,35 @@ export default function BookingsPage() {
   const [hasMore, setHasMore] = useState(false)
 
   const downloadBookingsPdf = () => {
-    if (!canExportBookings || bookings.length === 0) return
-    const rows = visibleBookings.map((booking) => `
-      <tr><td>${booking.customerName || 'N/A'}</td><td>${booking.customerEmail || 'N/A'}</td><td>${booking.service?.name || 'N/A'}</td><td>${new Date(booking.startTime).toLocaleString()}</td><td>${booking.status}</td><td>Rs. ${booking.service?.price || 0}</td></tr>`).join('')
-    const printWindow = window.open('', '_blank')
-if (!printWindow) return
-    printWindow.document.write(`<!doctype html><html><head><title>Bookings</title><style>body{font-family:Arial,sans-serif;padding:32px;color:#0f172a}h1{margin-bottom:4px}p{color:#64748b}table{width:100%;border-collapse:collapse;margin-top:24px}th,td{border:1px solid #cbd5e1;padding:9px;text-align:left;font-size:12px}th{background:#f1f5f9}</style></head><body><h1>Bookings</h1><p>Filtered bookings · ${new Date().toLocaleDateString()}</p><table><thead><tr><th>Customer</th><th>Email</th><th>Service</th><th>Date & Time</th><th>Status</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table></body></html>`)
-    printWindow.document.close()
-    printWindow.focus()
-    printWindow.print()
-    printWindow.close()
-  }
+  if (!canExportBookings || visibleBookings.length === 0) return
+
+  const doc = new jsPDF()
+
+  doc.setFontSize(16)
+  doc.text('Bookings', 14, 18)
+  doc.setFontSize(10)
+  doc.setTextColor(100)
+  doc.text(`Filtered bookings · ${new Date().toLocaleDateString()}`, 14, 24)
+
+  autoTable(doc, {
+    startY: 30,
+    head: [['Customer', 'Email', 'Phone', 'Service', 'Date & Time', 'Status', 'Amount']],
+    body: visibleBookings.map((booking) => [
+      booking.customerName || 'N/A',
+      booking.customerEmail || 'N/A',
+      booking.customerPhone || 'N/A',
+      booking.service?.name || 'N/A',
+      new Date(booking.startTime).toLocaleString(),
+      booking.status,
+      `Rs. ${(booking.service?.offerPrice ?? booking.service?.price ?? 0).toFixed(2)}`,
+    ]),
+    headStyles: { fillColor: [241, 245, 249], textColor: 20, fontStyle: 'bold' },
+    styles: { fontSize: 9, cellPadding: 4 },
+    theme: 'grid',
+  })
+
+  doc.save(`bookings-${new Date().toISOString().slice(0, 10)}.pdf`)
+}
 
   const getDateRange = () => {
 
@@ -221,7 +241,7 @@ if (!printWindow) return
             <p className="text-slate-500">Manage all customer bookings</p>
           </div>
            {canExportBookings && (
-            <Button onClick={downloadBookingsPdf} disabled={loading || visibleBookings.length === 0} variant="outline">
+           <Button onClick={downloadBookingsPdf} disabled={loading || visibleBookings.length === 0} variant="outline">
               <Download className="mr-2 h-4 w-4" />
               Download PDF
             </Button>

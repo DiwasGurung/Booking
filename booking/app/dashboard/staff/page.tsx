@@ -156,7 +156,7 @@ export default function StaffPage() {
     } catch (err: any) {
       const errorMessage = err?.message || 'Unknown error'
       setError(`Failed to load services: ${errorMessage}`)
-      console.error('[v0] Error loading services:', err)
+
     } finally {
       setLoading(false)
     }
@@ -205,7 +205,6 @@ export default function StaffPage() {
       setCurrentStep(1)
       loadStaff()
     } catch (err) {
-      console.error('[Staff] Error saving staff:', err)
       setError('Failed to save staff member')
     } finally {
       setSaving(false)
@@ -221,14 +220,12 @@ export default function StaffPage() {
       
       if (!response.success || response.error) {
         setError(response.error || 'Failed to delete staff member')
-        console.error('[Staff] Delete error:', response.error)
         return
       }
 
       setError(null)
       await loadStaff()
     } catch (err) {
-      console.error('[Staff] Error deleting staff:', err)
       setError(err instanceof Error ? err.message : 'Failed to delete staff member')
     }
   }
@@ -239,14 +236,12 @@ export default function StaffPage() {
       
       if (!response.success || response.error) {
         setError(response.error || 'Failed to toggle staff status')
-        console.error('[Staff] Toggle error:', response.error)
         return
       }
 
       setError(null)
       await loadStaff()
     } catch (err) {
-      console.error('[Staff] Error toggling status:', err)
       setError(err instanceof Error ? err.message : 'Failed to toggle staff status')
     }
   }

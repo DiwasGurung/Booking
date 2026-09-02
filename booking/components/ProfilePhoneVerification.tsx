@@ -87,7 +87,6 @@ export function ProfilePhoneVerification({
       const data = await response.json()
 
       if (!response.ok) {
-        console.error('[v0] Error sending code:', data)
         throw new Error(data.error || 'Failed to send code')
       }
 
@@ -96,7 +95,6 @@ export function ProfilePhoneVerification({
       setTimeLeft(120)
       setShowResend(false)
     } catch (err) {
-      console.error('[v0] Send code error:', err)
       setError(err instanceof Error ? err.message : 'Failed to send code')
     } finally {
       setIsLoading(false)
@@ -135,7 +133,6 @@ export function ProfilePhoneVerification({
       const data = await response.json()
 
       if (!response.ok) {
-        console.error('[v0] Verification error:', data)
         throw new Error(data.error || 'Invalid verification code')
       }
 
@@ -148,7 +145,7 @@ export function ProfilePhoneVerification({
 
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
-      console.error('[v0] Verify error:', err)
+
       setError(err instanceof Error ? err.message : 'Verification failed')
     } finally {
       setIsLoading(false)
@@ -179,7 +176,6 @@ export function ProfilePhoneVerification({
       const data = await response.json()
 
       if (!response.ok) {
-        console.error('[v0] Resend error:', data)
         throw new Error(data.error || 'Failed to resend code')
       }
 
@@ -190,7 +186,7 @@ export function ProfilePhoneVerification({
 
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
-      console.error('[v0] Resend error:', err)
+
       setError(err instanceof Error ? err.message : 'Failed to resend code')
     } finally {
       setIsLoading(false)

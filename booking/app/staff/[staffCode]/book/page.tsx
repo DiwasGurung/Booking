@@ -193,7 +193,6 @@ export default function StaffBookPage() {
             setClosedDates(closedDatesMap)
           }
         } catch (err) {
-          console.error('Error fetching business hours or closed dates:', err)
         }
       } catch (err: any) {
         setError(err.message || 'An error occurred')
@@ -368,7 +367,6 @@ export default function StaffBookPage() {
       setAvailableSlots(availableSlotsList)
       setLoadingSlots(false)
     } catch (err) {
-      console.error('[v0] Error loading available slots:', err)
       setAvailableSlots([])
     } finally {
       setLoadingSlots(false)

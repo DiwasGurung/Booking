@@ -173,7 +173,6 @@ export const SetupBusinessForm = () => {
       if (currentToken) {
         headers["Authorization"] = `Bearer ${currentToken}`
       } else {
-        console.warn("[v0] SetupBusinessForm: No token available!")
       }
 
       const response = await fetch(`${API_URL}/api/businesses`, {
@@ -186,7 +185,6 @@ export const SetupBusinessForm = () => {
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
         const errorMsg = data.error || data.message || data.details || "Failed to register business"
-        console.error("[v0] Business setup error response:", data)
         throw new Error(errorMsg)
       }
 

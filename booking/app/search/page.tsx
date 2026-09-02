@@ -62,7 +62,6 @@ function SearchPageContent() {
       setBusinesses(data)
       setSearched(false)
     } catch (error) {
-      console.error('[v0] Failed to load businesses:', error)
       setBusinesses([])
     } finally {
       setLoading(false)

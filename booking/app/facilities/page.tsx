@@ -33,7 +33,6 @@ export default function FacilitiesPage() {
       setFacilities(data)
       setFilteredFacilities(data)
     } catch (err) {
-      console.error(err)
       toast.error("Failed to load facilities")
     } finally {
       setIsLoading(false)
