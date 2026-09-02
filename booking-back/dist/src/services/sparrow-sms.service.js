@@ -76,7 +76,11 @@ async function sendSMS(businessId, phoneNumber, message, type) {
         return { success: false, error: response.data.message };
     }
     catch (error) {
-        console.error('[v0] Error sending SMS via Sparrow:', error.message);
+        console.error('[v0] Error sending account SMS via Sparrow:', {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message,
+        });
         await subscription_sms_service_1.default.logSmsAttempt({
             businessId, phoneNumber: formattedPhone, message, type, status: 'FAILED', errorMessage: error.message,
         });
@@ -94,8 +98,6 @@ async function sendSMS(businessId, phoneNumber, message, type) {
  * per-destination daily cap, not from a quota check.
  */
 async function sendAccountSms(phoneNumber, message, type) {
-    const check = await fixieAxios_1.fixieAxios.get('https://api.ipify.org?format=json');
-    console.log('[v0] Egress IP via Fixie:', check.data.ip);
     if (!SPARROW_API_TOKEN || !SPARROW_SENDER_ID) {
         console.warn('[v0] Sparrow SMS not configured, skipping SMS');
         return { success: false, error: 'Sparrow SMS not configured' };
@@ -175,12 +177,12 @@ See you soon!`;
     },
     async sendOwnerNotification(businessId, phoneNumber, notificationData) {
         const message = `New Booking Alert!
-${notificationData.customerName}
-Phone: ${notificationData.customerPhone}
-Service: ${notificationData.serviceName}
-${notificationData.staffName ? `Staff: ${notificationData.staffName}` : ''}
-Date: ${notificationData.date}
-Time: ${notificationData.time}
+    ${notificationData.customerName}
+    Phone: ${notificationData.customerPhone}
+    Service: ${notificationData.serviceName}
+    ${notificationData.staffName ? `Staff: ${notificationData.staffName}` : ''}
+    Date: ${notificationData.date}
+    Time: ${notificationData.time}
 
 Log in to BookFlow dashboard to manage.`;
         return sendSMS(businessId, phoneNumber, message, 'owner_notification');
