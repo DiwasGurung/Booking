@@ -1,5 +1,6 @@
 import axios from 'axios'
 import SubscriptionSmsService, { SmsType } from './subscription-sms.service'
+import { fixieAxios } from '../utils/fixieAxios' 
 
 const SPARROW_SMS_API_URL = 'https://api.sparrowsms.com/v2/sms/'
 const SPARROW_API_TOKEN = process.env.SPARROW_SMS_TOKEN
@@ -40,7 +41,7 @@ function formatPhoneNumber(phoneNumber: string): string {
  * build the request the same, correct way.
  */
 async function sendToSparrow(to: string, text: string) {
-  return axios.post<SparrowSMSResponse>(SPARROW_SMS_API_URL, null, {
+  return fixieAxios.post<SparrowSMSResponse>(SPARROW_SMS_API_URL, null, {
     params: { token: SPARROW_API_TOKEN, from: SPARROW_SENDER_ID, to, text },
   })
 }

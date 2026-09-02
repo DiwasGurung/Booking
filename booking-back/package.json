@@ -27,6 +27,7 @@
     "firebase": "^12.12.1",
     "firebase-admin": "^13.8.0",
     "google-auth-library": "^10.6.2",
+    "https-proxy-agent": "^9.1.0",
     "jsonwebtoken": "^9.0.3",
     "luxon": "^3.7.2",
     "multer": "^2.2.0",
