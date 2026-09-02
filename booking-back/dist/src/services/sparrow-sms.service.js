@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SparrowSMSService = void 0;
 const axios_1 = __importDefault(require("axios"));
 const subscription_sms_service_1 = __importDefault(require("./subscription-sms.service"));
-const SPARROW_SMS_API_URL = 'http://api.sparrowsms.com/v2/sms/';
+const SPARROW_SMS_API_URL = 'https://api.sparrowsms.com/v2/sms/';
 const SPARROW_API_TOKEN = process.env.SPARROW_SMS_TOKEN;
 const SPARROW_SENDER_ID = process.env.SPARROW_SMS_SENDER_ID;
 if (!SPARROW_API_TOKEN || !SPARROW_SENDER_ID) {

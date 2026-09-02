@@ -47,11 +47,17 @@ class VerificationService {
             }
         }
         const otp = generateCode();
-        const smsResult = businessId
-            ? await sparrow_sms_service_1.default.sendVerificationCode(businessId, destination, otp)
-            : await sparrow_sms_service_1.default.sendAccountVerificationCode(destination, otp);
-        if (!smsResult.success) {
-            return { success: false, error: smsResult.error || 'Failed to send SMS', code: 'SEND_FAILED' };
+        try {
+            const smsResult = businessId
+                ? await sparrow_sms_service_1.default.sendVerificationCode(businessId, destination, otp)
+                : await sparrow_sms_service_1.default.sendAccountVerificationCode(destination, otp);
+            if (!smsResult.success) {
+                return { success: false, error: smsResult.error || 'Failed to send SMS', code: 'SEND_FAILED' };
+            }
+        }
+        catch (error) {
+            console.error('SMS sending error:', error);
+            return { success: false, error: 'Failed to send SMS due to internal error', code: 'SEND_FAILED' };
         }
         await prisma_1.default.verificationCode.create({
             data: {

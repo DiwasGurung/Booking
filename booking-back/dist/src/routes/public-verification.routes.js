@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const phone_verification_controller_1 = __importDefault(require("../controllers/phone-verification.controller"));
 // import { publicRateLimit } from '../middleware/rate-limit.middleware' // recommended, see note below
-const router = express_1.default.Router();
+const publicRouter = express_1.default.Router();
 // PUBLIC — a customer fills these out mid-booking, before any session exists.
 // Do NOT add the `auth` middleware here the way verification.routes.ts does.
 //
@@ -21,6 +21,6 @@ function forceBookingEntityType(req, _res, next) {
     req.params.entityType = 'BOOKING';
     next();
 }
-router.post('/bookings/:entityId/send-phone-verification', forceBookingEntityType, phone_verification_controller_1.default.sendCode);
-router.post('/bookings/:entityId/verify-phone', forceBookingEntityType, phone_verification_controller_1.default.verifyCode);
-exports.default = router;
+publicRouter.post('/bookings/:entityId/send-phone-verification', forceBookingEntityType, phone_verification_controller_1.default.sendCode);
+publicRouter.post('/bookings/:entityId/verify-phone', forceBookingEntityType, phone_verification_controller_1.default.verifyCode);
+exports.default = publicRouter;

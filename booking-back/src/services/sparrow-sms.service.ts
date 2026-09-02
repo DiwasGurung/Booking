@@ -1,7 +1,7 @@
 import axios from 'axios'
 import SubscriptionSmsService, { SmsType } from './subscription-sms.service'
 
-const SPARROW_SMS_API_URL = 'http://api.sparrowsms.com/v2/sms/'
+const SPARROW_SMS_API_URL = 'https://api.sparrowsms.com/v2/sms/'
 const SPARROW_API_TOKEN = process.env.SPARROW_SMS_TOKEN
 const SPARROW_SENDER_ID = process.env.SPARROW_SMS_SENDER_ID
 

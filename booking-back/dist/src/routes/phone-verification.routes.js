@@ -7,8 +7,8 @@ const express_1 = __importDefault(require("express"));
 const auth_middleware_1 = require("../middleware/auth.middleware");
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const phone_verification_controller_1 = __importDefault(require("../controllers/phone-verification.controller"));
-const router = express_1.default.Router();
-router.use(auth_middleware_1.auth);
+const phoneVerificationRouter = express_1.default.Router();
+phoneVerificationRouter.use(auth_middleware_1.auth);
 /**
  * Makes sure the logged-in user is only ever verifying THEIR OWN record:
  *  - USER      → entityId must equal the caller's own id
@@ -52,6 +52,6 @@ async function authorizeEntity(req, res, next) {
         return res.status(500).json({ success: false, error: 'Authorization check failed' });
     }
 }
-router.post('/:entityType/:entityId/send-code', authorizeEntity, phone_verification_controller_1.default.sendCode);
-router.post('/:entityType/:entityId/verify', authorizeEntity, phone_verification_controller_1.default.verifyCode);
-exports.default = router;
+phoneVerificationRouter.post('/:entityType/:entityId/send-code', authorizeEntity, phone_verification_controller_1.default.sendCode);
+phoneVerificationRouter.post('/:entityType/:entityId/verify', authorizeEntity, phone_verification_controller_1.default.verifyCode);
+exports.default = phoneVerificationRouter;
