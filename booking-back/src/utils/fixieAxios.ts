@@ -13,7 +13,7 @@ function buildFixieAxios(): AxiosInstance {
 
   return axios.create({
     httpsAgent: agent,
-    proxy: false, // disable axios's native proxy handling — the agent handles it
+    proxy: false,
   })
 }
 

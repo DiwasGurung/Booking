@@ -4,8 +4,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SparrowSMSService = void 0;
-const axios_1 = __importDefault(require("axios"));
 const subscription_sms_service_1 = __importDefault(require("./subscription-sms.service"));
+const fixieAxios_1 = require("../utils/fixieAxios");
 const SPARROW_SMS_API_URL = 'https://api.sparrowsms.com/v2/sms/';
 const SPARROW_API_TOKEN = process.env.SPARROW_SMS_TOKEN;
 const SPARROW_SENDER_ID = process.env.SPARROW_SMS_SENDER_ID;
@@ -22,6 +22,19 @@ function formatPhoneNumber(phoneNumber) {
     if (cleaned.length === 10 && cleaned.startsWith('9'))
         return '977' + cleaned;
     return cleaned;
+}
+/**
+ * Sparrow's API reads token/from/to/text as query-string parameters
+ * (GET-style), not a JSON request body. Sending them as a JSON body with
+ * axios.post's default Content-Type: application/json means Sparrow never
+ * sees the values and returns an error — this was a likely real cause of
+ * silent send failures. Centralized here so both send paths below always
+ * build the request the same, correct way.
+ */
+async function sendToSparrow(to, text) {
+    return fixieAxios_1.fixieAxios.post(SPARROW_SMS_API_URL, null, {
+        params: { token: SPARROW_API_TOKEN, from: SPARROW_SENDER_ID, to, text },
+    });
 }
 /**
  * Core send function. Every SMS in the system funnels through here so
@@ -46,12 +59,7 @@ async function sendSMS(businessId, phoneNumber, message, type) {
     const formattedPhone = formatPhoneNumber(phoneNumber);
     console.log(`[v0] Sending ${type} SMS to:`, formattedPhone);
     try {
-        const response = await axios_1.default.post(SPARROW_SMS_API_URL, {
-            token: SPARROW_API_TOKEN,
-            from: SPARROW_SENDER_ID,
-            to: formattedPhone,
-            text: message,
-        });
+        const response = await sendToSparrow(formattedPhone, message);
         if (response.data.response_code === 200) {
             const messageId = response.data.data?.request_id;
             console.log(`[v0] ${type} SMS sent successfully:`, messageId);
@@ -93,12 +101,7 @@ async function sendAccountSms(phoneNumber, message, type) {
     const formattedPhone = formatPhoneNumber(phoneNumber);
     console.log(`[v0] Sending account ${type} SMS to:`, formattedPhone);
     try {
-        const response = await axios_1.default.post(SPARROW_SMS_API_URL, {
-            token: SPARROW_API_TOKEN,
-            from: SPARROW_SENDER_ID,
-            to: formattedPhone,
-            text: message,
-        });
+        const response = await sendToSparrow(formattedPhone, message);
         if (response.data.response_code === 200) {
             const messageId = response.data.data?.request_id;
             await subscription_sms_service_1.default.logSmsAttempt({
