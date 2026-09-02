@@ -32,6 +32,20 @@ function formatPhoneNumber(phoneNumber: string): string {
 }
 
 /**
+ * Sparrow's API reads token/from/to/text as query-string parameters
+ * (GET-style), not a JSON request body. Sending them as a JSON body with
+ * axios.post's default Content-Type: application/json means Sparrow never
+ * sees the values and returns an error — this was a likely real cause of
+ * silent send failures. Centralized here so both send paths below always
+ * build the request the same, correct way.
+ */
+async function sendToSparrow(to: string, text: string) {
+  return axios.post<SparrowSMSResponse>(SPARROW_SMS_API_URL, null, {
+    params: { token: SPARROW_API_TOKEN, from: SPARROW_SENDER_ID, to, text },
+  })
+}
+
+/**
  * Core send function. Every SMS in the system funnels through here so
  * quota enforcement and logging happen exactly once, in one place.
  *
@@ -62,12 +76,7 @@ async function sendSMS(
   console.log(`[v0] Sending ${type} SMS to:`, formattedPhone)
 
   try {
-    const response = await axios.post<SparrowSMSResponse>(SPARROW_SMS_API_URL, {
-      token: SPARROW_API_TOKEN,
-      from: SPARROW_SENDER_ID,
-      to: formattedPhone,
-      text: message,
-    })
+    const response = await sendToSparrow(formattedPhone, message)
 
     if (response.data.response_code === 200) {
       const messageId = response.data.data?.request_id
@@ -115,12 +124,7 @@ async function sendAccountSms(phoneNumber: string, message: string, type: 'verif
   console.log(`[v0] Sending account ${type} SMS to:`, formattedPhone)
 
   try {
-    const response = await axios.post<SparrowSMSResponse>(SPARROW_SMS_API_URL, {
-      token: SPARROW_API_TOKEN,
-      from: SPARROW_SENDER_ID,
-      to: formattedPhone,
-      text: message,
-    })
+    const response = await sendToSparrow(formattedPhone, message)
 
     if (response.data.response_code === 200) {
       const messageId = response.data.data?.request_id
