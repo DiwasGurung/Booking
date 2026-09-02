@@ -182,9 +182,6 @@ class SubscriptionService {
                 }
             }
             else if (subscription.status === 'TRIAL' && !subscription.trialEndsAt) {
-                // Placeholder row created while a payment was initiated but never
-                // completed (see initiateEsewaPayment). Not a real trial, not paid.
-                console.log(`[v0] Incomplete/placeholder subscription for business ${businessId}`);
                 hasValidSubscription = false;
             }
             else if (subscription.status === 'ACTIVE' || subscription.status === 'CANCELLED') {
@@ -204,9 +201,6 @@ class SubscriptionService {
                 }
             }
             else {
-                // Any other/future status (e.g. EXPIRED, SUSPENDED, PENDING) is
-                // explicitly not valid unless handled above.
-                console.log(`[v0] Unhandled subscription status '${subscription.status}' for business ${businessId}`);
                 hasValidSubscription = false;
             }
             return {
@@ -229,7 +223,6 @@ class SubscriptionService {
             };
         }
         catch (error) {
-            console.error(`[v0] Failed to get subscription status for business ${businessId}:`, error);
             return {
                 hasSubscription: false,
                 status: null,

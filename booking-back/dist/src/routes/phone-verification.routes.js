@@ -1,36 +1,57 @@
 "use strict";
-// import { Router } from 'express'
-// import { auth } from '../middleware/auth.middleware'
-// import {
-//   sendPhoneVerificationCode,
-//   verifyPhoneNumber,
-//   resendPhoneVerificationCode,
-// } from '../controllers/phone-verification.controller'
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-// const router = Router()
-// /**
-//  * @route POST /api/phone-verification/send-code
-//  * @desc Send a 6-digit OTP to user's phone number
-//  * @access Private (Requires authentication)
-//  * @param {string} phoneNumber - Nepali phone number (format: 98XXXXXXXX)
-//  * @returns {Object} { success: boolean, message: string, codeSent: boolean }
-//  */
-// router.post('/send-code', auth, sendPhoneVerificationCode)
-// /**
-//  * @route POST /api/phone-verification/verify
-//  * @desc Verify phone number with OTP code
-//  * @access Private (Requires authentication)
-//  * @param {string} phoneNumber - Nepali phone number (format: 98XXXXXXXX)
-//  * @param {string} code - 6-digit OTP code
-//  * @returns {Object} { success: boolean, message: string, isPhoneVerified: boolean }
-//  */
-// router.post('/verify', auth, verifyPhoneNumber)
-// /**
-//  * @route POST /api/phone-verification/resend-code
-//  * @desc Resend OTP code to phone number
-//  * @access Private (Requires authentication)
-//  * @param {string} phoneNumber - Nepali phone number (format: 98XXXXXXXX)
-//  * @returns {Object} { success: boolean, message: string, codeSent: boolean }
-//  */
-// router.post('/resend-code', auth, resendPhoneVerificationCode)
-// export default router
+const express_1 = __importDefault(require("express"));
+const auth_middleware_1 = require("../middleware/auth.middleware");
+const prisma_1 = __importDefault(require("../lib/prisma"));
+const phone_verification_controller_1 = __importDefault(require("../controllers/phone-verification.controller"));
+const router = express_1.default.Router();
+router.use(auth_middleware_1.auth);
+/**
+ * Makes sure the logged-in user is only ever verifying THEIR OWN record:
+ *  - USER      → entityId must equal the caller's own id
+ *  - BUSINESS  → the business must belong to the caller
+ *  - STAFF     → the staff member's business must belong to the caller
+ * (ADMIN can be given a blanket bypass here if you want support staff
+ * to trigger re-verification on a user's behalf.)
+ */
+async function authorizeEntity(req, res, next) {
+    const entityTypeParam = Array.isArray(req.params.entityType) ? req.params.entityType[0] : req.params.entityType;
+    const entityId = Array.isArray(req.params.entityId) ? req.params.entityId[0] : req.params.entityId;
+    const userId = req.userId;
+    if (req.userRole === 'ADMIN')
+        return next();
+    try {
+        switch (entityTypeParam.toUpperCase()) {
+            case 'USER': {
+                if (entityId !== userId)
+                    return res.status(403).json({ success: false, error: 'Forbidden' });
+                return next();
+            }
+            case 'BUSINESS': {
+                const business = await prisma_1.default.business.findUnique({ where: { id: entityId } });
+                if (!business || business.userId !== userId)
+                    return res.status(403).json({ success: false, error: 'Forbidden' });
+                return next();
+            }
+            case 'STAFF': {
+                const staff = await prisma_1.default.staff.findUnique({ where: { id: entityId }, include: { business: true } });
+                if (!staff)
+                    return res.status(404).json({ success: false, error: 'Not found' });
+                if (staff.business.userId !== userId)
+                    return res.status(403).json({ success: false, error: 'Forbidden' });
+                return next();
+            }
+            default:
+                return res.status(400).json({ success: false, error: 'Unsupported entity type for this route' });
+        }
+    }
+    catch (err) {
+        return res.status(500).json({ success: false, error: 'Authorization check failed' });
+    }
+}
+router.post('/:entityType/:entityId/send-code', authorizeEntity, phone_verification_controller_1.default.sendCode);
+router.post('/:entityType/:entityId/verify', authorizeEntity, phone_verification_controller_1.default.verifyCode);
+exports.default = router;
