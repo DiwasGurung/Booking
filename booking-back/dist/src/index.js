@@ -29,6 +29,7 @@ const staff_auth_routes_1 = __importDefault(require("./routes/staff-auth.routes"
 const staff_verification_routes_1 = __importDefault(require("./routes/staff-verification.routes"));
 const public_verification_routes_1 = __importDefault(require("./routes/public-verification.routes"));
 const phone_verification_routes_1 = __importDefault(require("./routes/phone-verification.routes"));
+const feedback_routes_1 = __importDefault(require("./routes/feedback.routes"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5001;
@@ -53,6 +54,7 @@ app.get("/", (req, res) => {
 app.use("/api/users", user_routes_1.default);
 app.use('/api/auth', auth_routes_1.default);
 app.use("/api/sse", sse_routes_1.default);
+app.use("/api/feedback", feedback_routes_1.default);
 app.use("/api/booking", booking_routes_1.default);
 app.use("/api/subscriptions", subscription_routes_1.default);
 app.use("/api/businesses", business_routes_1.default);

@@ -1,10 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
-import { Heart } from 'lucide-react'
+import { Heart, MessageSquarePlus } from 'lucide-react'
+import { FeedbackModal } from './FeedbackModal'
 
 export function Footer() {
   const currentYear = new Date().getFullYear()
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
 
   return (
     <footer className="bg-slate-900 text-slate-200 mt-auto">
@@ -25,7 +28,7 @@ export function Footer() {
               <Link href="/search" className="text-sm hover:text-white transition block">
                 Browse Services
               </Link>
-              <Link href="/profile" className="text-sm hover:text-white transition block">
+              <Link href="/account/profile" className="text-sm hover:text-white transition block">
                 My Bookings
               </Link>
               <Link href="/help" className="text-sm hover:text-white transition block">
@@ -60,6 +63,13 @@ export function Footer() {
               <a href="/contact" className="text-sm hover:text-white transition block">
                 Contact Us
               </a>
+              <button
+                onClick={() => setFeedbackOpen(true)}
+                className="text-sm hover:text-white transition flex items-center gap-1.5"
+              >
+                <MessageSquarePlus className="w-3.5 h-3.5" />
+                Suggest a Feature
+              </button>
             </div>
           </div>
         </div>
@@ -78,6 +88,8 @@ export function Footer() {
           </div>
         </div>
       </div>
+
+      <FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} role="visitor" />
     </footer>
   )
 }

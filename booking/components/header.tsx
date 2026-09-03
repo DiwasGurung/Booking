@@ -71,7 +71,7 @@ export const Header = () => {
           className="flex items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
         >
           <div className="text-2xl font-bold">Appoint-Nepal</div>
-          <span className="hidden sm:inline text-sm font-medium opacity-80">Pro</span>
+          {/* <span className="hidden sm:inline text-sm font-medium opacity-80">Pro</span> */}
         </button>
 
         {/* Desktop Navigation */}

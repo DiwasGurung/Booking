@@ -24,7 +24,7 @@ import StaffAuthRoutes from "./routes/staff-auth.routes";
 import staffVerificationRoutes from "./routes/staff-verification.routes";
 import PublicRouter from "./routes/public-verification.routes";
 import phoneVerificationRouter from "./routes/phone-verification.routes";
-
+import FeedbackRoutes from "./routes/feedback.routes";
 
 
 dotenv.config();
@@ -65,6 +65,7 @@ app.use('/api/auth', authRoutes)
 
 app.use("/api/sse", sseRoutes);
 
+app.use("/api/feedback", FeedbackRoutes);
 
 app.use("/api/booking", bookingRoutes);
 

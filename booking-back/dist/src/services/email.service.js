@@ -107,6 +107,69 @@ exports.emailService = {
         }
     },
     /**
+   * Send feedback/suggestion notification to team inbox
+   */
+    async sendFeedbackEmail(feedbackDetails) {
+        try {
+            const transporter = initializeTransporter();
+            const teamInbox = process.env.FEEDBACK_INBOX || emailUser;
+            const typeLabel = {
+                bug: 'Bug Report',
+                feature: 'Feature Suggestion',
+                other: 'General Feedback',
+            }[feedbackDetails.type];
+            const mailOptions = {
+                from: emailFrom,
+                to: teamInbox,
+                replyTo: feedbackDetails.email || emailFrom,
+                subject: `[Feedback] ${typeLabel}${feedbackDetails.businessName ? ' - ' + feedbackDetails.businessName : ''}`,
+                html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
+              <h2 style="color: white; margin: 0;">New ${typeLabel}</h2>
+            </div>
+            <div style="border: 1px solid #e0e0e0; border-top: none; padding: 20px; border-radius: 0 0 8px 8px;">
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                <tr>
+                  <td style="padding: 8px 0; color: #666; width: 120px;">From:</td>
+                  <td style="padding: 8px 0; color: #333;">${feedbackDetails.name || 'Anonymous'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Email:</td>
+                  <td style="padding: 8px 0; color: #333;">${feedbackDetails.email || 'Not provided'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Role:</td>
+                  <td style="padding: 8px 0; color: #333;">${feedbackDetails.role}</td>
+                </tr>
+                ${feedbackDetails.businessName ? `
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Business:</td>
+                  <td style="padding: 8px 0; color: #333;">${feedbackDetails.businessName}</td>
+                </tr>` : ''}
+                ${feedbackDetails.page ? `
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Page:</td>
+                  <td style="padding: 8px 0; color: #333;">${feedbackDetails.page}</td>
+                </tr>` : ''}
+              </table>
+              <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px;">
+                <p style="color: #333; white-space: pre-wrap; margin: 0;">${feedbackDetails.message}</p>
+              </div>
+            </div>
+          </div>
+        `,
+            };
+            const result = await transporter.sendMail(mailOptions);
+            console.log('[Email Service] Feedback email sent, type:', feedbackDetails.type);
+            return result;
+        }
+        catch (error) {
+            console.error('[Email Service] Failed to send feedback email:', error.message);
+            throw error;
+        }
+    },
+    /**
      * Send password reset email
      */
     async sendPasswordResetEmail(email, resetToken, accountType = 'staff') {

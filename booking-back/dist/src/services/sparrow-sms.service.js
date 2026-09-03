@@ -134,12 +134,12 @@ async function sendAccountSms(phoneNumber, message, type) {
 exports.SparrowSMSService = {
     /** Business-quota-gated — use for Booking verification, tied to a specific business's subscription. */
     async sendVerificationCode(businessId, phoneNumber, code) {
-        const message = `Your BookFlow verification code is: ${code}. Valid for 10 minutes.`;
+        const message = `BookFlow: Your OTP for verification is ${code}.`;
         return sendSMS(businessId, phoneNumber, message, 'verification');
     },
     /** Ungated — use for User/Staff/Business account phone verification. */
     async sendAccountVerificationCode(phoneNumber, code) {
-        const message = `Your BookFlow verification code is: ${code}. Valid for 10 minutes.`;
+        const message = `BookFlow: Your OTP for verification is ${code}.`;
         return sendAccountSms(phoneNumber, message, 'verification');
     },
     async sendBookingConfirmation(businessId, phoneNumber, bookingData) {
