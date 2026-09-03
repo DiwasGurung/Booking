@@ -96,7 +96,6 @@ async function sendSMS(
       return { success: true, messageId }
     }
 
-    console.error('[v0] Sparrow SMS error:', response.data.message)
     await SubscriptionSmsService.logSmsAttempt({
       businessId, phoneNumber: formattedPhone, message, type, status: 'FAILED', errorMessage: response.data.message,
     })
@@ -165,13 +164,13 @@ async function sendAccountSms(phoneNumber: string, message: string, type: 'verif
 export const SparrowSMSService = {
   /** Business-quota-gated — use for Booking verification, tied to a specific business's subscription. */
   async sendVerificationCode(businessId: string, phoneNumber: string, code: string) {
-    const message = `BookFlow: Your OTP for verification is ${code}.`
+    const message = `Appoint Nepal: Your OTP for verification is ${code}.`
     return sendSMS(businessId, phoneNumber, message, 'verification')
   },
 
   /** Ungated — use for User/Staff/Business account phone verification. */
   async sendAccountVerificationCode(phoneNumber: string, code: string) {
-    const message = `BookFlow: Your OTP for verification is ${code}.`
+    const message = `Appoint Nepal: Your OTP for verification is ${code}.`
     return sendAccountSms(phoneNumber, message, 'verification')
   },
 
@@ -187,7 +186,7 @@ Date: ${bookingData.date}
 Time: ${bookingData.time}
 Booking ID: ${bookingData.bookingId}
 
-Thank you for choosing BookFlow!`
+Thank you for choosing Appoint Nepal!`
     return sendSMS(businessId, phoneNumber, message, 'booking')
   },
 
@@ -248,7 +247,7 @@ See you soon!`
     Date: ${notificationData.date}
     Time: ${notificationData.time}
 
-Log in to BookFlow dashboard to manage.`
+Log in to Appoint Nepal dashboard to manage.`
     return sendSMS(businessId, phoneNumber, message, 'owner_notification')
   },
 
