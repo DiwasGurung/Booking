@@ -32,6 +32,7 @@ function formatPhoneNumber(phoneNumber) {
  * build the request the same, correct way.
  */
 async function sendToSparrow(to, text) {
+    console.log('[v0] Sending SMS via Sparrow:', { SPARROW_API_TOKEN, SPARROW_SENDER_ID, to, text });
     return axios_1.default.post(SPARROW_SMS_API_URL, null, {
         params: { token: SPARROW_API_TOKEN, from: SPARROW_SENDER_ID, to, text },
     });
