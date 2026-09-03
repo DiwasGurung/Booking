@@ -98,9 +98,6 @@ model User {
   passwordResetExpiresAt DateTime?
 
   isPhoneVerified Boolean @default(false)
-  phoneVerificationCode String? @unique
-  phoneVerificationCodeExpires DateTime?
-  phoneVerificationAttempts Int @default(0)
 
   googleId      String?   @unique  
   authProvider  AuthProvider @default(EMAIL)
@@ -357,9 +354,6 @@ model Booking {
   verificationTokenExpires DateTime?
   isEmailVerified Boolean @default(false)
 
-  phoneVerificationCode        String?
-  phoneVerificationCodeExpires DateTime?
-  phoneVerificationAttempts    Int       @default(0)
   isPhoneVerified               Boolean   @default(false)
 
   notifications Notification[] @relation("BookingNotifications")

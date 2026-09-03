@@ -60,6 +60,18 @@ function BookingPageContent() {
   const [bookingId, setBookingId] = useState('')
   const [error, setError] = useState('')
 
+  const [verificationCode, setVerificationCode] = useState('')
+  const [sendingCode, setSendingCode] = useState(false)
+  const [verifyingCode, setVerifyingCode] = useState(false)
+  const [codeError, setCodeError] = useState<string | null>(null)
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setInterval(() => setResendCooldown((v) => (v <= 1 ? 0 : v - 1)), 1000)
+    return () => clearInterval(timer)
+  }, [resendCooldown])
+
   // Redirect unauthenticated users to public booking page
   useEffect(() => {
     if (!businessId) return
@@ -126,6 +138,69 @@ function BookingPageContent() {
       }
     }
   }, [showVerificationModal])
+
+
+  const sendPhoneVerificationCode = async (id: string) => {
+    setSendingCode(true)
+    setCodeError(null)
+    try {
+      const res = await fetch(`${API_URL}/api/bookings/${id}/send-phone-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purpose: 'PHONE_VERIFICATION' }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        setCodeError(data.error || 'Failed to send verification code')
+        if (typeof data.retryAfterSeconds === 'number') setResendCooldown(data.retryAfterSeconds)
+        return false
+      }
+      setResendCooldown(30)
+      return true
+    } catch {
+      setCodeError('Failed to send verification code. Please try again.')
+      return false
+    } finally {
+      setSendingCode(false)
+    }
+  }
+
+  const handleResendCode = async () => {
+    if (!bookingId || resendCooldown > 0) return
+    await sendPhoneVerificationCode(bookingId)
+  }
+
+  const handleVerifyCode = async () => {
+    if (!bookingId) return
+    if (!verificationCode || verificationCode.length < 4) {
+      setCodeError('Please enter the verification code')
+      return
+    }
+    setVerifyingCode(true)
+    setCodeError(null)
+    try {
+      const res = await fetch(`${API_URL}/api/bookings/${bookingId}/verify-phone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: verificationCode, purpose: 'PHONE_VERIFICATION' }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        setCodeError(
+          typeof data.attemptsRemaining === 'number'
+            ? `${data.error || 'Invalid code'} (${data.attemptsRemaining} attempts remaining)`
+            : data.error || 'Invalid verification code'
+        )
+        return
+      }
+      setShowVerificationModal(false)
+      setBookingSuccess(true)
+    } catch {
+      setCodeError('Failed to verify code. Please try again.')
+    } finally {
+      setVerifyingCode(false)
+    }
+  }
 
   const loadBusinessData = async () => {
     try {
@@ -356,19 +431,17 @@ function BookingPageContent() {
           // The API can return these flags either on the response or inside booking.
           const responsePayload = response.data as any
           const requiresVerification =
-            responsePayload.requiresVerification === true ||
-            responsePayload.isEmailVerified === false ||
-            responsePayload.verified === false ||
+            responsePayload.isPhoneVerified === false ||
             responsePayload.status === 'UNVERIFIED' ||
-            createdBooking?.requiresVerification === true ||
-            createdBooking?.isEmailVerified === false ||
-            createdBooking?.verified === false ||
+            createdBooking?.isPhoneVerified === false ||
             createdBooking?.status === 'UNVERIFIED'
 
           setError('')
 
           if (requiresVerification) {
-            // Show the countdown notice instead of the success screen.
+            setVerificationCode('')
+            setCodeError(null)
+            await sendPhoneVerificationCode(newBookingId)
             setShowVerificationModal(true)
           } else {
             setBookingSuccess(true)
@@ -380,7 +453,7 @@ function BookingPageContent() {
         setError(response.error || 'Failed to create booking')
       }
     } catch (err: any) {
-     
+
       setError('Failed to book appointment. Please try again.')
     } finally {
       setLoading(false)
@@ -832,7 +905,7 @@ function BookingPageContent() {
             <div className="p-8 text-center">
               {/* Close */}
               <button
-                 onClick={() => {
+                onClick={() => {
                   setShowVerificationModal(false)
                   router.replace(`/book/${businessId}`)
                 }}
@@ -848,13 +921,13 @@ function BookingPageContent() {
               </div>
 
               <h2 id="verification-title" className="text-2xl font-bold text-foreground mb-2">
-                Verify your email
+                Verify your Phone Number
               </h2>
               <p id="verification-desc" className="text-sm text-muted-foreground mb-1">
-                Your appointment is <span className="font-semibold text-foreground">pending confirmation</span>. We&apos;ve sent a verification link to
+                Your appointment is <span className="font-semibold text-foreground">pending confirmation</span>. We&apos;ve sent a verification code to
               </p>
               <p className="text-sm font-semibold text-foreground mb-6 break-all">
-                {customerEmail}
+                {customerPhone}
               </p>
 
               {/* Countdown / status */}
@@ -862,23 +935,18 @@ function BookingPageContent() {
                 className="rounded-lg border border-border bg-secondary/30 p-4 mb-6"
                 aria-live="polite"
               >
-                {countdown > 0 ? (
-                  <div className="flex items-center justify-center gap-3 text-foreground">
-                    <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                    <span className="text-sm">
-                      Waiting for verification&hellip;{' '}
-                      <span className="font-mono font-bold text-primary">{countdown}s</span>
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-start gap-3 text-left">
-                    <AlertCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-foreground">
-                      Didn&apos;t get the email? Please check your{' '}
-                      <span className="font-semibold">spam or junk</span> folder, then click the link to confirm your booking.
-                    </p>
-                  </div>
-                )}
+                <div className="mt-2 space-y-3">
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Enter verification code"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    disabled={verifyingCode}
+                    className="h-11 text-center text-lg tracking-widest"
+                  />
+                  {codeError && <p className="text-sm text-destructive">{codeError}</p>}
+                </div>
               </div>
 
               {bookingId && (
@@ -889,11 +957,20 @@ function BookingPageContent() {
               )}
 
               <Button
-                onClick={() => setShowVerificationModal(false)}
+                onClick={handleVerifyCode}
+                disabled={verifyingCode || sendingCode}
                 className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
               >
-                Got it
+                {verifyingCode ? 'Verifying...' : 'Verify & Confirm'}
               </Button>
+              <button
+                type="button"
+                onClick={handleResendCode}
+                disabled={sendingCode || resendCooldown > 0}
+                className="mt-3 w-full text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+              >
+                {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : sendingCode ? 'Sending...' : "Didn't get a code? Resend"}
+              </button>
             </div>
           </Card>
         </div>

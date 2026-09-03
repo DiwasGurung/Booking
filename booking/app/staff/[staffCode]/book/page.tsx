@@ -50,8 +50,6 @@ export default function StaffBookPage() {
   const [closedReason, setClosedReason] = useState<string | null>(null)
   const [closedDates, setClosedDates] = useState<Map<string, string>>(new Map())
   const [businessHours, setBusinessHours] = useState<any[]>([])
-  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false)
-  const [verificationEmail, setVerificationEmail] = useState<string>('')
   const [countdown, setCountdown] = useState(VERIFY_COUNTDOWN_SECONDS)
   const [inactiveNoticeOpen, setInactiveNoticeOpen] = useState(false)
   const [inactiveCountdown, setInactiveCountdown] = useState(5)
@@ -65,47 +63,31 @@ export default function StaffBookPage() {
     notes: '',
   })
 
-  // Countdown runs ONLY while the verification modal is open.
-  // It restarts at VERIFY_COUNTDOWN_SECONDS each time the modal opens and
-  // stops cleanly at 0 (previously it ticked down on page load, so the
-  // message was often already expired by the time the modal appeared).
+  const [isPhoneVerificationModalOpen, setIsPhoneVerificationModalOpen] = useState(false)
+  const [verificationCode, setVerificationCode] = useState('')
+  const [phoneToVerify, setPhoneToVerify] = useState<string | null>(null)
+  const [pendingBookingId, setPendingBookingId] = useState<string | null>(null)
+  const [sendingCode, setSendingCode] = useState(false)
+  const [verifyingCode, setVerifyingCode] = useState(false)
+  const [codeError, setCodeError] = useState<string | null>(null)
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  // Resend cooldown ticker
   useEffect(() => {
-    if (!isVerificationModalOpen) {
-      setCountdown(VERIFY_COUNTDOWN_SECONDS)
-      return
-    }
-
-    setCountdown(VERIFY_COUNTDOWN_SECONDS)
-
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
+    if (resendCooldown <= 0) return
+    const timer = setInterval(() => setResendCooldown((v) => (v <= 1 ? 0 : v - 1)), 1000)
     return () => clearInterval(timer)
-  }, [isVerificationModalOpen])
+  }, [resendCooldown])
 
-  // Prevent background scroll while the notice is up
+  // Lock scroll while the phone modal is open
   useEffect(() => {
-    if (!isVerificationModalOpen) return
+    if (!isPhoneVerificationModalOpen) return
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = previous
-    }
-  }, [isVerificationModalOpen])
+    return () => { document.body.style.overflow = previous }
+  }, [isPhoneVerificationModalOpen])
 
-  const closeVerificationModal = () => {
-    if (countdown > 0) return
-    setIsVerificationModalOpen(false)
-    router.push('/')
-  }
-
+ 
   useEffect(() => {
     if (!inactiveNoticeOpen) return
     const timer = window.setInterval(() => {
@@ -204,6 +186,76 @@ export default function StaffBookPage() {
     fetchStaffInfo()
   }, [staffCode])
 
+
+  const sendPhoneVerificationCode = async (bookingId: string) => {
+    setSendingCode(true)
+    setCodeError(null)
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+      const res = await fetch(`${API_URL}/api/bookings/${bookingId}/send-phone-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purpose: 'PHONE_VERIFICATION' }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        setCodeError(data.error || 'Failed to send verification code')
+        if (typeof data.retryAfterSeconds === 'number') setResendCooldown(data.retryAfterSeconds)
+        return false
+      }
+      setResendCooldown(30)
+      return true
+    } catch {
+      setCodeError('Failed to send verification code. Please try again.')
+      return false
+    } finally {
+      setSendingCode(false)
+    }
+  }
+
+  const handleResendCode = async () => {
+    if (!pendingBookingId || resendCooldown > 0) return
+    await sendPhoneVerificationCode(pendingBookingId)
+  }
+
+  const handleVerifyPhoneCode = async () => {
+    if (!pendingBookingId) return
+    if (!verificationCode || verificationCode.length < 4) {
+      setCodeError('Please enter the verification code')
+      return
+    }
+    setVerifyingCode(true)
+    setCodeError(null)
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+      const res = await fetch(`${API_URL}/api/bookings/${pendingBookingId}/verify-phone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: verificationCode, purpose: 'PHONE_VERIFICATION' }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        setCodeError(
+          typeof data.attemptsRemaining === 'number'
+            ? `${data.error || 'Invalid code'} (${data.attemptsRemaining} attempts remaining)`
+            : data.error || 'Invalid verification code'
+        )
+        return
+      }
+
+      setIsPhoneVerificationModalOpen(false)
+      setVerificationCode('')
+      toast({
+        title: 'Booking Confirmed!',
+        description: 'Your phone number has been verified and your appointment is confirmed.',
+      })
+      setTimeout(() => router.push('/'), 1500)
+    } catch {
+      setCodeError('Failed to verify code. Please try again.')
+    } finally {
+      setVerifyingCode(false)
+    }
+  }
   // Generate time slots (30-minute intervals)
   const generateTimeSlots = (openingTime: string, closingTime: string): TimeSlot[] => {
     const slots: TimeSlot[] = []
@@ -520,20 +572,27 @@ export default function StaffBookPage() {
           staff?.services?.find((s: any) => s.serviceId === formData.serviceId)?.service?.name || 'Service'
         const appointmentDetails = `${serviceName} on ${formData.date} at ${formData.time}`
 
+        const createdBooking = bookingData.booking || bookingData
         const isUserVerified =
-          bookingData.user?.isEmailVerified ??
-          bookingData.customer?.isEmailVerified ??
+          createdBooking?.user?.isPhoneVerified ??
+          createdBooking?.customer?.isPhoneVerified ??
           false
 
-        if (!isUserVerified) {
-          setVerificationEmail(bookingData.customerEmail || bookingData.customer?.email || formData.email)
-          setIsVerificationModalOpen(true)
+        if (!isUserVerified && createdBooking?.id) {
+          setPendingBookingId(createdBooking.id)
+          setPhoneToVerify(createdBooking?.customerPhone || formData.phone)
+          setVerificationCode('')
+          setCodeError(null)
 
-          toast({
-            title: 'One more step: verify your email',
-            description: `Your appointment (${appointmentDetails}) is pending until you confirm the verification link we just emailed you.`,
-            variant: 'default',
-          })
+          const sent = await sendPhoneVerificationCode(createdBooking.id)
+          setIsPhoneVerificationModalOpen(true)
+
+          if (sent) {
+            toast({
+              title: 'One more step: verify your phone',
+              description: `Your appointment (${appointmentDetails}) is pending until you enter the code we just texted you.`,
+            })
+          }
           return
         }
 
@@ -811,13 +870,12 @@ export default function StaffBookPage() {
                             type="button"
                             onClick={() => setFormData((prev) => ({ ...prev, time: slot.time }))}
                             disabled={!slot.isAvailable}
-                            className={`w-20 px-3 py-2 text-sm rounded-md border transition-all text-center ${
-                              formData.time === slot.time && slot.isAvailable
+                            className={`w-20 px-3 py-2 text-sm rounded-md border transition-all text-center ${formData.time === slot.time && slot.isAvailable
                                 ? 'bg-primary text-primary-foreground border-primary'
                                 : slot.isAvailable
                                   ? 'border-input hover:border-primary hover:bg-primary/10'
                                   : 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
-                            }`}
+                              }`}
                           >
                             {slot.time}
                           </button>
@@ -858,7 +916,7 @@ export default function StaffBookPage() {
           </CardContent>
         </Card>
       </div>
-       {inactiveNoticeOpen && (
+      {inactiveNoticeOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="inactive-staff-title">
           <Card className="w-full max-w-md shadow-xl">
             <CardHeader>
@@ -875,76 +933,63 @@ export default function StaffBookPage() {
           </Card>
         </div>
       )}
-    
 
-      {/* Unverified customer notice with countdown */}
-      {isVerificationModalOpen && (
+
+      {isPhoneVerificationModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-4"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="verify-title"
-          aria-describedby="verify-description"
+          aria-labelledby="phone-verify-title"
         >
           <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-card-foreground shadow-lg">
             <div className="flex items-start gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                <MailIcon className="h-5 w-5 text-primary" aria-hidden="true" />
+                <Phone className="h-5 w-5 text-primary" aria-hidden="true" />
               </span>
               <div className="flex flex-col gap-1">
-                <h2 id="verify-title" className="text-lg font-semibold leading-6">
-                  Verify your email to confirm
+                <h2 id="phone-verify-title" className="text-lg font-semibold leading-6">
+                  Verify your phone number
                 </h2>
                 <p className="text-sm text-muted-foreground">
-                  Your appointment is on hold until your email is verified.
+                  We sent a code to{' '}
+                  <span className="font-medium text-foreground">{phoneToVerify || 'your phone number'}</span>.
                 </p>
               </div>
             </div>
 
-            <p id="verify-description" className="mt-4 text-sm leading-relaxed text-muted-foreground">
-              We sent a verification link to{' '}
-              <span className="font-medium text-foreground">{verificationEmail || 'your email address'}</span>. Open that
-              link to confirm this booking. You&apos;ll only need to do this once &mdash; future bookings are confirmed
-              instantly.
-            </p>
-
-            <div
-              className="mt-5 flex items-center gap-3 rounded-md border border-border bg-muted/50 px-4 py-3"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              {countdown > 0 ? (
-                <>
-                  <span className="relative flex h-9 w-9 shrink-0 items-center justify-center">
-                    <Loader className="absolute h-9 w-9 animate-spin text-primary/40" aria-hidden="true" />
-                    <span className="text-xs font-semibold tabular-nums text-foreground">{countdown}</span>
-                  </span>
-                  <p className="text-sm text-muted-foreground">
-                    Please check your inbox. You can continue in{' '}
-                    <span className="font-medium tabular-nums text-foreground">
-                      {countdown} second{countdown === 1 ? '' : 's'}
-                    </span>
-                    .
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Didn&apos;t get the email? Check your spam folder, then request a new link from your account page.
-                </p>
-              )}
+            <div className="mt-4">
+              <Label htmlFor="verificationCode">Verification code</Label>
+              <Input
+                id="verificationCode"
+                name="verificationCode"
+                type="text"
+                inputMode="numeric"
+                placeholder="Enter code"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                disabled={verifyingCode}
+                className="mt-1"
+              />
+              {codeError && <p className="text-xs text-red-600 mt-1">{codeError}</p>}
             </div>
 
             <button
               type="button"
-              className={`mt-5 w-full rounded-md px-4 py-2 font-medium transition-colors ${
-                countdown > 0
-                  ? 'cursor-not-allowed bg-muted text-muted-foreground'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
-              }`}
-              disabled={countdown > 0}
-              onClick={closeVerificationModal}
+              onClick={handleVerifyPhoneCode}
+              disabled={verifyingCode || sendingCode}
+              className="mt-4 w-full rounded-md px-4 py-2 font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {countdown > 0 ? `Please wait (${countdown}s)` : 'Got it, thanks'}
+              {verifyingCode ? 'Verifying...' : 'Verify & Confirm Booking'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResendCode}
+              disabled={sendingCode || resendCooldown > 0}
+              className="mt-2 w-full text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+            >
+              {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : sendingCode ? 'Sending...' : "Didn't get a code? Resend"}
             </button>
           </div>
         </div>
