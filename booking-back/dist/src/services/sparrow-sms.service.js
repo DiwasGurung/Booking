@@ -4,8 +4,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SparrowSMSService = void 0;
-const axios_1 = __importDefault(require("axios"));
 const subscription_sms_service_1 = __importDefault(require("./subscription-sms.service"));
+const fixieAxios_1 = require("../utils/fixieAxios");
 const SPARROW_SMS_API_URL = 'https://api.sparrowsms.com/v2/sms/';
 const SPARROW_API_TOKEN = process.env.SPARROW_SMS_TOKEN;
 const SPARROW_SENDER_ID = process.env.SPARROW_SMS_SENDER_ID;
@@ -33,7 +33,7 @@ function formatPhoneNumber(phoneNumber) {
  */
 async function sendToSparrow(to, text) {
     console.log('[v0] Sending SMS via Sparrow:', { SPARROW_API_TOKEN, SPARROW_SENDER_ID, to, text });
-    return axios_1.default.post(SPARROW_SMS_API_URL, null, {
+    return fixieAxios_1.fixieAxios.post(SPARROW_SMS_API_URL, null, {
         params: { token: SPARROW_API_TOKEN, from: SPARROW_SENDER_ID, to, text },
     });
 }
@@ -134,12 +134,12 @@ async function sendAccountSms(phoneNumber, message, type) {
 exports.SparrowSMSService = {
     /** Business-quota-gated — use for Booking verification, tied to a specific business's subscription. */
     async sendVerificationCode(businessId, phoneNumber, code) {
-        const message = `BookFlow: Your OTP for verification is ${code}.`;
+        const message = `Appoint Nepal: Your OTP for verification is ${code}.`;
         return sendSMS(businessId, phoneNumber, message, 'verification');
     },
     /** Ungated — use for User/Staff/Business account phone verification. */
     async sendAccountVerificationCode(phoneNumber, code) {
-        const message = `BookFlow: Your OTP for verification is ${code}.`;
+        const message = `Appoint Nepal: Your OTP for verification is ${code}.`;
         return sendAccountSms(phoneNumber, message, 'verification');
     },
     async sendBookingConfirmation(businessId, phoneNumber, bookingData) {
@@ -150,7 +150,7 @@ Date: ${bookingData.date}
 Time: ${bookingData.time}
 Booking ID: ${bookingData.bookingId}
 
-Thank you for choosing BookFlow!`;
+Thank you for choosing Appoint Nepal!`;
         return sendSMS(businessId, phoneNumber, message, 'booking');
     },
     async sendAppointmentReminder(businessId, phoneNumber, reminderData) {
@@ -189,7 +189,7 @@ See you soon!`;
     Date: ${notificationData.date}
     Time: ${notificationData.time}
 
-Log in to BookFlow dashboard to manage.`;
+Log in to Appoint Nepal dashboard to manage.`;
         return sendSMS(businessId, phoneNumber, message, 'owner_notification');
     },
     async sendBulk(businessId, phoneNumbers, message, type = 'booking') {
