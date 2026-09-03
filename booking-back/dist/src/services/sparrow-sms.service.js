@@ -4,8 +4,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SparrowSMSService = void 0;
+const axios_1 = __importDefault(require("axios"));
 const subscription_sms_service_1 = __importDefault(require("./subscription-sms.service"));
-const fixieAxios_1 = require("../utils/fixieAxios");
 const SPARROW_SMS_API_URL = 'https://api.sparrowsms.com/v2/sms/';
 const SPARROW_API_TOKEN = process.env.SPARROW_SMS_TOKEN;
 const SPARROW_SENDER_ID = process.env.SPARROW_SMS_SENDER_ID;
@@ -32,7 +32,7 @@ function formatPhoneNumber(phoneNumber) {
  * build the request the same, correct way.
  */
 async function sendToSparrow(to, text) {
-    return fixieAxios_1.fixieAxios.post(SPARROW_SMS_API_URL, null, {
+    return axios_1.default.post(SPARROW_SMS_API_URL, null, {
         params: { token: SPARROW_API_TOKEN, from: SPARROW_SENDER_ID, to, text },
     });
 }
