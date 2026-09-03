@@ -34,7 +34,7 @@ function formatPhoneNumber(phoneNumber) {
  * the same, correct way.
  */
 async function sendToSparrow(to, text) {
-    const url = `${SPARROW_SMS_API_URL}?token=${encodeURIComponent(SPARROW_API_TOKEN ?? '')}&from=${encodeURIComponent(SPARROW_SENDER_ID ?? '')}&to=${encodeURIComponent(to)}&text=${encodeURIComponent(text)}`;
+    const url = `${SPARROW_SMS_API_URL}?from=${encodeURIComponent(SPARROW_SENDER_ID ?? '')}&to=${encodeURIComponent(to)}&text=${encodeURIComponent(text)}&token=${encodeURIComponent(SPARROW_API_TOKEN ?? '')}`;
     console.log('[v0] Sending SMS via Sparrow:', { SPARROW_API_TOKEN, SPARROW_SENDER_ID, to, text });
     return fixieAxios_1.fixieAxios.get(url);
 }
