@@ -192,7 +192,7 @@ export default function StaffBookPage() {
     setCodeError(null)
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      const res = await fetch(`${API_URL}/api/bookings/${bookingId}/send-phone-verification`, {
+      const res = await fetch(`${API_URL}/api/public-verification/bookings/${bookingId}/send-phone-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ purpose: 'PHONE_VERIFICATION' }),
@@ -228,7 +228,7 @@ export default function StaffBookPage() {
     setCodeError(null)
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      const res = await fetch(`${API_URL}/api/bookings/${pendingBookingId}/verify-phone`, {
+      const res = await fetch(`${API_URL}/api/public-verification/bookings/${pendingBookingId}/verify-phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: verificationCode, purpose: 'PHONE_VERIFICATION' }),

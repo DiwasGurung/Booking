@@ -144,7 +144,7 @@ function BookingPageContent() {
     setSendingCode(true)
     setCodeError(null)
     try {
-      const res = await fetch(`${API_URL}/api/bookings/${id}/send-phone-verification`, {
+      const res = await fetch(`${API_URL}/api/public-verification/bookings/${id}/send-phone-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ purpose: 'PHONE_VERIFICATION' }),
@@ -179,7 +179,7 @@ function BookingPageContent() {
     setVerifyingCode(true)
     setCodeError(null)
     try {
-      const res = await fetch(`${API_URL}/api/bookings/${bookingId}/verify-phone`, {
+      const res = await fetch(`${API_URL}/api/public-verification/bookings/${bookingId}/verify-phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: verificationCode, purpose: 'PHONE_VERIFICATION' }),
