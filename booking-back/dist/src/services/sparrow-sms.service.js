@@ -48,11 +48,15 @@ async function sendToSparrow(to, text) {
  * as recoverable by the caller (e.g. fall back to email verification)
  * rather than as a hard error.
  */
-async function sendSMS(businessId, phoneNumber, message, type) {
-    const quota = await subscription_sms_service_1.default.checkSmsQuota(businessId);
-    if (!quota.available) {
-        console.warn(`[v0] SMS quota exhausted for business ${businessId} (type: ${type})`);
-        return { success: false, error: 'SMS quota exceeded for this billing period' };
+// Modify sendSMS to include skipQuotaCheck parameter
+async function sendSMS(businessId, phoneNumber, message, type, options) {
+    // Skip quota check if option provided and type is 'verification'
+    if (!(options?.skipQuotaCheck) && type !== 'verification') {
+        const quota = await subscription_sms_service_1.default.checkSmsQuota(businessId);
+        if (!quota.available) {
+            console.warn(`[v0] SMS quota exhausted for business ${businessId} (type: ${type})`);
+            return { success: false, error: 'SMS quota exceeded for this billing period' };
+        }
     }
     if (!SPARROW_API_TOKEN || !SPARROW_SENDER_ID) {
         console.warn('[v0] Sparrow SMS not configured, skipping SMS');
@@ -135,7 +139,7 @@ exports.SparrowSMSService = {
     /** Business-quota-gated — use for Booking verification, tied to a specific business's subscription. */
     async sendVerificationCode(businessId, phoneNumber, code) {
         const message = `Appoint Nepal: Your OTP for verification is ${code}.`;
-        return sendSMS(businessId, phoneNumber, message, 'verification');
+        return sendSMS(businessId, phoneNumber, message, 'verification', { skipQuotaCheck: true });
     },
     /** Ungated — use for User/Staff/Business account phone verification. */
     async sendAccountVerificationCode(phoneNumber, code) {

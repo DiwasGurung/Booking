@@ -61,16 +61,21 @@ async function sendToSparrow(to: string, text: string) {
  * as recoverable by the caller (e.g. fall back to email verification)
  * rather than as a hard error.
  */
+// Modify sendSMS to include skipQuotaCheck parameter
 async function sendSMS(
   businessId: string,
   phoneNumber: string,
   message: string,
-  type: SmsType
+  type: SmsType,
+  options?: { skipQuotaCheck?: boolean }
 ): Promise<SendResult> {
-  const quota = await SubscriptionSmsService.checkSmsQuota(businessId)
-  if (!quota.available) {
-    console.warn(`[v0] SMS quota exhausted for business ${businessId} (type: ${type})`)
-    return { success: false, error: 'SMS quota exceeded for this billing period' }
+  // Skip quota check if option provided and type is 'verification'
+  if (!(options?.skipQuotaCheck) && type !== 'verification') {
+    const quota = await SubscriptionSmsService.checkSmsQuota(businessId)
+    if (!quota.available) {
+      console.warn(`[v0] SMS quota exhausted for business ${businessId} (type: ${type})`)
+      return { success: false, error: 'SMS quota exceeded for this billing period' }
+    }
   }
 
   if (!SPARROW_API_TOKEN || !SPARROW_SENDER_ID) {
@@ -102,10 +107,10 @@ async function sendSMS(
     return { success: false, error: response.data.message }
   } catch (error: any) {
     console.error('[v0] Error sending account SMS via Sparrow:', {
-    status: error.response?.status,
-    data: error.response?.data,
-    message: error.message,
-  })
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    })
     await SubscriptionSmsService.logSmsAttempt({
       businessId, phoneNumber: formattedPhone, message, type, status: 'FAILED', errorMessage: error.message,
     })
@@ -165,7 +170,7 @@ export const SparrowSMSService = {
   /** Business-quota-gated — use for Booking verification, tied to a specific business's subscription. */
   async sendVerificationCode(businessId: string, phoneNumber: string, code: string) {
     const message = `Appoint Nepal: Your OTP for verification is ${code}.`
-    return sendSMS(businessId, phoneNumber, message, 'verification')
+    return sendSMS(businessId, phoneNumber, message, 'verification', { skipQuotaCheck: true } )
   },
 
   /** Ungated — use for User/Staff/Business account phone verification. */
