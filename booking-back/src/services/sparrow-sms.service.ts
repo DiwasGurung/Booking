@@ -33,18 +33,22 @@ function formatPhoneNumber(phoneNumber: string): string {
 }
 
 /**
- * Sparrow's API reads token/from/to/text as query-string parameters
- * (GET-style), not a JSON request body. Sending them as a JSON body with
- * axios.post's default Content-Type: application/json means Sparrow never
- * sees the values and returns an error — this was a likely real cause of
- * silent send failures. Centralized here so both send paths below always
- * build the request the same, correct way.
+ * Sparrow's API reads token/from/to/text as query-string parameters on a
+ * GET request, e.g.:
+ *   https://api.sparrowsms.com/v2/sms/?token=...&from=...&to=...&text=...
+ * We build the URL explicitly (rather than relying on axios's `params`
+ * option) so the request always matches Sparrow's documented format
+ * exactly, and use axios.get to match the GET method Sparrow expects.
+ * Centralized here so both send paths below always build the request
+ * the same, correct way.
  */
 async function sendToSparrow(to: string, text: string) {
+  const url = `${SPARROW_SMS_API_URL}?token=${encodeURIComponent(SPARROW_API_TOKEN ?? '')}&from=${encodeURIComponent(
+    SPARROW_SENDER_ID ?? ''
+  )}&to=${encodeURIComponent(to)}&text=${encodeURIComponent(text)}`
+
   console.log('[v0] Sending SMS via Sparrow:', { SPARROW_API_TOKEN, SPARROW_SENDER_ID, to, text })
-  return fixieAxios.post<SparrowSMSResponse>(SPARROW_SMS_API_URL, null, {
-    params: { token: SPARROW_API_TOKEN, from: SPARROW_SENDER_ID, to, text },
-  })
+  return fixieAxios.get<SparrowSMSResponse>(url)
 }
 
 /**
@@ -161,13 +165,13 @@ async function sendAccountSms(phoneNumber: string, message: string, type: 'verif
 export const SparrowSMSService = {
   /** Business-quota-gated — use for Booking verification, tied to a specific business's subscription. */
   async sendVerificationCode(businessId: string, phoneNumber: string, code: string) {
-    const message = `Appoint Nepal: Your OTP for verification is ${code}.`
+    const message = `BookFlow: Your OTP for verification is ${code}.`
     return sendSMS(businessId, phoneNumber, message, 'verification')
   },
 
   /** Ungated — use for User/Staff/Business account phone verification. */
   async sendAccountVerificationCode(phoneNumber: string, code: string) {
-    const message = `Appoint Nepal: Your OTP for verification is ${code}.`
+    const message = `BookFlow: Your OTP for verification is ${code}.`
     return sendAccountSms(phoneNumber, message, 'verification')
   },
 
@@ -183,7 +187,7 @@ Date: ${bookingData.date}
 Time: ${bookingData.time}
 Booking ID: ${bookingData.bookingId}
 
-Thank you for choosing Appoint Nepal!`
+Thank you for choosing BookFlow!`
     return sendSMS(businessId, phoneNumber, message, 'booking')
   },
 
@@ -244,7 +248,7 @@ See you soon!`
     Date: ${notificationData.date}
     Time: ${notificationData.time}
 
-Log in to Appoint Nepal dashboard to manage.`
+Log in to BookFlow dashboard to manage.`
     return sendSMS(businessId, phoneNumber, message, 'owner_notification')
   },
 
