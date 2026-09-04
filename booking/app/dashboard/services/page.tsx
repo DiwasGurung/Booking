@@ -55,7 +55,7 @@ export default function ServicesPage() {
   const [isServiceActive, setIsServiceActive] = useState(true)
   const bookingUrl = businessId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/book/${businessId}` : ''
   const [isSubmitting, setIsSubmitting] = useState(false)
-   const { usage: subscriptionUsage } = useSubscriptionUsage(businessId)
+  const { usage: subscriptionUsage, refetch: refetchUsage } = useSubscriptionUsage(businessId)
 
 
   useEffect(() => {
@@ -132,15 +132,14 @@ export default function ServicesPage() {
   }
 
   const handleDeleteService = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this service?')) return
-    try {
-      await servicesApi.delete(id)
-      loadServices()
-    } catch (err) {
-      setError('Failed to delete service')
-
-    }
+  if (!confirm('Are you sure you want to delete this service?')) return
+  try {
+    await servicesApi.delete(id)
+    await Promise.all([loadServices(), refetchUsage()])
+  } catch (err) {
+    setError('Failed to delete service')
   }
+}
 
   const createService = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -168,7 +167,7 @@ export default function ServicesPage() {
       }
 
       resetServiceForm()
-      loadServices()
+      await Promise.all([loadServices(), refetchUsage()])
     } catch (err) {
       setError('Failed to save service')
     } finally {

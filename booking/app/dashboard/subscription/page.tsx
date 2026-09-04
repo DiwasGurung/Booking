@@ -33,7 +33,7 @@ interface SubscriptionDetails {
 export default function SubscriptionPage() {
   const router = useRouter()
   const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
-  const { subscriptionStatus, loading: subscriptionLoading, hasValidSubscription } = useSubscriptionStatus()
+  const { subscriptionStatus, loading: subscriptionLoading, hasValidSubscription, refetch: refetchSubscriptionStatus } = useSubscriptionStatus()
   const [subscription, setSubscription] = useState<SubscriptionDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -93,33 +93,35 @@ const currentPlanPrice = subscriptionStatus?.planName ? planPrices[subscriptionS
   
 
   const handleCancelSubscription = async () => {
-    try {
-      if (!subscription?.id) {
-        throw new Error('Subscription ID not found')
-      }
-      
-      setCancelling(true)
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      
-      const response = await fetch(`${API_URL}/api/subscriptions/cancel/${subscription.id}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to cancel subscription')
-      }
-
-      toast.success('Subscription cancelled successfully')
-      setShowCancelDialog(false)
-      await loadSubscription()
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to cancel subscription')
-    } finally {
-      setCancelling(false)
+  try {
+    if (!subscription?.id) {
+      throw new Error('Subscription ID not found')
     }
+
+    setCancelling(true)
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+
+    const response = await fetch(`${API_URL}/api/subscriptions/cancel/${subscription.id}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to cancel subscription')
+    }
+
+    toast.success('Subscription cancelled successfully')
+    setShowCancelDialog(false)
+    // Refresh BOTH copies — the hook's data (what the UI actually renders)
+    // and the local `subscription` state.
+    await Promise.all([loadSubscription(), refetchSubscriptionStatus()])
+  } catch (err: any) {
+    toast.error(err.message || 'Failed to cancel subscription')
+  } finally {
+    setCancelling(false)
   }
+}
 
 const formatDate = (date: string | null | undefined) => {
   if (!date) return 'N/A';

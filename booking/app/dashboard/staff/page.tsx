@@ -78,7 +78,7 @@ export default function StaffPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
-  const { usage: subscriptionUsage } = useSubscriptionUsage(businessId)
+  const { usage: subscriptionUsage, refetch: refetchUsage } = useSubscriptionUsage(businessId)
   const [staffMembers, setStaffMembers] = useState<Staff[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
@@ -203,7 +203,7 @@ export default function StaffPage() {
 
       setIsModalOpen(false)
       setCurrentStep(1)
-      loadStaff()
+      await Promise.all([loadStaff(), refetchUsage()])
     } catch (err) {
       setError('Failed to save staff member')
     } finally {
@@ -224,7 +224,7 @@ export default function StaffPage() {
       }
 
       setError(null)
-      await loadStaff()
+      await Promise.all([loadStaff(), refetchUsage()])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete staff member')
     }
@@ -240,7 +240,7 @@ export default function StaffPage() {
       }
 
       setError(null)
-      await loadStaff()
+      await Promise.all([loadStaff(), refetchUsage()])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to toggle staff status')
     }

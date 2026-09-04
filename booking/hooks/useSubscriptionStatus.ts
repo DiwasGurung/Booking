@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/context/authContext'
 import { useBusinessId } from './useBusinessId'
 
@@ -22,59 +22,59 @@ interface SubscriptionStatus {
 
 export const useSubscriptionStatus = () => {
   const { user, loading: authLoading } = useAuth()
-  const { businessId} = useBusinessId()
+  const { businessId } = useBusinessId()
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const fetchSubscriptionStatus = async () => {
+  const fetchSubscriptionStatus = useCallback(async () => {
     if (!businessId) {
       return
     }
 
-      try {
-        setLoading(true)
-        setError(null)
+    try {
+      setLoading(true)
+      setError(null)
 
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
-        
-        const response = await fetch(`${API_URL}/api/subscriptions/status/${businessId}`, {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          const errorMessage = errorData?.message || `Server returned ${response.status}: ${response.statusText}`
-          console.error('[v0] Subscription status error response:', { status: response.status, error: errorData })
-          throw new Error(errorMessage)
-        }
+      const response = await fetch(`${API_URL}/api/subscriptions/status/${businessId}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
 
-        const data = await response.json()
-        console.log('[v0] Subscription status fetched:', data)
-        setSubscriptionStatus(data)
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-        console.error('[v0] Error fetching subscription status:', errorMessage)
-        setError(errorMessage)
-        
-        // Set default subscription status when there's an error
-        setSubscriptionStatus({
-          hasSubscription: false,
-          status: null,
-          daysRemaining: null,
-          expiresAt: null,
-        })
-      } finally {
-        setLoading(false)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData?.message || `Server returned ${response.status}: ${response.statusText}`
+        console.error('[v0] Subscription status error response:', { status: response.status, error: errorData })
+        throw new Error(errorMessage)
       }
-    }
 
+      const data = await response.json()
+      console.log('[v0] Subscription status fetched:', data)
+      setSubscriptionStatus(data)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      console.error('[v0] Error fetching subscription status:', errorMessage)
+      setError(errorMessage)
+
+      // Set default subscription status when there's an error
+      setSubscriptionStatus({
+        hasSubscription: false,
+        status: null,
+        daysRemaining: null,
+        expiresAt: null,
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [businessId])
+
+  useEffect(() => {
     fetchSubscriptionStatus()
-  }, [businessId, authLoading])
+  }, [fetchSubscriptionStatus, authLoading])
 
   return {
     subscriptionStatus,
@@ -83,5 +83,6 @@ export const useSubscriptionStatus = () => {
     hasValidSubscription:
       subscriptionStatus?.hasSubscription &&
       (subscriptionStatus?.status === 'ACTIVE' || subscriptionStatus?.status === 'TRIAL'),
+    refetch: fetchSubscriptionStatus,
   }
 }
