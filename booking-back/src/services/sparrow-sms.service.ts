@@ -185,13 +185,13 @@ export const SparrowSMSService = {
     bookingData: { businessName: string; serviceName: string; date: string; time: string; bookingId: string }
   ) {
     const message = `Booking Confirmed!
-${bookingData.businessName}
-Service: ${bookingData.serviceName}
-Date: ${bookingData.date}
-Time: ${bookingData.time}
-Booking ID: ${bookingData.bookingId}
+    ${bookingData.businessName}
+    Service: ${bookingData.serviceName}
+    Date: ${bookingData.date}
+    Time: ${bookingData.time}
+    Booking ID: ${bookingData.bookingId}
 
-Thank you for choosing Appoint Nepal!`
+    Thank you for choosing Appoint Nepal!`
     return sendSMS(businessId, phoneNumber, message, 'booking')
   },
 

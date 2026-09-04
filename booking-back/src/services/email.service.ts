@@ -360,103 +360,115 @@ export const emailService = {
       throw error
     }
   },
+/**
+ * Send booking confirmation to customer
+ */
+async sendBookingConfirmationToCustomer(customerEmail: string, bookingDetails: {
+  customerName: string
+  serviceName: string
+  staffName?: string
+  startTime: Date
+  endTime: Date
+  businessName: string
+  businessPhone?: string
+  businessAddress?: string
+}) {
+  try {
+    const transporter = initializeTransporter()
 
-  /**
-   * Send booking confirmation to customer
-   */
-  async sendBookingConfirmationToCustomer(customerEmail: string, bookingDetails: {
-    customerName: string
-    serviceName: string
-    staffName?: string
-    startTime: Date
-    endTime: Date
-    businessName: string
-    businessPhone?: string
-    businessAddress?: string
-  }) {
-    try {
-      const transporter = initializeTransporter()
-      
-      const formattedDate = formatBookingDate(bookingDetails.startTime, {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-      })
-      const formattedStartTime = formatBookingDate(bookingDetails.startTime, {
-        hour: '2-digit', minute: '2-digit'
-      })
-      const formattedEndTime = formatBookingDate(bookingDetails.endTime, {
-        hour: '2-digit', minute: '2-digit'
-      })
+    const formattedDate = formatBookingDate(bookingDetails.startTime, {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    })
+    const formattedStartTime = formatBookingDate(bookingDetails.startTime, {
+      hour: '2-digit', minute: '2-digit'
+    })
+    const formattedEndTime = formatBookingDate(bookingDetails.endTime, {
+      hour: '2-digit', minute: '2-digit'
+    })
 
-      const mailOptions = {
-        from: emailFrom,
-        to: customerEmail,
-        subject: `Booking Confirmed - ${bookingDetails.businessName} - Appoint Nepal`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
-              <h2 style="color: white; margin: 0;">Booking Confirmed!</h2>
+    // Base URL for the "visit us" CTA — set APP_URL in your env, falls back
+    // to the production domain if not configured.
+    const APP_URL = process.env.APP_URL || 'https://appointnepal.com'
+
+    const mailOptions = {
+      from: emailFrom,
+      to: customerEmail,
+      subject: `Booking Confirmed - ${bookingDetails.businessName} - Appoint Nepal`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h2 style="color: white; margin: 0;">Booking Confirmed!</h2>
+          </div>
+          
+          <div style="border: 1px solid #e0e0e0; border-top: none; padding: 20px; border-radius: 0 0 8px 8px;">
+            <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+              Hi <strong>${bookingDetails.customerName}</strong>,<br/><br/>
+              Your booking with <strong>${bookingDetails.businessName}</strong> has been confirmed!
+            </p>
+            
+            <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+              <h3 style="color: #008B8B; margin-top: 0;">Appointment Details</h3>
+              
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #666; width: 120px;">Service:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: bold;">${bookingDetails.serviceName}</td>
+                </tr>
+                ${bookingDetails.staffName ? `
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Staff:</td>
+                  <td style="padding: 8px 0; color: #333;">${bookingDetails.staffName}</td>
+                </tr>
+                ` : ''}
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Date:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: bold;">${formattedDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Time:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: bold;">${formattedStartTime}</td>
+                </tr>
+                ${bookingDetails.businessAddress ? `
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Location:</td>
+                  <td style="padding: 8px 0; color: #333;">${bookingDetails.businessAddress}</td>
+                </tr>
+                ` : ''}
+              </table>
             </div>
             
-            <div style="border: 1px solid #e0e0e0; border-top: none; padding: 20px; border-radius: 0 0 8px 8px;">
-              <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
-                Hi <strong>${bookingDetails.customerName}</strong>,<br/><br/>
-                Your booking with <strong>${bookingDetails.businessName}</strong> has been confirmed!
-              </p>
-              
-              <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                <h3 style="color: #008B8B; margin-top: 0;">Appointment Details</h3>
-                
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tr>
-                    <td style="padding: 8px 0; color: #666; width: 120px;">Service:</td>
-                    <td style="padding: 8px 0; color: #333; font-weight: bold;">${bookingDetails.serviceName}</td>
-                  </tr>
-                  ${bookingDetails.staffName ? `
-                  <tr>
-                    <td style="padding: 8px 0; color: #666;">Staff:</td>
-                    <td style="padding: 8px 0; color: #333;">${bookingDetails.staffName}</td>
-                  </tr>
-                  ` : ''}
-                  <tr>
-                    <td style="padding: 8px 0; color: #666;">Date:</td>
-                    <td style="padding: 8px 0; color: #333; font-weight: bold;">${formattedDate}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #666;">Time:</td>
-                    <td style="padding: 8px 0; color: #333; font-weight: bold;">${formattedStartTime}</td>
-                  </tr>
-                  ${bookingDetails.businessAddress ? `
-                  <tr>
-                    <td style="padding: 8px 0; color: #666;">Location:</td>
-                    <td style="padding: 8px 0; color: #333;">${bookingDetails.businessAddress}</td>
-                  </tr>
-                  ` : ''}
-                </table>
-              </div>
-              
-              ${bookingDetails.businessPhone ? `
-              <p style="color: #666; font-size: 14px;">
-                Need to reschedule? Contact <strong>${bookingDetails.businessName}</strong> at 
-                <a href="tel:${bookingDetails.businessPhone}" style="color: #008B8B;">${bookingDetails.businessPhone}</a>
-              </p>
-              ` : ''}
-              
-              <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
-                Thank you for booking with Appoint Nepal!
-              </p>
-            </div>
-          </div>
-        `,
-      }
+            ${bookingDetails.businessPhone ? `
+            <p style="color: #666; font-size: 14px;">
+              Need to reschedule? Contact <strong>${bookingDetails.businessName}</strong> at 
+              <a href="tel:${bookingDetails.businessPhone}" style="color: #008B8B;">${bookingDetails.businessPhone}</a>
+            </p>
+            ` : ''}
 
-      const result = await transporter.sendMail(mailOptions)
-      console.log('[Email Service] Booking confirmation sent to customer:', customerEmail)
-      return result
-    } catch (error: any) {
-      console.error('[Email Service] Failed to send booking confirmation to customer:', error.message)
-      throw error
+            <div style="text-align: center; margin: 30px 0 10px;">
+              <p style="color: #333; font-size: 14px; margin-bottom: 16px;">
+                Manage your bookings, discover more services, and book your next appointment in seconds.
+              </p>
+              <a href="${APP_URL}" target="_blank" style="display: inline-block; background-color: #008B8B; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 15px; padding: 12px 28px; border-radius: 6px;">
+                Visit Appoint Nepal
+              </a>
+            </div>
+            
+            <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+              Thank you for booking with Appoint Nepal!
+            </p>
+          </div>
+        </div>
+      `,
     }
-  },
+
+    const result = await transporter.sendMail(mailOptions)
+    console.log('[Email Service] Booking confirmation sent to customer:', customerEmail)
+    return result
+  } catch (error: any) {
+    console.error('[Email Service] Failed to send booking confirmation to customer:', error.message)
+    throw error
+  }
+},
 
   /**
    * Send staff email verification

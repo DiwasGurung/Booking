@@ -942,55 +942,63 @@ export default function StaffBookPage() {
           aria-modal="true"
           aria-labelledby="phone-verify-title"
         >
-          <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-card-foreground shadow-lg">
-            <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                <Phone className="h-5 w-5 text-primary" aria-hidden="true" />
-              </span>
-              <div className="flex flex-col gap-1">
-                <h2 id="phone-verify-title" className="text-lg font-semibold leading-6">
-                  Verify your phone number
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  We sent a code to{' '}
-                  <span className="font-medium text-foreground">{phoneToVerify || 'your phone number'}</span>.
-                </p>
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl">
+            <div className="bg-primary px-6 py-7 text-primary-foreground">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-foreground/15 ring-1 ring-primary-foreground/20">
+                  <Phone className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-primary-foreground/75">Booking security</p>
+                  <h2 id="phone-verify-title" className="mt-1 text-xl font-semibold tracking-tight">Verify your phone</h2>
+                </div>
               </div>
             </div>
 
-            <div className="mt-4">
-              <Label htmlFor="verificationCode">Verification code</Label>
-              <Input
-                id="verificationCode"
-                name="verificationCode"
-                type="text"
-                inputMode="numeric"
-                placeholder="Enter code"
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                disabled={verifyingCode}
-                className="mt-1"
-              />
-              {codeError && <p className="text-xs text-red-600 mt-1">{codeError}</p>}
+            <div className="space-y-5 p-6">
+              <div className="rounded-xl border border-border bg-muted/50 px-4 py-3">
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Enter the 6-digit code sent to
+                </p>
+                <p className="mt-1 font-semibold text-foreground">{phoneToVerify || 'your phone number'}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="verificationCode">Verification code</Label>
+                <Input
+                  id="verificationCode"
+                  name="verificationCode"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="000000"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  disabled={verifyingCode}
+                  className="h-12 text-center text-xl font-semibold tracking-[0.45em]"
+                  aria-describedby={codeError ? 'verification-error' : undefined}
+                />
+                {codeError && <p id="verification-error" className="text-sm text-destructive" role="alert">{codeError}</p>}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleVerifyPhoneCode}
+                disabled={verifyingCode || sendingCode}
+                className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {verifyingCode ? 'Verifying...' : 'Verify & Confirm Booking'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResendCode}
+                disabled={sendingCode || resendCooldown > 0}
+                className="w-full text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : sendingCode ? 'Sending...' : "Didn't get a code? Resend"}
+              </button>
             </div>
-
-            <button
-              type="button"
-              onClick={handleVerifyPhoneCode}
-              disabled={verifyingCode || sendingCode}
-              className="mt-4 w-full rounded-md px-4 py-2 font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {verifyingCode ? 'Verifying...' : 'Verify & Confirm Booking'}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleResendCode}
-              disabled={sendingCode || resendCooldown > 0}
-              className="mt-2 w-full text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
-            >
-              {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : sendingCode ? 'Sending...' : "Didn't get a code? Resend"}
-            </button>
           </div>
         </div>
       )}

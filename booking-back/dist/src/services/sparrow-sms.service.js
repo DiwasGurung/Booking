@@ -148,13 +148,13 @@ exports.SparrowSMSService = {
     },
     async sendBookingConfirmation(businessId, phoneNumber, bookingData) {
         const message = `Booking Confirmed!
-${bookingData.businessName}
-Service: ${bookingData.serviceName}
-Date: ${bookingData.date}
-Time: ${bookingData.time}
-Booking ID: ${bookingData.bookingId}
+    ${bookingData.businessName}
+    Service: ${bookingData.serviceName}
+    Date: ${bookingData.date}
+    Time: ${bookingData.time}
+    Booking ID: ${bookingData.bookingId}
 
-Thank you for choosing Appoint Nepal!`;
+    Thank you for choosing Appoint Nepal!`;
         return sendSMS(businessId, phoneNumber, message, 'booking');
     },
     async sendAppointmentReminder(businessId, phoneNumber, reminderData) {

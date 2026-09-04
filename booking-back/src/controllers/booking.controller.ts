@@ -5,21 +5,45 @@ import NotificationService from "../services/notification.service";
 import NotificationSSEService from "../services/notification-sse.service";
 import { emailService } from "../services/email.service";
 import SubscriptionService from "../services/subscription.service";
+import SparrowSMSService from "../services/sparrow-sms.service";
 import prisma from "../lib/prisma";
 import { CreateBookingSchema, parseAndValidate } from "../validators/index";
 import type { BookingStatus } from "@prisma/client";
-import {DateTime} from 'luxon'
-import SparrowSMSService from "../services/sparrow-sms.service";
+import { DateTime } from 'luxon'
 
-const ENTERPRISE_PLAN = "ENTERPRISE" 
+// Adjust to match your SubscriptionPlan enum's actual value for Enterprise.
+const ENTERPRISE_PLAN = "ENTERPRISE"
 
+type ConfirmationBusiness = {
+  name: string
+  phone?: string | null
+  address?: string | null
+  subscription?: { plan: { name: string } } | null
+}
+
+type ConfirmationBooking = {
+  id: string
+  customerName: string
+  customerEmail: string
+  customerPhone: string
+  startTime: Date
+  endTime: Date
+}
+
+/**
+ * Sends the customer-facing booking confirmation via the channel that
+ * matches the business's plan: SMS for Enterprise, email for everyone
+ * else. Fires unconditionally at booking-creation time — independent of
+ * email/phone verification, which is a separate follow-up step for
+ * unverified customers, not a gate on this confirmation.
+ */
 async function sendBookingConfirmationByPlan(
   businessId: string,
-  business: { name: string; phone?: string | null; address?: string | null; subscription?: { plan: string } | null },
-  booking: { id: string; customerName: string; customerEmail: string; customerPhone: string; startTime: Date; endTime: Date },
+  business: ConfirmationBusiness,
+  booking: ConfirmationBooking,
   serviceName: string
 ) {
-  const isEnterprise = business.subscription?.plan === ENTERPRISE_PLAN
+const isEnterprise = business.subscription?.plan?.name === ENTERPRISE_PLAN
 
   if (isEnterprise) {
     if (!booking.customerPhone) {
@@ -49,8 +73,6 @@ async function sendBookingConfirmationByPlan(
 }
 
 class BookingController {
-
-  
 
   /**
    * Create a booking for BUSINESS - Authenticated User
@@ -142,6 +164,20 @@ class BookingController {
         }
       })
 
+      // Send confirmation (SMS for Enterprise, email otherwise) — fires
+      // every time, regardless of verification state.
+      try {
+        const businessForNotify = await prisma.business.findUnique({
+  where: { id: businessId },
+  include: { subscription: { select: { plan: { select: { name: true } } } } },
+})
+        if (businessForNotify) {
+          await sendBookingConfirmationByPlan(businessId, businessForNotify, booking, service.name)
+        }
+      } catch (notifyError) {
+        console.error('[v0] Failed to send booking confirmation:', notifyError)
+      }
+
       return res.status(201).json({
         success: true,
         message: "Booking created successfully!",
@@ -152,8 +188,6 @@ class BookingController {
       res.status(500).json({ success: false, error: error?.message || "Failed to create booking" })
     }
   }
-
-  
 
   /**
    * Create a BUSINESS PUBLIC booking for guests
@@ -233,7 +267,8 @@ class BookingController {
 
       const { DateTime } = require('luxon');
       // If the customer already verified their email before, confirm directly.
-      // Otherwise create as UNVERIFIED and send a verification email.
+      // Otherwise create as UNVERIFIED and send a verification email (in
+      // addition to the confirmation below, which always goes out).
       const alreadyVerified = customer.isEmailVerified === true
 
       const verificationToken = alreadyVerified ? null : randomBytes(32).toString('hex')
@@ -256,7 +291,11 @@ class BookingController {
           business: { connect: { id: businessId } },
           staff: { connect: { id: assignedStaffId } }
         },
-        include: { staff: true, service: true, business: true }
+        include: {
+  staff: true,
+  service: true,
+  business: { include: { subscription: { select: { plan: { select: { name: true } } } } } },
+}
       })
 
        // Format in the business timezone so the server's UTC clock doesn't shift the time.
@@ -277,22 +316,17 @@ const bookingTime = dt.setLocale('en').toLocaleString({
   minute: '2-digit'
 });
 
-      if (alreadyVerified) {
-        // Verified customer: send booking confirmation directly, no verification step.
-        try {
-          await emailService.sendBookingConfirmationToCustomer(customerEmail, {
-            customerName,
-            serviceName: booking.service.name,
-            startTime: booking.startTime,
-            endTime: booking.endTime,
-            businessName: booking.business.name,
-            businessPhone: booking.business.phone || '',
-            businessAddress: booking.business.address || '',
-          })
-        } catch (emailError) {
-          console.error('[v0] Failed to send confirmation email:', emailError)
-        }
+      // Confirmation (SMS for Enterprise, email otherwise) goes out
+      // immediately on every booking, regardless of verification status.
+      // Verification (below) is a separate, additional step for
+      // unverified customers — it does not gate this confirmation.
+      try {
+        await sendBookingConfirmationByPlan(businessId, booking.business, booking, booking.service.name)
+      } catch (notifyError) {
+        console.error('[v0] Failed to send booking confirmation:', notifyError)
+      }
 
+      if (alreadyVerified) {
          res.status(201).json({
           success: true,
           message: "Booking confirmed! Check your email for the details.",
@@ -301,7 +335,7 @@ const bookingTime = dt.setLocale('en').toLocaleString({
         return
       }
 
-      // Unverified customer: send verification email with booking details.
+      // Unverified customer: also send the verification email with booking details.
       try {
         await emailService.sendVerificationCustomerEmail(customerEmail, verificationToken!, {
           customerName,
@@ -310,7 +344,7 @@ const bookingTime = dt.setLocale('en').toLocaleString({
           time: bookingTime,
           startTime: booking.startTime,
           endTime: booking.endTime,
-          staffName: booking.staff?`${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined,
+          staffName: booking.staff ?`${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined,
         })
       } catch (emailError) {
         console.error('[v0] Failed to send verification email:', emailError)
@@ -407,9 +441,9 @@ const bookingTime = dt.setLocale('en').toLocaleString({
 
       // Verify business exists
       const business = await prisma.business.findUnique({
-        where: { id: businessId },
-        include: { user: true },
-      })
+  where: { id: businessId },
+  include: { user: true, subscription: { select: { plan: { select: { name: true } } } } },
+})
 
       if (!business) {
         return res.status(404).json({
@@ -525,20 +559,13 @@ const bookingTime = dt.setLocale('en').toLocaleString({
         emailWarnings.push('Unable to notify business owner due to email delivery issue')
       }
 
-      // Send confirmation email to authenticated user
+      // Send confirmation to authenticated user — SMS for Enterprise plan,
+      // email otherwise. Fires unconditionally.
       try {
-        await emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
-          customerName: booking.customerName,
-          serviceName: service.name,
-          startTime: booking.startTime,
-          endTime: booking.endTime,
-          businessName: business.name,
-          businessPhone: business.phone || '',
-          businessAddress: business.address || '',
-        })
-      } catch (emailError: any) {
-        console.error('[v0] Failed to send confirmation email to customer:', emailError)
-        emailWarnings.push('Confirmation email could not be sent to ' + booking.customerEmail)
+        await sendBookingConfirmationByPlan(businessId, business, booking, service.name)
+      } catch (notifyError: any) {
+        console.error('[v0] Failed to send booking confirmation to customer:', notifyError)
+        emailWarnings.push('Confirmation could not be sent to ' + booking.customerEmail)
       }
 
       res.status(201).json({
@@ -879,9 +906,9 @@ const bookingTime = dt.setLocale('en').toLocaleString({
 
       // Verify business exists
       const business = await prisma.business.findUnique({
-        where: { id: businessId },
-        include: { user: true },
-      })
+  where: { id: businessId },
+  include: { user: true, subscription: { select: { plan: { select: { name: true } } } } },
+})
 
       if (!business) {
         return res.status(404).json({
@@ -1036,6 +1063,15 @@ const bookingTime = dt.setLocale('en').toLocaleString({
         emailWarnings.push('Unable to notify business owner due to email delivery issue')
       }
 
+      // Send confirmation to the customer — SMS for Enterprise plan, email
+      // otherwise. Fires unconditionally, independent of verification state.
+      try {
+        await sendBookingConfirmationByPlan(businessId, business, booking, service.name)
+      } catch (notifyError: any) {
+        console.error('[v0] Failed to send booking confirmation:', notifyError)
+        emailWarnings.push('Confirmation could not be sent to ' + customerEmail)
+      }
+
       // Send verification email only for NEW customers (existing customers are auto-confirmed)
       if (!alreadyVerified && verificationToken) {
         try {
@@ -1152,8 +1188,10 @@ const bookingTime = dt.setLocale('en').toLocaleString({
       },
     });
 
-  
-    // await emailService.sendBookingConfirmationToCustomer(confirmedBooking.customerEmail, { ... })
+    // NOTE: the booking confirmation (SMS/email) is already sent at
+    // creation time in createBusinessPublicBooking / createPublicBooking,
+    // regardless of verification status — so nothing is sent here to
+    // avoid a duplicate confirmation. This step only unlocks the booking.
 
     // Respond success
     return res.status(200).json({
