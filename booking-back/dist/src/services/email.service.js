@@ -341,7 +341,7 @@ exports.emailService = {
             });
             // Base URL for the "visit us" CTA — set APP_URL in your env, falls back
             // to the production domain if not configured.
-            const APP_URL = process.env.APP_URL || 'https://appointnepal.com';
+            const APP_URL = process.env.APP_URL || 'https://appoint-nepal.com';
             const mailOptions = {
                 from: emailFrom,
                 to: customerEmail,
@@ -391,7 +391,7 @@ exports.emailService = {
             
             ${bookingDetails.businessPhone ? `
             <p style="color: #666; font-size: 14px;">
-              Need to reschedule? Contact <strong>${bookingDetails.businessName}</strong> at 
+              Need to Cancel or reschedule? Contact <strong>${bookingDetails.businessName}</strong> at 
               <a href="tel:${bookingDetails.businessPhone}" style="color: #008B8B;">${bookingDetails.businessPhone}</a>
             </p>
             ` : ''}
@@ -418,6 +418,147 @@ exports.emailService = {
         }
         catch (error) {
             console.error('[Email Service] Failed to send booking confirmation to customer:', error.message);
+            throw error;
+        }
+    },
+    /**
+     * Send a same-day appointment reminder to a customer whose plan uses
+     * email (not SMS) for reminders. Only fired for bookings still ahead
+     * of "now" — see BookingController.sendTodayReminders.
+     */
+    async sendAppointmentReminder(customerEmail, reminderDetails) {
+        try {
+            const transporter = initializeTransporter();
+            const formattedDate = formatBookingDate(reminderDetails.startTime, {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            });
+            const formattedTime = formatBookingDate(reminderDetails.startTime, {
+                hour: '2-digit', minute: '2-digit'
+            });
+            const mailOptions = {
+                from: emailFrom,
+                to: customerEmail,
+                subject: `Reminder: Your appointment today at ${reminderDetails.businessName}`,
+                html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #008B8B; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h2 style="color: white; margin: 0;">Appointment Reminder</h2>
+          </div>
+
+          <div style="border: 1px solid #e0e0e0; border-top: none; padding: 20px; border-radius: 0 0 8px 8px;">
+            <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+              Hi <strong>${reminderDetails.customerName}</strong>,<br/><br/>
+              Just a reminder — you have an appointment with <strong>${reminderDetails.businessName}</strong> today.
+            </p>
+
+            <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #666; width: 120px;">Service:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: bold;">${reminderDetails.serviceName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Date:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: bold;">${formattedDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Time:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: bold;">${formattedTime}</td>
+                </tr>
+                ${reminderDetails.businessAddress ? `
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Location:</td>
+                  <td style="padding: 8px 0; color: #333;">${reminderDetails.businessAddress}</td>
+                </tr>
+                ` : ''}
+              </table>
+            </div>
+
+            ${reminderDetails.businessPhone ? `
+            <p style="color: #666; font-size: 14px;">
+              Need to reschedule? Contact <strong>${reminderDetails.businessName}</strong> at
+              <a href="tel:${reminderDetails.businessPhone}" style="color: #008B8B;">${reminderDetails.businessPhone}</a>
+            </p>
+            ` : ''}
+
+            <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+              See you soon — Appoint Nepal
+            </p>
+          </div>
+        </div>
+      `,
+            };
+            const result = await transporter.sendMail(mailOptions);
+            console.log('[Email Service] Reminder sent to customer:', customerEmail);
+            return result;
+        }
+        catch (error) {
+            console.error('[Email Service] Failed to send reminder to customer:', error.message);
+            throw error;
+        }
+    },
+    async sendBookingCancellationToCustomer(customerEmail, cancellationDetails) {
+        try {
+            const transporter = initializeTransporter();
+            const formattedDate = formatBookingDate(cancellationDetails.startTime, {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            });
+            const formattedTime = formatBookingDate(cancellationDetails.startTime, {
+                hour: '2-digit', minute: '2-digit'
+            });
+            const mailOptions = {
+                from: emailFrom,
+                to: customerEmail,
+                subject: `Booking Cancelled - ${cancellationDetails.businessName} - Appoint Nepal`,
+                html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #DC2626; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h2 style="color: white; margin: 0;">Booking Cancelled</h2>
+          </div>
+
+          <div style="border: 1px solid #e0e0e0; border-top: none; padding: 20px; border-radius: 0 0 8px 8px;">
+            <p style="color: #333; font-size: 16px; margin-bottom: 20px;">
+              Hi <strong>${cancellationDetails.customerName}</strong>,<br/><br/>
+              Your booking with <strong>${cancellationDetails.businessName}</strong> has been cancelled.
+            </p>
+
+            <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #666; width: 120px;">Service:</td>
+                  <td style="padding: 8px 0; color: #333; font-weight: bold;">${cancellationDetails.serviceName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Date:</td>
+                  <td style="padding: 8px 0; color: #333;">${formattedDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;">Time:</td>
+                  <td style="padding: 8px 0; color: #333;">${formattedTime}</td>
+                </tr>
+              </table>
+            </div>
+
+            ${cancellationDetails.businessPhone ? `
+            <p style="color: #666; font-size: 14px;">
+              Questions? Contact <strong>${cancellationDetails.businessName}</strong> at
+              <a href="tel:${cancellationDetails.businessPhone}" style="color: #008B8B;">${cancellationDetails.businessPhone}</a>
+            </p>
+            ` : ''}
+
+            <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">
+              Appoint Nepal
+            </p>
+          </div>
+        </div>
+      `,
+            };
+            const result = await transporter.sendMail(mailOptions);
+            console.log('[Email Service] Cancellation email sent to customer:', customerEmail);
+            return result;
+        }
+        catch (error) {
+            console.error('[Email Service] Failed to send cancellation email to customer:', error.message);
             throw error;
         }
     },

@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
 import { bookingsApi, staffApi, type Staff } from '@/lib/api'
-import { Calendar, Loader, AlertCircle, Search, X, Download } from 'lucide-react'
+import { Calendar, Loader, AlertCircle, Search, X, Download , Bell} from 'lucide-react'
 import Link from 'next/link'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
@@ -45,7 +45,16 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
    const { subscriptionStatus } = useSubscriptionStatus()
+   const planName = (subscriptionStatus?.planName || '').toUpperCase()
   const canExportBookings = ['PROFESSIONAL', 'ENTERPRISE', 'PRO'].includes((subscriptionStatus?.planName || '').toUpperCase())
+  // Reminder eligibility: Enterprise sends via SMS (bulk), Pro/Professional via email.
+const isEnterprisePlan = planName === 'ENTERPRISE'
+const isProPlan = planName === 'PRO' || planName === 'PROFESSIONAL'
+const canSendReminders = isEnterprisePlan || isProPlan
+
+const [sendingReminders, setSendingReminders] = useState(false)
+const [reminderMessage, setReminderMessage] = useState<string | null>(null)
+const [reminderError, setReminderError] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
@@ -130,6 +139,35 @@ export default function BookingsPage() {
         .catch(() => setStaff([]))
     }
   }, [businessId])
+
+
+  const handleSendReminders = async () => {
+  if (!businessId || !canSendReminders || sendingReminders) return
+
+  try {
+    setSendingReminders(true)
+    setReminderMessage(null)
+    setReminderError(false)
+
+    const channel: 'sms' | 'email' = isEnterprisePlan ? 'sms' : 'email'
+    const response = await bookingsApi.sendTodayReminders(businessId, channel)
+
+    if (response.success) {
+      const count = (response.data as any)?.count
+      setReminderMessage(
+        `Reminders sent${count != null ? ` to ${count}` : ''} via ${channel === 'sms' ? 'SMS' : 'email'}.`
+      )
+    } else {
+      setReminderError(true)
+      setReminderMessage(response.error || 'Failed to send reminders')
+    }
+  } catch (err) {
+    setReminderError(true)
+    setReminderMessage('Error sending reminders')
+  } finally {
+    setSendingReminders(false)
+  }
+}
 
   const loadBookings = async () => {
     if (!businessId) return
@@ -240,6 +278,12 @@ export default function BookingsPage() {
             <h1 className="text-3xl font-bold text-slate-900">Bookings</h1>
             <p className="text-slate-500">Manage all customer bookings</p>
           </div>
+           {canSendReminders && (
+      <Button onClick={handleSendReminders} disabled={sendingReminders} variant="outline">
+        <Bell className="mr-2 h-4 w-4" />
+        {sendingReminders ? 'Sending...' : "Remind Today's Customers"}
+      </Button>
+    )}
            {canExportBookings && (
            <Button onClick={downloadBookingsPdf} disabled={loading || visibleBookings.length === 0} variant="outline">
               <Download className="mr-2 h-4 w-4" />
@@ -247,6 +291,17 @@ export default function BookingsPage() {
             </Button>
           )}
         </div>
+
+        {reminderMessage && (
+  <div
+    className={`mb-6 p-3 rounded-lg border text-sm ${
+      reminderError ? 'bg-red-50 border-red-200 text-red-900' : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+    }`}
+  >
+    {reminderMessage}
+  </div>
+)}
+        
 
         {/* Status Filters */}
         <div className="mb-6 flex flex-wrap gap-2">
@@ -423,45 +478,56 @@ export default function BookingsPage() {
                           <span>Rs.{(booking.service?.price ?? 0).toFixed(2)}</span>
                         )}
                       <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2 items-center">
-                          {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
-                            <>
-                              <Button
-                                size="sm"
-                                className="bg-blue-600 hover:bg-blue-700 text-white"
-                                onClick={() => {
-                                  setSelectedBookingId(booking.id)
-                                  setNewStatus(
-                                    booking.status === 'PENDING'
-                                      ? 'CONFIRMED'
-                                      : booking.status === 'CONFIRMED'
-                                        ? 'COMPLETED'
-                                        : null
-                                  )
-                                }}
-                                title={booking.status === 'PENDING' ? 'Confirm booking' : 'Mark as completed'}
-                              >
-                                {booking.status === 'PENDING'
-                                  ? 'Confirm'
-                                  : booking.status === 'CONFIRMED'
-                                    ? 'Complete'
-                                    : null}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => {
-                                  setSelectedBookingId(booking.id)
-                                  setNewStatus('CANCELLED')
-                                }}
-                                title="Cancel booking"
-                              >
-                                Cancel
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </td>
+  <div className="flex justify-end gap-2 items-center">
+    {booking.status === 'UNVERIFIED' ? (
+      <Button
+        size="sm"
+        variant="destructive"
+        onClick={() => {
+          setSelectedBookingId(booking.id)
+          setNewStatus('CANCELLED')
+        }}
+        title="Cancel booking"
+      >
+        Cancel
+      </Button>
+    ) : (
+      booking.status !== 'CANCELLED' &&
+      booking.status !== 'COMPLETED' && (
+        <>
+          <Button
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={() => {
+              setSelectedBookingId(booking.id)
+              setNewStatus(
+                booking.status === 'PENDING'
+                  ? 'CONFIRMED'
+                  : booking.status === 'CONFIRMED'
+                    ? 'COMPLETED'
+                    : null
+              )
+            }}
+            title={booking.status === 'PENDING' ? 'Confirm booking' : 'Mark as completed'}
+          >
+            {booking.status === 'PENDING' ? 'Confirm' : booking.status === 'CONFIRMED' ? 'Complete' : null}
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => {
+              setSelectedBookingId(booking.id)
+              setNewStatus('CANCELLED')
+            }}
+            title="Cancel booking"
+          >
+            Cancel
+          </Button>
+        </>
+      )
+    )}
+  </div>
+</td>
                     </tr>
                   ))}
                 </tbody>

@@ -37,4 +37,7 @@ bookingRoutes.post("/business", auth_middleware_1.auth, booking_controller_1.def
 bookingRoutes.get("/business/businesses/:businessId/services/:serviceId/available-slots", booking_controller_1.default.getBusinessAvailableSlots);
 // Get all bookings for a specific user/customer
 bookingRoutes.get("/users/:userId/bookings", auth_middleware_1.auth, booking_controller_1.default.getCustomerBookings);
+// booking.routes.ts
+bookingRoutes.post('/business/:businessId/bookings/remind-today', auth_middleware_1.auth, // whatever your existing owner-auth middleware is called
+booking_controller_1.default.sendTodayReminders);
 exports.default = bookingRoutes;
