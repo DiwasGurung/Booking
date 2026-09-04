@@ -9,8 +9,48 @@ import prisma from "../lib/prisma";
 import { CreateBookingSchema, parseAndValidate } from "../validators/index";
 import type { BookingStatus } from "@prisma/client";
 import {DateTime} from 'luxon'
+import SparrowSMSService from "../services/sparrow-sms.service";
+
+const ENTERPRISE_PLAN = "ENTERPRISE" 
+
+async function sendBookingConfirmationByPlan(
+  businessId: string,
+  business: { name: string; phone?: string | null; address?: string | null; subscription?: { plan: string } | null },
+  booking: { id: string; customerName: string; customerEmail: string; customerPhone: string; startTime: Date; endTime: Date },
+  serviceName: string
+) {
+  const isEnterprise = business.subscription?.plan === ENTERPRISE_PLAN
+
+  if (isEnterprise) {
+    if (!booking.customerPhone) {
+      console.warn(`[v0] Enterprise business ${businessId} booking ${booking.id} has no customer phone; skipping SMS confirmation`)
+      return
+    }
+    const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
+    const dt = DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ })
+    return SparrowSMSService.sendBookingConfirmation(businessId, booking.customerPhone, {
+      businessName: business.name,
+      serviceName,
+      date: dt.setLocale('en').toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
+      bookingId: booking.id,
+    })
+  }
+
+  return emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
+    customerName: booking.customerName,
+    serviceName,
+    startTime: booking.startTime,
+    endTime: booking.endTime,
+    businessName: business.name,
+    businessPhone: business.phone || '',
+    businessAddress: business.address || '',
+  })
+}
 
 class BookingController {
+
+  
 
   /**
    * Create a booking for BUSINESS - Authenticated User
@@ -112,6 +152,8 @@ class BookingController {
       res.status(500).json({ success: false, error: error?.message || "Failed to create booking" })
     }
   }
+
+  
 
   /**
    * Create a BUSINESS PUBLIC booking for guests
