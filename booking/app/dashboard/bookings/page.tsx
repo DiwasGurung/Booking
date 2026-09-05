@@ -1,54 +1,125 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
 import { bookingsApi, staffApi, type Staff } from '@/lib/api'
-import { Calendar, Loader, AlertCircle, Eye, Download, LayoutGrid, List, X } from 'lucide-react'
+import { Calendar, Loader, AlertCircle, Search, X, Download , Bell} from 'lucide-react'
 import Link from 'next/link'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 interface Booking {
   id: string
   customerName: string
   customerEmail?: string
   serviceId: string
-  service?: { name: string; price: number }
+  customerPhone?: string
+ service?: { name: string; price: number; offerPrice?: number | null }
   startTime: string
   endTime: string
   status: string
   notes?: string
+  staff?: { firstName: string; lastName: string }
 }
+
+type StatusFilter = 'ALL' | 'UNVERIFIED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
+type RangeFilter ='ALL'| 'today' | 'tomorrow' | 'week' | 'nextWeek' | 'month'
+
+const STATUS_FILTERS: StatusFilter[] = ['ALL', 'UNVERIFIED','CONFIRMED', 'COMPLETED', 'CANCELLED']
+
+// Statuses the backend endpoint actually validates/accepts as a `status` query param.
+// Anything else must be filtered on the client (the server ignores unknown values
+// and returns everything, which is what made the filters look broken).
+const SERVER_SUPPORTED: StatusFilter[] = [ 'CONFIRMED', 'CANCELLED']
+
+const PAGE_SIZE = 10
 
 export default function BookingsPage() {
   const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
-  const { subscriptionStatus } = useSubscriptionStatus()
-  const canExportBookings = ['PROFESSIONAL', 'ENTERPRISE', 'PRO'].includes((subscriptionStatus?.planName || '').toUpperCase())
   const [bookings, setBookings] = useState<Booking[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
+   const { subscriptionStatus } = useSubscriptionStatus()
+   const planName = (subscriptionStatus?.planName || '').toUpperCase()
+  const canExportBookings = ['PROFESSIONAL', 'ENTERPRISE'].includes((subscriptionStatus?.planName || '').toUpperCase())
+  // Reminder eligibility: Enterprise sends via SMS (bulk), Pro/Professional via email.
+const isEnterprisePlan = planName === 'ENTERPRISE'
+const isProPlan = planName === 'PRO' || planName === 'PROFESSIONAL'
+const canSendReminders = isEnterprisePlan || isProPlan
+
+const [sendingReminders, setSendingReminders] = useState(false)
+const [reminderMessage, setReminderMessage] = useState<string | null>(null)
+const [reminderError, setReminderError] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [filterStatus, setFilterStatus] = useState('ALL')
-  const [filterStaffId, setFilterStaffId] = useState('ALL')
-  const [filterVerification, setFilterVerification] = useState('ALL')
-  const [filterRange, setFilterRange] = useState<'today' | 'week' | 'month'>('month')
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>('ALL')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterStaffId, setFilterStaffId] = useState<string>('ALL')
+  const [filterRange, setFilterRange] = useState<RangeFilter>('ALL')
   const [staff, setStaff] = useState<Staff[]>([])
   const [page, setPage] = useState(1)
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
   const [newStatus, setNewStatus] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [updateError, setUpdateError] = useState('')
-  const [bookingView, setBookingView] = useState<'comfortable' | 'compact'>('comfortable')
+  const [hasMore, setHasMore] = useState(false)
+
+  const downloadBookingsPdf = () => {
+  if (!canExportBookings || visibleBookings.length === 0) return
+
+  const doc = new jsPDF()
+
+  doc.setFontSize(16)
+  doc.text('Bookings', 14, 18)
+  doc.setFontSize(10)
+  doc.setTextColor(100)
+  doc.text(`Filtered bookings · ${new Date().toLocaleDateString()}`, 14, 24)
+
+  autoTable(doc, {
+    startY: 30,
+    head: [['Customer', 'Email', 'Phone', 'Service', 'Date & Time', 'Status', 'Amount']],
+    body: visibleBookings.map((booking) => [
+      booking.customerName || 'N/A',
+      booking.customerEmail || 'N/A',
+      booking.customerPhone || 'N/A',
+      booking.service?.name || 'N/A',
+      new Date(booking.startTime).toLocaleString(),
+      booking.status,
+      `Rs. ${(booking.service?.offerPrice ?? booking.service?.price ?? 0).toFixed(2)}`,
+    ]),
+    headStyles: { fillColor: [241, 245, 249], textColor: 20, fontStyle: 'bold' },
+    styles: { fontSize: 9, cellPadding: 4 },
+    theme: 'grid',
+  })
+
+  doc.save(`bookings-${new Date().toISOString().slice(0, 10)}.pdf`)
+}
 
   const getDateRange = () => {
+
+    if (filterRange === 'ALL') {
+      return { startDate: null, endDate: null }
+    }
     const end = new Date()
     const start = new Date(end)
-    if (filterRange === 'today') start.setHours(0, 0, 0, 0)
-    if (filterRange === 'week') start.setDate(end.getDate() - 7)
-    if (filterRange === 'month') start.setDate(end.getDate() - 30)
+    if (filterRange === 'today') {
+      start.setHours(0, 0, 0, 0)
+    } else if (filterRange === 'tomorrow') {
+      start.setDate(end.getDate() + 1)
+      start.setHours(0, 0, 0, 0)
+      end.setDate(end.getDate() + 1)
+    } else if (filterRange === 'week') {
+      start.setDate(end.getDate() - 7)
+    } else if (filterRange === 'nextWeek') {
+      start.setDate(end.getDate() + 1)
+      end.setDate(end.getDate() + 7)
+    } else if (filterRange === 'month') {
+      start.setDate(end.getDate() - 30)
+    }
     end.setHours(23, 59, 59, 999)
     return { startDate: start.toISOString(), endDate: end.toISOString() }
   }
@@ -57,82 +128,134 @@ export default function BookingsPage() {
     if (businessId) {
       loadBookings()
     }
-  }, [page, filterStatus, filterStaffId, filterVerification, filterRange, businessId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, filterStatus, filterStaffId, filterRange, businessId])
 
   useEffect(() => {
     if (businessId) {
-      staffApi.getBusinessStaff(businessId).then(response => setStaff(response.data?.staff || [])).catch(() => setStaff([]))
+      staffApi
+        .getBusinessStaff(businessId)
+        .then((response) => setStaff(response.data?.staff || []))
+        .catch(() => setStaff([]))
     }
   }, [businessId])
 
 
+ const [remindersSentToday, setRemindersSentToday] = useState(false)
+
+const handleSendReminders = async () => {
+  if (!businessId || !canSendReminders || sendingReminders || remindersSentToday) return
+
+  try {
+    setSendingReminders(true)
+    setReminderMessage(null)
+    setReminderError(false)
+
+    const response = await bookingsApi.sendTodayReminders(businessId)
+
+    if (response.success) {
+      const { count, channel } = response.data!
+      setReminderMessage(`Reminders sent to ${count} customer${count === 1 ? '' : 's'} via ${channel === 'sms' ? 'SMS' : 'email'}.`)
+      if (count > 0) setRemindersSentToday(true)
+    } else if (response.error?.toLowerCase().includes('already sent today')) {
+      setReminderError(true)
+      setReminderMessage(response.error)
+      setRemindersSentToday(true)
+    } else {
+      setReminderError(true)
+      setReminderMessage(response.error || 'Failed to send reminders')
+    }
+  } catch (err) {
+    setReminderError(true)
+    setReminderMessage('Error sending reminders')
+  } finally {
+    setSendingReminders(false)
+  }
+}
+
   const loadBookings = async () => {
     if (!businessId) return
     try {
-      setIsLoading(true)
+      setLoading(true)
+      setError(null)
       const { startDate, endDate } = getDateRange()
+      const staffParam = filterStaffId !== 'ALL' ? filterStaffId : undefined
+
+      // Only send `status` when the backend actually supports it. For UNVERIFIED /
+      // COMPLETED / ALL we fetch broadly and narrow on the client below.
+      const statusParam = SERVER_SUPPORTED.includes(filterStatus) ? filterStatus : undefined
+
       const response = await bookingsApi.getBusinessBookings(
         businessId,
         page,
-        10,
-        filterStatus !== 'ALL' ? filterStatus : undefined,
-        filterStaffId !== 'ALL' ? filterStaffId : undefined,
-        filterVerification === 'ALL' ? undefined : filterVerification === 'VERIFIED',
-        startDate,
-        endDate,
+        PAGE_SIZE,
+        statusParam,
+        startDate || undefined,
+        endDate || undefined,
+        staffParam
       )
-      const data = Array.isArray(response.data) ? response.data : response.data?.bookings || []
-      setBookings(data)
-      setError(null)
+
+      if (!response.success) {
+        setError(response.error || 'Failed to load bookings')
+        setBookings([])
+        setHasMore(false)
+        return
+      }
+
+      const fetched: Booking[] = Array.isArray(response.data)
+        ? (response.data as Booking[])
+        : ((response.data as any)?.bookings ?? [])
+
+      setBookings(fetched)
+      // Fix: derive hasMore from the data we JUST fetched, not stale state.
+      setHasMore(fetched.length === PAGE_SIZE)
     } catch (err) {
-      setError('Failed to load bookings')
-      console.error('[v0] Error isLoading bookings:', err)
+      setError('Error loading bookings')
+      setBookings([])
+      setHasMore(false)
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
+  // Final client-side guard so the displayed rows ALWAYS match the selected filter,
+  // even for statuses the server can't filter (UNVERIFIED, COMPLETED) or when it
+  // ignores an unknown value and returns everything.
+  const visibleBookings = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+    return bookings.filter((b) => {
+      const statusMatch =
+        filterStatus === 'ALL' || (b.status || '').toUpperCase() === filterStatus
+      const nameMatch = query === '' || (b.customerName || '').toLowerCase().includes(query)
+      return statusMatch && nameMatch
+    })
+  }, [bookings, filterStatus, searchQuery])
+
   const handleUpdateStatus = async () => {
     if (!selectedBookingId || !newStatus) return
-
     try {
       setUpdatingStatus(true)
       setUpdateError('')
       const response = await bookingsApi.updateBookingStatus(selectedBookingId, newStatus)
-
       if (response.success) {
-        // Update the booking in the list
-        setBookings(bookings.map(b =>
-          b.id === selectedBookingId ? { ...b, status: newStatus } : b
-        ))
-        setSelectedBookingId(null)
-        setNewStatus(null)
+        setBookings((prev) =>
+          prev.map((b) => (b.id === selectedBookingId ? { ...b, status: newStatus } : b))
+        )
       } else {
         setUpdateError(response.error || 'Failed to update booking status')
       }
     } catch (err) {
       setUpdateError('Error updating booking status')
-      console.error('[v0] Error updating status:', err)
     } finally {
+      setSelectedBookingId(null)
+      setNewStatus(null)
       setUpdatingStatus(false)
     }
   }
 
-  const downloadBookingsPdf = () => {
-    if (!canExportBookings || bookings.length === 0) return
-    const rows = bookings.map((booking) => `
-      <tr><td>${booking.customerName || 'N/A'}</td><td>${booking.customerEmail || 'N/A'}</td><td>${booking.service?.name || 'N/A'}</td><td>${new Date(booking.startTime).toLocaleString()}</td><td>${booking.status}</td><td>Rs. ${booking.service?.price || 0}</td></tr>`).join('')
-    const printWindow = window.open('', '_blank', 'noopener,noreferrer')
-    if (!printWindow) return
-    printWindow.document.write(`<!doctype html><html><head><title>Bookings</title><style>body{font-family:Arial,sans-serif;padding:32px;color:#0f172a}h1{margin-bottom:4px}p{color:#64748b}table{width:100%;border-collapse:collapse;margin-top:24px}th,td{border:1px solid #cbd5e1;padding:9px;text-align:left;font-size:12px}th{background:#f1f5f9}</style></head><body><h1>Bookings</h1><p>Filtered bookings · ${new Date().toLocaleDateString()}</p><table><thead><tr><th>Customer</th><th>Email</th><th>Service</th><th>Date & Time</th><th>Status</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table></body></html>`)
-    printWindow.document.close()
-    printWindow.focus()
-    printWindow.print()
-    printWindow.close()
-  }
-
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
+      UNVERIFIED: 'bg-orange-100 text-orange-800',
       PENDING: 'bg-yellow-100 text-yellow-800',
       CONFIRMED: 'bg-blue-100 text-blue-800',
       COMPLETED: 'bg-green-100 text-green-800',
@@ -141,51 +264,56 @@ export default function BookingsPage() {
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
-  const isActionable = (status: string) => status !== 'CANCELLED' && status !== 'COMPLETED'
-  const nextStatusLabel = (status: string) => (status === 'PENDING' ? 'Confirm' : status === 'CONFIRMED' ? 'Complete' : 'Done')
-  const nextStatusValue = (status: string) => (status === 'PENDING' ? 'CONFIRMED' : status === 'CONFIRMED' ? 'COMPLETED' : null)
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       <Sidebar userRole="BUSINESS_OWNER" />
 
-       <main className="min-h-screen px-4 pb-8 pt-20 sm:px-6 md:ml-64 md:px-8 md:pt-8">
-        <Breadcrumbs items={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Bookings' },
-        ]} />
+      <main className="min-h-screen px-4 pb-8 pt-20 sm:px-6 md:ml-64 md:px-8 md:pt-8">
+        <Breadcrumbs
+          items={[
+            { label: 'Dashboard', href: '/dashboard' },
+            { label: 'Bookings' },
+          ]}
+        />
 
         {/* Header */}
-        <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Bookings</h1>
-            <p className="text-sm text-slate-500 sm:text-base">Manage all customer bookings</p>
+            <h1 className="text-3xl font-bold text-slate-900">Bookings</h1>
+            <p className="text-slate-500">Manage all customer bookings</p>
           </div>
-          <div className="flex w-full items-center gap-2 sm:w-auto">
-            <div className="flex flex-1 rounded-lg border border-slate-200 bg-white p-1 sm:flex-none" aria-label="Booking view density">
-              <Button type="button" variant={bookingView === 'comfortable' ? 'secondary' : 'ghost'} size="sm" className="flex-1 px-2 sm:flex-none" onClick={() => setBookingView('comfortable')} aria-label="Comfortable booking view">
-                <LayoutGrid className="h-4 w-4 sm:mr-1.5" /><span className="hidden sm:inline">Comfortable</span>
-              </Button>
-              <Button type="button" variant={bookingView === 'compact' ? 'secondary' : 'ghost'} size="sm" className="flex-1 px-2 sm:flex-none" onClick={() => setBookingView('compact')} aria-label="Compact booking view">
-                <List className="h-4 w-4 sm:mr-1.5" /><span className="hidden sm:inline">Compact</span>
-              </Button>
-            </div>
-            {canExportBookings && (
-              <Button onClick={downloadBookingsPdf} disabled={isLoading || bookings.length === 0} variant="outline" className="shrink-0 px-3 sm:px-4">
-                <Download className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Download PDF</span>
-              </Button>
-            )}
-          </div>
+           {canSendReminders && (
+  <Button onClick={handleSendReminders} disabled={sendingReminders || remindersSentToday} variant="outline">
+    <Bell className="mr-2 h-4 w-4" />
+    {sendingReminders ? 'Sending...' : remindersSentToday ? 'Reminders Sent Today' : "Remind Today's Customers"}
+  </Button>
+)}
+           {canExportBookings && (
+           <Button onClick={downloadBookingsPdf} disabled={loading || visibleBookings.length === 0} variant="outline">
+              <Download className="mr-2 h-4 w-4" />
+              Download PDF
+            </Button>
+          )}
         </div>
 
-        {/* Filters */}
-        <div className="mb-4 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mb-6">
-          {['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'].map((status) => (
+        {reminderMessage && (
+  <div
+    className={`mb-6 p-3 rounded-lg border text-sm ${
+      reminderError ? 'bg-red-50 border-red-200 text-red-900' : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+    }`}
+  >
+    {reminderMessage}
+  </div>
+)}
+        
+
+        {/* Status Filters */}
+        <div className="mb-6 flex flex-wrap gap-2">
+          {STATUS_FILTERS.map((status) => (
             <Button
               key={status}
               variant={filterStatus === status ? 'default' : 'outline'}
               size="sm"
-              className="shrink-0"
               onClick={() => {
                 setFilterStatus(status)
                 setPage(1)
@@ -197,11 +325,80 @@ export default function BookingsPage() {
         </div>
 
         <Card className="mb-6 border-slate-200 bg-white/80 p-4 shadow-sm">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Staff member</label><select value={filterStaffId} onChange={event => { setFilterStaffId(event.target.value); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">All staff</option>{staff.map(member => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}</select></div>
-            <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Customer verification</label><select value={filterVerification} onChange={event => { setFilterVerification(event.target.value); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">All customers</option><option value="VERIFIED">Verified</option><option value="UNVERIFIED">Unverified</option></select></div>
-            <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Date range</label><select value={filterRange} onChange={event => { setFilterRange(event.target.value as typeof filterRange); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="today">Today</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option></select></div>
-            <div className="flex items-end justify-start lg:justify-end"><Link href="/dashboard/staff/performance" className="text-sm font-semibold text-blue-700 hover:underline">View staff performance</Link></div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Search customer
+              </label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search by customer name..."
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-900 placeholder:text-slate-400"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Staff member
+              </label>
+              <select
+                value={filterStaffId}
+                onChange={(event) => {
+                  setFilterStaffId(event.target.value)
+                  setPage(1)
+                }}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
+              >
+                <option value="ALL">All staff</option>
+                {staff.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.firstName} {member.lastName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Date range
+              </label>
+              <select
+                value={filterRange}
+                onChange={(event) => {
+                  setFilterRange(event.target.value as RangeFilter)
+                  setPage(1)
+                }}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
+              >
+                <option value="ALL">All Time</option>
+                <option value="today">Today</option>
+                <option value="tomorrow">Tomorrow</option>
+                <option value="week">Last 7 days</option>
+                <option value="nextWeek">Next 7 days</option>
+                <option value="month">Last 30 days</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <Link
+                href="/dashboard/staff/performance"
+                className="text-sm font-semibold text-blue-700 hover:underline"
+              >
+                View staff performance
+              </Link>
+            </div>
           </div>
         </Card>
 
@@ -214,107 +411,38 @@ export default function BookingsPage() {
         )}
 
         {/* Loading */}
-        {isLoading ? (
+        {loading ? (
           <div className="flex justify-center items-center h-64">
             <Loader className="w-8 h-8 animate-spin text-blue-600" />
           </div>
-        ) : bookings.length === 0 ? (
+        ) : visibleBookings.length === 0 ? (
           <Card className="p-12 text-center">
             <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
             <p className="text-slate-600 text-lg font-medium">No bookings found</p>
-            <p className="text-slate-500 text-sm">Start by creating your first booking</p>
+            <p className="text-slate-500 text-sm">
+              {filterStatus === 'ALL'
+                ? 'Try a different date range'
+                : `No ${filterStatus.toLowerCase()} bookings in this range`}
+            </p>
           </Card>
         ) : (
-          <Card className="overflow-hidden border-slate-200 bg-white/90 shadow-sm">
-            {/* MOBILE — comfortable: full detail card */}
-            {bookingView === 'comfortable' && (
-              <div className="space-y-3 p-3 md:hidden">
-                {bookings.map((booking) => (
-                  <div key={booking.id} className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-slate-900">{booking.customerName}</p>
-                        <p className="truncate text-xs text-slate-500">{booking.customerEmail || 'No email provided'}</p>
-                      </div>
-                      <Badge className={`${getStatusColor(booking.status)} shrink-0`}>{booking.status}</Badge>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div><p className="text-xs text-slate-500">Service</p><p className="truncate font-medium text-slate-900">{booking.service?.name || 'N/A'}</p></div>
-                      <div><p className="text-xs text-slate-500">Amount</p><p className="font-semibold text-slate-900">Rs.{booking.service?.price || 0}</p></div>
-                      <div className="col-span-2"><p className="text-xs text-slate-500">Date & time</p><p className="font-medium text-slate-900">{new Date(booking.startTime).toLocaleDateString()} · {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                      <Link href={`/dashboard/bookings/${booking.id}`} className="flex-1 sm:flex-none"><Button size="sm" variant="outline" className="w-full"><Eye className="mr-1.5 h-4 w-4" />View</Button></Link>
-                      {isActionable(booking.status) && <>
-                        <Button size="sm" className="flex-1 bg-blue-600 text-white hover:bg-blue-700" onClick={() => { setSelectedBookingId(booking.id); setNewStatus(nextStatusValue(booking.status)) }}>{nextStatusLabel(booking.status)}</Button>
-                        <Button size="sm" variant="destructive" className="flex-1" onClick={() => { setSelectedBookingId(booking.id); setNewStatus('CANCELLED') }}>Cancel</Button>
-                      </>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* MOBILE — compact: dense single-line rows for scanning a long list quickly */}
-            {bookingView === 'compact' && (
-              <div className="divide-y divide-slate-100 md:hidden">
-                {bookings.map((booking) => (
-                  <div key={booking.id} className="flex items-center gap-2 px-3 py-2.5">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <p className="truncate text-sm font-semibold text-slate-900">{booking.customerName}</p>
-                        <Badge className={`${getStatusColor(booking.status)} shrink-0 px-1.5 py-0 text-[10px] leading-4`}>{booking.status}</Badge>
-                      </div>
-                      <p className="truncate text-xs text-slate-500">
-                        {booking.service?.name || 'N/A'} · {new Date(booking.startTime).toLocaleDateString()} · Rs.{booking.service?.price || 0}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Link href={`/dashboard/bookings/${booking.id}`}>
-                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" aria-label="View details">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                      {isActionable(booking.status) && (
-                        <>
-                          <Button
-                            size="sm"
-                            className="h-8 shrink-0 bg-blue-600 px-2 text-xs text-white hover:bg-blue-700"
-                            onClick={() => { setSelectedBookingId(booking.id); setNewStatus(nextStatusValue(booking.status)) }}
-                          >
-                            {nextStatusLabel(booking.status)}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-8 w-8 shrink-0 p-0"
-                            aria-label="Cancel booking"
-                            onClick={() => { setSelectedBookingId(booking.id); setNewStatus('CANCELLED') }}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="hidden overflow-x-auto md:block">
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Customer</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Phone</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Service</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Date & Time</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Staff</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Status</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Amount</th>
                     <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {bookings.map((booking) => (
+                  {visibleBookings.map((booking) => (
                     <tr key={booking.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4">
                         <div>
@@ -322,57 +450,88 @@ export default function BookingsPage() {
                           <p className="text-sm text-slate-500">{booking.customerEmail}</p>
                         </div>
                       </td>
+                      <td className="px-6 py-4 text-sm">{booking.customerPhone || 'N/A'}</td>
                       <td className="px-6 py-4 text-slate-900">{booking.service?.name || 'N/A'}</td>
                       <td className="px-6 py-4 text-slate-900">
                         {new Date(booking.startTime).toLocaleDateString()}
                         <br />
                         <span className="text-sm text-slate-500">
-                          {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(booking.startTime).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <Badge className={getStatusColor(booking.status)}>
-                          {booking.status}
-                        </Badge>
+                        {booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}` : 'N/A'}
                       </td>
-                      <td className="px-6 py-4 font-semibold text-slate-900">
-                        Rs.{booking.service?.price || 0}
+                      <td className="px-6 py-4">
+                        <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
                       </td>
+                       {booking.service?.offerPrice != null &&
+                        booking.service.offerPrice < booking.service.price ? (
+                          <div className="flex flex-col">
+                            <span className="text-sm text-slate-400 line-through">
+                              Rs.{booking.service.price.toFixed(2)}
+                            </span>
+                            <span className="text-emerald-700">
+                              Rs.{booking.service.offerPrice.toFixed(2)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span>Rs.{(booking.service?.price ?? 0).toFixed(2)}</span>
+                        )}
                       <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2 items-center">
-                          <Link href={`/dashboard/bookings/${booking.id}`}>
-                            <Button size="sm" variant="ghost" title="View details">
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </Link>
-                          {isActionable(booking.status) && (
-                            <>
-                              <Button
-                                size="sm"
-                                className="bg-blue-600 hover:bg-blue-700 text-white"
-                                onClick={() => {
-                                  setSelectedBookingId(booking.id)
-                                  setNewStatus(nextStatusValue(booking.status))
-                                }}
-                                title={booking.status === 'PENDING' ? 'Confirm booking' : 'Mark as completed'}
-                              >
-                                {nextStatusLabel(booking.status)}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => {
-                                  setSelectedBookingId(booking.id)
-                                  setNewStatus('CANCELLED')
-                                }}
-                                title="Cancel booking"
-                              >
-                                Cancel
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </td>
+  <div className="flex justify-end gap-2 items-center">
+    {booking.status === 'UNVERIFIED' ? (
+      <Button
+        size="sm"
+        variant="destructive"
+        onClick={() => {
+          setSelectedBookingId(booking.id)
+          setNewStatus('CANCELLED')
+        }}
+        title="Cancel booking"
+      >
+        Cancel
+      </Button>
+    ) : (
+      booking.status !== 'CANCELLED' &&
+      booking.status !== 'COMPLETED' && (
+        <>
+          <Button
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={() => {
+              setSelectedBookingId(booking.id)
+              setNewStatus(
+                booking.status === 'PENDING'
+                  ? 'CONFIRMED'
+                  : booking.status === 'CONFIRMED'
+                    ? 'COMPLETED'
+                    : null
+              )
+            }}
+            title={booking.status === 'PENDING' ? 'Confirm booking' : 'Mark as completed'}
+          >
+            {booking.status === 'PENDING' ? 'Confirm' : booking.status === 'CONFIRMED' ? 'Complete' : null}
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => {
+              setSelectedBookingId(booking.id)
+              setNewStatus('CANCELLED')
+            }}
+            title="Cancel booking"
+          >
+            Cancel
+          </Button>
+        </>
+      )
+    )}
+  </div>
+</td>
                     </tr>
                   ))}
                 </tbody>
@@ -382,20 +541,13 @@ export default function BookingsPage() {
         )}
 
         {/* Pagination */}
-        {!isLoading && bookings.length > 0 && (
+        {!loading && visibleBookings.length > 0 && (
           <div className="mt-6 flex justify-between items-center">
-            <Button
-              variant="outline"
-              disabled={page === 1}
-              onClick={() => setPage(p => p - 1)}
-            >
+            <Button variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
               Previous
             </Button>
             <span className="text-sm text-slate-600">Page {page}</span>
-            <Button
-              variant="outline"
-              onClick={() => setPage(p => p + 1)}
-            >
+            <Button variant="outline" onClick={() => setPage((p) => p + 1)} disabled={!hasMore}>
               Next
             </Button>
           </div>
@@ -403,8 +555,8 @@ export default function BookingsPage() {
 
         {/* Status Update Confirmation Modal */}
         {selectedBookingId && newStatus && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <Card className="w-full max-w-md p-6">
               <h2 className="text-lg font-bold text-slate-900 mb-4">Update Booking Status</h2>
 
               {updateError && (
@@ -419,7 +571,7 @@ export default function BookingsPage() {
                 The booking status will be updated without sending a customer email.
               </p>
 
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <div className="flex gap-2 justify-end">
                 <Button
                   variant="outline"
                   onClick={() => {
