@@ -608,17 +608,6 @@ function BookingPageContent() {
                     <div className="text-sm text-foreground font-medium">{getDisplayTime(selectedTime || '')}</div>
                   </div>
                   <div className="h-px bg-border my-1"></div>
-                  <div className="flex items-start gap-3">
-                    <div className="text-sm font-semibold text-foreground min-w-fit">Booking ID:</div>
-                    <code className="text-xs bg-secondary/50 px-3 py-2 rounded font-mono text-foreground cursor-pointer hover:bg-secondary transition-colors"
-                      onClick={() => {
-                        navigator.clipboard.writeText(bookingId)
-                      }}
-                      title="Click to copy"
-                    >
-                      {bookingId}
-                    </code>
-                  </div>
                 </div>
               </div>
 
@@ -843,6 +832,69 @@ function BookingPageContent() {
                     })}
                   </div>
                 )}
+              </div>
+            )}
+
+              {/* Step 5: Customer Info */}
+            {selectedService && date && selectedTime && (
+              <div className="mb-8 p-6 bg-secondary/20 rounded-lg border border-border">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-foreground">5. Your Information</h3>
+                  {user && <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Verified</span>}
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+                      Full Name *
+                      {user && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">(verified)</span>}
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="Full Name *"
+                      value={customerName}
+                      onChange={user ? undefined : (e => setCustomerName(e.target.value))}
+                      disabled={!!user}
+                      className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+                      Email Address *
+                      {user && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">(verified)</span>}
+                    </label>
+                    <Input
+                      type="email"
+                      placeholder="Email Address *"
+                      value={customerEmail}
+                      onChange={user ? undefined : (e => setCustomerEmail(e.target.value))}
+                      disabled={!!user}
+                      className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-1">Phone Number *</label>
+                    <Input
+                      type="tel"
+                      inputMode="numeric"
+                      placeholder="98XXXXXXXX"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      maxLength={10}
+                      className="bg-background border-border text-foreground"
+                      required
+                    />
+                    {customerPhone.length > 0 && customerPhone.length !== 10 && (
+                      <p className="mt-1 text-xs text-destructive">Phone number must be exactly 10 digits.</p>
+                    )}
+                  </div>
+                  <textarea
+                    placeholder="Notes (optional)"
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    className="w-full p-3 border-2 border-border rounded-lg text-sm focus:border-primary focus:outline-none bg-background"
+                    rows={3}
+                  />
+                </div>
               </div>
             )}
 
