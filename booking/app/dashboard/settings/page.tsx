@@ -487,10 +487,10 @@ export default function SettingsPage() {
               <Settings className="w-4 h-4" />
               <span className="hidden sm:inline">Business</span>
             </TabsTrigger>
-            {/* <TabsTrigger value="notifications" className="flex items-center gap-2">
+            <TabsTrigger value="notifications" className="flex items-center gap-2">
               <Bell className="w-4 h-4" />
               <span className="hidden sm:inline">Notifications</span>
-            </TabsTrigger> */}
+            </TabsTrigger>
             <TabsTrigger value="security" className="flex items-center gap-2">
               <Lock className="w-4 h-4" />
               <span className="hidden sm:inline">Security</span>
