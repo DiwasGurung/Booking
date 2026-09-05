@@ -54,6 +54,13 @@ async function getTodayReminderCandidates(businessId: string) {
   })
 }
 
+const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
+function isStartTimeInFuture(startTime: Date): boolean {
+  const now = DateTime.now().setZone(BUSINESS_TZ)
+  const start = DateTime.fromJSDate(startTime).setZone(BUSINESS_TZ)
+  return start > now
+}
+
 /**
  * Sends the customer-facing booking confirmation via the channel that
  * matches the business's plan: SMS for Enterprise, email for everyone

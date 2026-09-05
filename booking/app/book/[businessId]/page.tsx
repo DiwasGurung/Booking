@@ -47,6 +47,32 @@ function BookingPageContent() {
   const [showVerificationModal, setShowVerificationModal] = useState(false)
   const [countdown, setCountdown] = useState(VERIFICATION_COUNTDOWN)
 
+
+  // Returns true if this slot's start time (for the given date) is still in
+  // the future. Mirrors the past-time filtering already done in the staff
+  // booking page — applied here so an already-passed slot for today renders
+  // disabled instead of being clickable.
+  const isSlotInFuture = (dateStr: string, timeString: string): boolean => {
+    const now = new Date()
+    const todayStr = now.toISOString().split('T')[0]
+    if (dateStr !== todayStr) return true // any future date is fine as-is
+
+    let hours: number, minutes: number
+    if (timeString.includes('T')) {
+      const d = new Date(timeString)
+      hours = d.getHours()
+      minutes = d.getMinutes()
+    } else {
+      const parts = timeString.split(':')
+      hours = parseInt(parts[0], 10)
+      minutes = parseInt(parts[1], 10)
+    }
+
+    const slotDateTime = new Date(dateStr)
+    slotDateTime.setHours(hours, minutes, 0, 0)
+    return slotDateTime > now
+  }
+
   // Pre-fill customer info from logged-in user
   useEffect(() => {
     if (user) {
@@ -256,6 +282,8 @@ function BookingPageContent() {
     }
   }
 
+
+
   const loadStaffForService = async (serviceId: string) => {
     try {
       setStaffLoading(true)
@@ -361,9 +389,15 @@ function BookingPageContent() {
 
   const handleConfirmBooking = async () => {
     if (!selectedService || !date || !selectedTime) {
-      setError('Please select service, date, and time')
-      return
-    }
+    setError('Please select service, date, and time')
+    return
+  }
+
+  if (!isSlotInFuture(date, selectedTime)) {
+    setError('This time slot has passed. Please select a different time.')
+    setSelectedTime(null)
+    return
+  }
 
     // Check if the date is a closed date
     if (closedDates.has(date)) {
@@ -729,7 +763,6 @@ function BookingPageContent() {
                 </div>
               </div>
             )}
-
             {/* Step 4: Time */}
             {selectedService && date && !closedReason && (
               <div className="mb-8">
@@ -749,83 +782,27 @@ function BookingPageContent() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
-                    {availableSlots.map((slot, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSelectedTime(slot)}
-                        className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${selectedTime === slot
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-card text-foreground border-border hover:border-primary'
-                          }`}
-                      >
-                        {formatTimeSlot(slot)}
-                      </button>
-                    ))}
+                    {availableSlots.map((slot, idx) => {
+                      const isPast = !isSlotInFuture(date, slot)
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => !isPast && setSelectedTime(slot)}
+                          disabled={isPast}
+                          title={isPast ? 'This time has already passed' : undefined}
+                          className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${isPast
+                              ? 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
+                              : selectedTime === slot
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-card text-foreground border-border hover:border-primary'
+                            }`}
+                        >
+                          {formatTimeSlot(slot)}
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Step 5: Customer Info */}
-            {selectedService && date && selectedTime && (
-              <div className="mb-8 p-6 bg-secondary/20 rounded-lg border border-border">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-foreground">5. Your Information</h3>
-                  {user && <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Verified</span>}
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
-                      Full Name *
-                      {user && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">(verified)</span>}
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder="Full Name *"
-                      value={customerName}
-                      onChange={user ? undefined : (e => setCustomerName(e.target.value))}
-                      disabled={!!user}
-                      className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
-                      Email Address *
-                      {user && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">(verified)</span>}
-                    </label>
-                    <Input
-                      type="email"
-                      placeholder="Email Address *"
-                      value={customerEmail}
-                      onChange={user ? undefined : (e => setCustomerEmail(e.target.value))}
-                      disabled={!!user}
-                      className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1">Phone Number *</label>
-                    <Input
-                      type="tel"
-                      inputMode="numeric"
-                      placeholder="98XXXXXXXX"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      maxLength={10}
-                      className="bg-background border-border text-foreground"
-                      required
-                    />
-                    {customerPhone.length > 0 && customerPhone.length !== 10 && (
-                      <p className="mt-1 text-xs text-destructive">Phone number must be exactly 10 digits.</p>
-                    )}
-                  </div>
-                  <textarea
-                    placeholder="Notes (optional)"
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    className="w-full p-3 border-2 border-border rounded-lg text-sm focus:border-primary focus:outline-none bg-background"
-                    rows={3}
-                  />
-                </div>
               </div>
             )}
 
