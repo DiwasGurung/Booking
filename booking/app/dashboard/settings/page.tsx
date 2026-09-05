@@ -14,7 +14,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { businessApi, businessHoursApi } from '@/lib/api'
-import { Loader, AlertCircle, Save, Settings, Bell, Lock, Trash2, Copy, Check, Upload, X } from 'lucide-react'
+import { Loader, AlertCircle, Save, Settings, Bell, Lock, Trash2, Copy, Check, Upload, X, Sparkles } from 'lucide-react'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
+
+// Adjust to match your SubscriptionPlan enum's actual value for Enterprise.
+const ENTERPRISE_PLAN = 'ENTERPRISE'
 
 interface BusinessSettings {
   businessName: string
@@ -61,6 +66,13 @@ export default function SettingsPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [activeTab, setActiveTab] = useState('business')
   const [hasBusinessHours, setHasBusinessHours] = useState(false)
+
+  // Plan gating for SMS notifications — only Enterprise businesses may
+  // enable SMS; email notifications remain available (and default-on) for
+  // every plan.
+  const [businessPlan, setBusinessPlan] = useState<string | null>(null)
+  const [planLoading, setPlanLoading] = useState(true)
+  const isEnterprise = businessPlan === ENTERPRISE_PLAN
 
   // Calculate profile completion percentage
   const calculateProfileCompletion = (data: BusinessSettings) => {
@@ -180,7 +192,9 @@ export default function SettingsPage() {
     }
   }
 
-  // Default settings template
+  // Default settings template — email notifications default ON for every
+  // plan; SMS defaults OFF and can only be switched on by Enterprise
+  // businesses (enforced in handleNotificationChange and on save below).
   const defaultSettings: BusinessSettings = {
     businessName: '',
     email: '',
@@ -213,6 +227,7 @@ export default function SettingsPage() {
     if (businessId) {
       loadSettings()
       checkBusinessHours()
+      loadBusinessPlan()
     }
   }, [businessId])
 
@@ -222,6 +237,28 @@ export default function SettingsPage() {
       router.push('/login')
     }
   }, [fetchingBusinessId, businessIdError, businessId, router])
+
+  // Fetch the business's subscription plan so we know whether SMS
+  // notifications are allowed. Adjust the endpoint/response shape to match
+  // whatever subscription API this project actually exposes.
+  const loadBusinessPlan = async () => {
+    if (!businessId) return
+    try {
+      setPlanLoading(true)
+      const res = await fetch(`${API_URL}/api/subscriptions/business/${businessId}`)
+      if (res.ok) {
+        const data = await res.json()
+        const plan = data?.plan ?? data?.subscription?.plan ?? data?.data?.plan ?? null
+        setBusinessPlan(plan)
+      } else {
+        setBusinessPlan(null)
+      }
+    } catch {
+      setBusinessPlan(null)
+    } finally {
+      setPlanLoading(false)
+    }
+  }
 
   const checkBusinessHours = async () => {
     if (!businessId) {
@@ -280,9 +317,22 @@ export default function SettingsPage() {
     if (!businessId || !formData) return
     try {
       setSaving(true)
-      const response = await businessApi.updateSettings(businessId, formData)
+
+      // Defense in depth: even if the toggle were somehow enabled client-side
+      // (e.g. stale plan check), never persist smsNotifications=true for a
+      // non-Enterprise business.
+      const payload: BusinessSettings = {
+        ...formData,
+        notificationSettings: {
+          ...formData.notificationSettings,
+          smsNotifications: isEnterprise ? !!formData.notificationSettings?.smsNotifications : false,
+        },
+      }
+
+      const response = await businessApi.updateSettings(businessId, payload)
       if (response.success || response.data) {
-        setSettings(formData)
+        setSettings(payload)
+        setFormData(payload)
         setSuccess(`${tab === 'business' ? 'Business' : tab === 'notifications' ? 'Notification' : 'Security'} settings updated successfully`)
         setTimeout(() => setSuccess(null), 3000)
       } else {
@@ -304,6 +354,15 @@ export default function SettingsPage() {
 
   const handleNotificationChange = (key: string, value: boolean) => {
     if (!formData) return
+
+    // Block turning SMS on for non-Enterprise plans, even if this handler
+    // somehow gets called (the Switch below is also disabled for them).
+    if (key === 'smsNotifications' && value && !isEnterprise) {
+      setError('SMS notifications are only available on the Enterprise plan')
+      setTimeout(() => setError(null), 4000)
+      return
+    }
+
     setFormData({
       ...formData,
       notificationSettings: {
@@ -623,7 +682,7 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* Notifications Tab
+          {/* Notifications Tab */}
           <TabsContent value="notifications" className="space-y-6">
             <Card className="border border-border">
               <CardHeader>
@@ -638,13 +697,39 @@ export default function SettingsPage() {
                       <p className="text-sm text-muted-foreground">Receive updates via email</p>
                     </div>
                     <Switch
-                      checked={formData?.notificationSettings?.emailNotifications || false}
+                      checked={formData?.notificationSettings?.emailNotifications ?? true}
                       onCheckedChange={(checked) =>
                         handleNotificationChange('emailNotifications', checked)
                       }
                     />
                   </div>
 
+                  {/* SMS Notifications — Enterprise plan only */}
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-foreground">SMS Notifications</p>
+                        {!isEnterprise && !planLoading && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                            <Sparkles className="w-3 h-3" />
+                            Enterprise
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {isEnterprise
+                          ? 'Receive booking confirmations and updates via SMS'
+                          : 'Available on the Enterprise plan — upgrade to enable SMS notifications'}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={isEnterprise ? (formData?.notificationSettings?.smsNotifications || false) : false}
+                      disabled={!isEnterprise || planLoading}
+                      onCheckedChange={(checked) =>
+                        handleNotificationChange('smsNotifications', checked)
+                      }
+                    />
+                  </div>
 
                   <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                     <div className="flex-1">
@@ -705,7 +790,7 @@ export default function SettingsPage() {
                 </Button>
               </CardContent>
             </Card>
-          </TabsContent> */}
+          </TabsContent>
 
           {/* Social Media Tab */}
           <TabsContent value="business" className="space-y-6">

@@ -137,6 +137,7 @@ model Business {
   state   String
   zipCode String
   country String
+  lastReminderSentAt DateTime?
 
   isVerified Boolean @default(false)
   isActive   Boolean @default(true)
@@ -148,6 +149,7 @@ model Business {
   notificationSettings    Json? 
   smsNotificationsEnabled Boolean @default(false) 
   smsLogs SMSLog[]
+  
 
   subscription Subscription?
 

@@ -46,7 +46,7 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true)
    const { subscriptionStatus } = useSubscriptionStatus()
    const planName = (subscriptionStatus?.planName || '').toUpperCase()
-  const canExportBookings = ['PROFESSIONAL', 'ENTERPRISE', 'PRO'].includes((subscriptionStatus?.planName || '').toUpperCase())
+  const canExportBookings = ['PROFESSIONAL', 'ENTERPRISE'].includes((subscriptionStatus?.planName || '').toUpperCase())
   // Reminder eligibility: Enterprise sends via SMS (bulk), Pro/Professional via email.
 const isEnterprisePlan = planName === 'ENTERPRISE'
 const isProPlan = planName === 'PRO' || planName === 'PROFESSIONAL'
@@ -59,7 +59,7 @@ const [reminderError, setReminderError] = useState(false)
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStaffId, setFilterStaffId] = useState<string>('ALL')
-  const [filterRange, setFilterRange] = useState<RangeFilter>('week')
+  const [filterRange, setFilterRange] = useState<RangeFilter>('ALL')
   const [staff, setStaff] = useState<Staff[]>([])
   const [page, setPage] = useState(1)
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
@@ -141,22 +141,26 @@ const [reminderError, setReminderError] = useState(false)
   }, [businessId])
 
 
-  const handleSendReminders = async () => {
-  if (!businessId || !canSendReminders || sendingReminders) return
+ const [remindersSentToday, setRemindersSentToday] = useState(false)
+
+const handleSendReminders = async () => {
+  if (!businessId || !canSendReminders || sendingReminders || remindersSentToday) return
 
   try {
     setSendingReminders(true)
     setReminderMessage(null)
     setReminderError(false)
 
-    const channel: 'sms' | 'email' = isEnterprisePlan ? 'sms' : 'email'
-    const response = await bookingsApi.sendTodayReminders(businessId, channel)
+    const response = await bookingsApi.sendTodayReminders(businessId)
 
     if (response.success) {
-      const count = (response.data as any)?.count
-      setReminderMessage(
-        `Reminders sent${count != null ? ` to ${count}` : ''} via ${channel === 'sms' ? 'SMS' : 'email'}.`
-      )
+      const { count, channel } = response.data!
+      setReminderMessage(`Reminders sent to ${count} customer${count === 1 ? '' : 's'} via ${channel === 'sms' ? 'SMS' : 'email'}.`)
+      if (count > 0) setRemindersSentToday(true)
+    } else if (response.error?.toLowerCase().includes('already sent today')) {
+      setReminderError(true)
+      setReminderMessage(response.error)
+      setRemindersSentToday(true)
     } else {
       setReminderError(true)
       setReminderMessage(response.error || 'Failed to send reminders')
@@ -279,11 +283,11 @@ const [reminderError, setReminderError] = useState(false)
             <p className="text-slate-500">Manage all customer bookings</p>
           </div>
            {canSendReminders && (
-      <Button onClick={handleSendReminders} disabled={sendingReminders} variant="outline">
-        <Bell className="mr-2 h-4 w-4" />
-        {sendingReminders ? 'Sending...' : "Remind Today's Customers"}
-      </Button>
-    )}
+  <Button onClick={handleSendReminders} disabled={sendingReminders || remindersSentToday} variant="outline">
+    <Bell className="mr-2 h-4 w-4" />
+    {sendingReminders ? 'Sending...' : remindersSentToday ? 'Reminders Sent Today' : "Remind Today's Customers"}
+  </Button>
+)}
            {canExportBookings && (
            <Button onClick={downloadBookingsPdf} disabled={loading || visibleBookings.length === 0} variant="outline">
               <Download className="mr-2 h-4 w-4" />

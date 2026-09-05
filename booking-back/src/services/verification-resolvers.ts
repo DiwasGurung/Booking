@@ -39,9 +39,23 @@ export const entityResolvers: Record<VerifyEntityType, EntityResolver> = {
     getDestination: async (id) => (await prisma.booking.findUnique({ where: { id } }))?.customerPhone ?? null,
     isAlreadyVerified: async (id) => !!(await prisma.booking.findUnique({ where: { id } }))?.isPhoneVerified,
     markVerified: async (id) => {
-      const booking = await prisma.booking.update({ where: { id }, data: { isPhoneVerified: true } })
+      // Verifying a booking's phone does two things: (1) confirms THIS
+      // booking — flips it from UNVERIFIED to CONFIRMED, and (2) remembers
+      // the verification on the customer/user so every FUTURE booking from
+      // this same person skips the OTP step entirely (one-time verification).
+      const booking = await prisma.booking.update({
+        where: { id },
+        data: {
+          isPhoneVerified: true,
+          status: 'CONFIRMED',
+        },
+      })
+
       if (booking.customerId) {
         await prisma.customer.update({ where: { id: booking.customerId }, data: { isPhoneVerified: true } })
+      }
+      if (booking.userId) {
+        await prisma.user.update({ where: { id: booking.userId }, data: { isPhoneVerified: true } })
       }
     },
     // Booking OTPs count against the owning business's SMS quota — everything

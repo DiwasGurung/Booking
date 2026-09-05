@@ -489,12 +489,11 @@ export const bookingsApi = {
       method: 'POST',
     }),
 
-     sendTodayReminders: (businessId: string, channel: string) =>
-    apiCall<{ count: number; failed: number; channel: 'sms' | 'email' }>(
-      `/api/booking/businesses/${businessId}/remind-today`,
-      { method: 'POST' }
-    ),
-    
+     sendTodayReminders: (businessId: string) =>
+  apiCall<{ count: number; failed: number; channel: 'sms' | 'email'; alreadySentToday?: boolean; lastSentAt?: string }>(
+    `/api/booking/businesses/${businessId}/remind-today`,
+    { method: 'POST' }
+  ),
   // Get a single booking by ID
   getBookingById: (bookingId: string) =>
     apiCall<Booking>(`/api/booking/bookings/${bookingId}`),

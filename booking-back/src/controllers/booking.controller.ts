@@ -108,132 +108,127 @@ class BookingController {
    * the business's subscription plan feature flags, not client input.
    */
   async sendTodayReminders(req: Request, res: Response): Promise<Response | void> {
-    try {
-      const { businessId } = req.params
+  try {
+    const { businessId } = req.params
 
-      const business = await prisma.business.findUnique({
-        where: { id: businessId as string},
-        include: {
-          subscription: {
-            include: { plan: true },
-          },
-        },
-      })
+    const business = await prisma.business.findUnique({
+      where: { id: businessId as string },
+      include: {
+        subscription: { include: { plan: true } },
+      },
+    })
 
-      if (!business) {
-        return res.status(404).json({ success: false, message: 'Business not found' })
-      }
+    if (!business) {
+      return res.status(404).json({ success: false, message: 'Business not found' })
+    }
 
-      const subscription = business.subscription
-      const plan = subscription?.plan
+    const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
+    const now = DateTime.now().setZone(BUSINESS_TZ)
+    const startOfToday = now.startOf('day')
 
-      const isSubscriptionUsable =
-        subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL')
-
-      if (!isSubscriptionUsable || !plan) {
-        return res.status(403).json({
+    // Enforce one send per calendar day (business's local day), regardless
+    // of how many times the endpoint is hit.
+    if (business.lastReminderSentAt) {
+      const lastSent = DateTime.fromJSDate(business.lastReminderSentAt, { zone: BUSINESS_TZ })
+      if (lastSent >= startOfToday) {
+        return res.status(409).json({
           success: false,
-          message: 'An active subscription is required to send reminders.',
+          message: `Reminders were already sent today at ${lastSent.toLocaleString(DateTime.TIME_SIMPLE)}. Try again tomorrow.`,
+          data: { alreadySentToday: true, lastSentAt: business.lastReminderSentAt },
         })
       }
+    }
 
-      const canRemind = plan.allowSmsNotifications || plan.allowEmailNotifications
-      if (!canRemind) {
-        return res.status(403).json({
-          success: false,
-          message: 'Your current plan does not include appointment reminders.',
-        })
-      }
+    const subscription = business.subscription
+    const plan = subscription?.plan
+    const isSubscriptionUsable =
+      subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL')
 
-      const channel: 'sms' | 'email' = plan.allowSmsNotifications ? 'sms' : 'email'
-
-      const bookings = await getTodayReminderCandidates(business.id)
-
-      if (bookings.length === 0) {
-        return res.status(200).json({ success: true, data: { count: 0, channel } })
-      }
-
-      const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
-      const now = DateTime.now().setZone(BUSINESS_TZ)
-
-      let sent = 0
-      const failures: string[] = []
-
-      if (channel === 'sms') {
-        for (const booking of bookings) {
-          if (!booking.customerPhone) {
-            failures.push(booking.id)
-            continue
-          }
-          const dt = DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ })
-          const hoursUntil = Math.max(1, Math.round(dt.diff(now, 'hours').hours))
-
-          const result = await SparrowSMSService.sendAppointmentReminder(business.id, booking.customerPhone, {
-            businessName: business.name,
-            date: dt.setLocale('en').toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-            time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
-            hoursUntil,
-          })
-
-          if (result.success) sent++
-          else failures.push(booking.id)
-        }
-      } else {
-        for (const booking of bookings) {
-          try {
-            await emailService.sendAppointmentReminder(booking.customerEmail, {
-              customerName: booking.customerName,
-              serviceName: booking.service.name,
-              startTime: booking.startTime,
-              businessName: business.name,
-              businessPhone: business.phone,
-              businessAddress: business.address,
-            })
-            sent++
-          } catch (err) {
-            console.error('[v0] Failed to send reminder email:', booking.customerEmail, err)
-            failures.push(booking.id)
-          }
-        }
-      }
-
-      // Best-effort in-app notification for bookings tied to a logged-in
-      // user — mirrors the pattern in updateBookingStatus. Never let a
-      // notification failure affect the reminder-send result above.
-      for (const booking of bookings) {
-        if (!booking.userId) continue
-        try {
-          const notification = await NotificationService.createNotification({
-            userId: booking.userId,
-            type: 'BOOKING_REMINDER',
-            title: 'Upcoming Appointment',
-            message: `Reminder: you have an appointment with ${business.name} today.`,
-            bookingId: booking.id,
-          })
-          NotificationSSEService.broadcastToUser(booking.userId, {
-            id: notification.id,
-            title: 'Upcoming Appointment',
-            message: `Reminder: you have an appointment with ${business.name} today.`,
-            type: 'BOOKING_REMINDER',
-            createdAt: new Date(),
-          })
-        } catch (notificationError) {
-          console.error('[v0] Failed to create reminder notification:', notificationError)
-        }
-      }
-
-      return res.status(200).json({
-        success: true,
-        data: { count: sent, failed: failures.length, channel },
-      })
-    } catch (error: any) {
-      console.error('[v0] Error sending today reminders:', error)
-      return res.status(500).json({
+    if (!isSubscriptionUsable || !plan) {
+      return res.status(403).json({
         success: false,
-        error: error?.message || 'Failed to send reminders',
+        message: 'An active subscription is required to send reminders.',
       })
     }
+
+    const canRemind = plan.allowSmsNotifications || plan.allowEmailNotifications
+    if (!canRemind) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your current plan does not include appointment reminders.',
+      })
+    }
+
+    const channel: 'sms' | 'email' = plan.allowSmsNotifications ? 'sms' : 'email'
+
+    const bookings = await getTodayReminderCandidates(businessId as string)
+
+    if (bookings.length === 0) {
+      // Nothing to send — don't stamp lastReminderSentAt, so the button
+      // stays usable if a CONFIRMED booking shows up later the same day.
+      return res.status(200).json({ success: true, data: { count: 0, channel } })
+    }
+
+    let sent = 0
+    const failures: string[] = []
+
+    if (channel === 'sms') {
+      for (const booking of bookings) {
+        if (!booking.customerPhone) {
+          failures.push(booking.id)
+          continue
+        }
+        const dt = DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ })
+        const hoursUntil = Math.max(1, Math.round(dt.diff(now, 'hours').hours))
+
+        const result = await SparrowSMSService.sendAppointmentReminder(businessId as string, booking.customerPhone, {
+          businessName: business.name,
+          date: dt.setLocale('en').toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+          time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
+          hoursUntil,
+        })
+
+        if (result.success) sent++
+        else failures.push(booking.id)
+      }
+    } else {
+      for (const booking of bookings) {
+        try {
+          await emailService.sendAppointmentReminder(booking.customerEmail, {
+            customerName: booking.customerName,
+            serviceName: booking.service.name,
+            startTime: booking.startTime,
+            businessName: business.name,
+            businessPhone: business.phone,
+            businessAddress: business.address,
+          })
+          sent++
+        } catch (err) {
+          console.error('[v0] Failed to send reminder email:', booking.customerEmail, err)
+          failures.push(booking.id)
+        }
+      }
+    }
+
+    // Stamp the send — this is what enforces the once-per-day rule on the
+    // next attempt, whether that's a re-click, a reload, or a different tab.
+    await prisma.business.update({
+      where: { id: businessId  as string},
+      data: { lastReminderSentAt: now.toJSDate() },
+    })
+
+    return res.status(200).json({
+      success: true,
+      data: { count: sent, failed: failures.length, channel, alreadySentToday: false },
+    })
+  } catch (error: any) {
+    console.error('[v0] Error sending today reminders:', error)
+    return res.status(500).json({
+      success: false,
+      error: error?.message || 'Failed to send reminders',
+    })
   }
+}
 
 
 
@@ -353,212 +348,155 @@ class BookingController {
     }
   }
 
-  /**
-   * Create a BUSINESS PUBLIC booking for guests
-   * Separate from staff individual bookings to keep flows independent
-   */
-  async createBusinessPublicBooking(req: Request, res: Response): Promise<void> {
-    try {
-      const { businessId, staffId, serviceId, startTime: bodyStartTime, endTime: bodyEndTime, customerName, customerEmail, customerPhone, notes } = req.body
-      const startTime = bodyStartTime ? new Date(bodyStartTime) : null
+ async createBusinessPublicBooking(req: Request, res: Response): Promise<void> {
+  try {
+    const { businessId, staffId, serviceId, startTime: bodyStartTime, endTime: bodyEndTime, customerName, customerEmail, customerPhone, notes } = req.body
+    const startTime = bodyStartTime ? new Date(bodyStartTime) : null
 
-      if (!businessId || !serviceId || !startTime || !customerEmail) {
-      res.status(400).json({ 
-          success: false,
-          message: "Missing required fields"
-        })
+    if (!businessId || !serviceId || !startTime || !customerEmail) {
+      res.status(400).json({ success: false, message: "Missing required fields" })
+      return
+    }
+
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      include: { subscription: { include: { plan: true } } },
+    })
+
+    if (!business) {
+      res.status(404).json({ success: false, message: "Business not found" })
+      return
+    }
+
+    const service = await prisma.service.findUnique({ where: { id: serviceId } })
+    if (!service) {
+      res.status(404).json({ success: false, message: "Service not found" })
+      return
+    }
+
+    const finalEndTime = bodyEndTime ? new Date(bodyEndTime) : new Date(startTime.getTime() + (service.duration || 60) * 60000)
+
+    let customer = await prisma.customer.findUnique({
+      where: { businessId_email: { businessId, email: customerEmail } }
+    })
+
+    if (!customer) {
+      customer = await prisma.customer.create({
+        data: { businessId, name: customerName, email: customerEmail, phone: customerPhone || '', isEmailVerified: false, isPhoneVerified: false }
+      })
+    }
+
+    let assignedStaffId = staffId
+    if (!assignedStaffId) {
+      const candidates = await prisma.staff.findMany({
+        where: { businessId, isActive: true, services: { some: { serviceId } } }
+      })
+      if (candidates.length === 0) {
+        res.status(400).json({ success: false, message: "No staff members are assigned to this service." })
         return
       }
 
-      const service = await prisma.service.findUnique({ where: { id: serviceId } })
-      if (!service) {
-    res.status(404).json({ success: false, message: "Service not found" })
-    return
-      }
-      
-
-      const finalEndTime = bodyEndTime ? new Date(bodyEndTime) : new Date(startTime.getTime() + (service.duration || 60) * 60000)
-
-      // Check/create customer
-      let customer = await prisma.customer.findUnique({
-        where: { businessId_email: { businessId, email: customerEmail } }
-      })
-
-      if (!customer) {
-        customer = await prisma.customer.create({
-          data: { businessId, name: customerName, email: customerEmail, phone: customerPhone || '', isEmailVerified:false }
-        })
-      }
-
-      // Auto-assign staff if not provided — must pick one who is actually FREE at
-      // this time, otherwise every booking piles onto the same staff member and
-      // slots never show as fully booked.
-      let assignedStaffId = staffId
-      if (!assignedStaffId) {
-        const candidates = await prisma.staff.findMany({
-          where: { businessId, isActive: true, services: { some: { serviceId } } }
-        })
-        if (candidates.length === 0) {
-           res.status(400).json({
-            success: false,
-            message: "No staff members are assigned to this service."
-          })
-          return
-        }
-
-        // Absolute-instant overlap check against confirmed bookings.
-        const conflicts = await prisma.booking.findMany({
-          where: {
-            staffId: { in: candidates.map(c => c.id) },
-            status: "CONFIRMED",
-            startTime: { lt: finalEndTime },
-            endTime: { gt: startTime },
-          },
-          select: { staffId: true }
-        })
-        const busyStaff = new Set(conflicts.map(c => c.staffId))
-        const freeStaff = candidates.find(c => !busyStaff.has(c.id))
-
-        if (!freeStaff) {
-           res.status(400).json({
-            success: false,
-            message: "No staff members are available at this time. Please pick another slot."
-          })
-          return
-        }
-        assignedStaffId = freeStaff.id
-      }
-
-      const { DateTime } = require('luxon');
-      // If the customer already verified their email before, confirm directly.
-      // Otherwise create as UNVERIFIED and send a verification email (in
-      // addition to the confirmation below, which always goes out).
-      const alreadyVerified = customer.isEmailVerified === true
-
-      const verificationToken = alreadyVerified ? null : randomBytes(32).toString('hex')
-      const verificationTokenExpires = alreadyVerified ? null : new Date(Date.now() + 24 * 60 * 60 * 1000)
-
-      const booking = await prisma.booking.create({
-        data: {
-          startTime,
-          endTime: finalEndTime,
-          customerName,
-          customerEmail,
-          customerPhone: customerPhone || '',
-          notes: notes || '',
-          status: alreadyVerified ? 'CONFIRMED' : 'UNVERIFIED',
-          isEmailVerified: alreadyVerified,
-          verificationToken,
-          verificationTokenExpires,
-          customer: { connect: { id: customer.id } },
-          service: { connect: { id: serviceId } },
-          business: { connect: { id: businessId } },
-          staff: { connect: { id: assignedStaffId } }
+      const conflicts = await prisma.booking.findMany({
+        where: {
+          staffId: { in: candidates.map(c => c.id) },
+          status: "CONFIRMED",
+          startTime: { lt: finalEndTime },
+          endTime: { gt: startTime },
         },
-        include: {
-  staff: true,
-  service: true,
-  business: { include: { subscription: { select: { plan: { select: { name: true } } } } } },
-}
+        select: { staffId: true }
       })
+      const busyStaff = new Set(conflicts.map(c => c.staffId))
+      const freeStaff = candidates.find(c => !busyStaff.has(c.id))
 
-       // Format in the business timezone so the server's UTC clock doesn't shift the time.
-const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
-
-// Assuming startTime is a Date object or ISO string
-const dt = DateTime.fromJSDate(startTime, { zone: BUSINESS_TZ });
-
-const bookingDate = dt.setLocale('en').toLocaleString({
-  weekday: 'long',
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric'
-});
-
-const bookingTime = dt.setLocale('en').toLocaleString({
-  hour: '2-digit',
-  minute: '2-digit'
-});
-
-      // Confirmation (SMS for Enterprise, email otherwise) goes out
-      // immediately on every booking, regardless of verification status.
-      // Verification (below) is a separate, additional step for
-      // unverified customers — it does not gate this confirmation.
-      try {
-        await sendBookingConfirmationByPlan(businessId, booking.business, booking, booking.service.name)
-      } catch (notifyError) {
-        console.error('[v0] Failed to send booking confirmation:', notifyError)
-      }
-
-      if (alreadyVerified) {
-         res.status(201).json({
-          success: true,
-          message: "Booking confirmed! Check your email for the details.",
-          booking: { id: booking.id, status: booking.status }
-        })
+      if (!freeStaff) {
+        res.status(400).json({ success: false, message: "No staff members are available at this time. Please pick another slot." })
         return
       }
+      assignedStaffId = freeStaff.id
+    }
 
-      // Unverified customer: also send the verification email with booking details.
+    const planName = business.subscription?.plan?.name
+    const isStarterPlan = planName === 'STARTER'
+
+    const alreadyVerified = isStarterPlan
+      ? customer.isEmailVerified === true
+      : customer.isPhoneVerified === true
+
+    const verificationToken = isStarterPlan && !alreadyVerified ? randomBytes(32).toString('hex') : null
+    const verificationTokenExpires = isStarterPlan && !alreadyVerified ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null
+
+    const booking = await prisma.booking.create({
+      data: {
+        startTime,
+        endTime: finalEndTime,
+        customerName,
+        customerEmail,
+        customerPhone: customerPhone || '',
+        notes: notes || '',
+        status: alreadyVerified ? 'CONFIRMED' : 'UNVERIFIED',
+        isEmailVerified: isStarterPlan ? alreadyVerified : (customer.isEmailVerified === true),
+        isPhoneVerified: isStarterPlan ? (customer.isPhoneVerified === true) : alreadyVerified,
+        ...(isStarterPlan && !alreadyVerified ? { verificationToken, verificationTokenExpires } : {}),
+        customer: { connect: { id: customer.id } },
+        service: { connect: { id: serviceId } },
+        business: { connect: { id: businessId } },
+        staff: { connect: { id: assignedStaffId } }
+      },
+      include: {
+        staff: true,
+        service: true,
+        business: { include: { subscription: { select: { plan: { select: { name: true } } } } } },
+      }
+    })
+
+    try {
+      await sendBookingConfirmationByPlan(businessId, booking.business, booking, booking.service.name)
+    } catch (notifyError) {
+      console.error('[v0] Failed to send booking confirmation:', notifyError)
+    }
+
+    if (isStarterPlan && !alreadyVerified && verificationToken) {
+      const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
+      const dt = DateTime.fromJSDate(startTime, { zone: BUSINESS_TZ })
+
       try {
-        await emailService.sendVerificationCustomerEmail(customerEmail, verificationToken!, {
+        await emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
           customerName,
           serviceName: service.name,
-          date: bookingDate,
-          time: bookingTime,
+          date: dt.setLocale('en').toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+          time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
           startTime: booking.startTime,
           endTime: booking.endTime,
-          staffName: booking.staff ?`${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined,
+          staffName: booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined,
         })
       } catch (emailError) {
         console.error('[v0] Failed to send verification email:', emailError)
       }
-
-     res.status(201).json({
-        success: true,
-        message: "Booking created! Check your email to verify.",
-        booking: { id: booking.id, status: booking.status }
-      })
-      return
-    } catch (error: any) {
-      console.error('[v0] Business public booking error:', error)
-      res.status(500).json({ success: false, error: error?.message || "Failed to create booking" })
     }
-  }
-  /**
-   * Get available slots for BUSINESS BOOKINGS
-   * Separate from staff individual bookings to keep flows independent
-   */
-  async getBusinessAvailableSlots(req: Request, res: Response): Promise<Response |void> {
-    try {
-      const { serviceId, businessId } = req.params
-      const { date, staffId } = req.query
 
-      if (!date) {
-        return res.status(400).json({ success: false, error: "Date query parameter is required" })
+    res.status(201).json({
+      success: true,
+      message: alreadyVerified
+        ? "Booking confirmed!"
+        : isStarterPlan
+          ? "Booking created! Check your email to verify."
+          : "Booking created! Please verify your phone number to confirm your appointment.",
+      booking: {
+        id: booking.id,
+        status: booking.status,
+        isEmailVerified: booking.isEmailVerified,
+        isPhoneVerified: booking.isPhoneVerified,
+        verificationChannel: isStarterPlan ? 'email' : 'phone',
       }
-
-      const dateStr = (Array.isArray(date) ? date[0] : date) as string
-      const [year, month, day] = dateStr.split('-').map(Number)
-      const parsedDate = new Date(year, month - 1, day)
-      // Ensure staffIdStr is a string or undefined (req.query can contain ParsedQs)
-      const staffIdStr = typeof staffId === 'string' ? staffId : undefined
-
-      const slots = await BookingService.getBusinessAvailableSlots(
-        Array.isArray(serviceId) ? serviceId[0] : serviceId,
-        Array.isArray(businessId) ? businessId[0] : businessId,
-        parsedDate,
-        staffIdStr
-      )
-
-      res.status(200).json({ success: true, data: slots })
-    } catch (error: any) {
-      console.error('[v0] Error getting business available slots:', error)
-      res.status(500).json({ success: false, error: error?.message || "Error getting available slots" })
-    }
+    })
+    return
+  } catch (error: any) {
+    console.error('[v0] Business public booking error:', error)
+    res.status(500).json({ success: false, error: error?.message || "Failed to create booking" })
   }
+}
 
-  /**
+/**
    * Create a new booking for authenticated users
    */
   async createBooking(req: Request, res: Response): Promise<Response | void> {
@@ -605,9 +543,9 @@ const bookingTime = dt.setLocale('en').toLocaleString({
 
       // Verify business exists
       const business = await prisma.business.findUnique({
-  where: { id: businessId },
-  include: { user: true, subscription: { select: { plan: { select: { name: true } } } } },
-})
+        where: { id: businessId },
+        include: { user: true },
+      })
 
       if (!business) {
         return res.status(404).json({
@@ -723,13 +661,20 @@ const bookingTime = dt.setLocale('en').toLocaleString({
         emailWarnings.push('Unable to notify business owner due to email delivery issue')
       }
 
-      // Send confirmation to authenticated user — SMS for Enterprise plan,
-      // email otherwise. Fires unconditionally.
+      // Send confirmation email to authenticated user
       try {
-        await sendBookingConfirmationByPlan(businessId, business, booking, service.name)
-      } catch (notifyError: any) {
-        console.error('[v0] Failed to send booking confirmation to customer:', notifyError)
-        emailWarnings.push('Confirmation could not be sent to ' + booking.customerEmail)
+        await emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
+          customerName: booking.customerName,
+          serviceName: service.name,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          businessName: business.name,
+          businessPhone: business.phone || '',
+          businessAddress: business.address || '',
+        })
+      } catch (emailError: any) {
+        console.error('[v0] Failed to send confirmation email to customer:', emailError)
+        emailWarnings.push('Confirmation email could not be sent to ' + booking.customerEmail)
       }
 
       res.status(201).json({
@@ -752,6 +697,39 @@ const bookingTime = dt.setLocale('en').toLocaleString({
         message: "Error creating booking", 
         error: error instanceof Error ? error.message : String(error)
       })
+    }
+  }
+
+   /**
+   * Get available slots for BUSINESS BOOKINGS
+   * Separate from staff individual bookings to keep flows independent
+   */
+  async getBusinessAvailableSlots(req: Request, res: Response): Promise<Response |void> {
+    try {
+      const { serviceId, businessId } = req.params
+      const { date, staffId } = req.query
+
+      if (!date) {
+        return res.status(400).json({ success: false, error: "Date query parameter is required" })
+      }
+
+      const dateStr = (Array.isArray(date) ? date[0] : date) as string
+      const [year, month, day] = dateStr.split('-').map(Number)
+      const parsedDate = new Date(year, month - 1, day)
+      // Ensure staffIdStr is a string or undefined (req.query can contain ParsedQs)
+      const staffIdStr = typeof staffId === 'string' ? staffId : undefined
+
+      const slots = await BookingService.getBusinessAvailableSlots(
+        Array.isArray(serviceId) ? serviceId[0] : serviceId,
+        Array.isArray(businessId) ? businessId[0] : businessId,
+        parsedDate,
+        staffIdStr
+      )
+
+      res.status(200).json({ success: true, data: slots })
+    } catch (error: any) {
+      console.error('[v0] Error getting business available slots:', error)
+      res.status(500).json({ success: false, error: error?.message || "Error getting available slots" })
     }
   }
 
@@ -1019,252 +997,213 @@ const bookingTime = dt.setLocale('en').toLocaleString({
     }
   }
 
-  /**
-   * Create a public booking (no authentication required)
-   * Used for guest customers to book services without creating an account
-   */
-  async createPublicBooking(req: Request, res: Response): Promise<Response | void> {
-    try {
-      const { businessId, staffId, serviceId, startTime, endTime, customerName, customerEmail, customerPhone, notes } = req.body
+ async createPublicBooking(req: Request, res: Response): Promise<Response | void> {
+  try {
+    const { businessId, staffId, serviceId, startTime, endTime, customerName, customerEmail, customerPhone, notes } = req.body
 
-      // Validate required fields
-      if (!businessId || !serviceId || !customerName || !customerEmail || !customerPhone) {
-       res.status(400).json({ 
-          success: false,
-          message: "Missing required fields: businessId, serviceId, customerName, customerEmail, customerPhone"
-        })
-        return
-      }
-
-      // Validate customer email format (basic check only)
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(customerEmail)) {
-        return res.status(400).json({
-          success: false,
-          message: "Please provide a valid email address",
-          reason: 'invalid_email_format'
-        })
-      }
-      // Note: Full email validation will happen after customer verifies email
-
-      // Verify business exists
-      const business = await prisma.business.findUnique({
-  where: { id: businessId },
-  include: { user: true, subscription: { select: { plan: { select: { name: true } } } } },
-})
-
-      if (!business) {
-        return res.status(404).json({
-          success: false,
-          message: "Business not found"
-        })
-      }
-
-      // Validate business owner's email exists and is valid format
-      if (!business.user?.email) {
-        return res.status(400).json({
-          success: false,
-          message: "Business owner email is not configured. Please contact the business to update their contact information."
-        })
-      }
-
-      // Validate business owner's email format (basic validation only)
-      if (!emailRegex.test(business.user.email)) {
-        return res.status(400).json({
-          success: false,
-          message: `The business owner's email (${business.user.email}) has an invalid format. The business owner needs to update their email address. Please contact the business to complete this setup.`,
-          reason: 'invalid_email_format'
-        })
-      }
-
-      // Verify service exists and belongs to this business
-      const service = await prisma.service.findUnique({
-        where: { id: serviceId },
-      })
-
-      if (!service || service.businessId !== businessId) {
-        return res.status(404).json({
-          success: false,
-          message: "Service not found"
-        })
-      }
-
-      // Verify staff exists if provided
-      if (staffId) {
-        const staff = await prisma.staff.findUnique({
-          where: { id: staffId },
-        })
-
-        if (!staff || staff.businessId !== businessId) {
-          return res.status(404).json({
-            success: false,
-            message: "Staff member not found"
-          })
-        }
-      }
-
-      // Check if customer already exists
-      let customer
-      let isNewCustomer = false
-      
-      const existingCustomer = await prisma.customer.findUnique({
-        where: {
-          businessId_email: {
-            businessId,
-            email: customerEmail,
-          },
-        },
-      })
-
-      if (existingCustomer) {
-        // Existing customer - use the existing record
-        customer = existingCustomer
-        isNewCustomer = false
-      } else {
-        // New customer - create a new record
-        try {
-          customer = await prisma.customer.create({
-            data: {
-              businessId,
-              name: customerName,
-              email: customerEmail,
-              phone: customerPhone,
-              notes: notes || '',
-            },
-          })
-          isNewCustomer = true
-        } catch (err: any) {
-          console.error('[v0] Error creating customer:', err)
-          return res.status(500).json({
-            success: false,
-            message: "Failed to create customer",
-            error: err.message,
-          })
-        }
-      }
-
-        const alreadyVerified = customer.isEmailVerified === true
-
-      const verificationToken = alreadyVerified ? null : randomBytes(32).toString('hex')
-      const verificationTokenExpires = alreadyVerified ? null : new Date(Date.now() + 24 * 60 * 60 * 1000)
-      
-       
-
-       const bookingStatus = alreadyVerified ? 'CONFIRMED' : 'UNVERIFIED'
-      const isEmailVerified = alreadyVerified
-
-      // Create a guest booking
-      const bookingData: any = {
-        startTime: new Date(startTime),
-        endTime: new Date(endTime),
-        customerName,
-        customerEmail,
-        customerPhone,
-        notes: notes || '',
-        status: bookingStatus,
-        isEmailVerified,
-        ...(isNewCustomer && { verificationToken, verificationTokenExpires }),
-        service: { connect: { id: serviceId } },
-        business: { connect: { id: businessId } },
-        customer: { connect: { id: customer.id } }, // Associate with guest customer
-      }
-
-      // Add staffId if provided
-      if (staffId) {
-        bookingData.staff = { connect: { id: staffId } }
-      }
-
-      const booking = await prisma.booking.create({
-        data: bookingData,
-        include: {
-          service: true,
-          business: true,
-          staff: true,
-          customer: true,
-        },
-      })
-
-
-      const emailWarnings: string[] = []
-
-      // Send email notification to business owner
-      try {
-        if (business.user?.email) {
-          await emailService.sendNewBookingNotification(business.user.email, {
-            customerName,
-            customerEmail,
-            customerPhone,
-            serviceName: service.name,
-            startTime: booking.startTime,
-            endTime: booking.endTime,
-            businessName: business.name,
-            notes,
-          })
-        }
-      } catch (emailError: any) {
-        console.error('[v0] Failed to send email to owner:', emailError)
-        emailWarnings.push('Unable to notify business owner due to email delivery issue')
-      }
-
-      // Send confirmation to the customer — SMS for Enterprise plan, email
-      // otherwise. Fires unconditionally, independent of verification state.
-      try {
-        await sendBookingConfirmationByPlan(businessId, business, booking, service.name)
-      } catch (notifyError: any) {
-        console.error('[v0] Failed to send booking confirmation:', notifyError)
-        emailWarnings.push('Confirmation could not be sent to ' + customerEmail)
-      }
-
-      // Send verification email only for NEW customers (existing customers are auto-confirmed)
-      if (!alreadyVerified && verificationToken) {
-        try {
-          const staffName = booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined
-          const verificationSent = await emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
-            customerName,
-            serviceName: service.name,
-            date: booking.startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-            time: booking.startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            startTime: booking.startTime,
-            endTime: booking.endTime,
-            staffName,
-          })
-          
-          if (!verificationSent) {
-            emailWarnings.push('Verification email could not be sent. Please check your email spam folder or contact the business.')
-          } else {
-          }
-        } catch (emailError: any) {
-          console.error('[v0] Failed to send verification email to customer:', emailError)
-          emailWarnings.push('Verification email could not be sent to ' + customerEmail)
-        }
-      } else {
-      }
-
-      res.status(201).json({
-        success: true,
-        message: alreadyVerified
-          ? 'Booking confirmed! Your appointment is scheduled.'
-          : (emailWarnings.length > 0
-              ? 'Booking created! Please verify your email to confirm your appointment.'
-            : 'Booking created! Check your email to verify and confirm your appointment.'),
-        warnings: emailWarnings.length > 0 ? emailWarnings : undefined,
-        booking: {
-          id: booking.id,
-          startTime: booking.startTime,
-          endTime: booking.endTime,
-          status: booking.status,
-          isNewCustomer,
-        }
-      })
-    } catch (error) {
-      console.error('[v0] Error creating public booking:', error instanceof Error ? error.message : String(error))
-      res.status(500).json({
+    if (!businessId || !serviceId || !customerName || !customerEmail || !customerPhone) {
+      res.status(400).json({
         success: false,
-        message: "Error creating booking",
-        error: error instanceof Error ? error.message : String(error)
+        message: "Missing required fields: businessId, serviceId, customerName, customerEmail, customerPhone"
+      })
+      return
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(customerEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid email address",
+        reason: 'invalid_email_format'
       })
     }
+
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      include: { user: true, subscription: { include: { plan: true } } },
+    })
+
+    if (!business) {
+      return res.status(404).json({ success: false, message: "Business not found" })
+    }
+
+    if (!business.user?.email) {
+      return res.status(400).json({
+        success: false,
+        message: "Business owner email is not configured. Please contact the business to update their contact information."
+      })
+    }
+
+    if (!emailRegex.test(business.user.email)) {
+      return res.status(400).json({
+        success: false,
+        message: `The business owner's email (${business.user.email}) has an invalid format. The business owner needs to update their email address. Please contact the business to complete this setup.`,
+        reason: 'invalid_email_format'
+      })
+    }
+
+    const service = await prisma.service.findUnique({ where: { id: serviceId } })
+    if (!service || service.businessId !== businessId) {
+      return res.status(404).json({ success: false, message: "Service not found" })
+    }
+
+    if (staffId) {
+      const staff = await prisma.staff.findUnique({ where: { id: staffId } })
+      if (!staff || staff.businessId !== businessId) {
+        return res.status(404).json({ success: false, message: "Staff member not found" })
+      }
+    }
+
+    let customer
+    let isNewCustomer = false
+
+    const existingCustomer = await prisma.customer.findUnique({
+      where: { businessId_email: { businessId, email: customerEmail } },
+    })
+
+    if (existingCustomer) {
+      customer = existingCustomer
+      isNewCustomer = false
+    } else {
+      try {
+        customer = await prisma.customer.create({
+          data: {
+            businessId,
+            name: customerName,
+            email: customerEmail,
+            phone: customerPhone,
+            notes: notes || '',
+            isEmailVerified: false,
+            isPhoneVerified: false,
+          },
+        })
+        isNewCustomer = true
+      } catch (err: any) {
+        console.error('[v0] Error creating customer:', err)
+        return res.status(500).json({ success: false, message: "Failed to create customer", error: err.message })
+      }
+    }
+
+    // Verification channel is decided by plan: Starter uses email-link
+    // verification, every other plan uses phone OTP. This mirrors the
+    // channel choice already used for confirmations (sendBookingConfirmationByPlan)
+    // but is a separate decision — one picks how we NOTIFY, this picks how
+    // we VERIFY a first-time customer.
+    const planName = business.subscription?.plan?.name
+    const isStarterPlan = planName === 'STARTER'
+
+    const alreadyVerified = isStarterPlan
+      ? customer.isEmailVerified === true
+      : customer.isPhoneVerified === true
+
+    const verificationToken = isStarterPlan && !alreadyVerified ? randomBytes(32).toString('hex') : null
+    const verificationTokenExpires = isStarterPlan && !alreadyVerified ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null
+
+    const bookingData: any = {
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
+      customerName,
+      customerEmail,
+      customerPhone,
+      notes: notes || '',
+      status: alreadyVerified ? 'CONFIRMED' : 'UNVERIFIED',
+      isEmailVerified: isStarterPlan ? alreadyVerified : (customer.isEmailVerified === true),
+      isPhoneVerified: isStarterPlan ? (customer.isPhoneVerified === true) : alreadyVerified,
+      ...(isStarterPlan && !alreadyVerified ? { verificationToken, verificationTokenExpires } : {}),
+      service: { connect: { id: serviceId } },
+      business: { connect: { id: businessId } },
+      customer: { connect: { id: customer.id } },
+    }
+
+    if (staffId) {
+      bookingData.staff = { connect: { id: staffId } }
+    }
+
+    const booking = await prisma.booking.create({
+      data: bookingData,
+      include: { service: true, business: true, staff: true, customer: true },
+    })
+
+    const warnings: string[] = []
+
+    try {
+      if (business.user?.email) {
+        await emailService.sendNewBookingNotification(business.user.email, {
+          customerName, customerEmail, customerPhone,
+          serviceName: service.name,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          businessName: business.name,
+          notes,
+        })
+      }
+    } catch (emailError: any) {
+      console.error('[v0] Failed to send email to owner:', emailError)
+      warnings.push('Unable to notify business owner due to email delivery issue')
+    }
+
+    // Confirmation channel (SMS for Enterprise, email otherwise) is
+    // independent of the verification channel above and always fires.
+    try {
+      await sendBookingConfirmationByPlan(businessId, business, booking, service.name)
+    } catch (notifyError: any) {
+      console.error('[v0] Failed to send booking confirmation:', notifyError)
+      warnings.push('Confirmation could not be sent to ' + customerEmail)
+    }
+
+    // Starter plan, first-time/unverified customer: send the email
+    // verification link. Every other plan skips this entirely — those
+    // customers verify by phone OTP via the public-verification routes,
+    // triggered separately by the frontend after this response.
+    if (isStarterPlan && !alreadyVerified && verificationToken) {
+      try {
+        const staffName = booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}`.trim() : undefined
+        const verificationSent = await emailService.sendVerificationCustomerEmail(customerEmail, verificationToken, {
+          customerName,
+          serviceName: service.name,
+          date: booking.startTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+          time: booking.startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          staffName,
+        })
+        if (!verificationSent) {
+          warnings.push('Verification email could not be sent. Please check your email spam folder or contact the business.')
+        }
+      } catch (emailError: any) {
+        console.error('[v0] Failed to send verification email to customer:', emailError)
+        warnings.push('Verification email could not be sent to ' + customerEmail)
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: alreadyVerified
+        ? 'Booking confirmed! Your appointment is scheduled.'
+        : isStarterPlan
+          ? 'Booking created! Check your email to verify and confirm your appointment.'
+          : 'Booking created! Please verify your phone number to confirm your appointment.',
+      warnings: warnings.length > 0 ? warnings : undefined,
+      booking: {
+        id: booking.id,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        status: booking.status,
+        isEmailVerified: booking.isEmailVerified,
+        isPhoneVerified: booking.isPhoneVerified,
+        verificationChannel: isStarterPlan ? 'email' : 'phone',
+        isNewCustomer,
+      }
+    })
+  } catch (error) {
+    console.error('[v0] Error creating public booking:', error instanceof Error ? error.message : String(error))
+    res.status(500).json({
+      success: false,
+      message: "Error creating booking",
+      error: error instanceof Error ? error.message : String(error)
+    })
   }
+}
 
   async verifyBookingEmail(req: Request, res: Response): Promise<Response> {
   try {
