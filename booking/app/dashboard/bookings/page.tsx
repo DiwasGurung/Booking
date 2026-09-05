@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
 import { bookingsApi, staffApi, type Staff } from '@/lib/api'
-import { Calendar, Loader, AlertCircle, Eye, Download, LayoutGrid, List } from 'lucide-react'
+import { Calendar, Loader, AlertCircle, Eye, Download, LayoutGrid, List, X } from 'lucide-react'
 import Link from 'next/link'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
@@ -25,7 +25,7 @@ interface Booking {
 }
 
 export default function BookingsPage() {
-  const { businessId,loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
+  const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
   const { subscriptionStatus } = useSubscriptionStatus()
   const canExportBookings = ['PROFESSIONAL', 'ENTERPRISE', 'PRO'].includes((subscriptionStatus?.planName || '').toUpperCase())
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -99,10 +99,10 @@ export default function BookingsPage() {
       setUpdatingStatus(true)
       setUpdateError('')
       const response = await bookingsApi.updateBookingStatus(selectedBookingId, newStatus)
-      
+
       if (response.success) {
         // Update the booking in the list
-        setBookings(bookings.map(b => 
+        setBookings(bookings.map(b =>
           b.id === selectedBookingId ? { ...b, status: newStatus } : b
         ))
         setSelectedBookingId(null)
@@ -141,6 +141,10 @@ export default function BookingsPage() {
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
+  const isActionable = (status: string) => status !== 'CANCELLED' && status !== 'COMPLETED'
+  const nextStatusLabel = (status: string) => (status === 'PENDING' ? 'Confirm' : status === 'CONFIRMED' ? 'Complete' : 'Done')
+  const nextStatusValue = (status: string) => (status === 'PENDING' ? 'CONFIRMED' : status === 'CONFIRMED' ? 'COMPLETED' : null)
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       <Sidebar userRole="BUSINESS_OWNER" />
@@ -172,12 +176,6 @@ export default function BookingsPage() {
               </Button>
             )}
           </div>
-          {/* <Link href="/dashboard/bookings/new">
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" />
-              New Booking
-            </Button>
-          </Link> */}
         </div>
 
         {/* Filters */}
@@ -187,6 +185,7 @@ export default function BookingsPage() {
               key={status}
               variant={filterStatus === status ? 'default' : 'outline'}
               size="sm"
+              className="shrink-0"
               onClick={() => {
                 setFilterStatus(status)
                 setPage(1)
@@ -198,11 +197,11 @@ export default function BookingsPage() {
         </div>
 
         <Card className="mb-6 border-slate-200 bg-white/80 p-4 shadow-sm">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Staff member</label><select value={filterStaffId} onChange={event => { setFilterStaffId(event.target.value); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">All staff</option>{staff.map(member => <option key={member.id} value={member.id}>{member.firstName} {member.lastName}</option>)}</select></div>
             <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Customer verification</label><select value={filterVerification} onChange={event => { setFilterVerification(event.target.value); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="ALL">All customers</option><option value="VERIFIED">Verified</option><option value="UNVERIFIED">Unverified</option></select></div>
             <div><label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Date range</label><select value={filterRange} onChange={event => { setFilterRange(event.target.value as typeof filterRange); setPage(1) }} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"><option value="today">Today</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option></select></div>
-            <div className="flex items-end"><Link href="/dashboard/staff/performance" className="text-sm font-semibold text-blue-700 hover:underline">View staff performance</Link></div>
+            <div className="flex items-end justify-start lg:justify-end"><Link href="/dashboard/staff/performance" className="text-sm font-semibold text-blue-700 hover:underline">View staff performance</Link></div>
           </div>
         </Card>
 
@@ -227,31 +226,81 @@ export default function BookingsPage() {
           </Card>
         ) : (
           <Card className="overflow-hidden border-slate-200 bg-white/90 shadow-sm">
-            <div className="space-y-3 p-3 md:hidden">
-              {bookings.map((booking) => (
-                <div key={booking.id} className={`rounded-xl border border-slate-200 bg-white p-4 ${bookingView === 'compact' ? 'space-y-2' : 'space-y-4'}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-slate-900">{booking.customerName}</p>
-                      <p className="truncate text-xs text-slate-500">{booking.customerEmail || 'No email provided'}</p>
+            {/* MOBILE — comfortable: full detail card */}
+            {bookingView === 'comfortable' && (
+              <div className="space-y-3 p-3 md:hidden">
+                {bookings.map((booking) => (
+                  <div key={booking.id} className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-900">{booking.customerName}</p>
+                        <p className="truncate text-xs text-slate-500">{booking.customerEmail || 'No email provided'}</p>
+                      </div>
+                      <Badge className={`${getStatusColor(booking.status)} shrink-0`}>{booking.status}</Badge>
                     </div>
-                    <Badge className={`${getStatusColor(booking.status)} shrink-0`}>{booking.status}</Badge>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div><p className="text-xs text-slate-500">Service</p><p className="truncate font-medium text-slate-900">{booking.service?.name || 'N/A'}</p></div>
+                      <div><p className="text-xs text-slate-500">Amount</p><p className="font-semibold text-slate-900">Rs.{booking.service?.price || 0}</p></div>
+                      <div className="col-span-2"><p className="text-xs text-slate-500">Date & time</p><p className="font-medium text-slate-900">{new Date(booking.startTime).toLocaleDateString()} · {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                      <Link href={`/dashboard/bookings/${booking.id}`} className="flex-1 sm:flex-none"><Button size="sm" variant="outline" className="w-full"><Eye className="mr-1.5 h-4 w-4" />View</Button></Link>
+                      {isActionable(booking.status) && <>
+                        <Button size="sm" className="flex-1 bg-blue-600 text-white hover:bg-blue-700" onClick={() => { setSelectedBookingId(booking.id); setNewStatus(nextStatusValue(booking.status)) }}>{nextStatusLabel(booking.status)}</Button>
+                        <Button size="sm" variant="destructive" className="flex-1" onClick={() => { setSelectedBookingId(booking.id); setNewStatus('CANCELLED') }}>Cancel</Button>
+                      </>}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div><p className="text-xs text-slate-500">Service</p><p className="truncate font-medium text-slate-900">{booking.service?.name || 'N/A'}</p></div>
-                    <div><p className="text-xs text-slate-500">Amount</p><p className="font-semibold text-slate-900">Rs.{booking.service?.price || 0}</p></div>
-                    <div className="col-span-2"><p className="text-xs text-slate-500">Date & time</p><p className="font-medium text-slate-900">{new Date(booking.startTime).toLocaleDateString()} · {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div>
+                ))}
+              </div>
+            )}
+
+            {/* MOBILE — compact: dense single-line rows for scanning a long list quickly */}
+            {bookingView === 'compact' && (
+              <div className="divide-y divide-slate-100 md:hidden">
+                {bookings.map((booking) => (
+                  <div key={booking.id} className="flex items-center gap-2 px-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-sm font-semibold text-slate-900">{booking.customerName}</p>
+                        <Badge className={`${getStatusColor(booking.status)} shrink-0 px-1.5 py-0 text-[10px] leading-4`}>{booking.status}</Badge>
+                      </div>
+                      <p className="truncate text-xs text-slate-500">
+                        {booking.service?.name || 'N/A'} · {new Date(booking.startTime).toLocaleDateString()} · Rs.{booking.service?.price || 0}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Link href={`/dashboard/bookings/${booking.id}`}>
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" aria-label="View details">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      {isActionable(booking.status) && (
+                        <>
+                          <Button
+                            size="sm"
+                            className="h-8 shrink-0 bg-blue-600 px-2 text-xs text-white hover:bg-blue-700"
+                            onClick={() => { setSelectedBookingId(booking.id); setNewStatus(nextStatusValue(booking.status)) }}
+                          >
+                            {nextStatusLabel(booking.status)}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-8 w-8 shrink-0 p-0"
+                            aria-label="Cancel booking"
+                            onClick={() => { setSelectedBookingId(booking.id); setNewStatus('CANCELLED') }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                    <Link href={`/dashboard/bookings/${booking.id}`} className="flex-1 sm:flex-none"><Button size="sm" variant="outline" className="w-full"><Eye className="mr-1.5 h-4 w-4" />View</Button></Link>
-                    {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && <>
-                      <Button size="sm" className="flex-1 bg-blue-600 text-white hover:bg-blue-700" onClick={() => { setSelectedBookingId(booking.id); setNewStatus(booking.status === 'PENDING' ? 'CONFIRMED' : booking.status === 'CONFIRMED' ? 'COMPLETED' : null) }}>{booking.status === 'PENDING' ? 'Confirm' : 'Complete'}</Button>
-                      <Button size="sm" variant="destructive" className="flex-1" onClick={() => { setSelectedBookingId(booking.id); setNewStatus('CANCELLED') }}>Cancel</Button>
-                    </>}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
+
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
@@ -296,21 +345,21 @@ export default function BookingsPage() {
                               <Eye className="w-4 h-4" />
                             </Button>
                           </Link>
-                          {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
+                          {isActionable(booking.status) && (
                             <>
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 className="bg-blue-600 hover:bg-blue-700 text-white"
                                 onClick={() => {
                                   setSelectedBookingId(booking.id)
-                                  setNewStatus(booking.status === 'PENDING' ? 'CONFIRMED' : booking.status === 'CONFIRMED' ? 'COMPLETED' : null)
+                                  setNewStatus(nextStatusValue(booking.status))
                                 }}
                                 title={booking.status === 'PENDING' ? 'Confirm booking' : 'Mark as completed'}
                               >
-                                {booking.status === 'PENDING' ? 'Confirm' : booking.status === 'CONFIRMED' ? 'Complete' : 'Done'}
+                                {nextStatusLabel(booking.status)}
                               </Button>
-                              <Button 
-                                size="sm" 
+                              <Button
+                                size="sm"
                                 variant="destructive"
                                 onClick={() => {
                                   setSelectedBookingId(booking.id)
@@ -354,24 +403,24 @@ export default function BookingsPage() {
 
         {/* Status Update Confirmation Modal */}
         {selectedBookingId && newStatus && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <Card className="w-full max-w-md p-6">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
               <h2 className="text-lg font-bold text-slate-900 mb-4">Update Booking Status</h2>
-              
+
               {updateError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-900">
                   {updateError}
                 </div>
               )}
-              
+
               <p className="text-slate-600 mb-6">
                 Are you sure you want to change the status to <strong>{newStatus}</strong>?
                 <br />
                 The booking status will be updated without sending a customer email.
               </p>
-              
-              <div className="flex gap-2 justify-end">
-                <Button 
+
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button
                   variant="outline"
                   onClick={() => {
                     setSelectedBookingId(null)
@@ -382,7 +431,7 @@ export default function BookingsPage() {
                 >
                   Cancel
                 </Button>
-                <Button 
+                <Button
                   className="bg-blue-600 hover:bg-blue-700"
                   onClick={handleUpdateStatus}
                   disabled={updatingStatus}
