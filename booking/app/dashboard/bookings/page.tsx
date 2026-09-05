@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
 import { bookingsApi, staffApi, type Staff } from '@/lib/api'
-import { Calendar, Loader, AlertCircle, Search, X, Download , Bell} from 'lucide-react'
+import { Calendar, Loader, AlertCircle, Search, X, Download, Bell } from 'lucide-react'
 import Link from 'next/link'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
@@ -20,7 +20,7 @@ interface Booking {
   customerEmail?: string
   serviceId: string
   customerPhone?: string
- service?: { name: string; price: number; offerPrice?: number | null }
+  service?: { name: string; price: number; offerPrice?: number | null }
   startTime: string
   endTime: string
   status: string
@@ -29,14 +29,14 @@ interface Booking {
 }
 
 type StatusFilter = 'ALL' | 'UNVERIFIED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
-type RangeFilter ='ALL'| 'today' | 'tomorrow' | 'week' | 'nextWeek' | 'month'
+type RangeFilter = 'ALL' | 'today' | 'tomorrow' | 'week' | 'nextWeek' | 'month'
 
-const STATUS_FILTERS: StatusFilter[] = ['ALL', 'UNVERIFIED','CONFIRMED', 'COMPLETED', 'CANCELLED']
+const STATUS_FILTERS: StatusFilter[] = ['ALL', 'UNVERIFIED', 'CONFIRMED', 'COMPLETED', 'CANCELLED']
 
 // Statuses the backend endpoint actually validates/accepts as a `status` query param.
 // Anything else must be filtered on the client (the server ignores unknown values
 // and returns everything, which is what made the filters look broken).
-const SERVER_SUPPORTED: StatusFilter[] = [ 'CONFIRMED', 'CANCELLED']
+const SERVER_SUPPORTED: StatusFilter[] = ['CONFIRMED', 'CANCELLED']
 
 const PAGE_SIZE = 10
 
@@ -44,17 +44,17 @@ export default function BookingsPage() {
   const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
-   const { subscriptionStatus } = useSubscriptionStatus()
-   const planName = (subscriptionStatus?.planName || '').toUpperCase()
+  const { subscriptionStatus } = useSubscriptionStatus()
+  const planName = (subscriptionStatus?.planName || '').toUpperCase()
   const canExportBookings = ['PROFESSIONAL', 'ENTERPRISE'].includes((subscriptionStatus?.planName || '').toUpperCase())
   // Reminder eligibility: Enterprise sends via SMS (bulk), Pro/Professional via email.
-const isEnterprisePlan = planName === 'ENTERPRISE'
-const isProPlan = planName === 'PRO' || planName === 'PROFESSIONAL'
-const canSendReminders = isEnterprisePlan || isProPlan
+  const isEnterprisePlan = planName === 'ENTERPRISE'
+  const isProPlan = planName === 'PRO' || planName === 'PROFESSIONAL'
+  const canSendReminders = isEnterprisePlan || isProPlan
 
-const [sendingReminders, setSendingReminders] = useState(false)
-const [reminderMessage, setReminderMessage] = useState<string | null>(null)
-const [reminderError, setReminderError] = useState(false)
+  const [sendingReminders, setSendingReminders] = useState(false)
+  const [reminderMessage, setReminderMessage] = useState<string | null>(null)
+  const [reminderError, setReminderError] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
@@ -69,38 +69,37 @@ const [reminderError, setReminderError] = useState(false)
   const [hasMore, setHasMore] = useState(false)
 
   const downloadBookingsPdf = () => {
-  if (!canExportBookings || visibleBookings.length === 0) return
+    if (!canExportBookings || visibleBookings.length === 0) return
 
-  const doc = new jsPDF()
+    const doc = new jsPDF()
 
-  doc.setFontSize(16)
-  doc.text('Bookings', 14, 18)
-  doc.setFontSize(10)
-  doc.setTextColor(100)
-  doc.text(`Filtered bookings · ${new Date().toLocaleDateString()}`, 14, 24)
+    doc.setFontSize(16)
+    doc.text('Bookings', 14, 18)
+    doc.setFontSize(10)
+    doc.setTextColor(100)
+    doc.text(`Filtered bookings · ${new Date().toLocaleDateString()}`, 14, 24)
 
-  autoTable(doc, {
-    startY: 30,
-    head: [['Customer', 'Email', 'Phone', 'Service', 'Date & Time', 'Status', 'Amount']],
-    body: visibleBookings.map((booking) => [
-      booking.customerName || 'N/A',
-      booking.customerEmail || 'N/A',
-      booking.customerPhone || 'N/A',
-      booking.service?.name || 'N/A',
-      new Date(booking.startTime).toLocaleString(),
-      booking.status,
-      `Rs. ${(booking.service?.offerPrice ?? booking.service?.price ?? 0).toFixed(2)}`,
-    ]),
-    headStyles: { fillColor: [241, 245, 249], textColor: 20, fontStyle: 'bold' },
-    styles: { fontSize: 9, cellPadding: 4 },
-    theme: 'grid',
-  })
+    autoTable(doc, {
+      startY: 30,
+      head: [['Customer', 'Email', 'Phone', 'Service', 'Date & Time', 'Status', 'Amount']],
+      body: visibleBookings.map((booking) => [
+        booking.customerName || 'N/A',
+        booking.customerEmail || 'N/A',
+        booking.customerPhone || 'N/A',
+        booking.service?.name || 'N/A',
+        new Date(booking.startTime).toLocaleString(),
+        booking.status,
+        `Rs. ${(booking.service?.offerPrice ?? booking.service?.price ?? 0).toFixed(2)}`,
+      ]),
+      headStyles: { fillColor: [241, 245, 249], textColor: 20, fontStyle: 'bold' },
+      styles: { fontSize: 9, cellPadding: 4 },
+      theme: 'grid',
+    })
 
-  doc.save(`bookings-${new Date().toISOString().slice(0, 10)}.pdf`)
-}
+    doc.save(`bookings-${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
 
   const getDateRange = () => {
-
     if (filterRange === 'ALL') {
       return { startDate: null, endDate: null }
     }
@@ -140,38 +139,37 @@ const [reminderError, setReminderError] = useState(false)
     }
   }, [businessId])
 
+  const [remindersSentToday, setRemindersSentToday] = useState(false)
 
- const [remindersSentToday, setRemindersSentToday] = useState(false)
+  const handleSendReminders = async () => {
+    if (!businessId || !canSendReminders || sendingReminders || remindersSentToday) return
 
-const handleSendReminders = async () => {
-  if (!businessId || !canSendReminders || sendingReminders || remindersSentToday) return
+    try {
+      setSendingReminders(true)
+      setReminderMessage(null)
+      setReminderError(false)
 
-  try {
-    setSendingReminders(true)
-    setReminderMessage(null)
-    setReminderError(false)
+      const response = await bookingsApi.sendTodayReminders(businessId)
 
-    const response = await bookingsApi.sendTodayReminders(businessId)
-
-    if (response.success) {
-      const { count, channel } = response.data!
-      setReminderMessage(`Reminders sent to ${count} customer${count === 1 ? '' : 's'} via ${channel === 'sms' ? 'SMS' : 'email'}.`)
-      if (count > 0) setRemindersSentToday(true)
-    } else if (response.error?.toLowerCase().includes('already sent today')) {
+      if (response.success) {
+        const { count, channel } = response.data!
+        setReminderMessage(`Reminders sent to ${count} customer${count === 1 ? '' : 's'} via ${channel === 'sms' ? 'SMS' : 'email'}.`)
+        if (count > 0) setRemindersSentToday(true)
+      } else if (response.error?.toLowerCase().includes('already sent today')) {
+        setReminderError(true)
+        setReminderMessage(response.error)
+        setRemindersSentToday(true)
+      } else {
+        setReminderError(true)
+        setReminderMessage(response.error || 'Failed to send reminders')
+      }
+    } catch (err) {
       setReminderError(true)
-      setReminderMessage(response.error)
-      setRemindersSentToday(true)
-    } else {
-      setReminderError(true)
-      setReminderMessage(response.error || 'Failed to send reminders')
+      setReminderMessage('Error sending reminders')
+    } finally {
+      setSendingReminders(false)
     }
-  } catch (err) {
-    setReminderError(true)
-    setReminderMessage('Error sending reminders')
-  } finally {
-    setSendingReminders(false)
   }
-}
 
   const loadBookings = async () => {
     if (!businessId) return
@@ -264,6 +262,71 @@ const handleSendReminders = async () => {
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
+  // Shared action buttons for a booking — used by both the desktop table row
+  // and the mobile card, so the logic only lives in one place.
+  const BookingActions = ({ booking }: { booking: Booking }) => {
+    if (booking.status === 'UNVERIFIED') {
+      return (
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={() => {
+            setSelectedBookingId(booking.id)
+            setNewStatus('CANCELLED')
+          }}
+          title="Cancel booking"
+        >
+          Cancel
+        </Button>
+      )
+    }
+    if (booking.status === 'CANCELLED' || booking.status === 'COMPLETED') {
+      return null
+    }
+    return (
+      <>
+        <Button
+          size="sm"
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+          onClick={() => {
+            setSelectedBookingId(booking.id)
+            setNewStatus(
+              booking.status === 'PENDING'
+                ? 'CONFIRMED'
+                : booking.status === 'CONFIRMED'
+                  ? 'COMPLETED'
+                  : null
+            )
+          }}
+          title={booking.status === 'PENDING' ? 'Confirm booking' : 'Mark as completed'}
+        >
+          {booking.status === 'PENDING' ? 'Confirm' : booking.status === 'CONFIRMED' ? 'Complete' : null}
+        </Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={() => {
+            setSelectedBookingId(booking.id)
+            setNewStatus('CANCELLED')
+          }}
+          title="Cancel booking"
+        >
+          Cancel
+        </Button>
+      </>
+    )
+  }
+
+  const BookingAmount = ({ booking }: { booking: Booking }) =>
+    booking.service?.offerPrice != null && booking.service.offerPrice < booking.service.price ? (
+      <div className="flex flex-col">
+        <span className="text-sm text-slate-400 line-through">Rs.{booking.service.price.toFixed(2)}</span>
+        <span className="text-emerald-700">Rs.{booking.service.offerPrice.toFixed(2)}</span>
+      </div>
+    ) : (
+      <span>Rs.{(booking.service?.price ?? 0).toFixed(2)}</span>
+    )
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       <Sidebar userRole="BUSINESS_OWNER" />
@@ -277,43 +340,57 @@ const handleSendReminders = async () => {
         />
 
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Bookings</h1>
+            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Bookings</h1>
             <p className="text-slate-500">Manage all customer bookings</p>
           </div>
-           {canSendReminders && (
-  <Button onClick={handleSendReminders} disabled={sendingReminders || remindersSentToday} variant="outline">
-    <Bell className="mr-2 h-4 w-4" />
-    {sendingReminders ? 'Sending...' : remindersSentToday ? 'Reminders Sent Today' : "Remind Today's Customers"}
-  </Button>
-)}
-           {canExportBookings && (
-           <Button onClick={downloadBookingsPdf} disabled={loading || visibleBookings.length === 0} variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Download PDF
-            </Button>
+          {(canSendReminders || canExportBookings) && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              {canSendReminders && (
+                <Button
+                  onClick={handleSendReminders}
+                  disabled={sendingReminders || remindersSentToday}
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  <Bell className="mr-2 h-4 w-4" />
+                  {sendingReminders ? 'Sending...' : remindersSentToday ? 'Reminders Sent Today' : "Remind Today's Customers"}
+                </Button>
+              )}
+              {canExportBookings && (
+                <Button
+                  onClick={downloadBookingsPdf}
+                  disabled={loading || visibleBookings.length === 0}
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PDF
+                </Button>
+              )}
+            </div>
           )}
         </div>
 
         {reminderMessage && (
-  <div
-    className={`mb-6 p-3 rounded-lg border text-sm ${
-      reminderError ? 'bg-red-50 border-red-200 text-red-900' : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-    }`}
-  >
-    {reminderMessage}
-  </div>
-)}
-        
+          <div
+            className={`mb-6 p-3 rounded-lg border text-sm ${
+              reminderError ? 'bg-red-50 border-red-200 text-red-900' : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+            }`}
+          >
+            {reminderMessage}
+          </div>
+        )}
 
-        {/* Status Filters */}
-        <div className="mb-6 flex flex-wrap gap-2">
+        {/* Status Filters — horizontally scrollable on narrow screens instead of wrapping into a tall block */}
+        <div className="mb-6 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
           {STATUS_FILTERS.map((status) => (
             <Button
               key={status}
               variant={filterStatus === status ? 'default' : 'outline'}
               size="sm"
+              className="shrink-0"
               onClick={() => {
                 setFilterStatus(status)
                 setPage(1)
@@ -325,7 +402,7 @@ const handleSendReminders = async () => {
         </div>
 
         <Card className="mb-6 border-slate-200 bg-white/80 p-4 shadow-sm">
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Search customer
@@ -391,7 +468,7 @@ const handleSendReminders = async () => {
                 <option value="month">Last 30 days</option>
               </select>
             </div>
-            <div className="flex items-end">
+            <div className="flex items-end sm:col-span-2">
               <Link
                 href="/dashboard/staff/performance"
                 className="text-sm font-semibold text-blue-700 hover:underline"
@@ -404,145 +481,141 @@ const handleSendReminders = async () => {
 
         {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
             <p className="text-red-900">{error}</p>
           </div>
         )}
 
         {/* Loading */}
         {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <Loader className="w-8 h-8 animate-spin text-blue-600" />
+          <div className="flex h-64 items-center justify-center">
+            <Loader className="h-8 w-8 animate-spin text-blue-600" />
           </div>
         ) : visibleBookings.length === 0 ? (
           <Card className="p-12 text-center">
-            <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-600 text-lg font-medium">No bookings found</p>
-            <p className="text-slate-500 text-sm">
+            <Calendar className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+            <p className="text-lg font-medium text-slate-600">No bookings found</p>
+            <p className="text-sm text-slate-500">
               {filterStatus === 'ALL'
                 ? 'Try a different date range'
                 : `No ${filterStatus.toLowerCase()} bookings in this range`}
             </p>
           </Card>
         ) : (
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Customer</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Phone</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Service</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Date & Time</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Staff</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Status</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Amount</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {visibleBookings.map((booking) => (
-                    <tr key={booking.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-medium text-slate-900">{booking.customerName}</p>
-                          <p className="text-sm text-slate-500">{booking.customerEmail}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm">{booking.customerPhone || 'N/A'}</td>
-                      <td className="px-6 py-4 text-slate-900">{booking.service?.name || 'N/A'}</td>
-                      <td className="px-6 py-4 text-slate-900">
-                        {new Date(booking.startTime).toLocaleDateString()}
-                        <br />
-                        <span className="text-sm text-slate-500">
-                          {new Date(booking.startTime).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
+          <>
+            {/* Mobile: stacked cards (below md) */}
+            <div className="space-y-3 md:hidden">
+              {visibleBookings.map((booking) => (
+                <Card key={booking.id} className="p-4">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-slate-900">{booking.customerName}</p>
+                      {booking.customerEmail && (
+                        <p className="truncate text-sm text-slate-500">{booking.customerEmail}</p>
+                      )}
+                    </div>
+                    <Badge className={`shrink-0 ${getStatusColor(booking.status)}`}>{booking.status}</Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-y-2 text-sm">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-400">Service</p>
+                      <p className="text-slate-900">{booking.service?.name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-400">Amount</p>
+                      <BookingAmount booking={booking} />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-400">Date & time</p>
+                      <p className="text-slate-900">
+                        {new Date(booking.startTime).toLocaleDateString()}{' '}
+                        {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-400">Staff</p>
+                      <p className="text-slate-900">
                         {booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}` : 'N/A'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
-                      </td>
-                       {booking.service?.offerPrice != null &&
-                        booking.service.offerPrice < booking.service.price ? (
-                          <div className="flex flex-col">
-                            <span className="text-sm text-slate-400 line-through">
-                              Rs.{booking.service.price.toFixed(2)}
-                            </span>
-                            <span className="text-emerald-700">
-                              Rs.{booking.service.offerPrice.toFixed(2)}
-                            </span>
-                          </div>
-                        ) : (
-                          <span>Rs.{(booking.service?.price ?? 0).toFixed(2)}</span>
-                        )}
-                      <td className="px-6 py-4 text-right">
-  <div className="flex justify-end gap-2 items-center">
-    {booking.status === 'UNVERIFIED' ? (
-      <Button
-        size="sm"
-        variant="destructive"
-        onClick={() => {
-          setSelectedBookingId(booking.id)
-          setNewStatus('CANCELLED')
-        }}
-        title="Cancel booking"
-      >
-        Cancel
-      </Button>
-    ) : (
-      booking.status !== 'CANCELLED' &&
-      booking.status !== 'COMPLETED' && (
-        <>
-          <Button
-            size="sm"
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-            onClick={() => {
-              setSelectedBookingId(booking.id)
-              setNewStatus(
-                booking.status === 'PENDING'
-                  ? 'CONFIRMED'
-                  : booking.status === 'CONFIRMED'
-                    ? 'COMPLETED'
-                    : null
-              )
-            }}
-            title={booking.status === 'PENDING' ? 'Confirm booking' : 'Mark as completed'}
-          >
-            {booking.status === 'PENDING' ? 'Confirm' : booking.status === 'CONFIRMED' ? 'Complete' : null}
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => {
-              setSelectedBookingId(booking.id)
-              setNewStatus('CANCELLED')
-            }}
-            title="Cancel booking"
-          >
-            Cancel
-          </Button>
-        </>
-      )
-    )}
-  </div>
-</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-xs uppercase tracking-wide text-slate-400">Phone</p>
+                      <p className="text-slate-900">{booking.customerPhone || 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex justify-end gap-2 border-t border-slate-100 pt-3">
+                    <BookingActions booking={booking} />
+                  </div>
+                </Card>
+              ))}
             </div>
-          </Card>
+
+            {/* Desktop / tablet: table (md and up) */}
+            <Card className="hidden overflow-hidden md:block">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b border-slate-200 bg-slate-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Customer</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Phone</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Service</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Date & Time</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Staff</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Status</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Amount</th>
+                      <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {visibleBookings.map((booking) => (
+                      <tr key={booking.id} className="transition-colors hover:bg-slate-50">
+                        <td className="px-6 py-4">
+                          <div>
+                            <p className="font-medium text-slate-900">{booking.customerName}</p>
+                            <p className="text-sm text-slate-500">{booking.customerEmail}</p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm">{booking.customerPhone || 'N/A'}</td>
+                        <td className="px-6 py-4 text-slate-900">{booking.service?.name || 'N/A'}</td>
+                        <td className="px-6 py-4 text-slate-900">
+                          {new Date(booking.startTime).toLocaleDateString()}
+                          <br />
+                          <span className="text-sm text-slate-500">
+                            {new Date(booking.startTime).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}` : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge className={getStatusColor(booking.status)}>{booking.status}</Badge>
+                        </td>
+                        <td className="px-6 py-4">
+                          <BookingAmount booking={booking} />
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <BookingActions booking={booking} />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </>
         )}
 
         {/* Pagination */}
         {!loading && visibleBookings.length > 0 && (
-          <div className="mt-6 flex justify-between items-center">
+          <div className="mt-6 flex items-center justify-between">
             <Button variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
               Previous
             </Button>
@@ -555,23 +628,23 @@ const handleSendReminders = async () => {
 
         {/* Status Update Confirmation Modal */}
         {selectedBookingId && newStatus && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
             <Card className="w-full max-w-md p-6">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">Update Booking Status</h2>
+              <h2 className="mb-4 text-lg font-bold text-slate-900">Update Booking Status</h2>
 
               {updateError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-900">
+                <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
                   {updateError}
                 </div>
               )}
 
-              <p className="text-slate-600 mb-6">
+              <p className="mb-6 text-slate-600">
                 Are you sure you want to change the status to <strong>{newStatus}</strong>?
                 <br />
                 The booking status will be updated without sending a customer email.
               </p>
 
-              <div className="flex gap-2 justify-end">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button
                   variant="outline"
                   onClick={() => {
