@@ -308,6 +308,15 @@ function BookingPageContent() {
   const loadAvailableSlots = async () => {
     if (!selectedService || !date || !businessId) return
 
+      if (!closedDates.has(date)) {
+    const todayReason = getTodayClosedReason(date)
+    if (todayReason) {
+      setAvailableSlots([])
+      setClosedReason(todayReason)
+      return
+    }
+  }
+
     try {
       setLoading(true)
 
@@ -369,6 +378,35 @@ function BookingPageContent() {
     }
   }
 
+  // Given today's date, finds the day's business hours and checks whether
+  // the current time is already past closing. Mirrors the equivalent check
+  // in the staff booking page. Day-of-week mapping: JS Date.getDay() is
+  // 0-6 (Sun-Sat), but business hours store 0-6 as Mon-Sun, so Sunday (0)
+  // maps to 6, and every other day shifts down by 1.
+  const getTodayClosedReason = (dateStr: string): string | null => {
+    const now = new Date()
+    const todayStr = now.toISOString().split('T')[0]
+    if (dateStr !== todayStr) return null // only relevant for today
+
+    const dayOfWeek = now.getDay()
+    const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    const dayHours = businessHours.find((bh: any) => bh.dayOfWeek === adjustedDayOfWeek)
+
+    if (!dayHours || dayHours.isClosed) {
+      return dayHours ? 'Business is closed on this day' : null
+    }
+
+    const [closingHour, closingMin] = dayHours.closeTime.split(':').map(Number)
+    const closingDateTime = new Date(dateStr)
+    closingDateTime.setHours(closingHour, closingMin, 0, 0)
+
+    if (now > closingDateTime) {
+      return 'Business is closed for today'
+    }
+
+    return null
+  }
+
   const getDisplayTime = (timeString: string): string => {
     if (!timeString) return 'N/A'
     try {
@@ -389,15 +427,15 @@ function BookingPageContent() {
 
   const handleConfirmBooking = async () => {
     if (!selectedService || !date || !selectedTime) {
-    setError('Please select service, date, and time')
-    return
-  }
+      setError('Please select service, date, and time')
+      return
+    }
 
-  if (!isSlotInFuture(date, selectedTime)) {
-    setError('This time slot has passed. Please select a different time.')
-    setSelectedTime(null)
-    return
-  }
+    if (!isSlotInFuture(date, selectedTime)) {
+      setError('This time slot has passed. Please select a different time.')
+      setSelectedTime(null)
+      return
+    }
 
     // Check if the date is a closed date
     if (closedDates.has(date)) {
@@ -691,11 +729,13 @@ function BookingPageContent() {
                     setDate(selectedDate);
                     setSelectedTime(null);
 
-                    // Check if the selected date is closed
+                    // Check if the selected date is closed (explicit closed date first,
+                    // then today-past-closing-time as a fallback)
                     if (closedDates.has(selectedDate)) {
                       setClosedReason(closedDates.get(selectedDate) || 'Business is closed');
                     } else {
-                      setClosedReason(null);
+                      const todayReason = getTodayClosedReason(selectedDate)
+                      setClosedReason(todayReason);
                     }
                   }}
                   min={new Date().toISOString().split('T')[0]}
@@ -791,10 +831,10 @@ function BookingPageContent() {
                           disabled={isPast}
                           title={isPast ? 'This time has already passed' : undefined}
                           className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${isPast
-                              ? 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
-                              : selectedTime === slot
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-card text-foreground border-border hover:border-primary'
+                            ? 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
+                            : selectedTime === slot
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-card text-foreground border-border hover:border-primary'
                             }`}
                         >
                           {formatTimeSlot(slot)}
