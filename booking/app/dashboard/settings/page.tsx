@@ -269,13 +269,15 @@ export default function SettingsPage() {
       // Check if business hours exist
       const hours = response.data || response
       setHasBusinessHours(
-        hours && 
+        hours &&
         (Array.isArray(hours) ? hours.length > 0 : Object.keys(hours).length > 0)
       )
     } catch (err) {
       setHasBusinessHours(false)
     }
   }
+
+
 
   const loadSettings = async () => {
     if (!businessId) {
@@ -442,8 +444,8 @@ export default function SettingsPage() {
                   <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{profileCompletion}%</span>
                 </div>
                 <div className="w-full bg-blue-200 dark:bg-blue-800/40 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${profileCompletion}%` }}
                   />
                 </div>
@@ -467,7 +469,7 @@ export default function SettingsPage() {
                     <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
                       Set up your operating hours to enable customers to book appointments. Without business hours configured, online booking won&apos;t be available.
                     </p>
-                    <Button 
+                    <Button
                       onClick={() => router.push('/dashboard/business-hours')}
                       className="mt-3 bg-amber-600 hover:bg-amber-700 text-white"
                       size="sm"
@@ -514,9 +516,9 @@ export default function SettingsPage() {
                   <div className="flex-shrink-0">
                     <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border overflow-hidden">
                       {logoPreview || formData?.logo ? (
-                        <img 
-                          src={logoPreview || formData?.logo} 
-                          alt="Business logo" 
+                        <img
+                          src={logoPreview || formData?.logo}
+                          alt="Business logo"
                           className="w-full h-full object-contain"
                         />
                       ) : (
@@ -725,47 +727,29 @@ export default function SettingsPage() {
                     <Switch
                       checked={isEnterprise ? (formData?.notificationSettings?.smsNotifications || false) : false}
                       disabled={!isEnterprise || planLoading}
-                      onCheckedChange={(checked) =>
-                        handleNotificationChange('smsNotifications', checked)
-                      }
+                      onCheckedChange={(checked) => handleNotificationChange('smsNotifications', checked)}
                     />
                   </div>
 
+                  {/* Booking Reminders */}
                   <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                     <div className="flex-1">
                       <p className="font-medium text-foreground">Booking Reminders</p>
-                      <p className="text-sm text-muted-foreground">Get reminders before upcoming bookings</p>
+                      <p className="text-sm text-muted-foreground">
+                        {isEnterprise
+                          ? 'Customers get reminders before upcoming bookings via email and SMS'
+                          : 'Customers get reminders before upcoming bookings via email'}
+                      </p>
+                      {!isEnterprise && !planLoading && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Upgrade to Enterprise to also send SMS reminders
+                        </p>
+                      )}
                     </div>
                     <Switch
                       checked={formData?.notificationSettings?.bookingReminders || false}
                       onCheckedChange={(checked) =>
                         handleNotificationChange('bookingReminders', checked)
-                      }
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">Payment Alerts</p>
-                      <p className="text-sm text-muted-foreground">Notifications for new payments</p>
-                    </div>
-                    <Switch
-                      checked={formData?.notificationSettings?.paymentAlerts || false}
-                      onCheckedChange={(checked) =>
-                        handleNotificationChange('paymentAlerts', checked)
-                      }
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">Marketing Emails</p>
-                      <p className="text-sm text-muted-foreground">Receive tips and promotional offers</p>
-                    </div>
-                    <Switch
-                      checked={formData?.notificationSettings?.marketingEmails || false}
-                      onCheckedChange={(checked) =>
-                        handleNotificationChange('marketingEmails', checked)
                       }
                     />
                   </div>
@@ -881,36 +865,6 @@ export default function SettingsPage() {
           {/* Security Tab */}
           <TabsContent value="security" className="space-y-6">
             {/* API Key */}
-            <Card className="border border-border">
-              <CardHeader>
-                <CardTitle>API Key</CardTitle>
-                <CardDescription>Use this key to integrate with our API</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Your API Key</Label>
-                  <div className="mt-2 flex items-center gap-2">
-                    <code className="flex-1 p-3 bg-muted text-muted-foreground rounded border border-border text-sm overflow-auto font-mono">
-                      {businessId}
-                    </code>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => copyToClipboard(businessId || '')}
-                    >
-                      {copied ? (
-                        <Check className="w-4 h-4" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Keep this key private. Never share it publicly.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Danger Zone */}
             <Card className="border border-destructive">
