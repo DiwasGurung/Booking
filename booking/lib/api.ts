@@ -526,7 +526,7 @@ export const bookingsApi = {
     }),
 
   // Get all bookings for a specific business
-  getBusinessBookings: (businessId: string, page = 1, limit = 10, status?: string, startDate?: string, endDate?: string, staffId?: string) => {
+  getBusinessBookings: (businessId: string, page = 1, limit = 10, status?: string, startDate?: string, p0?: boolean | undefined, endDate?: string, staffId?: string) => {
     let url = `/api/booking/businesses/${businessId}/bookings?page=${page}&limit=${limit}`
     if (status) {
       url += `&status=${status}`
