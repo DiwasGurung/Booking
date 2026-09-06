@@ -67,6 +67,58 @@ export default function BookingsPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [updateError, setUpdateError] = useState('')
   const [hasMore, setHasMore] = useState(false)
+  // Independent of the table's display filters (status/staff/date-range/search) —
+  // this tracks specifically whether there's any CONFIRMED booking later today,
+  // which is the exact condition the backend uses to decide whether reminders
+  // have anything to send.
+  const [hasRemindableBookings, setHasRemindableBookings] = useState(true) // optimistic until first check resolves
+
+  const checkRemindableBookings = async () => {
+    if (!businessId) return
+    try {
+      const now = new Date()
+      const startOfDay = new Date(now)
+      startOfDay.setHours(0, 0, 0, 0)
+      const endOfDay = new Date(now)
+      endOfDay.setHours(23, 59, 59, 999)
+
+      const response = await bookingsApi.getBusinessBookings(
+        businessId,
+        1,
+        100, // covers a normal day's volume; bump this or switch to a count endpoint if a business can exceed 100 bookings/day
+        'CONFIRMED',
+        startOfDay.toISOString(),
+        endOfDay.toISOString(),
+        undefined
+      )
+
+      if (!response.success) {
+        // Fail open — don't block the button on our own probe failing.
+        // The real send endpoint still validates and will 200 with count:0 if it turns out there's nothing to send.
+        setHasRemindableBookings(true)
+        return
+      }
+
+      const fetched: Booking[] = Array.isArray(response.data)
+        ? (response.data as Booking[])
+        : ((response.data as any)?.bookings ?? [])
+
+      const remaining = fetched.filter((b) => new Date(b.startTime) > now)
+      setHasRemindableBookings(remaining.length > 0)
+    } catch {
+      setHasRemindableBookings(true) // fail open, same reasoning
+    }
+  }
+
+  useEffect(() => {
+    if (!businessId || !canSendReminders) return
+    checkRemindableBookings()
+    // Bookings that were "later today" can become "in the past" as the day
+    // goes on, so re-check periodically rather than only on mount.
+    const interval = setInterval(checkRemindableBookings, 60 * 1000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId, canSendReminders])
 
   const downloadBookingsPdf = () => {
     if (!canExportBookings || visibleBookings.length === 0) return
@@ -350,12 +402,19 @@ export default function BookingsPage() {
               {canSendReminders && (
                 <Button
                   onClick={handleSendReminders}
-                  disabled={sendingReminders || remindersSentToday}
+                  disabled={sendingReminders || remindersSentToday || !hasRemindableBookings}
                   variant="outline"
                   className="w-full sm:w-auto"
+                  title={!hasRemindableBookings ? 'No confirmed bookings remaining today' : undefined}
                 >
                   <Bell className="mr-2 h-4 w-4" />
-                  {sendingReminders ? 'Sending...' : remindersSentToday ? 'Reminders Sent Today' : "Remind Today's Customers"}
+                  {sendingReminders
+                    ? 'Sending...'
+                    : remindersSentToday
+                      ? 'Reminders Sent Today'
+                      : !hasRemindableBookings
+                        ? 'No Bookings Left Today'
+                        : "Remind Today's Customers"}
                 </Button>
               )}
               {canExportBookings && (
@@ -375,9 +434,8 @@ export default function BookingsPage() {
 
         {reminderMessage && (
           <div
-            className={`mb-6 p-3 rounded-lg border text-sm ${
-              reminderError ? 'bg-red-50 border-red-200 text-red-900' : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-            }`}
+            className={`mb-6 p-3 rounded-lg border text-sm ${reminderError ? 'bg-red-50 border-red-200 text-red-900' : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              }`}
           >
             {reminderMessage}
           </div>
