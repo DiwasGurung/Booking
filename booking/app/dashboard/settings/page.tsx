@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { businessApi, businessHoursApi, phoneVerificationApi } from '@/lib/api'
-import { Loader, AlertCircle, Save, Settings, Bell, Lock, Trash2, Copy, Check, Upload, X, Sparkles } from 'lucide-react'
+import { Loader, AlertCircle, Save, Settings, Bell, Lock, Trash2, Copy, Check, Upload, X, Sparkles, Phone } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -73,6 +73,9 @@ export default function SettingsPage() {
   const [planLoading, setPlanLoading] = useState(true)
   const isEnterprise = businessPlan === ENTERPRISE_PLAN
 
+  // 10-digit numeric validation — matches Nepal mobile format used elsewhere in the app
+  const isValidPhone = (value: string) => /^\d{10}$/.test(value)
+
   const [showPhoneVerify, setShowPhoneVerify] = useState(false)
   const [verificationCode, setVerificationCode] = useState('')
   const [sendingCode, setSendingCode] = useState(false)
@@ -96,15 +99,16 @@ export default function SettingsPage() {
 
   const handleSendPhoneVerification = async () => {
     if (!businessId || !formData?.phone || resendCooldown > 0) return
+
+    if (!isValidPhone(formData.phone)) {
+      setVerifyError('Enter a valid 10-digit phone number')
+      return
+    }
+
     try {
       setSendingCode(true)
       setVerifyError(null)
 
-      // The verification endpoint sends a code to whatever phone number is
-      // currently saved on the business record — it does NOT know about
-      // unsaved edits sitting in local `formData`. If the user just typed
-      // a new number but hasn't saved, we must persist it first, or the
-      // OTP will go to the OLD number instead of the one on screen.
       if (formData.phone !== settings?.phone) {
         const saveResponse = await businessApi.updateSettings(businessId, {
           ...formData,
@@ -124,8 +128,6 @@ export default function SettingsPage() {
       const response = await phoneVerificationApi.sendCode('BUSINESS', businessId)
 
       if (!response.success) {
-        // "Already verified" means our local state is stale — reconcile it
-        // instead of showing a confusing error.
         if (response.error === 'Already verified') {
           const updated = { ...formData, isPhoneVerified: true }
           setFormData(updated)
@@ -424,6 +426,12 @@ export default function SettingsPage() {
 
   const handleSaveSettings = async (tab: string) => {
     if (!businessId || !formData) return
+
+    if (formData.phone && !isValidPhone(formData.phone)) {
+    setError('Phone number must be exactly 10 digits')
+    setTimeout(() => setError(null), 4000)
+    return
+  }
     try {
       setSaving(true)
 
@@ -723,145 +731,175 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="phone">Phone</Label>
-                    <div className="mt-2 flex gap-2">
-                      <Input
-                        id="phone"
-                        value={formData.phone}
-                        disabled={formData.isPhoneVerified && phoneLocked}
-                        onChange={(e) => {
-                          const newPhone = e.target.value
-                          setFormData({
-                            ...formData,
-                            phone: newPhone,
-                          
-                            isPhoneVerified: newPhone === settings?.phone ? formData.isPhoneVerified : false,
-                          })
-                        }}
-                        placeholder="+1 (555) 000-0000"
-                        className="flex-1"
-                      />
-                      {formData.isPhoneVerified && phoneLocked ? (
-                        <>
-                          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-green-100 px-3 text-sm font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                            <Check className="h-4 w-4" /> Verified
-                          </span>
+                    <div>
+                      <Label htmlFor="phone">Phone</Label>
+                      <div className="mt-2 flex gap-2">
+                        <div className="relative flex-1">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          {formData.isPhoneVerified && phoneLocked && (
+                            <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          )}
+                          <Input
+                            id="phone"
+                            type="tel"
+                            inputMode="numeric"
+                            value={formData.phone}
+                            disabled={formData.isPhoneVerified && phoneLocked}
+                            onChange={(e) => {
+                              const newPhone = e.target.value.replace(/\D/g, '').slice(0, 10)
+                              setFormData({
+                                ...formData,
+                                phone: newPhone,
+                                isPhoneVerified: newPhone === settings?.phone ? formData.isPhoneVerified : false,
+                              })
+                            }}
+                            placeholder="98XXXXXXXX"
+                            maxLength={10}
+                            className={`pl-9 ${formData.isPhoneVerified && phoneLocked ? 'pr-9 bg-muted/30' : ''}`}
+                          />
+                        </div>
+
+                        {formData.isPhoneVerified && phoneLocked ? (
+                          <>
+                            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-green-100 px-3 text-sm font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                              <Check className="h-4 w-4" /> Verified
+                            </span>
+                            <Button type="button" variant="outline" onClick={() => setPhoneLocked(false)}>
+                              Change
+                            </Button>
+                          </>
+                        ) : (
                           <Button
                             type="button"
                             variant="outline"
-                            onClick={() => setPhoneLocked(false)}
+                            onClick={handleSendPhoneVerification}
+                            disabled={!isValidPhone(formData.phone) || sendingCode || resendCooldown > 0}
                           >
-                            Change number
+                            {sendingCode ? (
+                              <Loader className="w-4 h-4 animate-spin" />
+                            ) : resendCooldown > 0 ? (
+                              `Retry in ${resendCooldown}s`
+                            ) : (
+                              'Verify'
+                            )}
                           </Button>
-                        </>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={handleSendPhoneVerification}
-                          disabled={!formData.phone || sendingCode || resendCooldown > 0}
-                        >
-                          {sendingCode ? 'Sending...' : resendCooldown > 0 ? `Retry in ${resendCooldown}s` : 'Verify'}
-                        </Button>
+                        )}
+                      </div>
+
+                      {/* Live validation feedback — only shown while the field is editable */}
+                      {!(formData.isPhoneVerified && phoneLocked) && (
+                        <div className="mt-1.5 flex items-center justify-between">
+                          <p className={`text-xs ${formData.phone && !isValidPhone(formData.phone) ? 'text-destructive' : 'text-muted-foreground'}`}>
+                            {formData.phone && !isValidPhone(formData.phone)
+                              ? 'Enter a valid 10-digit number'
+                              : 'Customers will use this number to reach you'}
+                          </p>
+                          <span className="text-xs text-muted-foreground">{formData.phone.length}/10</span>
+                        </div>
+                      )}
+
+                      {/* OTP entry — sits directly under the phone field it verifies */}
+                      {showPhoneVerify && !formData.isPhoneVerified && (
+                        <div className="mt-3 rounded-lg border border-border bg-muted/30 p-4">
+                          <p className="mb-2 text-sm font-medium text-foreground">
+                            Enter the code sent to {formData.phone}
+                          </p>
+                          {verifyError && (
+                            <p className="mb-2 text-sm text-destructive">
+                              {verifyError}
+                              {attemptsRemaining != null && ` (${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} remaining)`}
+                            </p>
+                          )}
+                          <div className="flex gap-2">
+                            <Input
+                              value={verificationCode}
+                              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                              placeholder="6-digit code"
+                              inputMode="numeric"
+                              className="max-w-[160px] text-center tracking-widest font-mono"
+                            />
+                            <Button onClick={handleVerifyPhoneCode} disabled={verifyingCode || verificationCode.length !== 6}>
+                              {verifyingCode ? <Loader className="w-4 h-4 animate-spin" /> : 'Confirm'}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                setShowPhoneVerify(false)
+                                setVerificationCode('')
+                                setVerifyError(null)
+                                setAttemptsRemaining(null)
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleSendPhoneVerification}
+                            disabled={sendingCode || resendCooldown > 0}
+                            className="mt-2 text-xs text-blue-600 hover:underline disabled:opacity-50"
+                          >
+                            {sendingCode ? 'Sending...' : resendCooldown > 0 ? `Resend available in ${resendCooldown}s` : "Didn't get it? Resend code"}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Standalone error shown when verifyError fires outside the OTP panel (e.g. invalid format on click) */}
+                      {verifyError && !showPhoneVerify && (
+                        <p className="mt-1.5 text-xs text-destructive">{verifyError}</p>
                       )}
                     </div>
-                    {/* OTP entry — sits directly under the phone field it verifies */}
-                    {showPhoneVerify && !formData.isPhoneVerified && (
-                      <div className="mt-3 rounded-lg border border-border bg-muted/30 p-4">
-                        <p className="mb-2 text-sm font-medium text-foreground">
-                          Enter the code sent to {formData.phone}
-                        </p>
-                        {verifyError && (
-                          <p className="mb-2 text-sm text-destructive">
-                            {verifyError}
-                            {attemptsRemaining != null && ` (${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} remaining)`}
-                          </p>
-                        )}
-                        <div className="flex gap-2">
-                          <Input
-                            value={verificationCode}
-                            onChange={(e) => setVerificationCode(e.target.value)}
-                            placeholder="6-digit code"
-                            className="max-w-[160px]"
-                          />
-                          <Button onClick={handleVerifyPhoneCode} disabled={verifyingCode || !verificationCode}>
-                            {verifyingCode ? 'Verifying...' : 'Confirm'}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => {
-                              setShowPhoneVerify(false)
-                              setVerificationCode('')
-                              setVerifyError(null)
-                              setAttemptsRemaining(null)
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleSendPhoneVerification}
-                          disabled={sendingCode || resendCooldown > 0}
-                          className="mt-2 text-xs text-blue-600 hover:underline disabled:opacity-50"
-                        >
-                          {sendingCode ? 'Sending...' : resendCooldown > 0 ? `Resend available in ${resendCooldown}s` : "Didn't get it? Resend code"}
-                        </button>
-                      </div>
+                    <div>
+                      <Label htmlFor="website">Website</Label>
+                      <Input
+                        id="website"
+                        value={formData.website}
+                        onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                        placeholder="https://example.com"
+                        className="mt-2"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="category">Category</Label>
+                      <Input
+                        id="category"
+                        value={formData.category}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        placeholder="e.g., Salon, Restaurant, Fitness"
+                        className="mt-2"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="description">Business Description</Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Tell customers about your business..."
+                      className="mt-2"
+                      rows={4}
+                    />
+                  </div>
+
+                  <Button
+                    onClick={() => handleSaveSettings('business')}
+                    disabled={saving}
+                    className="w-full"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Changes
+                      </>
                     )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="website">Website</Label>
-                    <Input
-                      id="website"
-                      value={formData.website}
-                      onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                      placeholder="https://example.com"
-                      className="mt-2"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="category">Category</Label>
-                    <Input
-                      id="category"
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      placeholder="e.g., Salon, Restaurant, Fitness"
-                      className="mt-2"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="description">Business Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Tell customers about your business..."
-                    className="mt-2"
-                    rows={4}
-                  />
-                </div>
-
-                <Button
-                  onClick={() => handleSaveSettings('business')}
-                  disabled={saving}
-                  className="w-full"
-                >
-                  {saving ? (
-                    <>
-                      <Loader className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Changes
-                    </>
-                  )}
-                </Button>
+                  </Button>
               </CardContent>
             </Card>
           </TabsContent>
