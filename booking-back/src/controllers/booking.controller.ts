@@ -107,17 +107,11 @@ class BookingController {
 
 
 
+async sendTodayReminders(req: Request, res: Response): Promise<Response | void> {
+  const { businessId } = req.params
+  const LOG_PREFIX = `[reminders][business=${businessId}]`
 
-  /**
-   * Sends a reminder to every customer with a CONFIRMED booking later
-   * today (strictly after "now", so already-passed or in-progress
-   * appointments are skipped). Channel (SMS vs email) is derived from
-   * the business's subscription plan feature flags, not client input.
-   */
-  async sendTodayReminders(req: Request, res: Response): Promise<Response | void> {
   try {
-    const { businessId } = req.params
-
     const business = await prisma.business.findUnique({
       where: { id: businessId as string },
       include: {
@@ -126,6 +120,7 @@ class BookingController {
     })
 
     if (!business) {
+      console.warn(`${LOG_PREFIX} Aborted: business not found`)
       return res.status(404).json({ success: false, message: 'Business not found' })
     }
 
@@ -133,11 +128,10 @@ class BookingController {
     const now = DateTime.now().setZone(BUSINESS_TZ)
     const startOfToday = now.startOf('day')
 
-    // Enforce one send per calendar day (business's local day), regardless
-    // of how many times the endpoint is hit.
     if (business.lastReminderSentAt) {
       const lastSent = DateTime.fromJSDate(business.lastReminderSentAt, { zone: BUSINESS_TZ })
       if (lastSent >= startOfToday) {
+        console.log(`${LOG_PREFIX} Skipped: already sent today at ${lastSent.toISO()}`)
         return res.status(409).json({
           success: false,
           message: `Reminders were already sent today at ${lastSent.toLocaleString(DateTime.TIME_SIMPLE)}. Try again tomorrow.`,
@@ -152,6 +146,9 @@ class BookingController {
       subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL')
 
     if (!isSubscriptionUsable || !plan) {
+      console.warn(
+        `${LOG_PREFIX} Aborted: no usable subscription (status=${subscription?.status ?? 'none'}, plan=${plan?.name ?? 'none'})`
+      )
       return res.status(403).json({
         success: false,
         message: 'An active subscription is required to send reminders.',
@@ -160,6 +157,7 @@ class BookingController {
 
     const canRemind = plan.allowSmsNotifications || plan.allowEmailNotifications
     if (!canRemind) {
+      console.warn(`${LOG_PREFIX} Aborted: plan "${plan.name}" does not allow SMS or email notifications`)
       return res.status(403).json({
         success: false,
         message: 'Your current plan does not include appointment reminders.',
@@ -167,14 +165,16 @@ class BookingController {
     }
 
     const channel: 'sms' | 'email' = plan.allowSmsNotifications ? 'sms' : 'email'
+    console.log(`${LOG_PREFIX} Starting send via ${channel} (plan=${plan.name})`)
 
     const bookings = await getTodayReminderCandidates(businessId as string)
 
     if (bookings.length === 0) {
-      // Nothing to send — don't stamp lastReminderSentAt, so the button
-      // stays usable if a CONFIRMED booking shows up later the same day.
+      console.log(`${LOG_PREFIX} No CONFIRMED bookings remaining today — nothing to send, lastReminderSentAt not stamped`)
       return res.status(200).json({ success: true, data: { count: 0, channel } })
     }
+
+    console.log(`${LOG_PREFIX} Found ${bookings.length} candidate booking(s) for today`)
 
     let sent = 0
     const failures: string[] = []
@@ -182,6 +182,7 @@ class BookingController {
     if (channel === 'sms') {
       for (const booking of bookings) {
         if (!booking.customerPhone) {
+          console.warn(`${LOG_PREFIX} SMS skipped for booking=${booking.id}: no customerPhone on file`)
           failures.push(booking.id)
           continue
         }
@@ -195,8 +196,17 @@ class BookingController {
           hoursUntil,
         })
 
-        if (result.success) sent++
-        else failures.push(booking.id)
+        if (result.success) {
+          sent++
+        } else {
+          // This is the log that was missing — the actual reason from Sparrow
+          // (e.g. quota exceeded, bad response code, network error) was being
+          // swallowed and only the booking id was recorded.
+          console.error(
+            `${LOG_PREFIX} SMS FAILED for booking=${booking.id} phone=${booking.customerPhone}: ${result.error ?? 'unknown error'}`
+          )
+          failures.push(booking.id)
+        }
       }
     } else {
       for (const booking of bookings) {
@@ -210,26 +220,32 @@ class BookingController {
             businessAddress: business.address,
           })
           sent++
-        } catch (err) {
-          console.error('[v0] Failed to send reminder email:', booking.customerEmail, err)
+        } catch (err: any) {
+          console.error(
+            `${LOG_PREFIX} EMAIL FAILED for booking=${booking.id} email=${booking.customerEmail}: ${err?.message || err}`
+          )
           failures.push(booking.id)
         }
       }
     }
 
-    // Stamp the send — this is what enforces the once-per-day rule on the
-    // next attempt, whether that's a re-click, a reload, or a different tab.
     await prisma.business.update({
-      where: { id: businessId  as string},
+      where: { id: businessId as string },
       data: { lastReminderSentAt: now.toJSDate() },
     })
+
+    console.log(
+      `${LOG_PREFIX} Done via ${channel}: sent=${sent} failed=${failures.length}${
+        failures.length ? ` failedIds=[${failures.join(', ')}]` : ''
+      }`
+    )
 
     return res.status(200).json({
       success: true,
       data: { count: sent, failed: failures.length, channel, alreadySentToday: false },
     })
   } catch (error: any) {
-    console.error('[v0] Error sending today reminders:', error)
+    console.error(`${LOG_PREFIX} Unhandled error:`, error)
     return res.status(500).json({
       success: false,
       error: error?.message || 'Failed to send reminders',
