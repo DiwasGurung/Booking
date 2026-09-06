@@ -428,10 +428,10 @@ export default function SettingsPage() {
     if (!businessId || !formData) return
 
     if (formData.phone && !isValidPhone(formData.phone)) {
-    setError('Phone number must be exactly 10 digits')
-    setTimeout(() => setError(null), 4000)
-    return
-  }
+      setError('Phone number must be exactly 10 digits')
+      setTimeout(() => setError(null), 4000)
+      return
+    }
     try {
       setSaving(true)
 
@@ -730,335 +730,155 @@ export default function SettingsPage() {
                       className="mt-2"
                     />
                   </div>
-                  <div>
-                    <div>
-                      <Label htmlFor="phone">Phone</Label>
-                      <div className="mt-2 flex gap-2">
-                        <div className="relative flex-1">
-                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                          {formData.isPhoneVerified && phoneLocked && (
-                            <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                          )}
-                          <Input
-                            id="phone"
-                            type="tel"
-                            inputMode="numeric"
-                            value={formData.phone}
-                            disabled={formData.isPhoneVerified && phoneLocked}
-                            onChange={(e) => {
-                              const newPhone = e.target.value.replace(/\D/g, '').slice(0, 10)
-                              setFormData({
-                                ...formData,
-                                phone: newPhone,
-                                isPhoneVerified: newPhone === settings?.phone ? formData.isPhoneVerified : false,
-                              })
-                            }}
-                            placeholder="98XXXXXXXX"
-                            maxLength={10}
-                            className={`pl-9 ${formData.isPhoneVerified && phoneLocked ? 'pr-9 bg-muted/30' : ''}`}
-                          />
-                        </div>
 
-                        {formData.isPhoneVerified && phoneLocked ? (
-                          <>
-                            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-green-100 px-3 text-sm font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                              <Check className="h-4 w-4" /> Verified
-                            </span>
-                            <Button type="button" variant="outline" onClick={() => setPhoneLocked(false)}>
-                              Change
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleSendPhoneVerification}
-                            disabled={!isValidPhone(formData.phone) || sendingCode || resendCooldown > 0}
-                          >
-                            {sendingCode ? (
-                              <Loader className="w-4 h-4 animate-spin" />
-                            ) : resendCooldown > 0 ? (
-                              `Retry in ${resendCooldown}s`
-                            ) : (
-                              'Verify'
-                            )}
-                          </Button>
+                  <div>
+                    <Label htmlFor="phone">Phone</Label>
+                    <div className="mt-2 flex gap-2">
+                      <div className="relative flex-1">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        {formData.isPhoneVerified && phoneLocked && (
+                          <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         )}
+                        <Input
+                          id="phone"
+                          type="tel"
+                          inputMode="numeric"
+                          value={formData.phone}
+                          disabled={formData.isPhoneVerified && phoneLocked}
+                          onChange={(e) => {
+                            const newPhone = e.target.value.replace(/\D/g, '').slice(0, 10)
+                            setFormData({
+                              ...formData,
+                              phone: newPhone,
+                              isPhoneVerified: newPhone === settings?.phone ? formData.isPhoneVerified : false,
+                            })
+                          }}
+                          placeholder="98XXXXXXXX"
+                          maxLength={10}
+                          className={`pl-9 ${formData.isPhoneVerified && phoneLocked ? 'pr-9 bg-muted/30' : ''}`}
+                        />
                       </div>
 
-                      {/* Live validation feedback — only shown while the field is editable */}
-                      {!(formData.isPhoneVerified && phoneLocked) && (
-                        <div className="mt-1.5 flex items-center justify-between">
-                          <p className={`text-xs ${formData.phone && !isValidPhone(formData.phone) ? 'text-destructive' : 'text-muted-foreground'}`}>
-                            {formData.phone && !isValidPhone(formData.phone)
-                              ? 'Enter a valid 10-digit number'
-                              : 'Customers will use this number to reach you'}
-                          </p>
-                          <span className="text-xs text-muted-foreground">{formData.phone.length}/10</span>
-                        </div>
-                      )}
-
-                      {/* OTP entry — sits directly under the phone field it verifies */}
-                      {showPhoneVerify && !formData.isPhoneVerified && (
-                        <div className="mt-3 rounded-lg border border-border bg-muted/30 p-4">
-                          <p className="mb-2 text-sm font-medium text-foreground">
-                            Enter the code sent to {formData.phone}
-                          </p>
-                          {verifyError && (
-                            <p className="mb-2 text-sm text-destructive">
-                              {verifyError}
-                              {attemptsRemaining != null && ` (${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} remaining)`}
-                            </p>
-                          )}
-                          <div className="flex gap-2">
-                            <Input
-                              value={verificationCode}
-                              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                              placeholder="6-digit code"
-                              inputMode="numeric"
-                              className="max-w-[160px] text-center tracking-widest font-mono"
-                            />
-                            <Button onClick={handleVerifyPhoneCode} disabled={verifyingCode || verificationCode.length !== 6}>
-                              {verifyingCode ? <Loader className="w-4 h-4 animate-spin" /> : 'Confirm'}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() => {
-                                setShowPhoneVerify(false)
-                                setVerificationCode('')
-                                setVerifyError(null)
-                                setAttemptsRemaining(null)
-                              }}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={handleSendPhoneVerification}
-                            disabled={sendingCode || resendCooldown > 0}
-                            className="mt-2 text-xs text-blue-600 hover:underline disabled:opacity-50"
-                          >
-                            {sendingCode ? 'Sending...' : resendCooldown > 0 ? `Resend available in ${resendCooldown}s` : "Didn't get it? Resend code"}
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Standalone error shown when verifyError fires outside the OTP panel (e.g. invalid format on click) */}
-                      {verifyError && !showPhoneVerify && (
-                        <p className="mt-1.5 text-xs text-destructive">{verifyError}</p>
-                      )}
-                    </div>
-                    <div>
-                      <Label htmlFor="website">Website</Label>
-                      <Input
-                        id="website"
-                        value={formData.website}
-                        onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                        placeholder="https://example.com"
-                        className="mt-2"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="category">Category</Label>
-                      <Input
-                        id="category"
-                        value={formData.category}
-                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                        placeholder="e.g., Salon, Restaurant, Fitness"
-                        className="mt-2"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="description">Business Description</Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Tell customers about your business..."
-                      className="mt-2"
-                      rows={4}
-                    />
-                  </div>
-
-                  <Button
-                    onClick={() => handleSaveSettings('business')}
-                    disabled={saving}
-                    className="w-full"
-                  >
-                    {saving ? (
-                      <>
-                        <Loader className="w-4 h-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4 mr-2" />
-                        Save Changes
-                      </>
-                    )}
-                  </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Notifications Tab */}
-          <TabsContent value="notifications" className="space-y-6">
-            <Card className="border border-border">
-              <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>Choose how you want to receive notifications</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">Email Notifications</p>
-                      <p className="text-sm text-muted-foreground">Update customer via email</p>
-                    </div>
-                    <Switch
-                      checked={formData?.notificationSettings?.emailNotifications ?? true}
-                      onCheckedChange={(checked) =>
-                        handleNotificationChange('emailNotifications', checked)
-                      }
-                    />
-                  </div>
-
-                  {/* SMS Notifications — Enterprise plan only */}
-                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-foreground">SMS Notifications</p>
-                        {!isEnterprise && !planLoading && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded-full">
-                            <Sparkles className="w-3 h-3" />
-                            Enterprise
+                      {formData.isPhoneVerified && phoneLocked ? (
+                        <>
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-green-100 px-3 text-sm font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                            <Check className="h-4 w-4" /> Verified
                           </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {isEnterprise
-                          ? 'Receive booking confirmations and updates via SMS'
-                          : 'Available on the Enterprise plan — upgrade to enable SMS notifications'}
-                      </p>
-                    </div>
-                    <Switch
-                      checked={isEnterprise ? (formData?.notificationSettings?.smsNotifications || false) : false}
-                      disabled={!isEnterprise || planLoading}
-                      onCheckedChange={(checked) => handleNotificationChange('smsNotifications', checked)}
-                    />
-                  </div>
-
-                  {/* Booking Reminders */}
-                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">Booking Reminders</p>
-                      <p className="text-sm text-muted-foreground">
-                        {isEnterprise
-                          ? 'Customers get reminders before upcoming bookings via email and SMS'
-                          : 'Customers get reminders before upcoming bookings via email'}
-                      </p>
-                      {!isEnterprise && !planLoading && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Upgrade to Enterprise to also send SMS reminders
-                        </p>
+                          <Button type="button" variant="outline" onClick={() => setPhoneLocked(false)}>
+                            Change
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleSendPhoneVerification}
+                          disabled={!isValidPhone(formData.phone) || sendingCode || resendCooldown > 0}
+                        >
+                          {sendingCode ? (
+                            <Loader className="w-4 h-4 animate-spin" />
+                          ) : resendCooldown > 0 ? (
+                            `Retry in ${resendCooldown}s`
+                          ) : (
+                            'Verify'
+                          )}
+                        </Button>
                       )}
                     </div>
-                    <Switch
-                      checked={formData?.notificationSettings?.bookingReminders || false}
-                      onCheckedChange={(checked) =>
-                        handleNotificationChange('bookingReminders', checked)
-                      }
+
+                    {!(formData.isPhoneVerified && phoneLocked) && (
+                      <div className="mt-1.5 flex items-center justify-between">
+                        <p className={`text-xs ${formData.phone && !isValidPhone(formData.phone) ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          {formData.phone && !isValidPhone(formData.phone)
+                            ? 'Enter a valid 10-digit number'
+                            : 'Customers will use this number to reach you'}
+                        </p>
+                        <span className="text-xs text-muted-foreground">{formData.phone.length}/10</span>
+                      </div>
+                    )}
+
+                    {showPhoneVerify && !formData.isPhoneVerified && (
+                      <div className="mt-3 rounded-lg border border-border bg-muted/30 p-4">
+                        <p className="mb-2 text-sm font-medium text-foreground">
+                          Enter the code sent to {formData.phone}
+                        </p>
+                        {verifyError && (
+                          <p className="mb-2 text-sm text-destructive">
+                            {verifyError}
+                            {attemptsRemaining != null && ` (${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} remaining)`}
+                          </p>
+                        )}
+                        <div className="flex gap-2">
+                          <Input
+                            value={verificationCode}
+                            onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            placeholder="6-digit code"
+                            inputMode="numeric"
+                            className="max-w-[160px] text-center tracking-widest font-mono"
+                          />
+                          <Button onClick={handleVerifyPhoneCode} disabled={verifyingCode || verificationCode.length !== 6}>
+                            {verifyingCode ? <Loader className="w-4 h-4 animate-spin" /> : 'Confirm'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setShowPhoneVerify(false)
+                              setVerificationCode('')
+                              setVerifyError(null)
+                              setAttemptsRemaining(null)
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleSendPhoneVerification}
+                          disabled={sendingCode || resendCooldown > 0}
+                          className="mt-2 text-xs text-blue-600 hover:underline disabled:opacity-50"
+                        >
+                          {sendingCode ? 'Sending...' : resendCooldown > 0 ? `Resend available in ${resendCooldown}s` : "Didn't get it? Resend code"}
+                        </button>
+                      </div>
+                    )}
+
+                    {verifyError && !showPhoneVerify && (
+                      <p className="mt-1.5 text-xs text-destructive">{verifyError}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="website">Website</Label>
+                    <Input
+                      id="website"
+                      value={formData.website}
+                      onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                      placeholder="https://example.com"
+                      className="mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="category">Category</Label>
+                    <Input
+                      id="category"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      placeholder="e.g., Salon, Restaurant, Fitness"
+                      className="mt-2"
                     />
                   </div>
                 </div>
 
-                <Button
-                  onClick={() => handleSaveSettings('notifications')}
-                  disabled={saving}
-                  className="w-full"
-                >
-                  {saving ? (
-                    <>
-                      <Loader className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Preferences
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Social Media Tab */}
-          <TabsContent value="business" className="space-y-6">
-            <Card className="border border-border">
-              <CardHeader>
-                <CardTitle>Social Media</CardTitle>
-                <CardDescription>Connect your social media profiles</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="facebook">Facebook</Label>
-                    <Input
-                      id="facebook"
-                      value={formData?.socialMedia?.facebook || ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData!,
-                          socialMedia: {
-                            ...formData?.socialMedia,
-                            facebook: e.target.value,
-                          },
-                        })
-                      }
-                      placeholder="facebook.com/yourpage"
-                      className="mt-2"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="instagram">Instagram</Label>
-                    <Input
-                      id="instagram"
-                      value={formData?.socialMedia?.instagram || ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData!,
-                          socialMedia: {
-                            ...formData?.socialMedia,
-                            instagram: e.target.value,
-                          },
-                        })
-                      }
-                      placeholder="@yourprofile"
-                      className="mt-2"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="twitter">Twitter</Label>
-                    <Input
-                      id="twitter"
-                      value={formData?.socialMedia?.twitter || ''}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData!,
-                          socialMedia: {
-                            ...formData?.socialMedia,
-                            twitter: e.target.value,
-                          },
-                        })
-                      }
-                      placeholder="@yourhandle"
-                      className="mt-2"
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="description">Business Description</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Tell customers about your business..."
+                    className="mt-2"
+                    rows={4}
+                  />
                 </div>
 
                 <Button
@@ -1074,7 +894,7 @@ export default function SettingsPage() {
                   ) : (
                     <>
                       <Save className="w-4 h-4 mr-2" />
-                      Save Social Media
+                      Save Changes
                     </>
                   )}
                 </Button>
