@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { useBusinessId } from '@/hooks/useBusinessId'
-import { businessApi, businessHoursApi } from '@/lib/api'
+import { businessApi, businessHoursApi, phoneVerificationApi } from '@/lib/api'
 import { Loader, AlertCircle, Save, Settings, Bell, Lock, Trash2, Copy, Check, Upload, X, Sparkles } from 'lucide-react'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
@@ -25,6 +25,7 @@ interface BusinessSettings {
   businessName: string
   email: string
   phone: string
+  isPhoneVerified?: boolean
   address: string
   city: string
   state: string
@@ -44,8 +45,6 @@ interface BusinessSettings {
     emailNotifications?: boolean
     smsNotifications?: boolean
     bookingReminders?: boolean
-    paymentAlerts?: boolean
-    marketingEmails?: boolean
   }
 }
 
@@ -74,12 +73,86 @@ export default function SettingsPage() {
   const [planLoading, setPlanLoading] = useState(true)
   const isEnterprise = businessPlan === ENTERPRISE_PLAN
 
+  const [showPhoneVerify, setShowPhoneVerify] = useState(false)
+  const [verificationCode, setVerificationCode] = useState('')
+  const [sendingCode, setSendingCode] = useState(false)
+  const [verifyingCode, setVerifyingCode] = useState(false)
+  const [verifyError, setVerifyError] = useState<string | null>(null)
+  const [resendCooldown, setResendCooldown] = useState(0) // seconds remaining before resend is allowed
+  const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null)
+
+  // Tick the cooldown down once a second while active.
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const t = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000)
+    return () => clearInterval(t)
+  }, [resendCooldown])
+
+  const handleSendPhoneVerification = async () => {
+    if (!businessId || !formData?.phone || resendCooldown > 0) return
+    try {
+      setSendingCode(true)
+      setVerifyError(null)
+      const response = await phoneVerificationApi.sendCode('BUSINESS', businessId)
+
+      if (!response.success) {
+        // "Already verified" means our local state is stale — reconcile it
+        // instead of showing a confusing error.
+        if (response.error === 'Already verified') {
+          const updated = { ...formData, isPhoneVerified: true }
+          setFormData(updated)
+          setSettings(updated)
+          setProfileCompletion(calculateProfileCompletion(updated))
+          return
+        }
+        setVerifyError(response.error || 'Failed to send verification code')
+        if (response.retryAfterSeconds) setResendCooldown(response.retryAfterSeconds)
+        return
+      }
+
+      setShowPhoneVerify(true)
+      setAttemptsRemaining(null)
+    } catch (err: any) {
+      setVerifyError(err?.message || 'Failed to send verification code')
+    } finally {
+      setSendingCode(false)
+    }
+  }
+
+  const handleVerifyPhoneCode = async () => {
+    if (!businessId || !verificationCode || !formData) return
+    try {
+      setVerifyingCode(true)
+      setVerifyError(null)
+      const response = await phoneVerificationApi.verifyCode('BUSINESS', businessId, verificationCode)
+
+      if (!response.success) {
+        setVerifyError(response.error || 'Invalid or expired code')
+        setAttemptsRemaining(response.attemptsRemaining ?? null)
+        return
+      }
+
+      const updated = { ...formData, isPhoneVerified: true }
+      setFormData(updated)
+      setSettings(updated)
+      setProfileCompletion(calculateProfileCompletion(updated))
+      setShowPhoneVerify(false)
+      setVerificationCode('')
+      setAttemptsRemaining(null)
+      setSuccess('Phone number verified')
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err: any) {
+      setVerifyError(err?.message || 'Failed to verify code')
+    } finally {
+      setVerifyingCode(false)
+    }
+  }
   // Calculate profile completion percentage
   const calculateProfileCompletion = (data: BusinessSettings) => {
     const requiredFields = [
       data.businessName,
       data.email,
-      data.phone,
+      data.isPhoneVerified ? data.phone : '',
       data.address,
       data.city,
       data.description,
@@ -199,6 +272,7 @@ export default function SettingsPage() {
     businessName: '',
     email: '',
     phone: '',
+    isPhoneVerified: false,
     address: '',
     city: '',
     state: '',
@@ -218,8 +292,7 @@ export default function SettingsPage() {
       emailNotifications: true,
       smsNotifications: false,
       bookingReminders: true,
-      paymentAlerts: true,
-      marketingEmails: false,
+
     },
   }
 
@@ -348,11 +421,6 @@ export default function SettingsPage() {
     }
   }
 
-  const copyToClipboard = async (text: string) => {
-    await navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
 
   const handleNotificationChange = (key: string, value: boolean) => {
     if (!formData) return
@@ -621,14 +689,84 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="+1 (555) 000-0000"
-                      className="mt-2"
-                    />
+                    <div className="mt-2 flex gap-2">
+                      <Input
+                        id="phone"
+                        value={formData.phone}
+                        onChange={(e) => {
+                          const newPhone = e.target.value
+                          setFormData({
+                            ...formData,
+                            phone: newPhone,
+                            // A changed number is unverified by definition — verifying one
+                            // number should never silently cover a different one.
+                            isPhoneVerified: newPhone === settings?.phone ? formData.isPhoneVerified : false,
+                          })
+                        }}
+                        placeholder="+1 (555) 000-0000"
+                        className="flex-1"
+                      />
+                      {formData.isPhoneVerified ? (
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-green-100 px-3 text-sm font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                          <Check className="h-4 w-4" /> Verified
+                        </span>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleSendPhoneVerification}
+                          disabled={!formData.phone || sendingCode || resendCooldown > 0}
+                        >
+                          {sendingCode ? 'Sending...' : resendCooldown > 0 ? `Retry in ${resendCooldown}s` : 'Verify'}
+                        </Button>
+                      )}
+                    </div>
+                    {/* OTP entry — sits directly under the phone field it verifies */}
+                    {showPhoneVerify && !formData.isPhoneVerified && (
+                      <div className="mt-3 rounded-lg border border-border bg-muted/30 p-4">
+                        <p className="mb-2 text-sm font-medium text-foreground">
+                          Enter the code sent to {formData.phone}
+                        </p>
+                        {verifyError && (
+                          <p className="mb-2 text-sm text-destructive">
+                            {verifyError}
+                            {attemptsRemaining != null && ` (${attemptsRemaining} attempt${attemptsRemaining === 1 ? '' : 's'} remaining)`}
+                          </p>
+                        )}
+                        <div className="flex gap-2">
+                          <Input
+                            value={verificationCode}
+                            onChange={(e) => setVerificationCode(e.target.value)}
+                            placeholder="6-digit code"
+                            className="max-w-[160px]"
+                          />
+                          <Button onClick={handleVerifyPhoneCode} disabled={verifyingCode || !verificationCode}>
+                            {verifyingCode ? 'Verifying...' : 'Confirm'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setShowPhoneVerify(false)
+                              setVerificationCode('')
+                              setVerifyError(null)
+                              setAttemptsRemaining(null)
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleSendPhoneVerification}
+                          disabled={sendingCode || resendCooldown > 0}
+                          className="mt-2 text-xs text-blue-600 hover:underline disabled:opacity-50"
+                        >
+                          {sendingCode ? 'Sending...' : resendCooldown > 0 ? `Resend available in ${resendCooldown}s` : "Didn't get it? Resend code"}
+                        </button>
+                      </div>
+                    )}
                   </div>
+
                   <div>
                     <Label htmlFor="website">Website</Label>
                     <Input

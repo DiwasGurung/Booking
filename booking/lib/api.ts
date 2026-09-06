@@ -12,6 +12,9 @@ export type ApiResponse<T> = {
   error?: string
   message?: string
   success?: boolean
+   retryAfterSeconds?: number 
+  attemptsRemaining?: number 
+  alreadyVerified?: boolean 
 }
 
 // Export types for use in components
@@ -225,12 +228,13 @@ export async function apiCall<T>(
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: response.statusText }))
-      return {
-        error: error.message || error.error || 'An error occurred',
-        success: false,
-      }
-    }
+  const error = await response.json().catch(() => ({ message: response.statusText }))
+  return {
+    ...error, 
+    error: error.message || error.error || 'An error occurred',
+    success: false,
+  }
+}
 
     const data = await response.json()
     return { data, success: true }
@@ -413,6 +417,22 @@ export interface CustomerInsight {
 
 export const customerInsightsApi = {
   get: (businessId: string) => apiCall<{ insights: CustomerInsight[] }>(`/api/businesses/${businessId}/customer-insights`),
+}
+
+export type VerifyEntityType = 'USER' | 'STAFF' | 'BUSINESS' | 'BOOKING'
+
+export const phoneVerificationApi = {
+  sendCode: (entityType: VerifyEntityType, entityId: string, purpose?: string) =>
+    apiCall<{ message: string }>(`/api/phone-verification/${entityType}/${entityId}/send-code`, {
+      method: 'POST',
+      body: JSON.stringify(purpose ? { purpose } : {}),
+    }),
+
+  verifyCode: (entityType: VerifyEntityType, entityId: string, code: string, purpose?: string) =>
+    apiCall<{ message: string; alreadyVerified?: boolean }>(`/api/phone-verification/${entityType}/${entityId}/verify`, {
+      method: 'POST',
+      body: JSON.stringify({ code, ...(purpose ? { purpose } : {}) }),
+    }),
 }
 
 // Bookings API - /api/booking prefix
