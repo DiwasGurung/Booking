@@ -67,6 +67,10 @@ export const UnifiedBusinessRegister = () => {
       setError('Passwords do not match')
       return
     }
+    if (phone && !/^\d{10}$/.test(phone)) {
+      setError('Phone number must be exactly 10 digits')
+      return
+    }
 
     setIsLoading(true)
 
@@ -179,6 +183,10 @@ export const UnifiedBusinessRegister = () => {
         toast.error('Please fill in all required fields')
         return
       }
+      if (!/^\d{10}$/.test(businessPhone)) {
+        toast.error('Business phone number must be exactly 10 digits')
+        return
+      }
       setBusinessStep('location')
     }
   }
@@ -204,6 +212,10 @@ export const UnifiedBusinessRegister = () => {
       return
     }
 
+    if (!/^\d{10}$/.test(businessPhone)) {
+      toast.error('Business phone number must be exactly 10 digits')
+      return
+    }
     setIsLoading(true)
 
     try {
@@ -217,7 +229,7 @@ export const UnifiedBusinessRegister = () => {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const userId=registeredUserId
+      const userId = registeredUserId
 
       if (!userId) {
         throw new Error('User not authenticated')
@@ -229,7 +241,7 @@ export const UnifiedBusinessRegister = () => {
         headers,
         credentials: 'include',
         body: JSON.stringify({
-          userId:userId,
+          userId: userId,
           name: businessName,
           email: businessEmail,
           phone: businessPhone,
@@ -251,7 +263,7 @@ export const UnifiedBusinessRegister = () => {
 
       toast.success('Business created successfully!')
       await refreshUser()
-      
+
       // Redirect to subscription page to choose a plan
       router.push('/subscription?from=setup')
     } catch (err: any) {
@@ -323,10 +335,14 @@ export const UnifiedBusinessRegister = () => {
                 <Label htmlFor="phone">Phone Number</Label>
                 <Input
                   id="phone"
-                  placeholder="+977 98..."
+                  placeholder="98XXXXXXXX"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  maxLength={10}
                 />
+                {phone && phone.length !== 10 && (
+                  <p className="text-sm text-destructive mt-1">Phone number must be 10 digits</p>
+                )}
               </div>
 
               <div>
@@ -468,13 +484,12 @@ export const UnifiedBusinessRegister = () => {
               return (
                 <div key={s} className="flex items-center gap-3 flex-1">
                   <div
-                    className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold transition ${
-                      active
-                        ? 'bg-primary text-primary-foreground'
-                        : completed
+                    className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold transition ${active
+                      ? 'bg-primary text-primary-foreground'
+                      : completed
                         ? 'bg-primary/20 text-primary'
                         : 'bg-muted text-muted-foreground'
-                    }`}
+                      }`}
                   >
                     {completed ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
                   </div>
@@ -534,11 +549,15 @@ export const UnifiedBusinessRegister = () => {
                     <Label htmlFor="businessPhone">Phone Number *</Label>
                     <Input
                       id="businessPhone"
-                      placeholder="+977 98..."
+                      placeholder="98XXXXXXXX"
                       value={businessPhone}
-                      onChange={(e) => setBusinessPhone(e.target.value)}
+                      onChange={(e) => setBusinessPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      maxLength={10}
                       required
                     />
+                    {businessPhone && businessPhone.length !== 10 && (
+                      <p className="text-sm text-destructive mt-1">Phone number must be 10 digits</p>
+                    )}
                   </div>
                 </div>
 

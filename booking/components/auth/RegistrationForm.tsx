@@ -68,10 +68,10 @@ export const UserRegisterForm = () => {
 
       const data = await response.json()
 
-      
+
       // Show success message
       setSuccess(true)
-      
+
       // Redirect to verification page after 2 seconds
       setTimeout(() => {
         router.push(`/verify-email?email=${encodeURIComponent(email)}`)
@@ -179,21 +179,22 @@ export const UserRegisterForm = () => {
         </div>
 
         {/* Phone */}
-        <div className="space-y-2">
-          <Label htmlFor="phone">Phone number (optional)</Label>
-          <div className="relative">
-            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="98XXXXXXXX"
-              className="pl-9"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              disabled={isLoading}
-            />
-          </div>
-        </div>
+        <Input
+          id="phone"
+          type="tel"
+          placeholder="98XXXXXXXX"
+          className="pl-9"
+          value={phone}
+          onChange={(e) => {
+            const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+            setPhone(digits);
+          }}
+          disabled={isLoading}
+          maxLength={10}
+        />
+        {phone && phone.length !== 10 && (
+          <p className="text-sm text-destructive">Phone number must be 10 digits</p>
+        )}
 
         {/* Password */}
         <div className="space-y-2">

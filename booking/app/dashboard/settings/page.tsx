@@ -81,6 +81,12 @@ export default function SettingsPage() {
   const [resendCooldown, setResendCooldown] = useState(0) // seconds remaining before resend is allowed
   const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null)
 
+  // Whether the phone field is locked (read-only) because it's verified.
+  // Starts true; flips false only when the user explicitly clicks
+  // "Change number", and flips back true once a number is (re)verified
+  // or freshly loaded from the server in a verified state.
+  const [phoneLocked, setPhoneLocked] = useState(true)
+
   // Tick the cooldown down once a second while active.
   useEffect(() => {
     if (resendCooldown <= 0) return
@@ -93,6 +99,28 @@ export default function SettingsPage() {
     try {
       setSendingCode(true)
       setVerifyError(null)
+
+      // The verification endpoint sends a code to whatever phone number is
+      // currently saved on the business record — it does NOT know about
+      // unsaved edits sitting in local `formData`. If the user just typed
+      // a new number but hasn't saved, we must persist it first, or the
+      // OTP will go to the OLD number instead of the one on screen.
+      if (formData.phone !== settings?.phone) {
+        const saveResponse = await businessApi.updateSettings(businessId, {
+          ...formData,
+          isPhoneVerified: false,
+        })
+
+        if (!saveResponse.success && !saveResponse.data) {
+          setVerifyError(saveResponse.error || 'Failed to save phone number before verifying')
+          return
+        }
+
+        const savedData = { ...formData, isPhoneVerified: false }
+        setSettings(savedData)
+        setFormData(savedData)
+      }
+
       const response = await phoneVerificationApi.sendCode('BUSINESS', businessId)
 
       if (!response.success) {
@@ -103,6 +131,7 @@ export default function SettingsPage() {
           setFormData(updated)
           setSettings(updated)
           setProfileCompletion(calculateProfileCompletion(updated))
+          setPhoneLocked(true)
           return
         }
         setVerifyError(response.error || 'Failed to send verification code')
@@ -139,6 +168,7 @@ export default function SettingsPage() {
       setShowPhoneVerify(false)
       setVerificationCode('')
       setAttemptsRemaining(null)
+      setPhoneLocked(true) // re-lock the field now that it's verified
       setSuccess('Phone number verified')
       setTimeout(() => setSuccess(null), 3000)
     } catch (err: any) {
@@ -369,19 +399,23 @@ export default function SettingsPage() {
       if (response.success && response.data) {
         setSettings(response.data)
         setFormData(response.data)
+        setPhoneLocked(!!response.data.isPhoneVerified)
       } else if (response.data) {
         // Handle case where response.data directly contains settings
         setSettings(response.data)
         setFormData(response.data)
+        setPhoneLocked(!!response.data.isPhoneVerified)
       } else {
         setSettings(defaultSettings)
         setFormData(defaultSettings)
+        setPhoneLocked(false)
         setError('No settings found, using defaults')
       }
       setError(null)
     } catch (err) {
       setSettings(defaultSettings)
       setFormData(defaultSettings)
+      setPhoneLocked(false)
       setError('Failed to load settings. Using default values.')
     } finally {
       setLoading(false)
@@ -408,6 +442,7 @@ export default function SettingsPage() {
       if (response.success || response.data) {
         setSettings(payload)
         setFormData(payload)
+        setPhoneLocked(!!payload.isPhoneVerified)
         setSuccess(`${tab === 'business' ? 'Business' : tab === 'notifications' ? 'Notification' : 'Security'} settings updated successfully`)
         setTimeout(() => setSuccess(null), 3000)
       } else {
@@ -693,23 +728,32 @@ export default function SettingsPage() {
                       <Input
                         id="phone"
                         value={formData.phone}
+                        disabled={formData.isPhoneVerified && phoneLocked}
                         onChange={(e) => {
                           const newPhone = e.target.value
                           setFormData({
                             ...formData,
                             phone: newPhone,
-                            // A changed number is unverified by definition — verifying one
-                            // number should never silently cover a different one.
+                          
                             isPhoneVerified: newPhone === settings?.phone ? formData.isPhoneVerified : false,
                           })
                         }}
                         placeholder="+1 (555) 000-0000"
                         className="flex-1"
                       />
-                      {formData.isPhoneVerified ? (
-                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-green-100 px-3 text-sm font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                          <Check className="h-4 w-4" /> Verified
-                        </span>
+                      {formData.isPhoneVerified && phoneLocked ? (
+                        <>
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-green-100 px-3 text-sm font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                            <Check className="h-4 w-4" /> Verified
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setPhoneLocked(false)}
+                          >
+                            Change number
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           type="button"

@@ -231,13 +231,12 @@ export const SetupBusinessForm = () => {
                   type="button"
                   onClick={() => setCurrentStep(step)}
                   aria-current={isCurrent ? "step" : undefined}
-                  className={`w-8 h-8 rounded-full font-semibold text-sm flex items-center justify-center transition ${
-                    isCurrent
+                  className={`w-8 h-8 rounded-full font-semibold text-sm flex items-center justify-center transition ${isCurrent
                       ? "bg-primary text-primary-foreground"
                       : isCompleted
                         ? "bg-primary/20 text-primary"
                         : "bg-muted text-muted-foreground"
-                  }`}
+                    }`}
                 >
                   {index + 1}
                   <span className="sr-only">{step}</span>
@@ -306,9 +305,8 @@ export const SetupBusinessForm = () => {
                   />
                   <Label
                     htmlFor="useAccountEmail"
-                    className={`text-sm font-normal leading-relaxed ${
-                      accountEmail ? "text-muted-foreground cursor-pointer" : "text-muted-foreground/60"
-                    }`}
+                    className={`text-sm font-normal leading-relaxed ${accountEmail ? "text-muted-foreground cursor-pointer" : "text-muted-foreground/60"
+                      }`}
                   >
                     Use my registered email
                     {accountEmail ? <span className="text-foreground font-medium"> ({accountEmail})</span> : null}
@@ -323,19 +321,24 @@ export const SetupBusinessForm = () => {
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="phone" className="text-sm font-medium">
-                  Phone Number *
-                </Label>
-                <Input
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  placeholder="+977 98-0000-0000"
-                  required
-                />
-              </div>
+              <Input
+                id="phone"
+                name="phone"
+                value={formData.phone}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                  handleChange({
+                    ...e,
+                    target: { ...e.target, name: "phone", value: digits },
+                  });
+                }}
+                placeholder="98XXXXXXXX"
+                required
+                maxLength={10}
+              />
+              {formData.phone && formData.phone.length !== 10 && (
+                <p className="text-sm text-destructive">Phone number must be 10 digits</p>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="category" className="text-sm font-medium">
