@@ -57,14 +57,10 @@ bookingRoutes.get(
 // Get all bookings for a specific user/customer
 bookingRoutes.get("/users/:userId/bookings", auth, BookingController.getCustomerBookings);
 
-bookingRoutes.get("/businesses/:businessId/remind-today", auth, BookingController.sendTodayReminders
-
-);
-
-// booking.routes.ts
 bookingRoutes.post(
-  '/business/:businessId/bookings/remind-today',
-auth, // whatever your existing owner-auth middleware is called
+  "/businesses/:businessId/remind-today",
+  auth,
   BookingController.sendTodayReminders
 )
+
 export default bookingRoutes;
