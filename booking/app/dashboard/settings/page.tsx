@@ -902,6 +902,78 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
+          {/* Notifications Tab */}
+          <TabsContent value="notifications" className="space-y-6">
+            <Card className="border border-border">
+              <CardHeader>
+                <CardTitle>Notification Preferences</CardTitle>
+                <CardDescription>Choose how you want to receive notifications</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-medium text-foreground">Email Notifications</p>
+                      <p className="text-sm text-muted-foreground">Receive updates via email</p>
+                    </div>
+                    <Switch
+                      checked={formData?.notificationSettings?.emailNotifications || false}
+                      onCheckedChange={(checked) =>
+                        handleNotificationChange('emailNotifications', checked)
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-medium text-foreground">SMS Notifications</p>
+                      <p className="text-sm text-muted-foreground">Receive text message updates</p>
+                    </div>
+                    <Switch
+                      checked={formData?.notificationSettings?.smsNotifications || false}
+                      onCheckedChange={(checked) =>
+                        handleNotificationChange('smsNotifications', checked)
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-medium text-foreground">Booking Reminders</p>
+                      <p className="text-sm text-muted-foreground">Get reminders before upcoming bookings</p>
+                    </div>
+                    <Switch
+                      checked={formData?.notificationSettings?.bookingReminders || false}
+                      onCheckedChange={(checked) =>
+                        handleNotificationChange('bookingReminders', checked)
+                      }
+                    />
+                  </div>
+
+                
+                </div>
+
+                <Button
+                  onClick={() => handleSaveSettings('notifications')}
+                  disabled={saving}
+                  className="w-full"
+                >
+                  {saving ? (
+                    <>
+                      <Loader className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Preferences
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Security Tab */}
           <TabsContent value="security" className="space-y-6">
             {/* API Key */}

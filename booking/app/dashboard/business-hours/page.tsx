@@ -134,10 +134,16 @@ export default function BusinessHoursPage() {
   const [editingRangeKey, setEditingRangeKey] = useState<string | null>(null)
   const [editReason, setEditReason] = useState('')
   const [closureModalOpen, setClosureModalOpen] = useState(false)
-const [closureBookings, setClosureBookings] = useState<any[]>([])
-const [pendingClosureRange, setPendingClosureRange] = useState<{ start: string; end: string; reason: string } | null>(null)
-const [notifying, setNotifying] = useState(false)
-const [notifiedBookingIds, setNotifiedBookingIds] = useState<Set<string>>(new Set())
+  const [closureBookings, setClosureBookings] = useState<any[]>([])
+  const [pendingClosureRange, setPendingClosureRange] = useState<{ start: string; end: string; reason: string } | null>(null)
+  const [notifying, setNotifying] = useState(false)
+  const [notifiedBookingIds, setNotifiedBookingIds] = useState<Set<string>>(new Set())
+
+  // Bookings that need the customer notified (only confirmed ones)
+  const confirmedClosureBookings = closureBookings.filter(b => b.status === 'CONFIRMED')
+  const allConfirmedNotified =
+    confirmedClosureBookings.length === 0 ||
+    confirmedClosureBookings.every(b => notifiedBookingIds.has(b.id))
 
   useEffect(() => {
     if (businessId) {
@@ -352,13 +358,18 @@ const [notifiedBookingIds, setNotifiedBookingIds] = useState<Set<string>>(new Se
 
   async function notifyClosureBookings() {
     if (!businessId || closureBookings.length === 0) return
+    const confirmedIds = closureBookings
+      .filter(b => b.status === 'CONFIRMED')
+      .map(b => b.id)
+
+    if (confirmedIds.length === 0) return // nothing to notify
+
     setNotifying(true)
     setError(null)
 
     try {
-      const bookingIds = closureBookings.map(b => b.id)
-      await bookingsApi.notifyClosure(businessId, bookingIds, pendingClosureRange?.reason)
-      setNotifiedBookingIds(new Set(bookingIds))
+      await bookingsApi.notifyClosure(businessId, confirmedIds, pendingClosureRange?.reason)
+      setNotifiedBookingIds(new Set(confirmedIds))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to notify customers')
     } finally {
@@ -367,12 +378,19 @@ const [notifiedBookingIds, setNotifiedBookingIds] = useState<Set<string>>(new Se
   }
 
   function confirmClosureAndProceed() {
+    const confirmed = closureBookings.filter(b => b.status === 'CONFIRMED')
+    const notified = confirmed.every(b => notifiedBookingIds.has(b.id))
+
+    if (confirmed.length > 0 && !notified) {
+      setError('Notify all confirmed customers before confirming this closure.')
+      return
+    }
     if (pendingClosureRange) stageClosedDateRange(pendingClosureRange)
     setClosureModalOpen(false)
     setPendingClosureRange(null)
     setClosureBookings([])
+    setNotifiedBookingIds(new Set())
   }
-
   function cancelClosureModal() {
     setClosureModalOpen(false)
     setPendingClosureRange(null)
@@ -690,8 +708,8 @@ const [notifiedBookingIds, setNotifiedBookingIds] = useState<Set<string>>(new Se
                                 <span
                                   aria-hidden="true"
                                   className={`flex h-9 w-9 items-center justify-center rounded-md text-[11px] font-semibold uppercase tracking-wide ${day.isOff
-                                      ? 'bg-muted text-muted-foreground'
-                                      : 'bg-foreground text-background'
+                                    ? 'bg-muted text-muted-foreground'
+                                    : 'bg-foreground text-background'
                                     }`}
                                 >
                                   {short}
@@ -1121,14 +1139,19 @@ const [notifiedBookingIds, setNotifiedBookingIds] = useState<Set<string>>(new Se
                         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                       })}
                       {b.service?.name ? ` · ${b.service.name}` : ''}
+                      {' · '}{b.status}
                     </span>
                   </div>
-                  {notifiedBookingIds.has(b.id) ? (
-                    <span className="flex items-center gap-1 text-xs font-medium text-foreground">
-                      <CheckCircle className="h-3.5 w-3.5" /> Notified
-                    </span>
+                  {b.status === 'CONFIRMED' ? (
+                    notifiedBookingIds.has(b.id) ? (
+                      <span className="flex items-center gap-1 text-xs font-medium text-foreground">
+                        <CheckCircle className="h-3.5 w-3.5" /> Notified
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Not notified</span>
+                    )
                   ) : (
-                    <span className="text-xs text-muted-foreground">Not notified</span>
+                    <span className="text-xs text-muted-foreground">No action needed</span>
                   )}
                 </div>
               ))}
@@ -1142,11 +1165,13 @@ const [notifiedBookingIds, setNotifiedBookingIds] = useState<Set<string>>(new Se
                 <Button
                   variant="secondary"
                   onClick={notifyClosureBookings}
-                  disabled={notifying || notifiedBookingIds.size === closureBookings.length}
+                  disabled={notifying || allConfirmedNotified}
                 >
                   {notifying ? <Loader className="h-4 w-4 animate-spin" /> : 'Notify customers'}
                 </Button>
-                <Button onClick={confirmClosureAndProceed}>Continue</Button>
+                <Button onClick={confirmClosureAndProceed} disabled={!allConfirmedNotified}>
+                  Continue
+                </Button>
               </div>
             </DialogFooter>
           </DialogContent>
