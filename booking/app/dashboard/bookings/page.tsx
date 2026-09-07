@@ -205,7 +205,7 @@ export default function BookingsPage() {
 
       if (response.success) {
         const { count, channel } = response.data!
-        setReminderMessage(`Reminders sent to ${count} customer${count === 1 ? '' : 's'} via ${channel === 'sms' ? 'SMS' : 'email'}.`)
+        setReminderMessage(`Reminders sent to ${count} customers via ${channel === 'sms' ? 'SMS' : 'email'}.`)
         if (count > 0) setRemindersSentToday(true)
       } else if (response.error?.toLowerCase().includes('already sent today')) {
         setReminderError(true)
