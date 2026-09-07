@@ -29,6 +29,14 @@ interface Payment {
   status: string // may be lower/upper case depending on gateway path
   createdAt: string
   updatedAt: string
+  // Gateway-specific reference (from the Payment relation on the backend).
+  // Only esewaRefId is populated today since eSewa is the only live gateway,
+  // but khaltiPidx / nabilRefId are included so this keeps working when
+  // those gateways go live without another schema/UI change.
+  esewaRefId?: string | null
+  esewaProductCode?: string | null
+  khaltiPidx?: string | null
+  nabilRefId?: string | null
   subscription?: {
     id: string
     planId: string
@@ -59,6 +67,24 @@ function formatAmount(amountPaisa: number, currency = 'NPR') {
     maximumFractionDigits: 2,
   })
   return `${currency === 'NPR' ? 'Rs.' : currency} ${formatted}`
+}
+
+// Pick the gateway-specific reference for display instead of the internal
+// (meaningless-to-users) transactionId. Falls back to transactionId only
+// if no gateway reference was recorded for that payment.
+function getDisplayReference(payment: Payment): { label: string; value: string } {
+  const gateway = (payment.gateway || '').toLowerCase()
+
+  if (gateway === 'esewa' && payment.esewaRefId) {
+    return { label: 'eSewa Ref', value: payment.esewaRefId }
+  }
+  if (gateway === 'khalti' && payment.khaltiPidx) {
+    return { label: 'Khalti Ref', value: payment.khaltiPidx }
+  }
+  if (gateway === 'nabil' && payment.nabilRefId) {
+    return { label: 'Nabil Ref', value: payment.nabilRefId }
+  }
+  return { label: 'Reference', value: payment.transactionId || '—' }
 }
 
 const PAGE_SIZE = 10
@@ -294,7 +320,7 @@ export default function PaymentsDashboardPage() {
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Amount</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Method</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Transaction</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Reference</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
                   </tr>
                 </thead>
@@ -303,6 +329,7 @@ export default function PaymentsDashboardPage() {
                     const status = normalizeStatus(payment.status)
                     const plan = payment.subscription?.plan
                     const currency = plan?.currency || 'NPR'
+                    const reference = getDisplayReference(payment)
                     return (
                       <tr key={payment.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4">
@@ -334,10 +361,10 @@ export default function PaymentsDashboardPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-xs text-slate-500 font-mono" title={payment.transactionId}>
-                            {payment.transactionId
-                              ? `${payment.transactionId.slice(0, 10)}${payment.transactionId.length > 10 ? '…' : ''}`
-                              : '—'}
+                          <span className="text-xs text-slate-500 font-mono" title={reference.value}>
+                            {reference.value.length > 14
+                              ? `${reference.value.slice(0, 14)}…`
+                              : reference.value}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-500">
