@@ -914,33 +914,55 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                     <div className="flex-1">
                       <p className="font-medium text-foreground">Email Notifications</p>
-                      <p className="text-sm text-muted-foreground">Receive updates via email</p>
+                      <p className="text-sm text-muted-foreground">Update customer via email</p>
                     </div>
                     <Switch
-                      checked={formData?.notificationSettings?.emailNotifications || false}
+                      checked={formData?.notificationSettings?.emailNotifications ?? true}
                       onCheckedChange={(checked) =>
                         handleNotificationChange('emailNotifications', checked)
                       }
                     />
                   </div>
 
+                  {/* SMS Notifications — Enterprise plan only */}
                   <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                     <div className="flex-1">
-                      <p className="font-medium text-foreground">SMS Notifications</p>
-                      <p className="text-sm text-muted-foreground">Receive text message updates</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-foreground">SMS Notifications</p>
+                        {!isEnterprise && !planLoading && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                            <Sparkles className="w-3 h-3" />
+                            Enterprise
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {isEnterprise
+                          ? 'Receive booking confirmations and updates via SMS'
+                          : 'Available on the Enterprise plan — upgrade to enable SMS notifications'}
+                      </p>
                     </div>
                     <Switch
-                      checked={formData?.notificationSettings?.smsNotifications || false}
-                      onCheckedChange={(checked) =>
-                        handleNotificationChange('smsNotifications', checked)
-                      }
+                      checked={isEnterprise ? (formData?.notificationSettings?.smsNotifications || false) : false}
+                      disabled={!isEnterprise || planLoading}
+                      onCheckedChange={(checked) => handleNotificationChange('smsNotifications', checked)}
                     />
                   </div>
 
+                  {/* Booking Reminders */}
                   <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                     <div className="flex-1">
                       <p className="font-medium text-foreground">Booking Reminders</p>
-                      <p className="text-sm text-muted-foreground">Get reminders before upcoming bookings</p>
+                      <p className="text-sm text-muted-foreground">
+                        {isEnterprise
+                          ? 'Customers get reminders before upcoming bookings via email and SMS'
+                          : 'Customers get reminders before upcoming bookings via email'}
+                      </p>
+                      {!isEnterprise && !planLoading && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Upgrade to Enterprise to also send SMS reminders
+                        </p>
+                      )}
                     </div>
                     <Switch
                       checked={formData?.notificationSettings?.bookingReminders || false}
@@ -949,8 +971,6 @@ export default function SettingsPage() {
                       }
                     />
                   </div>
-
-                
                 </div>
 
                 <Button
