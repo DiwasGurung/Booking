@@ -35,9 +35,8 @@ bookingRoutes.post("/business/public", booking_controller_1.default.createBusine
 bookingRoutes.post("/business", auth_middleware_1.auth, booking_controller_1.default.createBusinessBooking);
 // Get available slots for BUSINESS bookings (with staff/timeoff checking)
 bookingRoutes.get("/business/businesses/:businessId/services/:serviceId/available-slots", booking_controller_1.default.getBusinessAvailableSlots);
+bookingRoutes.post("/business/:businessId/notify-closure", auth_middleware_1.auth, booking_controller_1.default.notifyAndCancelForClosure);
 // Get all bookings for a specific user/customer
 bookingRoutes.get("/users/:userId/bookings", auth_middleware_1.auth, booking_controller_1.default.getCustomerBookings);
-// booking.routes.ts
-bookingRoutes.post('/business/:businessId/bookings/remind-today', auth_middleware_1.auth, // whatever your existing owner-auth middleware is called
-booking_controller_1.default.sendTodayReminders);
+bookingRoutes.post("/businesses/:businessId/remind-today", auth_middleware_1.auth, booking_controller_1.default.sendTodayReminders);
 exports.default = bookingRoutes;

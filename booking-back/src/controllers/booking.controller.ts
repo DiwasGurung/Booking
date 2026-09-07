@@ -29,6 +29,48 @@ type ConfirmationBooking = {
   endTime: Date
 }
 
+
+
+
+async function notifyCancellationByPlan(
+  business: { name: string; phone?: string | null; address?: string | null },
+  plan: { allowSmsNotifications: boolean; allowEmailNotifications: boolean },
+  booking: { id: string; businessId: string; customerName: string; customerEmail: string; customerPhone: string; startTime: Date },
+  serviceName: string,
+  reasonNote?: string
+): Promise<{ sent: boolean; channel: 'sms' | 'email' | null }> {
+  const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
+  const dt = DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ })
+
+  if (plan.allowSmsNotifications) {
+    if (!booking.customerPhone) {
+      console.warn(`[v0] Booking ${booking.id} has no customerPhone; skipping SMS notification`)
+      return { sent: false, channel: null }
+    }
+    await SparrowSMSService.sendStatusChange(booking.businessId, booking.customerPhone, {
+      businessName: business.name,
+      date: dt.setLocale('en').toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
+      status: 'cancelled',
+      bookingId: booking.id,
+    })
+    return { sent: true, channel: 'sms' }
+  }
+
+  if (plan.allowEmailNotifications) {
+    await emailService.sendBookingCancellationToCustomer(booking.customerEmail, {
+      customerName: booking.customerName,
+      serviceName,
+      startTime: booking.startTime,
+      businessName: business.name,
+      businessPhone: business.phone,
+      businessAddress: business.address,
+    })
+    return { sent: true, channel: 'email' }
+  }
+
+  return { sent: false, channel: null }
+}
 /**
  * Reminders only fire for bookings still ahead of right-now (never
  * already-passed slots), gated to businesses on an active/trial
@@ -251,8 +293,87 @@ async sendTodayReminders(req: Request, res: Response): Promise<Response | void> 
       error: error?.message || 'Failed to send reminders',
     })
   }
-}
 
+  
+}
+  /**
+   * Called from the "closed date" modal on the frontend. Given a set of
+   * booking ids that fall inside a date range the owner is about to close,
+   * cancel each still-active booking and notify its customer via the
+   * business's plan channel (SMS for Enterprise, email otherwise) — same
+   * channel logic as cancelBooking/updateBookingStatus.
+   */
+  async notifyAndCancelForClosure(req: Request, res: Response): Promise<Response | void> {
+    try {
+      const { businessId } = req.params
+      const { bookingIds, reason } = req.body as { bookingIds?: string[]; reason?: string }
+
+      if (!businessId) {
+        return res.status(400).json({ success: false, message: 'businessId is required' })
+      }
+      if (!Array.isArray(bookingIds) || bookingIds.length === 0) {
+        return res.status(400).json({ success: false, message: 'bookingIds must be a non-empty array' })
+      }
+
+      const business = await prisma.business.findUnique({
+        where: { id: businessId as string },
+        include: { subscription: { include: { plan: true } } },
+      })
+
+      if (!business) {
+        return res.status(404).json({ success: false, message: 'Business not found' })
+      }
+
+      const subscription = business.subscription
+      const plan = subscription?.plan
+      const isSubscriptionUsable =
+        subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL')
+
+      // Only touch bookings that actually belong to this business and are
+      // still active — re-fetching by id rather than trusting the client's
+      // list blindly (e.g. status could have changed since the modal loaded).
+      const bookings = await prisma.booking.findMany({
+        where: {
+          id: { in: bookingIds },
+          businessId: businessId as string,
+          status: { in: ['CONFIRMED', 'PENDING', 'UNVERIFIED'] },
+        },
+        include: { service: true },
+      })
+
+      const results: Array<{ bookingId: string; notified: boolean; channel: 'sms' | 'email' | null; error?: string }> = []
+
+      for (const booking of bookings) {
+        try {
+          await prisma.booking.update({
+            where: { id: booking.id },
+            data: { status: 'CANCELLED' },
+          })
+
+          if (plan && isSubscriptionUsable) {
+            const outcome = await notifyCancellationByPlan(
+              business,
+              plan,
+              booking,
+              booking.service?.name || 'your service',
+              reason
+            )
+            results.push({ bookingId: booking.id, notified: outcome.sent, channel: outcome.channel })
+          } else {
+            results.push({ bookingId: booking.id, notified: false, channel: null })
+          }
+        } catch (err: any) {
+          console.error(`[v0] Failed to cancel/notify booking ${booking.id} for closure:`, err)
+          results.push({ bookingId: booking.id, notified: false, channel: null, error: err?.message || String(err) })
+        }
+      }
+
+      return res.status(200).json({ success: true, data: { results } })
+    } catch (error: any) {
+      console.error('[v0] Error notifying bookings for closure:', error)
+      return res.status(500).json({ success: false, error: error?.message || 'Failed to notify bookings' })
+    }
+  }
 
 
 

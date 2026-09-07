@@ -12,6 +12,36 @@ const prisma_1 = __importDefault(require("../lib/prisma"));
 const luxon_1 = require("luxon");
 // Adjust to match your SubscriptionPlan enum's actual value for Enterprise.
 const ENTERPRISE_PLAN = "ENTERPRISE";
+async function notifyCancellationByPlan(business, plan, booking, serviceName, reasonNote) {
+    const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
+    const dt = luxon_1.DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ });
+    if (plan.allowSmsNotifications) {
+        if (!booking.customerPhone) {
+            console.warn(`[v0] Booking ${booking.id} has no customerPhone; skipping SMS notification`);
+            return { sent: false, channel: null };
+        }
+        await sparrow_sms_service_1.default.sendStatusChange(booking.businessId, booking.customerPhone, {
+            businessName: business.name,
+            date: dt.setLocale('en').toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+            time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
+            status: 'cancelled',
+            bookingId: booking.id,
+        });
+        return { sent: true, channel: 'sms' };
+    }
+    if (plan.allowEmailNotifications) {
+        await email_service_1.emailService.sendBookingCancellationToCustomer(booking.customerEmail, {
+            customerName: booking.customerName,
+            serviceName,
+            startTime: booking.startTime,
+            businessName: business.name,
+            businessPhone: business.phone,
+            businessAddress: business.address,
+        });
+        return { sent: true, channel: 'email' };
+    }
+    return { sent: false, channel: null };
+}
 /**
  * Reminders only fire for bookings still ahead of right-now (never
  * already-passed slots), gated to businesses on an active/trial
@@ -34,6 +64,12 @@ async function getTodayReminderCandidates(businessId) {
         },
         include: { service: true },
     });
+}
+const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
+function isStartTimeInFuture(startTime) {
+    const now = luxon_1.DateTime.now().setZone(BUSINESS_TZ);
+    const start = luxon_1.DateTime.fromJSDate(startTime).setZone(BUSINESS_TZ);
+    return start > now;
 }
 /**
  * Sends the customer-facing booking confirmation via the channel that
@@ -70,15 +106,10 @@ async function sendBookingConfirmationByPlan(businessId, business, booking, serv
     });
 }
 class BookingController {
-    /**
-     * Sends a reminder to every customer with a CONFIRMED booking later
-     * today (strictly after "now", so already-passed or in-progress
-     * appointments are skipped). Channel (SMS vs email) is derived from
-     * the business's subscription plan feature flags, not client input.
-     */
     async sendTodayReminders(req, res) {
+        const { businessId } = req.params;
+        const LOG_PREFIX = `[reminders][business=${businessId}]`;
         try {
-            const { businessId } = req.params;
             const business = await prisma_1.default.business.findUnique({
                 where: { id: businessId },
                 include: {
@@ -86,16 +117,16 @@ class BookingController {
                 },
             });
             if (!business) {
+                console.warn(`${LOG_PREFIX} Aborted: business not found`);
                 return res.status(404).json({ success: false, message: 'Business not found' });
             }
             const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
             const now = luxon_1.DateTime.now().setZone(BUSINESS_TZ);
             const startOfToday = now.startOf('day');
-            // Enforce one send per calendar day (business's local day), regardless
-            // of how many times the endpoint is hit.
             if (business.lastReminderSentAt) {
                 const lastSent = luxon_1.DateTime.fromJSDate(business.lastReminderSentAt, { zone: BUSINESS_TZ });
                 if (lastSent >= startOfToday) {
+                    console.log(`${LOG_PREFIX} Skipped: already sent today at ${lastSent.toISO()}`);
                     return res.status(409).json({
                         success: false,
                         message: `Reminders were already sent today at ${lastSent.toLocaleString(luxon_1.DateTime.TIME_SIMPLE)}. Try again tomorrow.`,
@@ -107,6 +138,7 @@ class BookingController {
             const plan = subscription?.plan;
             const isSubscriptionUsable = subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL');
             if (!isSubscriptionUsable || !plan) {
+                console.warn(`${LOG_PREFIX} Aborted: no usable subscription (status=${subscription?.status ?? 'none'}, plan=${plan?.name ?? 'none'})`);
                 return res.status(403).json({
                     success: false,
                     message: 'An active subscription is required to send reminders.',
@@ -114,23 +146,26 @@ class BookingController {
             }
             const canRemind = plan.allowSmsNotifications || plan.allowEmailNotifications;
             if (!canRemind) {
+                console.warn(`${LOG_PREFIX} Aborted: plan "${plan.name}" does not allow SMS or email notifications`);
                 return res.status(403).json({
                     success: false,
                     message: 'Your current plan does not include appointment reminders.',
                 });
             }
             const channel = plan.allowSmsNotifications ? 'sms' : 'email';
+            console.log(`${LOG_PREFIX} Starting send via ${channel} (plan=${plan.name})`);
             const bookings = await getTodayReminderCandidates(businessId);
             if (bookings.length === 0) {
-                // Nothing to send — don't stamp lastReminderSentAt, so the button
-                // stays usable if a CONFIRMED booking shows up later the same day.
+                console.log(`${LOG_PREFIX} No CONFIRMED bookings remaining today — nothing to send, lastReminderSentAt not stamped`);
                 return res.status(200).json({ success: true, data: { count: 0, channel } });
             }
+            console.log(`${LOG_PREFIX} Found ${bookings.length} candidate booking(s) for today`);
             let sent = 0;
             const failures = [];
             if (channel === 'sms') {
                 for (const booking of bookings) {
                     if (!booking.customerPhone) {
+                        console.warn(`${LOG_PREFIX} SMS skipped for booking=${booking.id}: no customerPhone on file`);
                         failures.push(booking.id);
                         continue;
                     }
@@ -142,10 +177,16 @@ class BookingController {
                         time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
                         hoursUntil,
                     });
-                    if (result.success)
+                    if (result.success) {
                         sent++;
-                    else
+                    }
+                    else {
+                        // This is the log that was missing — the actual reason from Sparrow
+                        // (e.g. quota exceeded, bad response code, network error) was being
+                        // swallowed and only the booking id was recorded.
+                        console.error(`${LOG_PREFIX} SMS FAILED for booking=${booking.id} phone=${booking.customerPhone}: ${result.error ?? 'unknown error'}`);
                         failures.push(booking.id);
+                    }
                 }
             }
             else {
@@ -162,28 +203,92 @@ class BookingController {
                         sent++;
                     }
                     catch (err) {
-                        console.error('[v0] Failed to send reminder email:', booking.customerEmail, err);
+                        console.error(`${LOG_PREFIX} EMAIL FAILED for booking=${booking.id} email=${booking.customerEmail}: ${err?.message || err}`);
                         failures.push(booking.id);
                     }
                 }
             }
-            // Stamp the send — this is what enforces the once-per-day rule on the
-            // next attempt, whether that's a re-click, a reload, or a different tab.
             await prisma_1.default.business.update({
                 where: { id: businessId },
                 data: { lastReminderSentAt: now.toJSDate() },
             });
+            console.log(`${LOG_PREFIX} Done via ${channel}: sent=${sent} failed=${failures.length}${failures.length ? ` failedIds=[${failures.join(', ')}]` : ''}`);
             return res.status(200).json({
                 success: true,
                 data: { count: sent, failed: failures.length, channel, alreadySentToday: false },
             });
         }
         catch (error) {
-            console.error('[v0] Error sending today reminders:', error);
+            console.error(`${LOG_PREFIX} Unhandled error:`, error);
             return res.status(500).json({
                 success: false,
                 error: error?.message || 'Failed to send reminders',
             });
+        }
+    }
+    /**
+     * Called from the "closed date" modal on the frontend. Given a set of
+     * booking ids that fall inside a date range the owner is about to close,
+     * cancel each still-active booking and notify its customer via the
+     * business's plan channel (SMS for Enterprise, email otherwise) — same
+     * channel logic as cancelBooking/updateBookingStatus.
+     */
+    async notifyAndCancelForClosure(req, res) {
+        try {
+            const { businessId } = req.params;
+            const { bookingIds, reason } = req.body;
+            if (!businessId) {
+                return res.status(400).json({ success: false, message: 'businessId is required' });
+            }
+            if (!Array.isArray(bookingIds) || bookingIds.length === 0) {
+                return res.status(400).json({ success: false, message: 'bookingIds must be a non-empty array' });
+            }
+            const business = await prisma_1.default.business.findUnique({
+                where: { id: businessId },
+                include: { subscription: { include: { plan: true } } },
+            });
+            if (!business) {
+                return res.status(404).json({ success: false, message: 'Business not found' });
+            }
+            const subscription = business.subscription;
+            const plan = subscription?.plan;
+            const isSubscriptionUsable = subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL');
+            // Only touch bookings that actually belong to this business and are
+            // still active — re-fetching by id rather than trusting the client's
+            // list blindly (e.g. status could have changed since the modal loaded).
+            const bookings = await prisma_1.default.booking.findMany({
+                where: {
+                    id: { in: bookingIds },
+                    businessId: businessId,
+                    status: { in: ['CONFIRMED', 'PENDING', 'UNVERIFIED'] },
+                },
+                include: { service: true },
+            });
+            const results = [];
+            for (const booking of bookings) {
+                try {
+                    await prisma_1.default.booking.update({
+                        where: { id: booking.id },
+                        data: { status: 'CANCELLED' },
+                    });
+                    if (plan && isSubscriptionUsable) {
+                        const outcome = await notifyCancellationByPlan(business, plan, booking, booking.service?.name || 'your service', reason);
+                        results.push({ bookingId: booking.id, notified: outcome.sent, channel: outcome.channel });
+                    }
+                    else {
+                        results.push({ bookingId: booking.id, notified: false, channel: null });
+                    }
+                }
+                catch (err) {
+                    console.error(`[v0] Failed to cancel/notify booking ${booking.id} for closure:`, err);
+                    results.push({ bookingId: booking.id, notified: false, channel: null, error: err?.message || String(err) });
+                }
+            }
+            return res.status(200).json({ success: true, data: { results } });
+        }
+        catch (error) {
+            console.error('[v0] Error notifying bookings for closure:', error);
+            return res.status(500).json({ success: false, error: error?.message || 'Failed to notify bookings' });
         }
     }
     /**
@@ -784,10 +889,64 @@ class BookingController {
     /**
      * Cancel booking
      */
+    /**
+   * Cancel booking
+   */
     async cancelBooking(req, res) {
         try {
             const { id } = req.params;
-            const booking = await booking_service_1.default.cancelBooking(Array.isArray(id) ? id[0] : id);
+            const bookingId = Array.isArray(id) ? id[0] : id;
+            // Capture pre-cancel status BEFORE cancelling — we only notify on a
+            // CONFIRMED -> CANCELLED transition, mirroring updateBookingStatus.
+            const existingBooking = await booking_service_1.default.getBookingById(bookingId);
+            const wasConfirmed = existingBooking?.status === 'CONFIRMED';
+            const booking = await booking_service_1.default.cancelBooking(bookingId);
+            if (wasConfirmed && existingBooking) {
+                try {
+                    const [business, service] = await Promise.all([
+                        prisma_1.default.business.findUnique({
+                            where: { id: existingBooking.businessId },
+                            include: { subscription: { include: { plan: true } } },
+                        }),
+                        prisma_1.default.service.findUnique({ where: { id: existingBooking.serviceId } }),
+                    ]);
+                    const subscription = business?.subscription;
+                    const plan = subscription?.plan;
+                    const isSubscriptionUsable = subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL');
+                    if (business && plan && isSubscriptionUsable) {
+                        const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
+                        const dt = luxon_1.DateTime.fromJSDate(existingBooking.startTime, { zone: BUSINESS_TZ });
+                        if (plan.allowSmsNotifications) {
+                            if (existingBooking.customerPhone) {
+                                await sparrow_sms_service_1.default.sendStatusChange(existingBooking.businessId, existingBooking.customerPhone, {
+                                    businessName: business.name,
+                                    date: dt.setLocale('en').toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+                                    time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
+                                    status: 'cancelled',
+                                    bookingId: existingBooking.id,
+                                });
+                            }
+                            else {
+                                console.warn(`[v0] Booking ${existingBooking.id} cancelled but has no customerPhone; skipping SMS notification`);
+                            }
+                        }
+                        else if (plan.allowEmailNotifications) {
+                            await email_service_1.emailService.sendBookingCancellationToCustomer(existingBooking.customerEmail, {
+                                customerName: existingBooking.customerName,
+                                serviceName: service?.name || 'your service',
+                                startTime: existingBooking.startTime,
+                                businessName: business.name,
+                                businessPhone: business.phone,
+                                businessAddress: business.address,
+                            });
+                        }
+                    }
+                }
+                catch (notifyError) {
+                    // Never let a notification failure block the cancellation itself.
+                    console.error('[v0] Failed to send cancellation notification:', notifyError);
+                }
+            }
             res.status(200).json(booking);
         }
         catch (error) {

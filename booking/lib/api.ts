@@ -484,6 +484,16 @@ export const bookingsApi = {
       body: JSON.stringify(data),
     }),
 
+
+      // Notify + cancel bookings that fall inside a date range about to be closed
+  notifyClosure: (businessId: string, bookingIds: string[], reason?: string) =>
+    apiCall<{ results: Array<{ bookingId: string; notified: boolean; channel: 'sms' | 'email' | null; error?: string }> }>(
+      `/api/booking/business/${businessId}/notify-closure`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ bookingIds, reason }),
+      }
+    ),
     
   // Create a public business booking for guests
   createBusinessPublicBooking: (data: {

@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Sidebar } from '@/components/Sidebar'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { AuthWrapper } from '@/components/AuthWrapper'
-import { businessHoursApi } from '@/lib/api'
+import { bookingsApi, businessHoursApi } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import {
   Loader,
@@ -26,6 +26,7 @@ import {
   Plus,
   MoonStar,
 } from 'lucide-react'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 interface DayHours {
   dayOfWeek: number
@@ -53,6 +54,8 @@ const DAYS = [
 
 const DEFAULT_OPEN = '09:00'
 const DEFAULT_CLOSE = '18:00'
+
+
 
 // Always start from a full Sunday -> Saturday list at 09:00 - 18:00
 function buildDefaultHours(): DayHours[] {
@@ -130,6 +133,11 @@ export default function BusinessHoursPage() {
   const [pendingRangeKeys, setPendingRangeKeys] = useState<Set<string>>(new Set())
   const [editingRangeKey, setEditingRangeKey] = useState<string | null>(null)
   const [editReason, setEditReason] = useState('')
+  const [closureModalOpen, setClosureModalOpen] = useState(false)
+const [closureBookings, setClosureBookings] = useState<any[]>([])
+const [pendingClosureRange, setPendingClosureRange] = useState<{ start: string; end: string; reason: string } | null>(null)
+const [notifying, setNotifying] = useState(false)
+const [notifiedBookingIds, setNotifiedBookingIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (businessId) {
@@ -186,7 +194,7 @@ export default function BusinessHoursPage() {
         }))
       )
     } catch (err) {
-    
+
       setDayHours(buildDefaultHours())
     } finally {
       setLoading(false)
@@ -250,10 +258,10 @@ export default function BusinessHoursPage() {
         day.dayOfWeek === fromDayOfWeek
           ? day
           : {
-              ...day,
-              openingTime: sourceDay.openingTime,
-              closingTime: sourceDay.closingTime,
-            }
+            ...day,
+            openingTime: sourceDay.openingTime,
+            closingTime: sourceDay.closingTime,
+          }
       )
     )
   }
@@ -270,44 +278,105 @@ export default function BusinessHoursPage() {
     )
   }
 
-  // Staged locally only — nothing is uploaded until "Save"
-  function addClosedDate() {
+  async function addClosedDate() {
     if (!newClosedDate) {
       setError('Please enter start date')
       return
     }
-
     if (!newClosedDateEnd) {
       setError('Please enter end date')
       return
     }
-
     if (new Date(newClosedDate) > new Date(newClosedDateEnd)) {
       setError('End date must be after start date')
       return
     }
-
     setError(null)
 
-    const start = new Date(newClosedDate)
-    const end = new Date(newClosedDateEnd)
+    const range = { start: newClosedDate, end: newClosedDateEnd, reason: newClosedDateReason }
+
+    if (businessId) {
+      try {
+        const response = await bookingsApi.getBusinessBookings(
+          businessId,
+          1,
+          100,
+          undefined,
+          newClosedDate,
+          newClosedDateEnd
+        )
+
+        const bookings = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray((response?.data as any)?.bookings)
+            ? (response.data as any).bookings
+            : []
+
+        const activeBookings = bookings.filter((b: any) =>
+          ['CONFIRMED', 'PENDING', 'UNVERIFIED'].includes(b.status)
+        )
+
+        if (activeBookings.length > 0) {
+          setClosureBookings(activeBookings)
+          setPendingClosureRange(range)
+          setNotifiedBookingIds(new Set())
+          setClosureModalOpen(true)
+          return
+        }
+      } catch (err) {
+        console.error('Failed to check for existing bookings in range', err)
+      }
+    }
+
+    stageClosedDateRange(range)
+  }
+
+  function stageClosedDateRange(range: { start: string; end: string; reason: string }) {
+    const start = new Date(range.start)
+    const end = new Date(range.end)
     const datesInRange: ClosedDate[] = []
 
     for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      datesInRange.push({
-        date: d.toISOString().split('T')[0],
-        reason: newClosedDateReason,
-      })
+      datesInRange.push({ date: d.toISOString().split('T')[0], reason: range.reason })
     }
 
     setClosedDates(prev => {
-      const existing = new Set(prev.map(d => d.date))
-      return [...prev, ...datesInRange.filter(d => !existing.has(d.date))]
+      const existing = new Set(prev.map(dt => dt.date))
+      return [...prev, ...datesInRange.filter(dt => !existing.has(dt.date))]
     })
 
     setNewClosedDate('')
     setNewClosedDateEnd('')
     setNewClosedDateReason('')
+  }
+
+  async function notifyClosureBookings() {
+    if (!businessId || closureBookings.length === 0) return
+    setNotifying(true)
+    setError(null)
+
+    try {
+      const bookingIds = closureBookings.map(b => b.id)
+      await bookingsApi.notifyClosure(businessId, bookingIds, pendingClosureRange?.reason)
+      setNotifiedBookingIds(new Set(bookingIds))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to notify customers')
+    } finally {
+      setNotifying(false)
+    }
+  }
+
+  function confirmClosureAndProceed() {
+    if (pendingClosureRange) stageClosedDateRange(pendingClosureRange)
+    setClosureModalOpen(false)
+    setPendingClosureRange(null)
+    setClosureBookings([])
+  }
+
+  function cancelClosureModal() {
+    setClosureModalOpen(false)
+    setPendingClosureRange(null)
+    setClosureBookings([])
   }
 
   async function removeClosedDateRange(start: string, end: string) {
@@ -326,7 +395,7 @@ export default function BusinessHoursPage() {
       // Only drop from state once the server confirms the deletes succeeded
       setClosedDates(prev => prev.filter(d => !(d.date >= start && d.date <= end)))
     } catch (err) {
-    
+
       setError(err instanceof Error ? err.message : 'Failed to remove closed dates')
     } finally {
       setPendingRangeKeys(prev => {
@@ -612,20 +681,18 @@ export default function BusinessHoursPage() {
                         return (
                           <div
                             key={day.dayOfWeek}
-                            className={`flex flex-col gap-3 px-4 py-4 transition-colors lg:flex-row lg:items-center lg:gap-6 ${
-                              index !== 0 ? 'border-t border-border' : ''
-                            } ${day.isOff ? 'bg-muted/40' : 'bg-card'}`}
+                            className={`flex flex-col gap-3 px-4 py-4 transition-colors lg:flex-row lg:items-center lg:gap-6 ${index !== 0 ? 'border-t border-border' : ''
+                              } ${day.isOff ? 'bg-muted/40' : 'bg-card'}`}
                           >
                             {/* Day identity */}
                             <div className="flex items-center justify-between gap-3 lg:w-52 lg:justify-start">
                               <div className="flex items-center gap-3">
                                 <span
                                   aria-hidden="true"
-                                  className={`flex h-9 w-9 items-center justify-center rounded-md text-[11px] font-semibold uppercase tracking-wide ${
-                                    day.isOff
+                                  className={`flex h-9 w-9 items-center justify-center rounded-md text-[11px] font-semibold uppercase tracking-wide ${day.isOff
                                       ? 'bg-muted text-muted-foreground'
                                       : 'bg-foreground text-background'
-                                  }`}
+                                    }`}
                                 >
                                   {short}
                                 </span>
@@ -722,9 +789,8 @@ export default function BusinessHoursPage() {
                                       updateDayHours(day.dayOfWeek, 'closingTime', e.target.value)
                                     }
                                     aria-invalid={invalid}
-                                    className={`h-10 w-full ${
-                                      invalid ? 'border-destructive text-destructive' : ''
-                                    }`}
+                                    className={`h-10 w-full ${invalid ? 'border-destructive text-destructive' : ''
+                                      }`}
                                   />
                                 </div>
                               </div>
@@ -843,9 +909,8 @@ export default function BusinessHoursPage() {
                           return (
                             <div
                               key={key}
-                              className={`flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${
-                                idx !== 0 ? 'border-t border-border' : ''
-                              }`}
+                              className={`flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${idx !== 0 ? 'border-t border-border' : ''
+                                }`}
                             >
                               <div className="flex min-w-0 flex-1 items-start gap-3">
                                 <span
@@ -1030,6 +1095,62 @@ export default function BusinessHoursPage() {
             </div>
           </div>
         </main>
+
+        <Dialog open={closureModalOpen} onOpenChange={open => { if (!open) cancelClosureModal() }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Existing bookings on these dates</DialogTitle>
+            </DialogHeader>
+
+            <p className="text-sm text-muted-foreground">
+              {closureBookings.length} booking{closureBookings.length !== 1 ? 's' : ''} fall inside{' '}
+              {pendingClosureRange &&
+                (pendingClosureRange.start === pendingClosureRange.end
+                  ? formatDateLabel(pendingClosureRange.start)
+                  : `${formatDateLabel(pendingClosureRange.start)} – ${formatDateLabel(pendingClosureRange.end)}`)}
+              . Notify affected customers before confirming this closure.
+            </p>
+
+            <div className="max-h-72 space-y-2 overflow-y-auto">
+              {closureBookings.map(b => (
+                <div key={b.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium text-foreground">{b.customerName}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(b.startTime).toLocaleString(undefined, {
+                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                      })}
+                      {b.service?.name ? ` · ${b.service.name}` : ''}
+                    </span>
+                  </div>
+                  {notifiedBookingIds.has(b.id) ? (
+                    <span className="flex items-center gap-1 text-xs font-medium text-foreground">
+                      <CheckCircle className="h-3.5 w-3.5" /> Notified
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Not notified</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+              <Button variant="outline" onClick={cancelClosureModal}>
+                Cancel
+              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={notifyClosureBookings}
+                  disabled={notifying || notifiedBookingIds.size === closureBookings.length}
+                >
+                  {notifying ? <Loader className="h-4 w-4 animate-spin" /> : 'Notify customers'}
+                </Button>
+                <Button onClick={confirmClosureAndProceed}>Continue</Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AuthWrapper>
   )

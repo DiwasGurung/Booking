@@ -53,6 +53,8 @@ bookingRoutes.get(
   BookingController.getBusinessAvailableSlots
 );
 
+bookingRoutes.post("/business/:businessId/notify-closure", auth, BookingController.notifyAndCancelForClosure)
+
 
 // Get all bookings for a specific user/customer
 bookingRoutes.get("/users/:userId/bookings", auth, BookingController.getCustomerBookings);
