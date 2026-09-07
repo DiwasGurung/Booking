@@ -29,14 +29,8 @@ interface Payment {
   status: string // may be lower/upper case depending on gateway path
   createdAt: string
   updatedAt: string
-  // Gateway-specific reference (from the Payment relation on the backend).
-  // Only esewaRefId is populated today since eSewa is the only live gateway,
-  // but khaltiPidx / nabilRefId are included so this keeps working when
-  // those gateways go live without another schema/UI change.
+  // eSewa's own reference for this payment (only gateway in use right now)
   esewaRefId?: string | null
-  esewaProductCode?: string | null
-  khaltiPidx?: string | null
-  nabilRefId?: string | null
   subscription?: {
     id: string
     planId: string
@@ -69,22 +63,33 @@ function formatAmount(amountPaisa: number, currency = 'NPR') {
   return `${currency === 'NPR' ? 'Rs.' : currency} ${formatted}`
 }
 
-// Pick the gateway-specific reference for display instead of the internal
-// (meaningless-to-users) transactionId. Falls back to transactionId only
-// if no gateway reference was recorded for that payment.
-function getDisplayReference(payment: Payment): { label: string; value: string } {
-  const gateway = (payment.gateway || '').toLowerCase()
+// Show eSewa's own reference instead of the internal (meaningless-to-users)
+// transactionId. Falls back to transactionId only if eSewa didn't return one.
+function getDisplayReference(payment: Payment): string {
+  return payment.esewaRefId || payment.transactionId || '—'
+}
 
-  if (gateway === 'esewa' && payment.esewaRefId) {
-    return { label: 'eSewa Ref', value: payment.esewaRefId }
+// Only eSewa is integrated right now; render its proper display name
+// instead of the raw lowercase "esewa" gateway string.
+function getGatewayLabel(gateway: string) {
+  const g = (gateway || '').toLowerCase()
+  if (g === 'esewa') return 'eSewa'
+  return gateway || 'N/A'
+}
+
+function getSubscriptionStatusColor(status?: string) {
+  switch ((status || '').toUpperCase()) {
+    case 'ACTIVE':
+      return 'bg-green-100 text-green-700 hover:bg-green-100'
+    case 'TRIAL':
+      return 'bg-blue-100 text-blue-700 hover:bg-blue-100'
+    case 'EXPIRED':
+      return 'bg-red-100 text-red-700 hover:bg-red-100'
+    case 'CANCELLED':
+      return 'bg-slate-100 text-slate-600 hover:bg-slate-100'
+    default:
+      return 'bg-slate-100 text-slate-600'
   }
-  if (gateway === 'khalti' && payment.khaltiPidx) {
-    return { label: 'Khalti Ref', value: payment.khaltiPidx }
-  }
-  if (gateway === 'nabil' && payment.nabilRefId) {
-    return { label: 'Nabil Ref', value: payment.nabilRefId }
-  }
-  return { label: 'Reference', value: payment.transactionId || '—' }
 }
 
 const PAGE_SIZE = 10
@@ -329,13 +334,20 @@ export default function PaymentsDashboardPage() {
                     const status = normalizeStatus(payment.status)
                     const plan = payment.subscription?.plan
                     const currency = plan?.currency || 'NPR'
-                    const reference = getDisplayReference(payment)
+                    const referenceValue = getDisplayReference(payment)
                     return (
                       <tr key={payment.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4">
-                          <p className="font-medium text-slate-900">
-                            {plan?.displayName || plan?.name || 'Subscription'}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-slate-900">
+                              {plan?.displayName || plan?.name || 'Subscription'}
+                            </p>
+                            {payment.subscription?.status && (
+                              <Badge className={getSubscriptionStatusColor(payment.subscription.status)}>
+                                {payment.subscription.status}
+                              </Badge>
+                            )}
+                          </div>
                           {payment.subscription?.billingPeriod && (
                             <p className="text-xs text-slate-500 capitalize">
                               {payment.subscription.billingPeriod.toLowerCase()}
@@ -348,8 +360,8 @@ export default function PaymentsDashboardPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-sm text-slate-600 capitalize">
-                            {(payment.gateway || 'N/A').toLowerCase()}
+                          <span className="text-sm text-slate-600">
+                            {getGatewayLabel(payment.gateway)}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -361,10 +373,10 @@ export default function PaymentsDashboardPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-xs text-slate-500 font-mono" title={reference.value}>
-                            {reference.value.length > 14
-                              ? `${reference.value.slice(0, 14)}…`
-                              : reference.value}
+                          <span className="text-xs text-slate-500 font-mono" title={referenceValue}>
+                            {referenceValue.length > 14
+                              ? `${referenceValue.slice(0, 14)}…`
+                              : referenceValue}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-slate-500">
