@@ -953,10 +953,69 @@ async sendTodayReminders(req: Request, res: Response): Promise<Response | void> 
   /**
    * Cancel booking
    */
+    /**
+   * Cancel booking
+   */
   async cancelBooking(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const booking = await BookingService.cancelBooking(Array.isArray(id) ? id[0] : id);
+      const bookingId = Array.isArray(id) ? id[0] : id;
+
+      // Capture pre-cancel status BEFORE cancelling — we only notify on a
+      // CONFIRMED -> CANCELLED transition, mirroring updateBookingStatus.
+      const existingBooking = await BookingService.getBookingById(bookingId);
+      const wasConfirmed = existingBooking?.status === 'CONFIRMED';
+
+      const booking = await BookingService.cancelBooking(bookingId);
+
+      if (wasConfirmed && existingBooking) {
+        try {
+          const [business, service] = await Promise.all([
+            prisma.business.findUnique({
+              where: { id: existingBooking.businessId },
+              include: { subscription: { include: { plan: true } } },
+            }),
+            prisma.service.findUnique({ where: { id: existingBooking.serviceId } }),
+          ]);
+
+          const subscription = business?.subscription;
+          const plan = subscription?.plan;
+          const isSubscriptionUsable =
+            subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL');
+
+          if (business && plan && isSubscriptionUsable) {
+            const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
+            const dt = DateTime.fromJSDate(existingBooking.startTime, { zone: BUSINESS_TZ });
+
+            if (plan.allowSmsNotifications) {
+              if (existingBooking.customerPhone) {
+                await SparrowSMSService.sendStatusChange(existingBooking.businessId, existingBooking.customerPhone, {
+                  businessName: business.name,
+                  date: dt.setLocale('en').toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+                  time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
+                  status: 'cancelled',
+                  bookingId: existingBooking.id,
+                });
+              } else {
+                console.warn(`[v0] Booking ${existingBooking.id} cancelled but has no customerPhone; skipping SMS notification`);
+              }
+            } else if (plan.allowEmailNotifications) {
+              await emailService.sendBookingCancellationToCustomer(existingBooking.customerEmail, {
+                customerName: existingBooking.customerName,
+                serviceName: service?.name || 'your service',
+                startTime: existingBooking.startTime,
+                businessName: business.name,
+                businessPhone: business.phone,
+                businessAddress: business.address,
+              });
+            }
+          }
+        } catch (notifyError) {
+          // Never let a notification failure block the cancellation itself.
+          console.error('[v0] Failed to send cancellation notification:', notifyError);
+        }
+      }
+
       res.status(200).json(booking);
     } catch (error) {
       res.status(500).json({ message: "Error canceling booking", error });
