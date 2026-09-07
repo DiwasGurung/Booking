@@ -13,13 +13,9 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { useBusinessId } from '@/hooks/useBusinessId'
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 import { businessApi, businessHoursApi, phoneVerificationApi } from '@/lib/api'
 import { Loader, AlertCircle, Save, Settings, Bell, Lock, Trash2, Copy, Check, Upload, X, Sparkles, Phone } from 'lucide-react'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
-
-// Adjust to match your SubscriptionPlan enum's actual value for Enterprise.
-const ENTERPRISE_PLAN = 'ENTERPRISE'
 
 interface BusinessSettings {
   businessName: string
@@ -66,12 +62,16 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('business')
   const [hasBusinessHours, setHasBusinessHours] = useState(false)
 
-  // Plan gating for SMS notifications — only Enterprise businesses may
-  // enable SMS; email notifications remain available (and default-on) for
-  // every plan.
-  const [businessPlan, setBusinessPlan] = useState<string | null>(null)
-  const [planLoading, setPlanLoading] = useState(true)
-  const isEnterprise = businessPlan === ENTERPRISE_PLAN
+  // Plan gating for SMS notifications — only an Enterprise business with a
+  // currently valid (active/trial) subscription may enable SMS; email
+  // notifications remain available (and default-on) for every plan.
+  const {
+    subscriptionStatus,
+    loading: planLoading,
+    hasValidSubscription,
+  } = useSubscriptionStatus()
+  const isEnterprise =
+    !!hasValidSubscription && subscriptionStatus?.planName?.toLowerCase() === 'enterprise'
 
   // 10-digit numeric validation — matches Nepal mobile format used elsewhere in the app
   const isValidPhone = (value: string) => /^\d{10}$/.test(value)
@@ -332,7 +332,6 @@ export default function SettingsPage() {
     if (businessId) {
       loadSettings()
       checkBusinessHours()
-      loadBusinessPlan()
     }
   }, [businessId])
 
@@ -343,27 +342,23 @@ export default function SettingsPage() {
     }
   }, [fetchingBusinessId, businessIdError, businessId, router])
 
-  // Fetch the business's subscription plan so we know whether SMS
-  // notifications are allowed. Adjust the endpoint/response shape to match
-  // whatever subscription API this project actually exposes.
-  const loadBusinessPlan = async () => {
-    if (!businessId) return
-    try {
-      setPlanLoading(true)
-      const res = await fetch(`${API_URL}/api/subscriptions/business/${businessId}`)
-      if (res.ok) {
-        const data = await res.json()
-        const plan = data?.plan ?? data?.subscription?.plan ?? data?.data?.plan ?? null
-        setBusinessPlan(plan)
-      } else {
-        setBusinessPlan(null)
-      }
-    } catch {
-      setBusinessPlan(null)
-    } finally {
-      setPlanLoading(false)
+  // If the plan drops below Enterprise (or the subscription lapses) after
+  // load, make sure we never leave a stale smsNotifications=true sitting in
+  // the form — it will also be stripped again defensively on save.
+  useEffect(() => {
+    if (planLoading) return
+    if (!isEnterprise && formData?.notificationSettings?.smsNotifications) {
+      setFormData((prev) =>
+        prev
+          ? {
+              ...prev,
+              notificationSettings: { ...prev.notificationSettings, smsNotifications: false },
+            }
+          : prev
+      )
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEnterprise, planLoading])
 
   const checkBusinessHours = async () => {
     if (!businessId) {
@@ -437,7 +432,7 @@ export default function SettingsPage() {
 
       // Defense in depth: even if the toggle were somehow enabled client-side
       // (e.g. stale plan check), never persist smsNotifications=true for a
-      // non-Enterprise business.
+      // non-Enterprise or non-active-subscription business.
       const payload: BusinessSettings = {
         ...formData,
         notificationSettings: {
