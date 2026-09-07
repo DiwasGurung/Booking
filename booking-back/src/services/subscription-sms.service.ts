@@ -28,52 +28,37 @@ class SubscriptionSmsService {
    * smsCreditBalance is the source of truth for availability;
    * smsUsedThisMonth is kept only for display/stats.
    */
-  async checkSmsQuota(businessId: string): Promise<{ available: boolean; remaining: number; limit: number }> {
-    try {
-      const subscription = await prisma.subscription.findUnique({
-        where: { businessId },
-        include: { plan: true },
-      })
+async checkSmsQuota(businessId: string): Promise<{ available: boolean; remaining: number; limit: number }> {
+  try {
+    const subscription = await prisma.subscription.findUnique({
+      where: { businessId },
+      include: { plan: true },
+    })
 
-      if (!subscription) {
-        console.log('[v0] No subscription found for business:', businessId)
-        return { available: false, remaining: 0, limit: 0 }
-      }
-
-      if (!subscription.plan.allowSmsNotifications || subscription.plan.maxSmsPerMonth <= 0) {
-        console.log('[v0] SMS not enabled for plan:', subscription.planId)
-        return { available: false, remaining: 0, limit: subscription.plan.maxSmsPerMonth }
-      }
-
-      const now = new Date()
-      let creditBalance = subscription.smsCreditBalance
-
-      // Roll over to a fresh monthly allotment if the reset date has passed,
-      // or if this is the first check ever for this subscription.
-      if (!subscription.usageResetDate || subscription.usageResetDate < now) {
-        creditBalance = subscription.plan.maxSmsPerMonth
-        await prisma.subscription.update({
-          where: { id: subscription.id },
-          data: {
-            smsUsedThisMonth: 0,
-            smsCreditBalance: creditBalance,
-            usageResetDate: new Date(now.getFullYear(), now.getMonth() + 1, 1),
-          },
-        })
-      }
-
-      console.log('[v0] SMS quota check - Balance:', creditBalance, 'Limit:', subscription.plan.maxSmsPerMonth)
-
-      return {
-        available: creditBalance > 0,
-        remaining: Math.max(0, creditBalance),
-        limit: subscription.plan.maxSmsPerMonth,
-      }
-    } catch (error) {
-      console.error('[v0] Error checking SMS quota:', error)
+    if (!subscription) {
+      console.log('[v0] No subscription found for business:', businessId)
       return { available: false, remaining: 0, limit: 0 }
     }
+
+    const available = subscription.plan.allowSmsNotifications === true
+
+    if (!available) {
+      console.log('[v0] SMS not enabled for plan:', subscription.planId)
+    }
+
+    // No credit/monthly-limit tracking — availability is purely the plan flag.
+    // remaining/limit are kept in the return shape for callers/UI that still
+    // read them, but no longer represent an enforced cap.
+    return {
+      available,
+      remaining: available ? Infinity : 0,
+      limit: available ? Infinity : 0,
+    }
+  } catch (error) {
+    console.error('[v0] Error checking SMS quota:', error)
+    return { available: false, remaining: 0, limit: 0 }
   }
+}
 
   /**
    * Decrement quota after a successful send. Call this only once the SMS

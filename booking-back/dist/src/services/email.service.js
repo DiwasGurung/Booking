@@ -342,6 +342,14 @@ exports.emailService = {
             // Base URL for the "visit us" CTA — set APP_URL in your env, falls back
             // to the production domain if not configured.
             const APP_URL = process.env.APP_URL || 'https://appoint-nepal.com';
+            // If a verificationToken is supplied, the button routes through the
+            // verify endpoint (which marks the booking CONFIRMED + email verified,
+            // then the frontend redirects on to the app) instead of going straight
+            // to the homepage.
+            const ctaUrl = bookingDetails.verificationToken
+                ? `${process.env.NEXT_PUBLIC_APP_URL || APP_URL}/book/verify/${bookingDetails.verificationToken}`
+                : APP_URL;
+            const ctaLabel = bookingDetails.verificationToken ? 'Confirm & Visit Appoint Nepal' : 'Visit Appoint Nepal';
             const mailOptions = {
                 from: emailFrom,
                 to: customerEmail,
@@ -400,9 +408,9 @@ exports.emailService = {
               <p style="color: #333; font-size: 14px; margin-bottom: 16px;">
                 Manage your bookings, discover more services, and book your next appointment in seconds.
               </p>
-              <a href="${APP_URL}" target="_blank" style="display: inline-block; background-color: #008B8B; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 15px; padding: 12px 28px; border-radius: 6px;">
-                Visit Appoint Nepal
-              </a>
+              <a href="${ctaUrl}" target="_blank" style="display: inline-block; background-color: #008B8B; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 15px; padding: 12px 28px; border-radius: 6px;">
+  ${ctaLabel}
+</a>
             </div>
             
             <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">

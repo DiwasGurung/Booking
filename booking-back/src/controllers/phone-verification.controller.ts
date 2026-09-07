@@ -1,8 +1,8 @@
 import { Request, Response } from 'express'
 import VerificationService, { VerifyEntityType, VerifyPurpose } from '../services/phone-verification.service'
 import { entityResolvers } from '../services/verification-resolvers'
+import { sendBookingConfirmationByPlan } from './booking.controller'
 import prisma from '../lib/prisma'
-import  {sendBookingConfirmationByPlan } from './booking.controller'
 
 const SEND_ERROR_STATUS: Record<string, number> = {
   COOLDOWN: 429,
@@ -73,8 +73,9 @@ export const VerificationController = {
     const resolver = entityResolvers[entityType]
 
     if (await resolver.isAlreadyVerified(entityId)) {
-      // Already verified on a prior call — confirmation was already sent
-      // then, so don't send it again here.
+      // Already verified on a prior call — the booking confirmation (if
+      // this is a BOOKING entity) was already sent then, so don't send
+      // it again here.
       return res.json({ success: true, alreadyVerified: true })
     }
 
@@ -89,10 +90,11 @@ export const VerificationController = {
 
     await resolver.markVerified(entityId)
 
-    // Booking phone verification is the trigger for sending the
-    // customer-facing booking confirmation (SMS for Enterprise, email
-    // otherwise) — the booking is created UNVERIFIED and isn't a
-    // confirmed appointment until this step completes.
+    // Booking phone verification (Enterprise-plan bookings only — every
+    // other plan verifies via the email link instead) is the trigger for
+    // sending the customer-facing booking confirmation SMS. The booking
+    // is created UNVERIFIED and isn't a confirmed appointment until this
+    // step completes.
     if (entityType === 'BOOKING') {
       try {
         const booking = await prisma.booking.findUnique({
@@ -119,4 +121,5 @@ export const VerificationController = {
     res.json({ success: true, message: 'Verified successfully' })
   },
 }
+
 export default VerificationController
