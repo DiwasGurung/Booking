@@ -41,7 +41,7 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold text-white mb-4">For Businesses</h4>
             <div className="space-y-2">
-              <Link href="/business/setup-business" className="text-sm hover:text-white transition block">
+              <Link href="/setup-business" className="text-sm hover:text-white transition block">
                 Get Started
               </Link>
               <a href="/#pricing" className="text-sm hover:text-white transition block">
