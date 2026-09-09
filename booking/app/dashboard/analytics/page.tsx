@@ -72,22 +72,22 @@ export default function AnalyticsPage() {
   }
 
   const StatCard = ({ icon: Icon, title, value, change, trend }: any) => (
-    <Card className="p-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-slate-500 text-sm font-medium mb-1">{title}</p>
-          <p className="text-3xl font-bold text-slate-900">{value}</p>
+    <Card className="p-4 sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-slate-500 text-xs sm:text-sm font-medium mb-1 truncate">{title}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-slate-900">{value}</p>
         </div>
-        <div className="bg-blue-50 p-3 rounded-lg">
-          <Icon className="w-6 h-6 text-blue-600" />
+        <div className="bg-blue-50 p-2.5 sm:p-3 rounded-lg shrink-0">
+          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
         </div>
       </div>
       {change !== undefined && (
-        <div className="mt-4 flex items-center gap-1">
+        <div className="mt-3 sm:mt-4 flex items-center gap-1">
           {trend === 'up' ? (
-            <TrendingUp className="w-4 h-4 text-green-600" />
+            <TrendingUp className="w-4 h-4 text-green-600 shrink-0" />
           ) : (
-            <TrendingDown className="w-4 h-4 text-red-600" />
+            <TrendingDown className="w-4 h-4 text-red-600 shrink-0" />
           )}
           <span className={trend === 'up' ? 'text-green-600' : 'text-red-600'}>
             {Math.abs(change)}%
@@ -109,17 +109,18 @@ export default function AnalyticsPage() {
         ]} />
 
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
-            <p className="text-slate-500">Business performance and insights</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Analytics</h1>
+            <p className="text-sm sm:text-base text-slate-500">Business performance and insights</p>
           </div>
-          <div className="flex gap-2">
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
             {['7', '30', '90'].map((range) => (
               <Button
                 key={range}
                 variant={dateRange === range ? 'default' : 'outline'}
                 size="sm"
+                className="shrink-0"
                 onClick={() => setDateRange(range)}
               >
                 Last {range} days
@@ -142,9 +143,9 @@ export default function AnalyticsPage() {
             <Loader className="w-8 h-8 animate-spin text-blue-600" />
           </div>
         ) : analytics ? (
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {/* Key Metrics */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
               <StatCard
                 icon={Calendar}
                 title="Total Bookings"
@@ -171,22 +172,79 @@ export default function AnalyticsPage() {
               />
             </div>
 
-            <Card className="border-slate-200 p-6 shadow-sm">
-              <div className="mb-5 flex items-start justify-between gap-4">
-                <div><h2 className="text-xl font-semibold text-slate-900">Customer loyalty</h2><p className="mt-1 text-sm text-slate-500">Enterprise insights from completed visits and customer observations.</p></div>
-                <Badge className="bg-amber-100 text-amber-900">Enterprise</Badge>
+            {/* Customer loyalty */}
+            <Card className="border-slate-200 p-4 sm:p-6 shadow-sm">
+              <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-semibold text-slate-900">Customer loyalty</h2>
+                  <p className="mt-1 text-sm text-slate-500">Enterprise insights from completed visits and customer observations.</p>
+                </div>
+                <Badge className="bg-amber-100 text-amber-900 w-fit">Enterprise</Badge>
               </div>
-              {insightsLoading ? <div className="py-8 text-center text-sm text-slate-500">Loading customer insights...</div> : insightsError ? <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">{insightsError}</div> : customerInsights.length === 0 ? <div className="py-8 text-center text-sm text-slate-500">No completed customer visits yet.</div> : <div className="overflow-x-auto"><table className="min-w-[700px] w-full"><thead className="border-b border-slate-200"><tr><th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Customer</th><th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Observation</th><th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Visits</th><th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Loyalty</th></tr></thead><tbody className="divide-y divide-slate-200">{customerInsights.map(customer => <tr key={customer.id}><td className="px-3 py-4"><p className="font-medium text-slate-900">{customer.name}</p><p className="text-sm text-slate-500">{customer.email}</p></td><td className="max-w-xs px-3 py-4 text-sm text-slate-600">{customer.notes || 'No observation added'}</td><td className="px-3 py-4 font-semibold text-slate-900">{customer.visitCount}</td><td className="px-3 py-4"><Badge className="bg-teal-100 text-teal-800">{customer.loyalty}</Badge></td></tr>)}</tbody></table></div>}
+
+              {insightsLoading ? (
+                <div className="py-8 text-center text-sm text-slate-500">Loading customer insights...</div>
+              ) : insightsError ? (
+                <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">{insightsError}</div>
+              ) : customerInsights.length === 0 ? (
+                <div className="py-8 text-center text-sm text-slate-500">No completed customer visits yet.</div>
+              ) : (
+                <>
+                  {/* Mobile: stacked cards */}
+                  <div className="space-y-3 sm:hidden">
+                    {customerInsights.map(customer => (
+                      <div key={customer.id} className="rounded-lg border border-slate-200 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-medium text-slate-900 truncate">{customer.name}</p>
+                            <p className="text-xs text-slate-500 truncate">{customer.email}</p>
+                          </div>
+                          <Badge className="bg-teal-100 text-teal-800 shrink-0">{customer.loyalty}</Badge>
+                        </div>
+                        <p className="mt-2 text-sm text-slate-600">{customer.notes || 'No observation added'}</p>
+                        <p className="mt-2 text-xs font-medium text-slate-500">{customer.visitCount} visits</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop/tablet: table */}
+                  <div className="hidden overflow-x-auto sm:block">
+                    <table className="min-w-[700px] w-full">
+                      <thead className="border-b border-slate-200">
+                        <tr>
+                          <th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Customer</th>
+                          <th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Observation</th>
+                          <th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Visits</th>
+                          <th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Loyalty</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {customerInsights.map(customer => (
+                          <tr key={customer.id}>
+                            <td className="px-3 py-4">
+                              <p className="font-medium text-slate-900">{customer.name}</p>
+                              <p className="text-sm text-slate-500">{customer.email}</p>
+                            </td>
+                            <td className="max-w-xs px-3 py-4 text-sm text-slate-600">{customer.notes || 'No observation added'}</td>
+                            <td className="px-3 py-4 font-semibold text-slate-900">{customer.visitCount}</td>
+                            <td className="px-3 py-4"><Badge className="bg-teal-100 text-teal-800">{customer.loyalty}</Badge></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </Card>
 
             {/* Booking status breakdown */}
-            <Card className="p-6">
-              <h2 className="mb-5 text-xl font-semibold text-slate-900">Booking status</h2>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <Card className="p-4 sm:p-6">
+              <h2 className="mb-4 sm:mb-5 text-lg sm:text-xl font-semibold text-slate-900">Booking status</h2>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-4">
                 {Object.entries(analytics.bookingsByStatus || {}).map(([status, count]) => (
-                  <div key={status} className="rounded-lg bg-slate-50 p-4">
+                  <div key={status} className="rounded-lg bg-slate-50 p-3 sm:p-4">
                     <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{status}</p>
-                    <p className="mt-1 text-2xl font-bold text-slate-900">{count}</p>
+                    <p className="mt-1 text-xl sm:text-2xl font-bold text-slate-900">{count}</p>
                   </div>
                 ))}
               </div>
@@ -194,9 +252,21 @@ export default function AnalyticsPage() {
 
             {/* Top Services */}
             {analytics.topServices && analytics.topServices.length > 0 && (
-              <Card className="p-6">
-                <h2 className="text-xl font-semibold text-slate-900 mb-6">Top Services</h2>
-                <div className="overflow-x-auto">
+              <Card className="p-4 sm:p-6">
+                <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-4 sm:mb-6">Top Services</h2>
+
+                {/* Mobile: stacked rows */}
+                <div className="divide-y divide-slate-200 sm:hidden">
+                  {analytics.topServices.map((service, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-3">
+                      <span className="text-slate-900 text-sm truncate pr-3">{service.name}</span>
+                      <Badge className="bg-blue-100 text-blue-800 shrink-0">{service.bookings}</Badge>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop/tablet: table */}
+                <div className="hidden overflow-x-auto sm:block">
                   <table className="w-full">
                     <thead className="border-b border-slate-200">
                       <tr>
