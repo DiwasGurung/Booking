@@ -179,7 +179,7 @@ export const Header = () => {
               <>
                 <p className="text-sm font-semibold px-2 py-1">{user.email}</p>
                 {user.role === 'CUSTOMER' && (
-                  <Link href="/business/setup" className="block" onClick={() => setIsOpen(false)}>
+                  <Link href="/setup-business" className="block" onClick={() => setIsOpen(false)}>
                     <Button 
                       size="sm" 
                       className="w-full justify-start bg-white/20 text-primary-foreground border border-white/30 hover:bg-white/30 transition-all duration-200 font-medium"
