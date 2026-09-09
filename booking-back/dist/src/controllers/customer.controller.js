@@ -17,6 +17,24 @@ class CustomerController {
             res.status(500).json({ message: "Failed to create customer", error });
         }
     }
+    // customer.controller.ts
+    /**
+     * Get customer profile + full booking history for a business.
+     * Scoped by businessId so one business can never pull another's customer.
+     */
+    async getHistory(req, res) {
+        try {
+            const { businessId, customerId } = req.params;
+            const history = await customer_service_1.default.getCustomerHistory(businessId, customerId);
+            if (!history) {
+                return res.status(404).json({ message: "Customer not found" });
+            }
+            res.json(history);
+        }
+        catch (error) {
+            res.status(500).json({ message: "Failed to fetch customer history", error });
+        }
+    }
     /**
      * Get customer by ID
      */

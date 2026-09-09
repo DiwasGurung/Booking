@@ -22,4 +22,5 @@ customerRoutes.put("/:id", customer_controller_1.default.update);
 customerRoutes.delete("/:id", customer_controller_1.default.delete);
 // Customer statistics
 customerRoutes.get("/:customerId/stats", customer_controller_1.default.stats);
+customerRoutes.get("/business/:businessId/:customerId/history", customer_controller_1.default.getHistory);
 exports.default = customerRoutes;
