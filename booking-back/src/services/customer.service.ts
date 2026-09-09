@@ -39,6 +39,63 @@ export class CustomerService {
     }).sort((a, b) => b.visitCount - a.visitCount)
   }
 
+
+  // customer.service.ts
+async getCustomerHistory(businessId: string, customerId: string) {
+  const customer = await prisma.customer.findFirst({
+    // findFirst + both fields, not findUnique(id) — this is what actually
+    // enforces that businessId owns this customer. Using findUnique(id)
+    // alone would let any authed business fetch any customer by id.
+    where: { id: customerId, businessId },
+    include: {
+      bookings: {
+        orderBy: { startTime: "desc" },
+        include: {
+          service: {
+            select: { id: true, name: true, price: true, offerPrice: true },
+          },
+          staff: {
+            select: { id: true, firstName: true, lastName: true },
+          },
+        },
+      },
+    },
+  })
+
+  if (!customer) return null
+
+  const completed = customer.bookings.filter(b => b.status === "COMPLETED")
+
+  const totalSpent = completed.reduce(
+    (sum, b) => sum + (b.service.offerPrice ?? b.service.price),
+    0,
+  )
+
+  // bookings are already sorted desc, so the first COMPLETED one is the
+  // most recent actual visit — not just the most recent booking of any status
+  const lastVisit = completed[0]?.startTime ?? null
+
+  return {
+    id: customer.id,
+    name: customer.name,
+    email: customer.email,
+    phone: customer.phone,
+    notes: customer.notes,
+    totalBookings: customer.bookings.length,
+    totalSpent,
+    lastVisit,
+    createdAt: customer.createdAt,
+    bookings: customer.bookings.map(b => ({
+      id: b.id,
+      startTime: b.startTime,
+      endTime: b.endTime,
+      status: b.status,
+      notes: b.notes,
+      service: b.service,
+      staff: b.staff,
+    })),
+  }
+}
   /**
    * Get customer by ID
    */

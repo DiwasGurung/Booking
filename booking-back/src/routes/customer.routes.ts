@@ -26,4 +26,9 @@ customerRoutes.delete("/:id", CustomerController.delete)
 // Customer statistics
 customerRoutes.get("/:customerId/stats", CustomerController.stats)
 
+customerRoutes.get(
+  "/business/:businessId/:customerId/history",
+  CustomerController.getHistory,
+)
+
 export default customerRoutes;

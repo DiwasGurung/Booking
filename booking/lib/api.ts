@@ -17,6 +17,50 @@ export type ApiResponse<T> = {
   alreadyVerified?: boolean 
 }
 
+export interface Customer {
+  id: string
+  businessId: string
+  name: string
+  email: string
+  phone: string
+  notes?: string | null
+  isEmailVerified: boolean
+  isPhoneVerified: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CustomerBooking {
+  id: string
+  startTime: string
+  endTime: string
+  status: string
+  notes: string | null
+  service: { id: string; name: string; price: number; offerPrice: number | null }
+  staff: { id: string; firstName: string; lastName: string } | null
+}
+
+export interface CustomerDetail {
+  id: string
+  name: string
+  email: string
+  phone: string
+  notes: string | null
+  totalBookings: number
+  totalSpent: number
+  lastVisit: string | null
+  createdAt: string
+  bookings: CustomerBooking[]
+}
+
+export interface CustomerStats {
+  totalBookings: number
+  completedBookings: number
+  cancelledBookings: number
+  totalSpent: number
+  lastVisit?: string | null
+}
+
 // Export types for use in components
 export interface Service {
   id: string
@@ -598,6 +642,60 @@ export const bookingsApi = {
   // Get all bookings for a specific user/customer
   getCustomerBookings: (userId: string) =>
     apiCall<Booking[]>(`/api/booking/users/${userId}/bookings`),
+}
+
+// Customers API - /api/customers prefix
+export const customerApi = {
+  // Create a new customer
+  create: (data: { businessId: string; name: string; email: string; phone?: string; notes?: string }) =>
+    apiCall<Customer>('/api/customers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Get an existing customer by businessId+email, or create one if none exists
+  getOrCreate: (data: { businessId: string; name: string; email: string; phone?: string }) =>
+    apiCall<Customer>('/api/customers/get-or-create', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Get customer by ID
+  getById: (customerId: string) =>
+    apiCall<Customer>(`/api/customers/${customerId}`),
+
+  // Get full customer profile + booking history for a business
+  getHistory: (businessId: string, customerId: string) =>
+    apiCall<CustomerDetail>(`/api/customers/business/${businessId}/${customerId}/history`),
+
+  // Get all customers for a business (paginated)
+  getBusinessCustomers: (businessId: string, page = 1, limit = 10) =>
+    apiCall<{ customers: Customer[]; total: number; page: number; limit: number }>(
+      `/api/customers/business/${businessId}?page=${page}&limit=${limit}`
+    ),
+
+  // Search customers within a business
+  search: (businessId: string, query: string, limit = 10) =>
+    apiCall<Customer[]>(
+      `/api/customers/business/${businessId}/search?q=${encodeURIComponent(query)}&limit=${limit}`
+    ),
+
+  // Update customer
+  update: (customerId: string, data: Partial<Pick<Customer, 'name' | 'email' | 'phone' | 'notes'>>) =>
+    apiCall<Customer>(`/api/customers/${customerId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  // Delete customer
+  delete: (customerId: string) =>
+    apiCall<void>(`/api/customers/${customerId}`, {
+      method: 'DELETE',
+    }),
+
+  // Get customer statistics
+  getStats: (customerId: string) =>
+    apiCall<CustomerStats>(`/api/customers/${customerId}/stats`),
 }
 
 // Business API - /api/businesses prefix

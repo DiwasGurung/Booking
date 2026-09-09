@@ -7,7 +7,8 @@ import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
-import { Loader, AlertCircle, TrendingUp, TrendingDown, BarChart3, Users, Calendar } from 'lucide-react'
+import Link from 'next/link'
+import { Loader, AlertCircle, TrendingUp, TrendingDown, BarChart3, Users, Calendar, ChevronRight } from 'lucide-react'
 import { businessApi, customerInsightsApi, type CustomerInsight } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
 
@@ -228,12 +229,18 @@ export default function AnalyticsPage() {
                             </p>
                           )}
 
-                          <div className="mt-3 flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-4 py-2.5">
-                            <span className="text-xs font-medium text-slate-500">Visit history</span>
-                            <span className="text-sm font-semibold text-slate-900">
+                          <Link
+                            href={`/dashboard/customers/${customer.id}`}
+                            className="mt-3 flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-4 py-2.5 active:bg-slate-100"
+                          >
+                            <span className="text-xs font-medium text-slate-500">
                               {customer.visitCount} {customer.visitCount === 1 ? 'visit' : 'visits'}
                             </span>
-                          </div>
+                            <span className="flex items-center gap-0.5 text-sm font-semibold text-blue-600">
+                              View history
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </span>
+                          </Link>
                         </div>
                       )
                     })}
@@ -248,6 +255,7 @@ export default function AnalyticsPage() {
                           <th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Observation</th>
                           <th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Visits</th>
                           <th className="px-3 py-3 text-left text-sm font-semibold text-slate-900">Loyalty</th>
+                          <th className="px-3 py-3"></th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
@@ -260,6 +268,14 @@ export default function AnalyticsPage() {
                             <td className="max-w-xs px-3 py-4 text-sm text-slate-600">{customer.notes || 'No observation added'}</td>
                             <td className="px-3 py-4 font-semibold text-slate-900">{customer.visitCount}</td>
                             <td className="px-3 py-4"><Badge className="bg-teal-100 text-teal-800">{customer.loyalty}</Badge></td>
+                            <td className="px-3 py-4 text-right">
+                              <Link
+                                href={`/dashboard/customers/${customer.id}`}
+                                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                              >
+                                View history
+                              </Link>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
