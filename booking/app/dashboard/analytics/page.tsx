@@ -11,6 +11,14 @@ import { Loader, AlertCircle, TrendingUp, TrendingDown, BarChart3, Users, Calend
 import { businessApi, customerInsightsApi, type CustomerInsight } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
 
+const loyaltyColorMap: Record<string, string> = {
+  VIP: 'bg-purple-100 text-purple-800',
+  Loyal: 'bg-teal-100 text-teal-800',
+  Regular: 'bg-blue-100 text-blue-800',
+  New: 'bg-slate-100 text-slate-700',
+  'At Risk': 'bg-red-100 text-red-700',
+}
+
 interface AnalyticsData {
   totalBookings: number
   bookingGrowth: number
@@ -190,21 +198,45 @@ export default function AnalyticsPage() {
                 <div className="py-8 text-center text-sm text-slate-500">No completed customer visits yet.</div>
               ) : (
                 <>
-                  {/* Mobile: stacked cards */}
-                  <div className="space-y-3 sm:hidden">
-                    {customerInsights.map(customer => (
-                      <div key={customer.id} className="rounded-lg border border-slate-200 p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="font-medium text-slate-900 truncate">{customer.name}</p>
-                            <p className="text-xs text-slate-500 truncate">{customer.email}</p>
+                  {/* Mobile: profile-style cards */}
+                  <div className="grid grid-cols-1 gap-3 sm:hidden">
+                    {customerInsights.map(customer => {
+                      const initials = customer.name
+                        .split(' ')
+                        .map(part => part[0])
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .join('')
+                        .toUpperCase()
+                      const loyaltyStyles = loyaltyColorMap[customer.loyalty] || 'bg-teal-100 text-teal-800'
+                      return (
+                        <div key={customer.id} className="overflow-hidden rounded-xl border border-slate-200">
+                          <div className="flex items-center gap-3 px-4 pt-4">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+                              {initials || '?'}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-semibold text-slate-900">{customer.name}</p>
+                              <p className="truncate text-xs text-slate-500">{customer.email}</p>
+                            </div>
+                            <Badge className={`${loyaltyStyles} shrink-0`}>{customer.loyalty}</Badge>
                           </div>
-                          <Badge className="bg-teal-100 text-teal-800 shrink-0">{customer.loyalty}</Badge>
+
+                          {customer.notes && (
+                            <p className="mx-4 mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm italic text-slate-600">
+                              "{customer.notes}"
+                            </p>
+                          )}
+
+                          <div className="mt-3 flex items-center justify-between border-t border-slate-100 bg-slate-50/60 px-4 py-2.5">
+                            <span className="text-xs font-medium text-slate-500">Visit history</span>
+                            <span className="text-sm font-semibold text-slate-900">
+                              {customer.visitCount} {customer.visitCount === 1 ? 'visit' : 'visits'}
+                            </span>
+                          </div>
                         </div>
-                        <p className="mt-2 text-sm text-slate-600">{customer.notes || 'No observation added'}</p>
-                        <p className="mt-2 text-xs font-medium text-slate-500">{customer.visitCount} visits</p>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
 
                   {/* Desktop/tablet: table */}
