@@ -224,7 +224,7 @@ See you soon!`
         message = `Your appointment at ${statusData.businessName}\nDate: ${statusData.date}\nTime: ${statusData.time}\nStatus: CONFIRMED\nBooking ID: ${statusData.bookingId}`
         break
       case 'cancelled':
-        message = `Your appointment at ${statusData.businessName}\nDate: ${statusData.date}\nStatus: CANCELLED\n`
+        message = `Your appointment at ${statusData.businessName}\nDate: ${statusData.date}\n is CANCELLED\n`
         break
       case 'rescheduled':
         message = `Your appointment at ${statusData.businessName} has been RESCHEDULED\nOld: ${statusData.date} at ${statusData.time}\nNew: ${statusData.newDate} at ${statusData.newTime}\nBooking ID: ${statusData.bookingId}`

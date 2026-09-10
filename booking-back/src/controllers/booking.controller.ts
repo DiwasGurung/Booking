@@ -1459,13 +1459,6 @@ async sendTodayReminders(req: Request, res: Response): Promise<Response | void> 
       },
     });
 
-    // NOTE: the booking confirmation email is already sent at creation
-    // time in createBusinessPublicBooking / createPublicBooking for
-    // email-verification-plan bookings (Starter and Professional) — its
-    // "Confirm & Visit Appoint Nepal" CTA button IS this very
-    // verification link. So nothing is sent here again to avoid a
-    // duplicate confirmation; this step only unlocks the booking.
-
     // Respond success
     return res.status(200).json({
       success: true,

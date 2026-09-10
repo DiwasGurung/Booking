@@ -319,17 +319,30 @@ export default function BookingsPage() {
   const BookingActions = ({ booking }: { booking: Booking }) => {
     if (booking.status === 'UNVERIFIED') {
       return (
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => {
-            setSelectedBookingId(booking.id)
-            setNewStatus('CANCELLED')
-          }}
-          title="Cancel booking"
-        >
-          Cancel
-        </Button>
+        <>
+          <Button
+            size="sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={() => {
+              setSelectedBookingId(booking.id)
+              setNewStatus('CONFIRMED')
+            }}
+            title="Confirm booking"
+          >
+            Confirm
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => {
+              setSelectedBookingId(booking.id)
+              setNewStatus('CANCELLED')
+            }}
+            title="Cancel booking"
+          >
+            Cancel
+          </Button>
+        </>
       )
     }
     if (booking.status === 'CANCELLED' || booking.status === 'COMPLETED') {
