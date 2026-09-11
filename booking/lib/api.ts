@@ -253,35 +253,42 @@ export async function apiCall<T>(
 ): Promise<ApiResponse<T>> {
   try {
     const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`
-    
-    // Build headers
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }
 
-    // Merge custom headers
     if (options?.headers) {
       Object.assign(headers, options.headers)
     }
-    
-    // Use credentials: 'include' to automatically send/receive HTTP-only cookies
+
     const response = await fetch(url, {
       headers,
-      credentials: 'include', // Send session cookies with every request
+      credentials: 'include',
       ...options,
     })
 
     if (!response.ok) {
-  const error = await response.json().catch(() => ({ message: response.statusText }))
-  return {
-    ...error, 
-    error: error.message || error.error || 'An error occurred',
-    success: false,
-  }
-}
+      const error = await response.json().catch(() => ({ message: response.statusText }))
+      return {
+        ...error,
+        error: error.message || error.error || 'An error occurred',
+        success: false,
+      }
+    }
 
-    const data = await response.json()
-    return { data, success: true }
+    const json = await response.json()
+
+    if (json && typeof json === 'object' && 'success' in json) {
+      return {
+        ...json,
+        data: json.data,
+        error: json.message || json.error,
+        success: json.success,
+      }
+    }
+
+    return { data: json, success: true }
   } catch (error) {
     console.error('[v0] API error:', error)
     return {

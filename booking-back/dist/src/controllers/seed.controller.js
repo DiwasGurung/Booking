@@ -43,6 +43,7 @@ class SeedController {
                     maxCustomers: -1,
                     // Features
                     allowEmailNotifications: true,
+                    allowSmsNotifications: false,
                     allowOnlineBooking: true,
                     allowReports: false,
                     allowCustomBranding: false,
@@ -65,9 +66,10 @@ class SeedController {
                         'Unlimited bookings',
                         'Staff management (up to 5 staff)',
                         'Customer database',
-                        'Email notifications',
+                        'Email notifications & reminders for booking date',
                         'Online booking',
                         'Booking analytics and reports',
+                        'PDF export of filtered bookings',
                         'Priority email support',
                     ],
                     // Limits
@@ -77,6 +79,7 @@ class SeedController {
                     maxCustomers: -1, // Unlimited
                     // Features
                     allowEmailNotifications: true,
+                    allowSmsNotifications: false,
                     allowOnlineBooking: true,
                     allowReports: true,
                     allowCustomBranding: false,
@@ -102,6 +105,8 @@ class SeedController {
                         'Staff performance analytics',
                         'Custom branding',
                         'Priority email support',
+                        'SMS reminders for booking date with customer visit history',
+                        'PDF export of filtered bookings',
                     ],
                     // Limits
                     maxAppointmentsPerMonth: -1, // Unlimited
@@ -110,6 +115,7 @@ class SeedController {
                     maxCustomers: -1, // Unlimited
                     // Features
                     allowEmailNotifications: true,
+                    allowSmsNotifications: true, // was missing — Enterprise was silently falling back to email reminders
                     allowOnlineBooking: true,
                     allowReports: true,
                     allowCustomBranding: true,
