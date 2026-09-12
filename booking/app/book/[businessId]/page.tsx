@@ -1,11 +1,11 @@
 'use client'
 
 import { useRouter, useParams } from 'next/navigation'
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState, useRef, JSX } from 'react'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/card'
-import { Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, MessageCircle, User, Mail, Loader2, X } from 'lucide-react'
+import { Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, MessageCircle, User, Mail, Loader2, X, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
 import { servicesApi, bookingsApi, businessApi, staffApi, type Service, type Business, type Staff } from '@/lib/api'
 import { useAuth } from '@/context/authContext'
 import { DateTime } from 'luxon';
@@ -72,6 +72,18 @@ function BookingPageContent() {
     slotDateTime.setHours(hours, minutes, 0, 0)
     return slotDateTime > now
   }
+
+  useEffect(() => {
+  if (!date || !selectedStaff) return
+  const [y, m, d] = date.split('-').map(Number)
+  const { disabled, reason } = getDateDisabledInfo(new Date(y, m - 1, d))
+  if (disabled) {
+    setDate('')
+    setSelectedTime(null)
+    setClosedReason(null)
+setError(reason || 'Please choose a different date for this staff member')
+  }
+}, [selectedStaff])
 
   // Pre-fill customer info from logged-in user
   useEffect(() => {
@@ -284,32 +296,169 @@ function BookingPageContent() {
 
 
 
-const loadStaffForService = async (serviceId: string) => {
-  try {
-    setStaffLoading(true)
-    const response = await staffApi.getStaffForService(serviceId)
-    if (response.data?.staff) {
-      setStaffMembers(response.data.staff)
-      // Auto-select when there's exactly one staff member — there's no real
-      // choice to make, so treat them as selected immediately. This also
-      // means their weekly schedule correctly drives slot generation and
-      // the day-off check below, instead of quietly ignoring it because
-      // selectedStaff was null.
-      setSelectedStaff(response.data.staff.length === 1 ? response.data.staff[0] : null)
-    } else {
+  const loadStaffForService = async (serviceId: string) => {
+    try {
+      setStaffLoading(true)
+      const response = await staffApi.getStaffForService(serviceId)
+      if (response.data?.staff) {
+        setStaffMembers(response.data.staff)
+        // Auto-select when there's exactly one staff member — there's no real
+        // choice to make, so treat them as selected immediately. This also
+        // means their weekly schedule correctly drives slot generation and
+        // the day-off check below, instead of quietly ignoring it because
+        // selectedStaff was null.
+        setSelectedStaff(response.data.staff.length === 1 ? response.data.staff[0] : null)
+      } else {
+        setStaffMembers([])
+        setSelectedStaff(null)
+      }
+    } catch (err) {
       setStaffMembers([])
       setSelectedStaff(null)
+    } finally {
+      setStaffLoading(false)
     }
-  } catch (err) {
-    setStaffMembers([])
-    setSelectedStaff(null)
-  } finally {
-    setStaffLoading(false)
   }
-}
-
-  // Load available slots for the selected service (staff is optional)
   const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  const DAY_LABELS: Record<string, string> = {
+    sunday: 'Sunday', monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday',
+    thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday',
+  }
+
+  const [dateCalendarOpen, setDateCalendarOpen] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const d = new Date()
+    d.setDate(1)
+    return d
+  })
+  const dateCalendarRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!dateCalendarOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dateCalendarRef.current && !dateCalendarRef.current.contains(e.target as Node)) {
+        setDateCalendarOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [dateCalendarOpen])
+
+  const formatDateStr = (d: Date): string =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  interface DaySchedule {
+    start: string
+    end: string
+    isWorking: boolean
+  }
+
+  const getNormalizedWorkingHours = (staffData: any): Record<string, DaySchedule> | null => {
+    let raw = staffData?.workingHours
+    if (!raw) return null
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw) } catch { return null }
+    }
+    if (typeof raw !== 'object') return null
+    const normalized: Record<string, DaySchedule> = {}
+    Object.keys(raw).forEach((key) => { normalized[key.toLowerCase()] = raw[key] })
+    return normalized
+  }
+
+  // Single source of truth for whether a calendar day is pickable. Checks, in
+  // order: past dates, explicit business closed-dates, the business's own
+  // weekly hours, and — only if a specific staff member is selected — that
+  // staff member's recurring day off. When no staff is selected ("any
+  // available staff"), we deliberately don't block on any one staff's
+  // schedule, since the backend can auto-assign someone who IS working.
+  const getDateDisabledInfo = (d: Date): { disabled: boolean; reason?: string } => {
+    const dateStr = formatDateStr(d)
+
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
+    if (d < startOfToday) {
+      return { disabled: true, reason: 'Past date' }
+    }
+
+    if (closedDates.has(dateStr)) {
+      return { disabled: true, reason: closedDates.get(dateStr) || 'Business is closed' }
+    }
+
+    const adjustedDayOfWeek = d.getDay() === 0 ? 6 : d.getDay() - 1
+    const dayHours = businessHours.find((bh: any) => bh.dayOfWeek === adjustedDayOfWeek)
+    if (!dayHours || dayHours.isClosed) {
+      return { disabled: true, reason: 'Business is closed on this day' }
+    }
+
+    // If today, and the business's closing time has already passed, disable.
+    const startOfCellDay = new Date(d)
+    startOfCellDay.setHours(0, 0, 0, 0)
+    const isCellToday = startOfCellDay.getTime() === startOfToday.getTime()
+    if (isCellToday && dayHours.closeTime) {
+      const [closeHour, closeMin] = dayHours.closeTime.split(':').map(Number)
+      const closingDateTime = new Date(d)
+      closingDateTime.setHours(closeHour, closeMin, 0, 0)
+      if (new Date() > closingDateTime) {
+        return { disabled: true, reason: 'Business is closed for today' }
+      }
+    }
+
+    // Only enforce a specific staff member's day off if one is selected.
+    if (selectedStaff) {
+      const dayName = DAY_KEYS[d.getDay()]
+      const staffWorkingHours = getNormalizedWorkingHours(selectedStaff)
+      const daySchedule = staffWorkingHours?.[dayName]
+      if (daySchedule && daySchedule.isWorking === false) {
+        return { disabled: true, reason: `${selectedStaff.firstName} does not work on ${DAY_LABELS[dayName]}s` }
+      }
+    }
+
+    return { disabled: false }
+  }
+
+  // Applies a validated date pick: sets date, clears any previously chosen
+  // time, closes the picker, and recomputes the closed-reason banner exactly
+  // like the old input's onChange did.
+  const selectDate = (dateStr: string) => {
+    setDate(dateStr)
+    setSelectedTime(null)
+    setDateCalendarOpen(false)
+
+    if (closedDates.has(dateStr)) {
+      setClosedReason(closedDates.get(dateStr) || 'Business is closed')
+    } else {
+      const todayReason = getTodayClosedReason(dateStr)
+      setClosedReason(todayReason)
+    }
+  }
+
+  const goToPrevMonth = () => {
+    setCalendarMonth((prev) => {
+      const next = new Date(prev)
+      next.setMonth(next.getMonth() - 1)
+      const startOfThisMonth = new Date()
+      startOfThisMonth.setDate(1)
+      startOfThisMonth.setHours(0, 0, 0, 0)
+      return next < startOfThisMonth ? prev : next
+    })
+  }
+
+  const goToNextMonth = () => {
+    setCalendarMonth((prev) => {
+      const next = new Date(prev)
+      next.setMonth(next.getMonth() + 1)
+      return next
+    })
+  }
+
+  // Keep the visible month in sync if `date` is ever set from elsewhere
+  useEffect(() => {
+    if (date) {
+      const [y, m] = date.split('-').map(Number)
+      setCalendarMonth(new Date(y, m - 1, 1))
+    }
+  }, [date])
+
 
   const loadAvailableSlots = async () => {
     if (!selectedService || !date || !businessId) return
@@ -728,26 +877,90 @@ const loadStaffForService = async (serviceId: string) => {
                   <Calendar className="w-4 h-4 text-primary" />
                   2. Select Date
                 </label>
-                <Input
-                  type="date"
-                  value={date}
-                  onChange={(e) => {
-                    const selectedDate = e.target.value;
-                    setDate(selectedDate);
-                    setSelectedTime(null);
+                <div className="relative" ref={dateCalendarRef}>
+                  <button
+                    type="button"
+                    onClick={() => setDateCalendarOpen((open) => !open)}
+                    className="w-full h-12 flex items-center justify-between px-3 border border-border rounded-md bg-background text-left text-sm"
+                  >
+                    <span className={date ? '' : 'text-muted-foreground'}>
+                      {date
+                        ? new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
+                          weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+                        })
+                        : 'Select a date'}
+                    </span>
+                    <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                  </button>
 
-                    // Check if the selected date is closed (explicit closed date first,
-                    // then today-past-closing-time as a fallback)
-                    if (closedDates.has(selectedDate)) {
-                      setClosedReason(closedDates.get(selectedDate) || 'Business is closed');
-                    } else {
-                      const todayReason = getTodayClosedReason(selectedDate)
-                      setClosedReason(todayReason);
-                    }
-                  }}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="h-12"
-                />
+                  {dateCalendarOpen && (
+                    <div className="absolute z-20 mt-2 w-72 rounded-lg border border-border bg-card shadow-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <button type="button" onClick={goToPrevMonth} className="p-1 rounded hover:bg-muted">
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="text-sm font-semibold">
+                          {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                        </span>
+                        <button type="button" onClick={goToNextMonth} className="p-1 rounded hover:bg-muted">
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-1 mb-1">
+                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                          <div key={d} className="text-center text-xs font-medium text-muted-foreground">{d}</div>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-1">
+                        {(() => {
+                          const year = calendarMonth.getFullYear()
+                          const month = calendarMonth.getMonth()
+                          const firstDayOfMonth = new Date(year, month, 1)
+                          const startOffset = firstDayOfMonth.getDay()
+                          const daysInMonth = new Date(year, month + 1, 0).getDate()
+                          const cells: JSX.Element[] = []
+
+                          for (let i = 0; i < startOffset; i++) {
+                            cells.push(<div key={`blank-${i}`} />)
+                          }
+
+                          for (let day = 1; day <= daysInMonth; day++) {
+                            const cellDate = new Date(year, month, day)
+                            const dateStr = formatDateStr(cellDate)
+                            const { disabled, reason } = getDateDisabledInfo(cellDate)
+                            const isSelected = date === dateStr
+
+                            cells.push(
+                              <button
+                                key={dateStr}
+                                type="button"
+                                disabled={disabled}
+                                title={disabled ? reason : undefined}
+                                onClick={() => !disabled && selectDate(dateStr)}
+                                className={`h-8 w-8 mx-auto flex items-center justify-center rounded-md text-sm transition-colors ${disabled
+                                    ? 'text-muted-foreground/40 cursor-not-allowed line-through'
+                                    : isSelected
+                                      ? 'bg-primary text-primary-foreground font-semibold'
+                                      : 'hover:bg-primary/10 text-foreground'
+                                  }`}
+                              >
+                                {day}
+                              </button>
+                            )
+                          }
+
+                          return cells
+                        })()}
+                      </div>
+
+                      <p className="mt-3 text-xs text-muted-foreground border-t pt-2">
+                        Greyed-out days are unavailable — closed dates, business hours, or the selected staff member's day off.
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 {/* Show closed message if applicable */}
                 {closedReason && (
@@ -812,26 +1025,26 @@ const loadStaffForService = async (serviceId: string) => {
             )}
 
             {selectedService && date && staffMembers.length === 1 && !closedReason && (
-  <div className="mb-8">
-    <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-      <User className="w-4 h-4 text-primary" />
-      Staff
-    </label>
-    <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 flex items-center gap-3">
-      <div className="w-10 h-10 rounded-full bg-secondary/50 flex items-center justify-center flex-shrink-0">
-        {staffMembers[0].avatar ? (
-          <img src={staffMembers[0].avatar} alt={staffMembers[0].firstName} className="w-10 h-10 rounded-full object-cover" />
-        ) : (
-          <User className="w-5 h-5" />
-        )}
-      </div>
-      <div>
-        <div className="font-semibold text-sm">{staffMembers[0].firstName} {staffMembers[0].lastName}</div>
-        <div className="text-xs text-muted-foreground">{staffMembers[0].role} · only staff for this service</div>
-      </div>
-    </div>
-  </div>
-)}
+              <div className="mb-8">
+                <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <User className="w-4 h-4 text-primary" />
+                  Staff
+                </label>
+                <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-secondary/50 flex items-center justify-center flex-shrink-0">
+                    {staffMembers[0].avatar ? (
+                      <img src={staffMembers[0].avatar} alt={staffMembers[0].firstName} className="w-10 h-10 rounded-full object-cover" />
+                    ) : (
+                      <User className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm">{staffMembers[0].firstName} {staffMembers[0].lastName}</div>
+                    <div className="text-xs text-muted-foreground">{staffMembers[0].role} · only staff for this service</div>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* Step 4: Time */}
             {selectedService && date && !closedReason && (
               <div className="mb-8">
