@@ -257,279 +257,266 @@ export default function StaffBookPage() {
     }
   }
   // Generate time slots (30-minute intervals)
-const generateTimeSlots = (openingTime: string, closingTime: string): TimeSlot[] => {
-  const slots: TimeSlot[] = []
-  const [openHour, openMin] = openingTime.split(':').map(Number)
-  const [closeHour, closeMin] = closingTime.split(':').map(Number)
+  const generateTimeSlots = (openingTime: string, closingTime: string): TimeSlot[] => {
+    const slots: TimeSlot[] = []
+    const [openHour, openMin] = openingTime.split(':').map(Number)
+    const [closeHour, closeMin] = closingTime.split(':').map(Number)
 
-  let currentHour = openHour
-  let currentMin = openMin
+    let currentHour = openHour
+    let currentMin = openMin
 
-  while (currentHour < closeHour || (currentHour === closeHour && currentMin < closeMin)) {
-    const timeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMin).padStart(2, '0')}`
-    slots.push({ time: timeStr, isAvailable: true })
+    while (currentHour < closeHour || (currentHour === closeHour && currentMin < closeMin)) {
+      const timeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMin).padStart(2, '0')}`
+      slots.push({
+        time: timeStr,
+        isAvailable: true,
+      })
 
-    currentMin += 30
-    if (currentMin >= 60) {
-      currentMin = 0
-      currentHour += 1
+      currentMin += 30
+      if (currentMin >= 60) {
+        currentMin = 0
+        currentHour += 1
+      }
     }
+
+    return slots
   }
 
-  return slots
-}
-
-const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-const DAY_LABELS: Record<string, string> = {
-  sunday: 'Sunday',
-  monday: 'Monday',
-  tuesday: 'Tuesday',
-  wednesday: 'Wednesday',
-  thursday: 'Thursday',
-  friday: 'Friday',
-  saturday: 'Saturday',
-}
-
-interface DaySchedule {
-  start: string
-  end: string
-  isWorking: boolean
-}
-
-// Builds the weekday from the local year/month/day parts of a "YYYY-MM-DD"
-// string instead of `new Date(dateStr).getDay()`. Parsing a plain date
-// string with `new Date()` treats it as UTC midnight, but `.getDay()` reads
-// it back in the browser's local timezone — for anyone west of UTC that
-// silently shifts the weekday by one day. Building the Date from local
-// parts avoids that shift entirely.
-const getDayKeyFromDateString = (dateStr: string): string => {
-  const [year, month, day] = dateStr.split('-').map(Number)
-  return DAY_KEYS[new Date(year, month - 1, day).getDay()]
-}
-
-// Normalizes staff.workingHours regardless of exact shape returned by the
-// API: handles it arriving as a JSON string (common with Prisma/Postgres
-// Json columns depending on the endpoint), lowercases day keys defensively,
-// and — critically — logs a warning if the field is missing entirely so a
-// silent "day off isn't working" bug shows up in the console instead of
-// disappearing into an `undefined` check.
-const getNormalizedWorkingHours = (staffData: any): Record<string, DaySchedule> | null => {
-  let raw = staffData?.workingHours
-
-  if (!raw) {
-    console.warn('[StaffBookPage] staff.workingHours is missing from the API response for /api/staff/code/:staffCode — day-off and per-day hour checks will be skipped for this staff member.')
-    return null
+  const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  const DAY_LABELS: Record<string, string> = {
+    sunday: 'Sunday',
+    monday: 'Monday',
+    tuesday: 'Tuesday',
+    wednesday: 'Wednesday',
+    thursday: 'Thursday',
+    friday: 'Friday',
+    saturday: 'Saturday',
   }
 
-  if (typeof raw === 'string') {
+  // Builds the weekday from the local year/month/day parts of a "YYYY-MM-DD"
+  // string instead of `new Date(dateStr).getDay()`. Parsing a plain date
+  // string with `new Date()` treats it as UTC midnight, but `.getDay()` reads
+  // it back in the browser's local timezone — for anyone west of UTC that
+  // silently shifts the weekday by one day. Building the Date from local
+  // parts avoids that shift entirely.
+  const getDayKeyFromDateString = (dateStr: string): string => {
+    const [year, month, day] = dateStr.split('-').map(Number)
+    return DAY_KEYS[new Date(year, month - 1, day).getDay()]
+  }
+
+  // Fetch availability data when date changes
+  const loadAvailableSlots = async (selectedDate: string, selectedServiceId: string) => {
+    if (!staff || !selectedDate) return
+
     try {
-      raw = JSON.parse(raw)
-    } catch {
-      console.warn('[StaffBookPage] staff.workingHours is a string but failed to JSON.parse:', raw)
-      return null
-    }
-  }
+      setLoadingSlots(true)
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
-  if (typeof raw !== 'object') {
-    console.warn('[StaffBookPage] staff.workingHours is neither an object nor a JSON string:', raw)
-    return null
-  }
+      // Fetch time-off data for this month
+      try {
+        const timeOffRes = await fetch(`${API_URL}/api/staff/${staff.id}/time-off?month=${selectedDate.substring(0, 7)}`)
+        if (timeOffRes.ok) {
+          const contentType = timeOffRes.headers.get('content-type')
+          if (contentType?.includes('application/json')) {
+            const timeOffData = await timeOffRes.json()
+            const timeOffSet: Set<string> = new Set(timeOffData.map((to: any) => to.date.split('T')[0]))
+            setStaffTimeOff(timeOffSet)
 
-  const normalized: Record<string, DaySchedule> = {}
-  Object.keys(raw).forEach((key) => {
-    normalized[key.toLowerCase()] = raw[key]
-  })
-
-  return normalized
-}
-
-// Fetch availability data when date changes
-const loadAvailableSlots = async (selectedDate: string, selectedServiceId: string) => {
-  if (!staff || !selectedDate) return
-
-  try {
-    setLoadingSlots(true)
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-
-    // Fetch time-off data for this month
-    try {
-      const timeOffRes = await fetch(`${API_URL}/api/staff/${staff.id}/time-off?month=${selectedDate.substring(0, 7)}`)
-      if (timeOffRes.ok) {
-        const contentType = timeOffRes.headers.get('content-type')
-        if (contentType?.includes('application/json')) {
-          const timeOffData = await timeOffRes.json()
-          const timeOffSet: Set<string> = new Set(timeOffData.map((to: any) => to.date.split('T')[0]))
-          setStaffTimeOff(timeOffSet)
-
-          if (timeOffSet.has(selectedDate)) {
-            setAvailableSlots([])
-            setClosedReason('Staff member is on time off for this date')
-            setLoadingSlots(false)
-            return
+            // Check if date is a time-off day
+            if (timeOffSet.has(selectedDate)) {
+              setAvailableSlots([])
+              setClosedReason('Staff member is on time off for this date')
+              setLoadingSlots(false)
+              return
+            }
           }
         }
+      } catch (err) {
+        console.error('[v0] Error fetching time-off:', err)
       }
-    } catch (err) {
-      console.error('[v0] Error fetching time-off:', err)
-    }
 
-    // Check the staff member's own recurring weekly schedule
-    const dayName = getDayKeyFromDateString(selectedDate)
-    const staffWorkingHours = getNormalizedWorkingHours(staff)
-    const staffDaySchedule = staffWorkingHours?.[dayName]
+      // NEW: check the staff member's own recurring weekly schedule.
+      // This is the actual fix for the day-off bug — it runs where slots are
+      // generated, not just at the date-input's onChange, so it applies
+      // regardless of how `date` got set.
+      const dayName = getDayKeyFromDateString(selectedDate)
+      const staffDaySchedule = (staff as any)?.workingHours?.[dayName]
 
-    if (staffDaySchedule && staffDaySchedule.isWorking === false) {
-      setAvailableSlots([])
-      setClosedReason(`${staff.firstName} does not work on ${DAY_LABELS[dayName]}s`)
-      setLoadingSlots(false)
-      return
-    }
-
-    // Fetch bookings for this staff member on the selected date
-    let bookedTimes: Set<string> = new Set()
-    try {
-      const bookingsRes = await fetch(`${API_URL}/api/staff/code/${staff.staffCode}/bookings/date?date=${selectedDate}`)
-      if (bookingsRes.ok) {
-        const contentType = bookingsRes.headers.get('content-type')
-        if (contentType?.includes('application/json')) {
-          const data = await bookingsRes.json()
-          const bookings = Array.isArray(data) ? data : data.bookings ? data.bookings : []
-
-          bookings.forEach((booking: any) => {
-            if (booking.startTime && booking.endTime) {
-              const startDate = new Date(booking.startTime)
-              const endDate = new Date(booking.endTime)
-
-              let currentTime = new Date(startDate)
-              while (currentTime < endDate) {
-                const hours = String(currentTime.getHours()).padStart(2, '0')
-                const minutes = String(currentTime.getMinutes()).padStart(2, '0')
-                const timeStr = `${hours}:${minutes}`
-                bookedTimes.add(timeStr)
-                currentTime.setMinutes(currentTime.getMinutes() + 30)
-              }
-            }
-          })
-        }
-      }
-    } catch (err) {
-      console.error('[v0] Error fetching bookings:', err)
-    }
-
-    const selectedDateObj = new Date(selectedDate)
-    const dayOfWeek = selectedDateObj.getDay()
-    const now = new Date()
-    const isToday = selectedDateObj.toISOString().split('T')[0] === now.toISOString().split('T')[0]
-
-    if (closedDates.has(selectedDate)) {
-      setAvailableSlots([])
-      setClosedReason(closedDates.get(selectedDate) || 'Business is closed')
-      setLoadingSlots(false)
-      return
-    }
-
-    const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-    const dayHours = businessHours.find((bh: any) => bh.dayOfWeek === adjustedDayOfWeek)
-
-    if (!dayHours || dayHours.isClosed) {
-      setAvailableSlots([])
-      setClosedReason(dayHours ? 'Business is closed on this day' : 'Business hours not found')
-      setLoadingSlots(false)
-      return
-    }
-
-    // Intersect business hours with the staff's own hours for that day
-    let effectiveOpen = dayHours.openTime
-    let effectiveClose = dayHours.closeTime
-    if (staffDaySchedule?.isWorking) {
-      effectiveOpen = staffDaySchedule.start > effectiveOpen ? staffDaySchedule.start : effectiveOpen
-      effectiveClose = staffDaySchedule.end < effectiveClose ? staffDaySchedule.end : effectiveClose
-    }
-
-    if (effectiveOpen >= effectiveClose) {
-      setAvailableSlots([])
-      setClosedReason(`${staff.firstName} has no overlapping hours with the business on this day`)
-      setLoadingSlots(false)
-      return
-    }
-
-    if (isToday) {
-      const [closingHour, closingMin] = effectiveClose.split(':').map(Number)
-      const closingDateTime = new Date(selectedDateObj)
-      closingDateTime.setHours(closingHour, closingMin, 0, 0)
-
-      if (now > closingDateTime) {
+      if (staffDaySchedule && staffDaySchedule.isWorking === false) {
         setAvailableSlots([])
-        setClosedReason('Business is closed for today')
+        setClosedReason(`${staff.firstName} does not work on ${DAY_LABELS[dayName]}s`)
         setLoadingSlots(false)
         return
       }
-    }
 
-    setClosedReason(null)
+      // Fetch bookings for this staff member on the selected date
+      let bookedTimes: Set<string> = new Set()
+      try {
+        const bookingsRes = await fetch(`${API_URL}/api/staff/code/${staff.staffCode}/bookings/date?date=${selectedDate}`)
+        if (bookingsRes.ok) {
+          const contentType = bookingsRes.headers.get('content-type')
+          if (contentType?.includes('application/json')) {
+            const data = await bookingsRes.json()
+            const bookings = Array.isArray(data) ? data : data.bookings ? data.bookings : []
 
-    const allSlots = generateTimeSlots(effectiveOpen, effectiveClose)
+            // Extract booked times from the date-filtered bookings
+            // Block all time slots during the entire service duration
+            bookings.forEach((booking: any) => {
+              if (booking.startTime && booking.endTime) {
+                const startDate = new Date(booking.startTime)
+                const endDate = new Date(booking.endTime)
 
-    const availableSlotsList = allSlots.map((slot) => {
-      let isAvailable = !bookedTimes.has(slot.time)
+                // Generate all 30-minute slots between start and end time
+                let currentTime = new Date(startDate)
+                while (currentTime < endDate) {
+                  const hours = String(currentTime.getHours()).padStart(2, '0')
+                  const minutes = String(currentTime.getMinutes()).padStart(2, '0')
+                  const timeStr = `${hours}:${minutes}`
+                  bookedTimes.add(timeStr)
+                  currentTime.setMinutes(currentTime.getMinutes() + 30)
+                }
+              }
+            })
+          }
+        }
+      } catch (err) {
+        console.error('[v0] Error fetching bookings:', err)
+      }
 
-      if (isToday && isAvailable) {
-        const [slotHour, slotMin] = slot.time.split(':').map(Number)
-        const slotDateTime = new Date(selectedDateObj)
-        slotDateTime.setHours(slotHour, slotMin, 0, 0)
+      // Generate available slots from business hours, 30-min intervals
+      const selectedDateObj = new Date(selectedDate)
+      const dayOfWeek = selectedDateObj.getDay()
+      const now = new Date()
+      const isToday = selectedDateObj.toISOString().split('T')[0] === now.toISOString().split('T')[0]
 
-        if (now > slotDateTime) {
-          isAvailable = false
+      // Check if date is in closed dates from database
+      if (closedDates.has(selectedDate)) {
+        setAvailableSlots([])
+        setClosedReason(closedDates.get(selectedDate) || 'Business is closed')
+        setLoadingSlots(false)
+        return
+      }
+
+      // Get business hours for this day of week from database
+      // Note: dayOfWeek from Date is 0-6 (Sun-Sat), but our business hours uses 0-6 (Mon-Sun)
+      // So we need to adjust: 0 (Sun) -> 6, 1 (Mon) -> 0, ..., 6 (Sat) -> 5
+      const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+      const dayHours = businessHours.find((bh: any) => bh.dayOfWeek === adjustedDayOfWeek)
+
+      if (!dayHours || dayHours.isClosed) {
+        setAvailableSlots([])
+        setClosedReason(dayHours ? 'Business is closed on this day' : 'Business hours not found')
+        setLoadingSlots(false)
+        return
+      }
+
+      // NEW: intersect business hours with the staff's own hours for that day
+      // (if they have a schedule set), so a staff member who starts later or
+      // finishes earlier than the business doesn't show slots they're not
+      // actually working.
+      let effectiveOpen = dayHours.openTime
+      let effectiveClose = dayHours.closeTime
+      if (staffDaySchedule?.isWorking) {
+        effectiveOpen = staffDaySchedule.start > effectiveOpen ? staffDaySchedule.start : effectiveOpen
+        effectiveClose = staffDaySchedule.end < effectiveClose ? staffDaySchedule.end : effectiveClose
+      }
+
+      if (effectiveOpen >= effectiveClose) {
+        setAvailableSlots([])
+        setClosedReason(`${staff.firstName} has no overlapping hours with the business on this day`)
+        setLoadingSlots(false)
+        return
+      }
+
+      // Parse closing time to check if business is closed for today
+      if (isToday) {
+        const [closingHour, closingMin] = effectiveClose.split(':').map(Number)
+        const closingDateTime = new Date(selectedDateObj)
+        closingDateTime.setHours(closingHour, closingMin, 0, 0)
+
+        if (now > closingDateTime) {
+          setAvailableSlots([])
+          setClosedReason('Business is closed for today')
+          setLoadingSlots(false)
+          return
         }
       }
 
-      return { ...slot, isAvailable }
-    })
+      // Clear closed reason if business is open
+      setClosedReason(null)
 
-    setAvailableSlots(availableSlotsList)
-    setLoadingSlots(false)
-  } catch (err) {
-    setAvailableSlots([])
-  } finally {
-    setLoadingSlots(false)
+      const allSlots = generateTimeSlots(effectiveOpen, effectiveClose)
+
+      // Filter slots: remove past times for today and booked times
+      const availableSlotsList = allSlots.map((slot) => {
+        let isAvailable = !bookedTimes.has(slot.time)
+
+        // For today, filter out past times
+        if (isToday && isAvailable) {
+          const [slotHour, slotMin] = slot.time.split(':').map(Number)
+          const slotDateTime = new Date(selectedDateObj)
+          slotDateTime.setHours(slotHour, slotMin, 0, 0)
+
+          if (now > slotDateTime) {
+            isAvailable = false
+          }
+        }
+
+        return {
+          ...slot,
+          isAvailable,
+        }
+      })
+
+      setAvailableSlots(availableSlotsList)
+      setLoadingSlots(false)
+    } catch (err) {
+      setAvailableSlots([])
+    } finally {
+      setLoadingSlots(false)
+    }
   }
-}
 
-const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-  const { name, value } = e.target
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
 
-  if (name === 'date' && staffTimeOff.has(value)) {
-    toast({
-      title: 'Staff Unavailable',
-      description: 'The staff member is not available on this date. Please select another date.',
-      variant: 'destructive',
-    })
-    return
-  }
-
-  if (name === 'date' && value) {
-    const dayName = getDayKeyFromDateString(value)
-    const staffWorkingHours = getNormalizedWorkingHours(staff)
-    const daySchedule = staffWorkingHours?.[dayName]
-    if (daySchedule && daySchedule.isWorking === false) {
+    // Check if date is a time-off date
+    if (name === 'date' && staffTimeOff.has(value)) {
       toast({
         title: 'Staff Unavailable',
-        description: `${staff?.firstName} does not work on ${DAY_LABELS[dayName]}s. Please pick another date.`,
+        description: 'The staff member is not available on this date. Please select another date.',
         variant: 'destructive',
       })
       return
     }
-  }
 
-  setFormData((prev) => ({ ...prev, [name]: value }))
+    // Check the staff's recurring weekly schedule (uses the same timezone-safe
+    // helper as loadAvailableSlots, so both checks agree on which weekday a
+    // given date string maps to).
+    if (name === 'date' && value) {
+      const dayName = getDayKeyFromDateString(value)
+      const daySchedule = (staff as any)?.workingHours?.[dayName]
+      if (daySchedule && daySchedule.isWorking === false) {
+        toast({
+          title: 'Staff Unavailable',
+          description: `${staff?.firstName} does not work on ${DAY_LABELS[dayName]}s. Please pick another date.`,
+          variant: 'destructive',
+        })
+        return
+      }
+    }
 
-  if (name === 'date' || name === 'serviceId') {
-    const newFormData = { ...formData, [name]: value }
-    if (newFormData.date && newFormData.serviceId) {
-      loadAvailableSlots(newFormData.date, newFormData.serviceId)
+    setFormData((prev) => ({ ...prev, [name]: value }))
+
+    // Load available slots when date or service changes
+    if (name === 'date' || name === 'serviceId') {
+      const newFormData = { ...formData, [name]: value }
+      if (newFormData.date && newFormData.serviceId) {
+        loadAvailableSlots(newFormData.date, newFormData.serviceId)
+      }
     }
   }
-}
+
 
 
   const handleSubmit = async (e: React.FormEvent) => {
