@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
 import { bookingsApi, staffApi, type Staff } from '@/lib/api'
-import { Calendar, Loader, AlertCircle, Search, X, Download, Bell } from 'lucide-react'
+import { Calendar, Loader, AlertCircle, Search, X, Download, Bell, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
@@ -411,54 +411,46 @@ export default function BookingsPage() {
             <p className="text-slate-500">Manage all customer bookings</p>
           </div>
 
-          <Link href="/dashboard/bookings/new">
-  <Button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white">
-    + Add Booking
-  </Button>
-</Link>
-          {(canSendReminders || canExportBookings) && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              {canSendReminders && (
-                <Button
-                  onClick={handleSendReminders}
-                  disabled={sendingReminders || remindersSentToday || !hasRemindableBookings}
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                  title={!hasRemindableBookings ? 'No confirmed bookings remaining today' : undefined}
-                >
-                  <Bell className="mr-2 h-4 w-4" />
-                  {sendingReminders
-                    ? 'Sending...'
-                    : remindersSentToday
-                      ? 'Reminders Sent Today'
-                      : !hasRemindableBookings
-                        ? 'No Bookings Left Today'
-                        : "Remind Today's Customers"}
-                </Button>
-              )}
-              {canExportBookings && (
-                <Button
-                  onClick={downloadBookingsPdf}
-                  disabled={loading || visibleBookings.length === 0}
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download PDF
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Link href="/dashboard/bookings/new" className="w-full sm:w-auto">
+              <Button className="w-full gap-2 bg-blue-600 hover:bg-blue-700 sm:w-auto">
+                <Plus className="h-4 w-4" />
+                Add Booking
+              </Button>
+            </Link>
 
-        {reminderMessage && (
-          <div
-            className={`mb-6 p-3 rounded-lg border text-sm ${reminderError ? 'bg-red-50 border-red-200 text-red-900' : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              }`}
-          >
-            {reminderMessage}
+            {canSendReminders && (
+              <Button
+                onClick={handleSendReminders}
+                disabled={sendingReminders || remindersSentToday || !hasRemindableBookings}
+                variant="outline"
+                className="w-full sm:w-auto"
+                title={!hasRemindableBookings ? 'No confirmed bookings remaining today' : undefined}
+              >
+                <Bell className="mr-2 h-4 w-4" />
+                {sendingReminders
+                  ? 'Sending...'
+                  : remindersSentToday
+                    ? 'Reminders Sent Today'
+                    : !hasRemindableBookings
+                      ? 'No Bookings Left Today'
+                      : "Remind Today's Customers"}
+              </Button>
+            )}
+
+            {canExportBookings && (
+              <Button
+                onClick={downloadBookingsPdf}
+                disabled={loading || visibleBookings.length === 0}
+                variant="outline"
+                className="w-full sm:w-auto"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download PDF
+              </Button>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Status Filters — horizontally scrollable on narrow screens instead of wrapping into a tall block */}
         <div className="mb-6 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
