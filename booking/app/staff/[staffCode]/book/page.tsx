@@ -87,7 +87,7 @@ export default function StaffBookPage() {
     return () => { document.body.style.overflow = previous }
   }, [isPhoneVerificationModalOpen])
 
- 
+
   useEffect(() => {
     if (!inactiveNoticeOpen) return
     const timer = window.setInterval(() => {
@@ -282,6 +282,28 @@ export default function StaffBookPage() {
     return slots
   }
 
+  const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  const DAY_LABELS: Record<string, string> = {
+    sunday: 'Sunday',
+    monday: 'Monday',
+    tuesday: 'Tuesday',
+    wednesday: 'Wednesday',
+    thursday: 'Thursday',
+    friday: 'Friday',
+    saturday: 'Saturday',
+  }
+
+  // Builds the weekday from the local year/month/day parts of a "YYYY-MM-DD"
+  // string instead of `new Date(dateStr).getDay()`. Parsing a plain date
+  // string with `new Date()` treats it as UTC midnight, but `.getDay()` reads
+  // it back in the browser's local timezone — for anyone west of UTC that
+  // silently shifts the weekday by one day. Building the Date from local
+  // parts avoids that shift entirely.
+  const getDayKeyFromDateString = (dateStr: string): string => {
+    const [year, month, day] = dateStr.split('-').map(Number)
+    return DAY_KEYS[new Date(year, month - 1, day).getDay()]
+  }
+
   // Fetch availability data when date changes
   const loadAvailableSlots = async (selectedDate: string, selectedServiceId: string) => {
     if (!staff || !selectedDate) return
@@ -303,6 +325,7 @@ export default function StaffBookPage() {
             // Check if date is a time-off day
             if (timeOffSet.has(selectedDate)) {
               setAvailableSlots([])
+              setClosedReason('Staff member is on time off for this date')
               setLoadingSlots(false)
               return
             }
@@ -310,6 +333,20 @@ export default function StaffBookPage() {
         }
       } catch (err) {
         console.error('[v0] Error fetching time-off:', err)
+      }
+
+      // NEW: check the staff member's own recurring weekly schedule.
+      // This is the actual fix for the day-off bug — it runs where slots are
+      // generated, not just at the date-input's onChange, so it applies
+      // regardless of how `date` got set.
+      const dayName = getDayKeyFromDateString(selectedDate)
+      const staffDaySchedule = (staff as any)?.workingHours?.[dayName]
+
+      if (staffDaySchedule && staffDaySchedule.isWorking === false) {
+        setAvailableSlots([])
+        setClosedReason(`${staff.firstName} does not work on ${DAY_LABELS[dayName]}s`)
+        setLoadingSlots(false)
+        return
       }
 
       // Fetch bookings for this staff member on the selected date
@@ -373,12 +410,27 @@ export default function StaffBookPage() {
         return
       }
 
-      const openingTime = dayHours.openTime
-      const closingTime = dayHours.closeTime
+      // NEW: intersect business hours with the staff's own hours for that day
+      // (if they have a schedule set), so a staff member who starts later or
+      // finishes earlier than the business doesn't show slots they're not
+      // actually working.
+      let effectiveOpen = dayHours.openTime
+      let effectiveClose = dayHours.closeTime
+      if (staffDaySchedule?.isWorking) {
+        effectiveOpen = staffDaySchedule.start > effectiveOpen ? staffDaySchedule.start : effectiveOpen
+        effectiveClose = staffDaySchedule.end < effectiveClose ? staffDaySchedule.end : effectiveClose
+      }
+
+      if (effectiveOpen >= effectiveClose) {
+        setAvailableSlots([])
+        setClosedReason(`${staff.firstName} has no overlapping hours with the business on this day`)
+        setLoadingSlots(false)
+        return
+      }
 
       // Parse closing time to check if business is closed for today
       if (isToday) {
-        const [closingHour, closingMin] = closingTime.split(':').map(Number)
+        const [closingHour, closingMin] = effectiveClose.split(':').map(Number)
         const closingDateTime = new Date(selectedDateObj)
         closingDateTime.setHours(closingHour, closingMin, 0, 0)
 
@@ -393,7 +445,7 @@ export default function StaffBookPage() {
       // Clear closed reason if business is open
       setClosedReason(null)
 
-      const allSlots = generateTimeSlots(openingTime, closingTime)
+      const allSlots = generateTimeSlots(effectiveOpen, effectiveClose)
 
       // Filter slots: remove past times for today and booked times
       const availableSlotsList = allSlots.map((slot) => {
@@ -425,40 +477,47 @@ export default function StaffBookPage() {
     }
   }
 
-  const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
 
-const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-  const { name, value } = e.target
-
-  if (name === 'date' && staffTimeOff.has(value)) {
-    toast({ title: 'Staff Unavailable', description: 'The staff member is not available on this date. Please select another date.', variant: 'destructive' })
-    return
-  }
-
-  // NEW: check the staff's recurring weekly schedule
-  if (name === 'date' && value) {
-    const dayName = DAY_KEYS[new Date(value).getDay()]
-    const daySchedule = (staff as any)?.workingHours?.[dayName]
-    if (daySchedule && daySchedule.isWorking === false) {
+    // Check if date is a time-off date
+    if (name === 'date' && staffTimeOff.has(value)) {
       toast({
         title: 'Staff Unavailable',
-        description: `${staff?.firstName} does not work on ${dayName.charAt(0).toUpperCase() + dayName.slice(1)}s. Please pick another date.`,
+        description: 'The staff member is not available on this date. Please select another date.',
         variant: 'destructive',
       })
       return
     }
-  }
 
-  setFormData((prev) => ({ ...prev, [name]: value }))
-  if (name === 'date' || name === 'serviceId') {
-    const newFormData = { ...formData, [name]: value }
-    if (newFormData.date && newFormData.serviceId) {
-      loadAvailableSlots(newFormData.date, newFormData.serviceId)
+    // Check the staff's recurring weekly schedule (uses the same timezone-safe
+    // helper as loadAvailableSlots, so both checks agree on which weekday a
+    // given date string maps to).
+    if (name === 'date' && value) {
+      const dayName = getDayKeyFromDateString(value)
+      const daySchedule = (staff as any)?.workingHours?.[dayName]
+      if (daySchedule && daySchedule.isWorking === false) {
+        toast({
+          title: 'Staff Unavailable',
+          description: `${staff?.firstName} does not work on ${DAY_LABELS[dayName]}s. Please pick another date.`,
+          variant: 'destructive',
+        })
+        return
+      }
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }))
+
+    // Load available slots when date or service changes
+    if (name === 'date' || name === 'serviceId') {
+      const newFormData = { ...formData, [name]: value }
+      if (newFormData.date && newFormData.serviceId) {
+        loadAvailableSlots(newFormData.date, newFormData.serviceId)
+      }
     }
   }
-}
 
-   
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -882,10 +941,10 @@ const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectEle
                             onClick={() => setFormData((prev) => ({ ...prev, time: slot.time }))}
                             disabled={!slot.isAvailable}
                             className={`w-20 px-3 py-2 text-sm rounded-md border transition-all text-center ${formData.time === slot.time && slot.isAvailable
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : slot.isAvailable
-                                  ? 'border-input hover:border-primary hover:bg-primary/10'
-                                  : 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : slot.isAvailable
+                                ? 'border-input hover:border-primary hover:bg-primary/10'
+                                : 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
                               }`}
                           >
                             {slot.time}

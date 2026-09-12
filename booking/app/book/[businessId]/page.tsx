@@ -284,25 +284,29 @@ function BookingPageContent() {
 
 
 
-  const loadStaffForService = async (serviceId: string) => {
-    try {
-      setStaffLoading(true)
-      const response = await staffApi.getStaffForService(serviceId)
-      if (response.data?.staff) {
-        setStaffMembers(response.data.staff)
-        // Don't auto-select - staff selection is now optional
-        setSelectedStaff(null)
-      } else {
-        setStaffMembers([])
-        setSelectedStaff(null)
-      }
-    } catch (err) {
+const loadStaffForService = async (serviceId: string) => {
+  try {
+    setStaffLoading(true)
+    const response = await staffApi.getStaffForService(serviceId)
+    if (response.data?.staff) {
+      setStaffMembers(response.data.staff)
+      // Auto-select when there's exactly one staff member — there's no real
+      // choice to make, so treat them as selected immediately. This also
+      // means their weekly schedule correctly drives slot generation and
+      // the day-off check below, instead of quietly ignoring it because
+      // selectedStaff was null.
+      setSelectedStaff(response.data.staff.length === 1 ? response.data.staff[0] : null)
+    } else {
       setStaffMembers([])
       setSelectedStaff(null)
-    } finally {
-      setStaffLoading(false)
     }
+  } catch (err) {
+    setStaffMembers([])
+    setSelectedStaff(null)
+  } finally {
+    setStaffLoading(false)
   }
+}
 
   // Load available slots for the selected service (staff is optional)
   const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -758,7 +762,7 @@ function BookingPageContent() {
 
 
             {/* Step 3: Staff Selection (Optional) - Show after date is selected */}
-            {selectedService && date && staffMembers.length > 0 && !closedReason && (
+            {selectedService && date && staffMembers.length > 1 && !closedReason && (
               <div className="mb-8">
                 <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
                   <User className="w-4 h-4 text-primary" />
@@ -806,6 +810,28 @@ function BookingPageContent() {
                 </div>
               </div>
             )}
+
+            {selectedService && date && staffMembers.length === 1 && !closedReason && (
+  <div className="mb-8">
+    <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+      <User className="w-4 h-4 text-primary" />
+      Staff
+    </label>
+    <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 flex items-center gap-3">
+      <div className="w-10 h-10 rounded-full bg-secondary/50 flex items-center justify-center flex-shrink-0">
+        {staffMembers[0].avatar ? (
+          <img src={staffMembers[0].avatar} alt={staffMembers[0].firstName} className="w-10 h-10 rounded-full object-cover" />
+        ) : (
+          <User className="w-5 h-5" />
+        )}
+      </div>
+      <div>
+        <div className="font-semibold text-sm">{staffMembers[0].firstName} {staffMembers[0].lastName}</div>
+        <div className="text-xs text-muted-foreground">{staffMembers[0].role} · only staff for this service</div>
+      </div>
+    </div>
+  </div>
+)}
             {/* Step 4: Time */}
             {selectedService && date && !closedReason && (
               <div className="mb-8">
