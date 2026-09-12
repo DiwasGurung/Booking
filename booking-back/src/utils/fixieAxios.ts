@@ -6,7 +6,6 @@ function buildFixieAxios(): AxiosInstance {
   
 
   if (!fixieUrl) {
-    console.warn('[v0] FIXIE_URL not set — outbound SMS requests will use the default (non-whitelisted) IP.')
     return axios.create()
   }
 

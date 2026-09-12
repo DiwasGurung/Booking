@@ -106,7 +106,7 @@ export default function StaffDashboard() {
         const bookingsData = await bookingsResponse.json()
         setBookings(Array.isArray(bookingsData) ? bookingsData : bookingsData.bookings || [])
       } catch (err: any) {
-        console.error('Error loading dashboard:', err)
+  
         setError('Failed to load dashboard data')
       } finally {
         setLoading(false)

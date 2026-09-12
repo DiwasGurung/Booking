@@ -34,7 +34,6 @@ export const GoogleSignInButton = () => {
 
         if (!response.ok) {
           const data = await response.json().catch(() => ({}))
-          console.error("[v0] Google sign-in failed:", response.status, data)
           
           // Check if it's a backend connection error
           if (response.status === 0 || !response.statusText) {

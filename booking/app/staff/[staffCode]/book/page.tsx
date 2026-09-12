@@ -813,7 +813,6 @@ export default function StaffBookPage() {
         setSubmitting(false)
       }
     } catch (err: any) {
-      console.error('[v0] Booking error:', err)
       let errorMessage = err.message || 'An error occurred while booking'
       if (err.name === 'AbortError') {
         errorMessage = 'Booking request timed out. Please check your connection and try again.'
