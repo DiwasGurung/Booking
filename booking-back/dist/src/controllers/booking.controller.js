@@ -329,14 +329,11 @@ class BookingController {
             if (!user) {
                 return res.status(404).json({ success: false, message: "User not found" });
             }
-            // Get service for duration
             const service = await prisma_1.default.service.findUnique({ where: { id: serviceId } });
             if (!service) {
                 return res.status(404).json({ success: false, message: "Service not found" });
             }
             const finalEndTime = endTime || new Date(startTime.getTime() + (service.duration || 60) * 60000);
-            // Auto-assign staff if not provided — pick one who is actually FREE at this
-            // time so bookings spread across staff and slots fill up correctly.
             let assignedStaffId = staffId;
             if (!assignedStaffId) {
                 const candidates = await prisma_1.default.staff.findMany({
@@ -367,6 +364,12 @@ class BookingController {
                 }
                 assignedStaffId = freeStaff.id;
             }
+            // NEW: authenticated users still need phone verification if their
+            // account's phone hasn't been verified yet — mirrors the guest flow
+            // instead of blanket-confirming every logged-in booking regardless of
+            // phone status.
+            const isPhoneVerified = user.isPhoneVerified === true;
+            const bookingStatus = isPhoneVerified ? 'CONFIRMED' : 'UNVERIFIED';
             const booking = await prisma_1.default.booking.create({
                 data: {
                     startTime,
@@ -375,33 +378,49 @@ class BookingController {
                     customerEmail: user?.email,
                     customerPhone: user?.phone || '',
                     notes: notes || '',
-                    status: 'CONFIRMED',
+                    status: bookingStatus,
                     isEmailVerified: true,
+                    isPhoneVerified,
                     user: { connect: { id: userId } },
                     service: { connect: { id: serviceId } },
                     business: { connect: { id: businessId } },
                     staff: { connect: { id: assignedStaffId } }
                 }
             });
-            // Send confirmation (SMS for Enterprise, email otherwise) — fires
-            // every time, since authenticated bookings are always CONFIRMED
-            // and never go through the verification flow.
-            try {
-                const businessForNotify = await prisma_1.default.business.findUnique({
-                    where: { id: businessId },
-                    include: { subscription: { select: { plan: { select: { name: true } } } } },
-                });
-                if (businessForNotify) {
-                    await sendBookingConfirmationByPlan(businessId, businessForNotify, booking, service.name);
+            // Only send the confirmation immediately if the phone is already
+            // verified — otherwise the phone-verification step becomes the
+            // confirmation trigger, same as the guest flow.
+            if (isPhoneVerified) {
+                try {
+                    const businessForNotify = await prisma_1.default.business.findUnique({
+                        where: { id: businessId },
+                        include: { subscription: { select: { plan: { select: { name: true } } } } },
+                    });
+                    if (businessForNotify) {
+                        await sendBookingConfirmationByPlan(businessId, businessForNotify, booking, service.name);
+                    }
+                }
+                catch (notifyError) {
+                    console.error('[v0] Failed to send booking confirmation:', notifyError);
                 }
             }
-            catch (notifyError) {
-                console.error('[v0] Failed to send booking confirmation:', notifyError);
-            }
+            // NEW: response shape now matches the rest of the API (`data.booking`
+            // instead of a bare top-level `booking`), and includes `isPhoneVerified`
+            // / `status` so the frontend can correctly branch into the verification
+            // modal vs the success page.
             return res.status(201).json({
                 success: true,
-                message: "Booking created successfully!",
-                booking: { id: booking.id }
+                message: isPhoneVerified
+                    ? "Booking created successfully!"
+                    : "Booking created! Please verify your phone number to confirm your appointment.",
+                data: {
+                    booking: {
+                        id: booking.id,
+                        status: booking.status,
+                        isPhoneVerified: booking.isPhoneVerified,
+                        customerPhone: booking.customerPhone,
+                    }
+                }
             });
         }
         catch (error) {

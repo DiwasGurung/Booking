@@ -391,94 +391,100 @@ class BookingController {
    * Separate from staff individual bookings to keep flows independent
    */
   async createBusinessBooking(req: Request, res: Response): Promise<Response | void> {
-    try {
-      const userId = (req as any).userId
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: "User ID is required. Please log in to create a booking."
-        })
-      }
+  try {
+    const userId = (req as any).userId
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User ID is required. Please log in to create a booking."
+      })
+    }
 
-      const { businessId, staffId, serviceId, startTime: bodyStartTime, endTime: bodyEndTime, notes } = req.body
-      const startTime = bodyStartTime ? new Date(bodyStartTime) : null
-      const endTime = bodyEndTime ? new Date(bodyEndTime) : null
+    const { businessId, staffId, serviceId, startTime: bodyStartTime, endTime: bodyEndTime, notes } = req.body
+    const startTime = bodyStartTime ? new Date(bodyStartTime) : null
+    const endTime = bodyEndTime ? new Date(bodyEndTime) : null
 
-      if (!businessId || !serviceId || !startTime) {
+    if (!businessId || !serviceId || !startTime) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: businessId, serviceId, startTime"
+      })
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" })
+    }
+
+    const service = await prisma.service.findUnique({ where: { id: serviceId } })
+    if (!service) {
+      return res.status(404).json({ success: false, message: "Service not found" })
+    }
+
+    const finalEndTime = endTime || new Date(startTime.getTime() + (service.duration || 60) * 60000)
+
+    let assignedStaffId = staffId
+    if (!assignedStaffId) {
+      const candidates = await prisma.staff.findMany({
+        where: { businessId, isActive: true, services: { some: { serviceId } } }
+      })
+      if (candidates.length === 0) {
         return res.status(400).json({
           success: false,
-          message: "Missing required fields: businessId, serviceId, startTime"
+          message: "No staff members are assigned to this service."
         })
       }
 
-      const user = await prisma.user.findUnique({ where: { id: userId } })
-      if (!user) {
-        return res.status(404).json({ success: false, message: "User not found" })
-      }
-
-      // Get service for duration
-      const service = await prisma.service.findUnique({ where: { id: serviceId } })
-      if (!service) {
-        return res.status(404).json({ success: false, message: "Service not found" })
-      }
-
-      const finalEndTime = endTime || new Date(startTime.getTime() + (service.duration || 60) * 60000)
-
-      // Auto-assign staff if not provided — pick one who is actually FREE at this
-      // time so bookings spread across staff and slots fill up correctly.
-      let assignedStaffId = staffId
-      if (!assignedStaffId) {
-        const candidates = await prisma.staff.findMany({
-          where: { businessId, isActive: true, services: { some: { serviceId } } }
-        })
-        if (candidates.length === 0) {
-          return res.status(400).json({
-            success: false,
-            message: "No staff members are assigned to this service."
-          })
-        }
-
-        const conflicts = await prisma.booking.findMany({
-          where: {
-            staffId: { in: candidates.map(c => c.id) },
-            status: "CONFIRMED",
-            startTime: { lt: finalEndTime },
-            endTime: { gt: startTime },
-          },
-          select: { staffId: true }
-        })
-        const busyStaff = new Set(conflicts.map(c => c.staffId))
-        const freeStaff = candidates.find(c => !busyStaff.has(c.id))
-
-        if (!freeStaff) {
-          return res.status(400).json({
-            success: false,
-            message: "No staff members are available at this time. Please pick another slot."
-          })
-        }
-        assignedStaffId = freeStaff.id
-      }
-
-      const booking = await prisma.booking.create({
-        data: {
-          startTime,
-          endTime: finalEndTime,
-          customerName: user?.firstName || 'Guest',
-          customerEmail: user?.email,
-          customerPhone: user?.phone || '',
-          notes: notes || '',
-          status: 'CONFIRMED',
-          isEmailVerified: true,
-          user: { connect: { id: userId } },
-          service: { connect: { id: serviceId } },
-          business: { connect: { id: businessId } },
-          staff: { connect: { id: assignedStaffId } }
-        }
+      const conflicts = await prisma.booking.findMany({
+        where: {
+          staffId: { in: candidates.map(c => c.id) },
+          status: "CONFIRMED",
+          startTime: { lt: finalEndTime },
+          endTime: { gt: startTime },
+        },
+        select: { staffId: true }
       })
+      const busyStaff = new Set(conflicts.map(c => c.staffId))
+      const freeStaff = candidates.find(c => !busyStaff.has(c.id))
 
-      // Send confirmation (SMS for Enterprise, email otherwise) — fires
-      // every time, since authenticated bookings are always CONFIRMED
-      // and never go through the verification flow.
+      if (!freeStaff) {
+        return res.status(400).json({
+          success: false,
+          message: "No staff members are available at this time. Please pick another slot."
+        })
+      }
+      assignedStaffId = freeStaff.id
+    }
+
+    // NEW: authenticated users still need phone verification if their
+    // account's phone hasn't been verified yet — mirrors the guest flow
+    // instead of blanket-confirming every logged-in booking regardless of
+    // phone status.
+    const isPhoneVerified = user.isPhoneVerified === true
+    const bookingStatus: BookingStatus = isPhoneVerified ? 'CONFIRMED' : 'UNVERIFIED'
+
+    const booking = await prisma.booking.create({
+      data: {
+        startTime,
+        endTime: finalEndTime,
+        customerName: user?.firstName || 'Guest',
+        customerEmail: user?.email,
+        customerPhone: user?.phone || '',
+        notes: notes || '',
+        status: bookingStatus,
+        isEmailVerified: true,
+        isPhoneVerified,
+        user: { connect: { id: userId } },
+        service: { connect: { id: serviceId } },
+        business: { connect: { id: businessId } },
+        staff: { connect: { id: assignedStaffId } }
+      }
+    })
+
+    // Only send the confirmation immediately if the phone is already
+    // verified — otherwise the phone-verification step becomes the
+    // confirmation trigger, same as the guest flow.
+    if (isPhoneVerified) {
       try {
         const businessForNotify = await prisma.business.findUnique({
           where: { id: businessId },
@@ -490,17 +496,31 @@ class BookingController {
       } catch (notifyError) {
         console.error('[v0] Failed to send booking confirmation:', notifyError)
       }
-
-      return res.status(201).json({
-        success: true,
-        message: "Booking created successfully!",
-        booking: { id: booking.id }
-      })
-    } catch (error: any) {
-      console.error('[v0] Business booking error:', error)
-      res.status(500).json({ success: false, error: error?.message || "Failed to create booking" })
     }
+
+    // NEW: response shape now matches the rest of the API (`data.booking`
+    // instead of a bare top-level `booking`), and includes `isPhoneVerified`
+    // / `status` so the frontend can correctly branch into the verification
+    // modal vs the success page.
+    return res.status(201).json({
+      success: true,
+      message: isPhoneVerified
+        ? "Booking created successfully!"
+        : "Booking created! Please verify your phone number to confirm your appointment.",
+      data: {
+        booking: {
+          id: booking.id,
+          status: booking.status,
+          isPhoneVerified: booking.isPhoneVerified,
+          customerPhone: booking.customerPhone,
+        }
+      }
+    })
+  } catch (error: any) {
+    console.error('[v0] Business booking error:', error)
+    res.status(500).json({ success: false, error: error?.message || "Failed to create booking" })
   }
+}
 
   async createBusinessPublicBooking(req: Request, res: Response): Promise<void> {
     try {

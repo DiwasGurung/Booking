@@ -593,111 +593,93 @@ setError(reason || 'Please choose a different date for this staff member')
   }
 
   const handleConfirmBooking = async () => {
-    if (!selectedService || !date || !selectedTime) {
-      setError('Please select service, date, and time')
+  if (!selectedService || !date || !selectedTime) {
+    setError('Please select service, date, and time')
+    return
+  }
+
+  if (!isSlotInFuture(date, selectedTime)) {
+    setError('This time slot has passed. Please select a different time.')
+    setSelectedTime(null)
+    return
+  }
+
+  if (closedDates.has(date)) {
+    setError(closedDates.get(date) || 'The business is closed on this date')
+    return
+  }
+
+  if (!user) {
+    if (!customerName || !customerEmail || !customerPhone) {
+      setError('Please fill in all required fields')
       return
-    }
-
-    if (!isSlotInFuture(date, selectedTime)) {
-      setError('This time slot has passed. Please select a different time.')
-      setSelectedTime(null)
-      return
-    }
-
-    // Check if the date is a closed date
-    if (closedDates.has(date)) {
-      setError(closedDates.get(date) || 'The business is closed on this date')
-      return
-    }
-
-    // Only validate customer details for public users
-    if (!user) {
-      if (!customerName || !customerEmail || !customerPhone) {
-        setError('Please fill in all required fields')
-        return
-      }
-    }
-
-    try {
-      setLoading(true)
-
-      // Define your business timezone, e.g., 'Asia/Kathmandu'
-      const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
-
-      const startDateTime = DateTime.fromISO(`${date}T${selectedTime}`, { zone: BUSINESS_TZ });
-      const startTimeISO = startDateTime.toISO();
-
-      const endDateTime = startDateTime.plus({ minutes: selectedService.duration });
-      const endTimeISO = endDateTime.toISO();
-
-
-      const basePayload: any = {
-        serviceId: selectedService.id,
-        businessId,
-        startTime: startTimeISO,
-        endTime: endTimeISO,
-        notes,
-      }
-
-      // Only include staffId if a staff member was specifically selected
-      if (selectedStaff?.id) {
-        basePayload.staffId = selectedStaff.id
-      }
-
-      // Call the appropriate API method based on user type
-      let response
-      if (user) {
-        // Authenticated user - use createBusinessBooking
-        response = await bookingsApi.createBusinessBooking(basePayload)
-      } else {
-        // Public user - use createBusinessPublicBooking with customer details
-        response = await bookingsApi.createBusinessPublicBooking({
-          ...basePayload,
-          customerName,
-          customerEmail,
-          customerPhone,
-        })
-      }
-
-      if (response.success && response.data) {
-        const createdBooking = response.data.booking || response.data
-        const newBookingId = createdBooking?.id || ''
-
-        if (newBookingId) {
-          setBookingId(newBookingId)
-
-          // Treat every explicit false/unverified signal as requiring verification.
-          // The API can return these flags either on the response or inside booking.
-          const responsePayload = response.data as any
-          const requiresVerification =
-            responsePayload.isPhoneVerified === false ||
-            responsePayload.status === 'UNVERIFIED' ||
-            createdBooking?.isPhoneVerified === false ||
-            createdBooking?.status === 'UNVERIFIED'
-
-          setError('')
-
-          if (requiresVerification) {
-            setVerificationCode('')
-            setCodeError(null)
-            await sendPhoneVerificationCode(newBookingId)
-            setShowVerificationModal(true)
-          } else {
-            setBookingSuccess(true)
-          }
-        } else {
-          setError('Booking created but no ID returned. Please contact support.')
-        }
-      } else {
-        setError(response.error || 'Failed to create booking')
-      }
-    } catch (err: any) {
-
-      setError('Failed to book appointment. Please try again.')
-    } finally {
-      setLoading(false)
     }
   }
+
+  try {
+    setLoading(true)
+
+    const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
+    const startDateTime = DateTime.fromISO(`${date}T${selectedTime}`, { zone: BUSINESS_TZ });
+    const startTimeISO = startDateTime.toISO();
+    const endDateTime = startDateTime.plus({ minutes: selectedService.duration });
+    const endTimeISO = endDateTime.toISO();
+
+    const basePayload: any = {
+      serviceId: selectedService.id,
+      businessId,
+      startTime: startTimeISO,
+      endTime: endTimeISO,
+      notes,
+    }
+
+    if (selectedStaff?.id) {
+      basePayload.staffId = selectedStaff.id
+    }
+
+    let response
+    if (user) {
+      response = await bookingsApi.createBusinessBooking(basePayload)
+    } else {
+      response = await bookingsApi.createBusinessPublicBooking({
+        ...basePayload,
+        customerName,
+        customerEmail,
+        customerPhone,
+      })
+    }
+
+
+    const payload = (response as any)?.data ?? response
+    const createdBooking = payload?.booking
+
+    if (response.success !== false && createdBooking?.id) {
+      const newBookingId = createdBooking.id
+      setBookingId(newBookingId)
+
+      const requiresVerification =
+        createdBooking.isPhoneVerified === false ||
+        createdBooking.status === 'UNVERIFIED'
+
+      setError('')
+
+      if (requiresVerification) {
+        setVerificationCode('')
+        setCodeError(null)
+        await sendPhoneVerificationCode(newBookingId)
+        setShowVerificationModal(true)
+      } else {
+        setBookingSuccess(true)
+      }
+    } else {
+      setError((response as any)?.error || payload?.message || 'Failed to create booking')
+    }
+  } catch (err: any) {
+    setError('Failed to book appointment. Please try again.')
+  } finally {
+    setLoading(false)
+  }
+}
 
   // Show loading during auth check
   if (loading || !businessId) {

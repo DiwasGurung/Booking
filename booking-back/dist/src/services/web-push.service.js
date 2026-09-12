@@ -72,7 +72,6 @@ class WebPushService {
                 console.warn('[WebPush] Subscription no longer valid, status:', error.statusCode);
                 return false;
             }
-            console.error('[WebPush] Failed to send notification:', error.message);
             return false;
         }
     }
