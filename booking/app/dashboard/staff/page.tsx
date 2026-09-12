@@ -12,14 +12,14 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
 import { staffApi, servicesApi, Staff, Service } from '@/lib/api'
-import { 
-  Loader, 
-  AlertCircle, 
-  Edit, 
-  Trash2, 
-  Plus, 
-  User, 
-  Phone, 
+import {
+  Loader,
+  AlertCircle,
+  Edit,
+  Trash2,
+  Plus,
+  User,
+  Phone,
   Mail,
   Clock,
   Calendar,
@@ -93,7 +93,7 @@ export default function StaffPage() {
   const [selectedStaffForTimeOff, setSelectedStaffForTimeOff] = useState<Staff | null>(null)
   const [timeOffFormData, setTimeOffFormData] = useState({ startDate: '', endDate: '', type: 'VACATION', reason: '' })
   const [timeOffSaving, setTimeOffSaving] = useState(false)
-  
+
   useEffect(() => {
     if (businessId) {
       loadStaff()
@@ -124,7 +124,7 @@ export default function StaffPage() {
     }
   }
 
- const loadServices = async () => {
+  const loadServices = async () => {
     if (!businessId) return
     try {
       setLoading(true)
@@ -135,10 +135,10 @@ export default function StaffPage() {
       const servicesArray = Array.isArray(rawData)
         ? rawData
         : Array.isArray(rawData.data)
-        ? rawData.data
-        : Array.isArray(rawData.data?.data)
-        ? rawData.data.data
-        : []
+          ? rawData.data
+          : Array.isArray(rawData.data?.data)
+            ? rawData.data.data
+            : []
 
       const servicesData = servicesArray.map((service: any) => ({
         id: service.id,
@@ -191,7 +191,7 @@ export default function StaffPage() {
     try {
       setIsSubmitting(true)
       setSaving(true)
-      
+
       let staffId: string
       if (editingStaff) {
         await staffApi.update(editingStaff.id, formData)
@@ -217,7 +217,7 @@ export default function StaffPage() {
 
     try {
       const response = await staffApi.delete(staffId)
-      
+
       if (!response.success || response.error) {
         setError(response.error || 'Failed to delete staff member')
         return
@@ -233,7 +233,7 @@ export default function StaffPage() {
   const handleToggleStatus = async (staffId: string) => {
     try {
       const response = await staffApi.toggleStatus(staffId)
-      
+
       if (!response.success || response.error) {
         setError(response.error || 'Failed to toggle staff status')
         return
@@ -259,7 +259,7 @@ export default function StaffPage() {
 
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
     const bookingLink = `${baseUrl}/staff/${normalizedStaffCode}/book`
-    
+
     navigator.clipboard.writeText(bookingLink).then(() => {
       toast({
         title: 'Copied!',
@@ -333,7 +333,7 @@ export default function StaffPage() {
     if (currentStep === 1) return isStep1Valid()
     if (currentStep === 2) return isStep2Valid()
     if (currentStep === 3) return isStep3Valid()
-    if (currentStep === 4) return true 
+    if (currentStep === 4) return true
   }
 
   const goToNextStep = () => {
@@ -369,7 +369,7 @@ export default function StaffPage() {
       })
 
       if (!response.success) throw new Error('Failed to save time off')
-      
+
       toast({ title: 'Success', description: 'Time off added successfully' })
       setShowTimeOffModal(false)
       setSelectedStaffForTimeOff(null)
@@ -441,13 +441,12 @@ export default function StaffPage() {
                   </p>
                   <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                     <div
-                      className={`h-full transition-all ${
-                        subscriptionUsage.staffUsagePercent >= 100
+                      className={`h-full transition-all ${subscriptionUsage.staffUsagePercent >= 100
                           ? 'bg-destructive'
                           : subscriptionUsage.staffUsagePercent >= 80
-                          ? 'bg-amber-500'
-                          : 'bg-primary'
-                      }`}
+                            ? 'bg-amber-500'
+                            : 'bg-primary'
+                        }`}
                       style={{ width: `${Math.min(subscriptionUsage.staffUsagePercent, 100)}%` }}
                     />
                   </div>
@@ -465,144 +464,144 @@ export default function StaffPage() {
         )}
 
         {/* Staff Grid */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {staffMembers.map((staff) => (
-              <Card key={staff.id} className={!staff.isActive ? 'opacity-60' : ''}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                        {staff.avatar ? (
-                          <img src={staff.avatar} alt={staff.firstName} className="w-12 h-12 rounded-full object-cover" />
-                        ) : (
-                          <User className="w-6 h-6 text-primary" />
-                        )}
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg">{staff.firstName} {staff.lastName}</CardTitle>
-                        <CardDescription>{staff.role}</CardDescription>
-                      </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {staffMembers.map((staff) => (
+            <Card key={staff.id} className={!staff.isActive ? 'opacity-60' : ''}>
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                      {staff.avatar ? (
+                        <img src={staff.avatar} alt={staff.firstName} className="w-12 h-12 rounded-full object-cover" />
+                      ) : (
+                        <User className="w-6 h-6 text-primary" />
+                      )}
                     </div>
-                    <Badge variant={staff.isActive ? 'default' : 'secondary'}>
-                      {staff.isActive ? 'Active' : 'Inactive'}
-                    </Badge>
+                    <div>
+                      <CardTitle className="text-lg">{staff.firstName} {staff.lastName}</CardTitle>
+                      <CardDescription>{staff.role}</CardDescription>
+                    </div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm">
-                    {staff.email && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Mail className="w-4 h-4" />
-                        {staff.email}
-                      </div>
-                    )}
-                    {staff.phone && (
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Phone className="w-4 h-4" />
-                        {staff.phone}
-                      </div>
-                    )}
+                  <Badge variant={staff.isActive ? 'default' : 'secondary'}>
+                    {staff.isActive ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  {staff.email && (
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      {staff._count?.bookings || 0} bookings
+                      <Mail className="w-4 h-4" />
+                      {staff.email}
+                    </div>
+                  )}
+                  {staff.phone && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Phone className="w-4 h-4" />
+                      {staff.phone}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Calendar className="w-4 h-4" />
+                    {staff._count?.bookings || 0} bookings
+                  </div>
+                </div>
+
+                {/* Services */}
+                {staff.services && staff.services.length > 0 && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs text-muted-foreground mb-2">Services:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {staff.services.slice(0, 3).map((s) => (
+                        <Badge key={s.id} variant="outline" className="text-xs">
+                          {s.service?.name}
+                        </Badge>
+                      ))}
+                      {staff.services.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{staff.services.length - 3} more
+                        </Badge>
+                      )}
                     </div>
                   </div>
+                )}
 
-                  {/* Services */}
-                  {staff.services && staff.services.length > 0 && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-xs text-muted-foreground mb-2">Services:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {staff.services.slice(0, 3).map((s) => (
-                          <Badge key={s.id} variant="outline" className="text-xs">
-                            {s.service?.name}
-                          </Badge>
-                        ))}
-                        {staff.services.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
-                            +{staff.services.length - 3} more
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Booking Link Info */}
-                  {staff.staffCode&& (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-xs text-muted-foreground mb-2">Booking Link:</p>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="flex-1 text-xs"
-                          onClick={() => copyBookingLink(String(staff.staffCode), String(staff.firstName))}
-                        >
-                          <Copy className="w-3 h-3 mr-1" />
-                          Copy Link
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => router.push(`/staff/${staff.staffCode}/bookings`)}
-                  
-                        >
-                          <Link className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  <div className="mt-4 pt-3 border-t flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={staff.isActive}
-                        onCheckedChange={() => handleToggleStatus(staff.id)}
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        {staff.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
+                {/* Booking Link Info */}
+                {staff.staffCode && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs text-muted-foreground mb-2">Booking Link:</p>
                     <div className="flex gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => {
-                          setSelectedStaffForTimeOff(staff)
-                          setTimeOffFormData({ startDate: '', endDate: '', type: 'VACATION', reason: '' })
-                          setShowTimeOffModal(true)
-                        }}
-                        title="Manage time off"
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs"
+                        onClick={() => copyBookingLink(String(staff.staffCode), String(staff.firstName))}
                       >
-                        <Calendar className="w-4 h-4" />
+                        <Copy className="w-3 h-3 mr-1" />
+                        Copy Link
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => openEditModal(staff)}>
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(staff.id)} className="text-destructive hover:text-destructive">
-                        <Trash2 className="w-4 h-4" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/staff/${staff.staffCode}/bookings`)}
+
+                      >
+                        <Link className="w-3 h-3" />
                       </Button>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                )}
 
-            {staffMembers.length === 0 && !loading && (
-              <Card className="col-span-full">
-                <CardContent className="py-12 text-center">
-                  <User className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No Staff Members</h3>
-                  <p className="text-muted-foreground mb-4">Add your first staff member to get started</p>
-                  <Button onClick={openAddModal}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Staff
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                {/* Actions */}
+                <div className="mt-4 pt-3 border-t flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={staff.isActive}
+                      onCheckedChange={() => handleToggleStatus(staff.id)}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {staff.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedStaffForTimeOff(staff)
+                        setTimeOffFormData({ startDate: '', endDate: '', type: 'VACATION', reason: '' })
+                        setShowTimeOffModal(true)
+                      }}
+                      title="Manage time off"
+                    >
+                      <Calendar className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => openEditModal(staff)}>
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(staff.id)} className="text-destructive hover:text-destructive">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {staffMembers.length === 0 && !loading && (
+            <Card className="col-span-full">
+              <CardContent className="py-12 text-center">
+                <User className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No Staff Members</h3>
+                <p className="text-muted-foreground mb-4">Add your first staff member to get started</p>
+                <Button onClick={openAddModal}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Staff
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         {/* Step-by-Step Wizard Modal */}
         {isModalOpen && (
@@ -626,148 +625,149 @@ export default function StaffPage() {
                 {[1, 2, 3, 4].map((step) => (
                   <div
                     key={step}
-                    className={`flex-1 h-1 rounded-full transition-colors ${
-                      step <= currentStep ? 'bg-primary' : 'bg-muted'
-                    }`}
+                    className={`flex-1 h-1 rounded-full transition-colors ${step <= currentStep ? 'bg-primary' : 'bg-muted'
+                      }`}
                   />
                 ))}
               </div>
 
-            <form id="staff-form" onSubmit={handleSubmit} className="flex-1 overflow-auto p-4 space-y-6">
+              <form id="staff-form" onSubmit={handleSubmit} className="flex-1 overflow-auto p-4 space-y-6">
                 {/* STEP 1: Basic Information */}
                 {currentStep === 1 && (
-                <div className="space-y-4 animate-in fade-in">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
-                    <p className="text-sm text-muted-foreground mb-6">Tell us about the staff member</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-4 animate-in fade-in">
                     <div>
-                      <Label htmlFor="firstName">First Name *</Label>
-                      <Input
-                        id="firstName"
-                        value={formData.firstName}
-                        onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                        required
-                      />
+                      <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
+                      <p className="text-sm text-muted-foreground mb-6">Tell us about the staff member</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="firstName">First Name *</Label>
+                        <Input
+                          id="firstName"
+                          value={formData.firstName}
+                          onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="lastName">Last Name *</Label>
+                        <Input
+                          id="lastName"
+                          value={formData.lastName}
+                          onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="phone">Phone</Label>
+                        <Input
+                          id="phone"
+                          value={formData.phone}
+                          onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                        />
+                      </div>
                     </div>
                     <div>
-                      <Label htmlFor="lastName">Last Name *</Label>
+                      <Label htmlFor="role">Role</Label>
                       <Input
-                        id="lastName"
-                        value={formData.lastName}
-                        onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                        required
+                        id="role"
+                        value={formData.role}
+                        onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
+                        placeholder="e.g., Staff, Senior Stylist, Manager"
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="phone">Phone</Label>
-                      <Input
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="role">Role</Label>
-                    <Input
-                      id="role"
-                      value={formData.role}
-                      onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value }))}
-                      placeholder="e.g., Staff, Senior Stylist, Manager"
-                    />
-                  </div>
-                </div>
                 )}
 
                 {/* STEP 2: Services */}
                 {currentStep === 2 && (
-                <div className="space-y-4 animate-in fade-in">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Services</h3>
-                    <p className="text-sm text-muted-foreground mb-6">Select the services this staff member can perform</p>
+                  <div className="space-y-4 animate-in fade-in">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Services</h3>
+                      <p className="text-sm text-muted-foreground mb-6">Select the services this staff member can perform</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-auto border rounded-lg p-3">
+                      {services.map((service) => (
+                        <div key={service.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`service-${service.id}`}
+                            checked={formData.serviceIds.includes(service.id)}
+                            onCheckedChange={() => toggleService(service.id)}
+                          />
+                          <Label htmlFor={`service-${service.id}`} className="text-sm cursor-pointer">
+                            {service.name}
+                          </Label>
+                        </div>
+                      ))}
+                      {services.length === 0 && (
+                        <p className="text-sm text-muted-foreground col-span-2">No services available</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-auto border rounded-lg p-3">
-                    {services.map((service) => (
-                      <div key={service.id} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`service-${service.id}`}
-                          checked={formData.serviceIds.includes(service.id)}
-                          onCheckedChange={() => toggleService(service.id)}
-                        />
-                        <Label htmlFor={`service-${service.id}`} className="text-sm cursor-pointer">
-                          {service.name}
-                        </Label>
-                      </div>
-                    ))}
-                    {services.length === 0 && (
-                      <p className="text-sm text-muted-foreground col-span-2">No services available</p>
-                    )}
-                  </div>
-                </div>
                 )}
 
                 {/* STEP 3: Working Hours and Break Times */}
                 {currentStep === 3 && (
-                <div className="space-y-4 animate-in fade-in">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      Schedule & Working Hours
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-6">Set the working hours and break times</p>
-                  </div>
-                  <div className="space-y-2">
-                    {DAYS.map((day) => (
-                      <div key={day} className="flex items-center gap-4 p-2 border rounded-lg">
-                        <div className="flex items-center gap-2 w-32">
-                          <Checkbox
-                            id={`day-${day}`}
-                            checked={formData.workingHours[day]?.isWorking}
-                            onCheckedChange={() => toggleDayWorking(day)}
-                          />
-                          <Label htmlFor={`day-${day}`} className="text-sm cursor-pointer">
-                            {DAY_LABELS[day]}
-                          </Label>
-                        </div>
-                        {formData.workingHours[day]?.isWorking && (
-                          <div className="flex items-center gap-2 flex-1">
-                            <Input
-                              type="time"
-                              value={formData.workingHours[day]?.start || '09:00'}
-                              onChange={(e) => updateDayHours(day, 'start', e.target.value)}
-                              className="w-28"
+                  <div className="space-y-4 animate-in fade-in">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        Schedule & Working Hours
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-6">Set the working hours and break times</p>
+                    </div>
+                    <div className="space-y-2">
+                      {DAYS.map((day) => (
+                        <div
+                          key={day}
+                          className="flex flex-col gap-3 p-3 border rounded-lg sm:flex-row sm:items-center sm:gap-4 sm:p-2"
+                        >
+                          <div className="flex items-center gap-2 sm:w-32 shrink-0">
+                            <Checkbox
+                              id={`day-${day}`}
+                              checked={formData.workingHours[day]?.isWorking}
+                              onCheckedChange={() => toggleDayWorking(day)}
                             />
-                            <span className="text-muted-foreground">to</span>
-                            <Input
-                              type="time"
-                              value={formData.workingHours[day]?.end || '17:00'}
-                              onChange={(e) => updateDayHours(day, 'end', e.target.value)}
-                              className="w-28"
-                            />
+                            <Label htmlFor={`day-${day}`} className="text-sm cursor-pointer">
+                              {DAY_LABELS[day]}
+                            </Label>
                           </div>
-                        )}
-                        {!formData.workingHours[day]?.isWorking && (
-                          <span className="text-sm text-muted-foreground">Day off</span>
-                        )}
-                      </div>
-                    ))}
+                          {formData.workingHours[day]?.isWorking ? (
+                            <div className="flex items-center gap-2 pl-6 sm:pl-0 sm:flex-1">
+                              <Input
+                                type="time"
+                                value={formData.workingHours[day]?.start || '09:00'}
+                                onChange={(e) => updateDayHours(day, 'start', e.target.value)}
+                                className="w-full min-w-0 flex-1 sm:w-28 sm:flex-none"
+                              />
+                              <span className="text-muted-foreground text-sm shrink-0">to</span>
+                              <Input
+                                type="time"
+                                value={formData.workingHours[day]?.end || '17:00'}
+                                onChange={(e) => updateDayHours(day, 'end', e.target.value)}
+                                className="w-full min-w-0 flex-1 sm:w-28 sm:flex-none"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground pl-6 sm:pl-0">Day off</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
                 )}
-{/* 
+                {/* 
                 {currentStep === 4 && (
 
     
@@ -810,57 +810,57 @@ export default function StaffPage() {
 
                 {/* STEP 4: Review & Confirm */}
                 {currentStep === 4 && (
-                <div className="space-y-4 animate-in fade-in">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Review Information</h3>
-                    <p className="text-sm text-muted-foreground mb-6">Please review the information before confirming</p>
-                  </div>
-
-                  <div className="space-y-4 bg-muted/30 rounded-lg p-4">
-                    {/* Basic Info Review */}
+                  <div className="space-y-4 animate-in fade-in">
                     <div>
-                      <h4 className="font-medium text-sm mb-2">Basic Information</h4>
-                      <div className="space-y-1 text-sm">
-                        <p><span className="text-muted-foreground">Name:</span> {formData.firstName} {formData.lastName}</p>
-                        <p><span className="text-muted-foreground">Role:</span> {formData.role}</p>
-                        {formData.email && <p><span className="text-muted-foreground">Email:</span> {formData.email}</p>}
-                        {formData.phone && <p><span className="text-muted-foreground">Phone:</span> {formData.phone}</p>}
+                      <h3 className="text-lg font-semibold mb-4">Review Information</h3>
+                      <p className="text-sm text-muted-foreground mb-6">Please review the information before confirming</p>
+                    </div>
+
+                    <div className="space-y-4 bg-muted/30 rounded-lg p-4">
+                      {/* Basic Info Review */}
+                      <div>
+                        <h4 className="font-medium text-sm mb-2">Basic Information</h4>
+                        <div className="space-y-1 text-sm">
+                          <p><span className="text-muted-foreground">Name:</span> {formData.firstName} {formData.lastName}</p>
+                          <p><span className="text-muted-foreground">Role:</span> {formData.role}</p>
+                          {formData.email && <p><span className="text-muted-foreground">Email:</span> {formData.email}</p>}
+                          {formData.phone && <p><span className="text-muted-foreground">Phone:</span> {formData.phone}</p>}
+                        </div>
+                      </div>
+
+                      {/* Services Review */}
+                      <div className="pt-3 border-t">
+                        <h4 className="font-medium text-sm mb-2">Services ({formData.serviceIds.length})</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {formData.serviceIds.map(serviceId => {
+                            const service = services.find(s => s.id === serviceId)
+                            return service ? (
+                              <Badge key={serviceId} variant="secondary">{service.name}</Badge>
+                            ) : null
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Schedule Review */}
+                      <div className="pt-3 border-t">
+                        <h4 className="font-medium text-sm mb-2">Working Schedule</h4>
+                        <div className="text-sm space-y-1">
+                          {DAYS.map(day => {
+                            const hours = formData.workingHours[day]
+                            return hours?.isWorking ? (
+                              <p key={day}><span className="text-muted-foreground">{DAY_LABELS[day]}:</span> {hours.start} - {hours.end}</p>
+                            ) : (
+                              <p key={day}><span className="text-muted-foreground">{DAY_LABELS[day]}:</span> <span className="text-xs">Day off</span></p>
+                            )
+                          })}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Services Review */}
-                    <div className="pt-3 border-t">
-                      <h4 className="font-medium text-sm mb-2">Services ({formData.serviceIds.length})</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {formData.serviceIds.map(serviceId => {
-                          const service = services.find(s => s.id === serviceId)
-                          return service ? (
-                            <Badge key={serviceId} variant="secondary">{service.name}</Badge>
-                          ) : null
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Schedule Review */}
-                    <div className="pt-3 border-t">
-                      <h4 className="font-medium text-sm mb-2">Working Schedule</h4>
-                      <div className="text-sm space-y-1">
-                        {DAYS.map(day => {
-                          const hours = formData.workingHours[day]
-                          return hours?.isWorking ? (
-                            <p key={day}><span className="text-muted-foreground">{DAY_LABELS[day]}:</span> {hours.start} - {hours.end}</p>
-                          ) : (
-                            <p key={day}><span className="text-muted-foreground">{DAY_LABELS[day]}:</span> <span className="text-xs">Day off</span></p>
-                          )
-                        })}
-                      </div>
+                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-sm">
+                      <p>✓ All information looks good. Click <span className="font-medium">Submit</span> to {editingStaff ? 'update' : 'add'} this staff member.</p>
                     </div>
                   </div>
-
-                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-sm">
-                    <p>✓ All information looks good. Click <span className="font-medium">Submit</span> to {editingStaff ? 'update' : 'add'} this staff member.</p>
-                  </div>
-                </div>
                 )}
               </form>
 
@@ -916,8 +916,8 @@ export default function StaffPage() {
                   <CardTitle>Add Time Off</CardTitle>
                   <CardDescription>{selectedStaffForTimeOff.firstName} {selectedStaffForTimeOff.lastName}</CardDescription>
                 </div>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={() => setShowTimeOffModal(false)}
                 >
@@ -929,13 +929,13 @@ export default function StaffPage() {
                 <div>
                   <Label htmlFor="start-date" className="text-sm">Start Date</Label>
                   <Input
-                              id="start-date"
-          type="date"
-          value={timeOffFormData.startDate}
-          onChange={(e) => setTimeOffFormData(prev => ({ ...prev, startDate: e.target.value }))}
-          className="mt-1"
-          min={today}
-        />
+                    id="start-date"
+                    type="date"
+                    value={timeOffFormData.startDate}
+                    onChange={(e) => setTimeOffFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                    className="mt-1"
+                    min={today}
+                  />
                 </div>
 
                 {/* End Date */}
@@ -954,7 +954,7 @@ export default function StaffPage() {
                 {/* Type */}
                 <div>
                   <Label htmlFor="type" className="text-sm">Type</Label>
-                  <select 
+                  <select
                     id="type"
                     value={timeOffFormData.type}
                     onChange={(e) => setTimeOffFormData(prev => ({ ...prev, type: e.target.value }))}
@@ -981,14 +981,14 @@ export default function StaffPage() {
 
                 {/* Action Buttons */}
                 <div className="flex gap-2 pt-4">
-                  <Button 
+                  <Button
                     variant="outline"
                     onClick={() => setShowTimeOffModal(false)}
                     className="flex-1"
                   >
                     Cancel
                   </Button>
-                  <Button 
+                  <Button
                     onClick={saveTimeOff}
                     disabled={timeOffSaving}
                     className="flex-1"
