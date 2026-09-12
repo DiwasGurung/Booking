@@ -386,7 +386,7 @@ export default function NewManualBookingPage() {
                 <Button
                   type="submit"
                   disabled={submitting || services.length === 0}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="w-full sm:w-auto"
                 >
                   {submitting ? 'Creating...' : 'Create Booking'}
                 </Button>
