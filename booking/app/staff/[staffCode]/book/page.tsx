@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { AlertCircle, Loader, MailIcon, Phone, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
+import { useEffect, useState, useRef, JSX } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { AlertCircle, Loader, MailIcon, Phone } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { getCurrentUser } from '@/lib/auth'
 import { DateTime } from 'luxon'
@@ -28,6 +28,13 @@ interface FormData {
   time: string
   notes: string
 }
+
+interface DaySchedule {
+  start: string
+  end: string
+  isWorking: boolean
+}
+
 
 // How long the customer must read the verification notice before continuing
 const VERIFY_COUNTDOWN_SECONDS = 10
@@ -62,6 +69,26 @@ export default function StaffBookPage() {
     time: '',
     notes: '',
   })
+
+  const [dateCalendarOpen, setDateCalendarOpen] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const d = new Date()
+    d.setDate(1)
+    return d
+  })
+  const dateCalendarRef = useRef<HTMLDivElement>(null)
+
+  // Close the calendar when clicking outside it
+  useEffect(() => {
+    if (!dateCalendarOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dateCalendarRef.current && !dateCalendarRef.current.contains(e.target as Node)) {
+        setDateCalendarOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [dateCalendarOpen])
 
   const [isPhoneVerificationModalOpen, setIsPhoneVerificationModalOpen] = useState(false)
   const [verificationCode, setVerificationCode] = useState('')
@@ -303,6 +330,95 @@ export default function StaffBookPage() {
     const [year, month, day] = dateStr.split('-').map(Number)
     return DAY_KEYS[new Date(year, month - 1, day).getDay()]
   }
+  const getNormalizedWorkingHours = (staffData: any): Record<string, DaySchedule> | null => {
+    let raw = staffData?.workingHours
+    if (!raw) return null
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw) } catch { return null }
+    }
+    if (typeof raw !== 'object') return null
+    const normalized: Record<string, DaySchedule> = {}
+    Object.keys(raw).forEach((key) => { normalized[key.toLowerCase()] = raw[key] })
+    return normalized
+  }
+
+  const formatDateStr = (d: Date): string =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  // Single source of truth for "can this date be booked" — used by both the
+  // calendar grid (to grey days out) and can be reused anywhere else that
+  // needs the same rule. Checks, in order: past dates, staff recurring
+  // time-off, business closed-dates, the staff's own weekly schedule, and
+  // the business's own weekly schedule.
+  const getDateDisabledInfo = (d: Date): { disabled: boolean; reason?: string } => {
+    const dateStr = formatDateStr(d)
+
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
+    if (d < startOfToday) {
+      return { disabled: true, reason: 'Past date' }
+    }
+
+    if (staffTimeOff.has(dateStr)) {
+      return { disabled: true, reason: 'Staff is on time off' }
+    }
+
+    if (closedDates.has(dateStr)) {
+      return { disabled: true, reason: closedDates.get(dateStr) || 'Business is closed' }
+    }
+
+    const dayName = DAY_KEYS[d.getDay()]
+    const staffWorkingHours = getNormalizedWorkingHours(staff)
+    const daySchedule = staffWorkingHours?.[dayName]
+    if (daySchedule && daySchedule.isWorking === false) {
+      return { disabled: true, reason: `${staff?.firstName || 'Staff'} does not work on ${DAY_LABELS[dayName]}s` }
+    }
+
+    const adjustedDayOfWeek = d.getDay() === 0 ? 6 : d.getDay() - 1
+    const dayHours = businessHours.find((bh: any) => bh.dayOfWeek === adjustedDayOfWeek)
+    if (dayHours && dayHours.isClosed) {
+      return { disabled: true, reason: 'Business is closed on this day' }
+    }
+
+    return { disabled: false }
+  }
+
+  // Applies a chosen, already-validated date the same way handleInputChange
+  // did for the date field: sets it, resets the picked time, and loads slots.
+  const selectDate = (dateStr: string) => {
+    setFormData((prev) => ({ ...prev, date: dateStr, time: '' }))
+    setDateCalendarOpen(false)
+    if (formData.serviceId) {
+      loadAvailableSlots(dateStr, formData.serviceId)
+    }
+  }
+
+  const goToPrevMonth = () => {
+    setCalendarMonth((prev) => {
+      const next = new Date(prev)
+      next.setMonth(next.getMonth() - 1)
+      // Don't navigate before the current month
+      const startOfThisMonth = new Date()
+      startOfThisMonth.setDate(1)
+      startOfThisMonth.setHours(0, 0, 0, 0)
+      return next < startOfThisMonth ? prev : next
+    })
+  }
+
+  const goToNextMonth = () => {
+    setCalendarMonth((prev) => {
+      const next = new Date(prev)
+      next.setMonth(next.getMonth() + 1)
+      return next
+    })
+  }
+
+  useEffect(() => {
+  if (formData.date) {
+    const [y, m] = formData.date.split('-').map(Number)
+    setCalendarMonth(new Date(y, m - 1, 1))
+  }
+}, [formData.date])
 
   // Fetch availability data when date changes
   const loadAvailableSlots = async (selectedDate: string, selectedServiceId: string) => {
@@ -478,44 +594,13 @@ export default function StaffBookPage() {
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
+  const { name, value } = e.target
+  setFormData((prev) => ({ ...prev, [name]: value }))
 
-    // Check if date is a time-off date
-    if (name === 'date' && staffTimeOff.has(value)) {
-      toast({
-        title: 'Staff Unavailable',
-        description: 'The staff member is not available on this date. Please select another date.',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    // Check the staff's recurring weekly schedule (uses the same timezone-safe
-    // helper as loadAvailableSlots, so both checks agree on which weekday a
-    // given date string maps to).
-    if (name === 'date' && value) {
-      const dayName = getDayKeyFromDateString(value)
-      const daySchedule = (staff as any)?.workingHours?.[dayName]
-      if (daySchedule && daySchedule.isWorking === false) {
-        toast({
-          title: 'Staff Unavailable',
-          description: `${staff?.firstName} does not work on ${DAY_LABELS[dayName]}s. Please pick another date.`,
-          variant: 'destructive',
-        })
-        return
-      }
-    }
-
-    setFormData((prev) => ({ ...prev, [name]: value }))
-
-    // Load available slots when date or service changes
-    if (name === 'date' || name === 'serviceId') {
-      const newFormData = { ...formData, [name]: value }
-      if (newFormData.date && newFormData.serviceId) {
-        loadAvailableSlots(newFormData.date, newFormData.serviceId)
-      }
-    }
+  if (name === 'serviceId' && formData.date) {
+    loadAvailableSlots(formData.date, value)
   }
+}
 
 
 
@@ -904,20 +989,104 @@ export default function StaffBookPage() {
                 <h3 className="font-semibold text-sm">Appointment Date & Time</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                  <div className="relative" ref={dateCalendarRef}>
                     <Label htmlFor="date" className={validationErrors.has('date') ? 'text-red-600' : ''}>
                       Date *
                     </Label>
-                    <Input
+                    <button
+                      type="button"
                       id="date"
-                      name="date"
-                      type="date"
-                      value={formData.date}
-                      onChange={handleInputChange}
-                      min={new Date().toISOString().split('T')[0]}
-                      className={validationErrors.has('date') ? 'border-red-500 focus:border-red-500' : ''}
-                      required
-                    />
+                      onClick={() => setDateCalendarOpen((open) => !open)}
+                      className={`w-full flex items-center justify-between px-3 py-2 border rounded-md bg-background text-left text-sm ${validationErrors.has('date') ? 'border-red-500' : 'border-input'
+                        }`}
+                    >
+                      <span className={formData.date ? '' : 'text-muted-foreground'}>
+                        {formData.date
+                          ? new Date(formData.date + 'T00:00:00').toLocaleDateString(undefined, {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })
+                          : 'Select a date'}
+                      </span>
+                      <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                    </button>
+
+                    {dateCalendarOpen && (
+                      <div className="absolute z-20 mt-2 w-72 rounded-lg border border-border bg-card shadow-lg p-3">
+                        {/* Month navigation */}
+                        <div className="flex items-center justify-between mb-2">
+                          <button type="button" onClick={goToPrevMonth} className="p-1 rounded hover:bg-muted">
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <span className="text-sm font-semibold">
+                            {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                          </span>
+                          <button type="button" onClick={goToNextMonth} className="p-1 rounded hover:bg-muted">
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Weekday header */}
+                        <div className="grid grid-cols-7 gap-1 mb-1">
+                          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                            <div key={d} className="text-center text-xs font-medium text-muted-foreground">
+                              {d}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Day grid */}
+                        <div className="grid grid-cols-7 gap-1">
+                          {(() => {
+                            const year = calendarMonth.getFullYear()
+                            const month = calendarMonth.getMonth()
+                            const firstDayOfMonth = new Date(year, month, 1)
+                            const startOffset = firstDayOfMonth.getDay() // 0=Sun
+                            const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+                            const cells: JSX.Element[] = []
+
+                            for (let i = 0; i < startOffset; i++) {
+                              cells.push(<div key={`blank-${i}`} />)
+                            }
+
+                            for (let day = 1; day <= daysInMonth; day++) {
+                              const cellDate = new Date(year, month, day)
+                              const dateStr = formatDateStr(cellDate)
+                              const { disabled, reason } = getDateDisabledInfo(cellDate)
+                              const isSelected = formData.date === dateStr
+
+                              cells.push(
+                                <button
+                                  key={dateStr}
+                                  type="button"
+                                  disabled={disabled}
+                                  title={disabled ? reason : undefined}
+                                  onClick={() => !disabled && selectDate(dateStr)}
+                                  className={`h-8 w-8 mx-auto flex items-center justify-center rounded-md text-sm transition-colors ${disabled
+                                      ? 'text-muted-foreground/40 cursor-not-allowed line-through'
+                                      : isSelected
+                                        ? 'bg-primary text-primary-foreground font-semibold'
+                                        : 'hover:bg-primary/10 text-foreground'
+                                    }`}
+                                >
+                                  {day}
+                                </button>
+                              )
+                            }
+
+                            return cells
+                          })()}
+                        </div>
+
+                        {/* Legend */}
+                        <p className="mt-3 text-xs text-muted-foreground border-t pt-2">
+                          Greyed-out days are unavailable — staff time off, a day the staff or business doesn't work, or already past.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div>
