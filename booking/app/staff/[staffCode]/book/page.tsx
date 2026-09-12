@@ -425,29 +425,40 @@ export default function StaffBookPage() {
     }
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
+  const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
-    // Check if date is a time-off date
-    if (name === 'date' && staffTimeOff.has(value)) {
+const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const { name, value } = e.target
+
+  if (name === 'date' && staffTimeOff.has(value)) {
+    toast({ title: 'Staff Unavailable', description: 'The staff member is not available on this date. Please select another date.', variant: 'destructive' })
+    return
+  }
+
+  // NEW: check the staff's recurring weekly schedule
+  if (name === 'date' && value) {
+    const dayName = DAY_KEYS[new Date(value).getDay()]
+    const daySchedule = (staff as any)?.workingHours?.[dayName]
+    if (daySchedule && daySchedule.isWorking === false) {
       toast({
         title: 'Staff Unavailable',
-        description: 'The staff member is not available on this date. Please select another date.',
+        description: `${staff?.firstName} does not work on ${dayName.charAt(0).toUpperCase() + dayName.slice(1)}s. Please pick another date.`,
         variant: 'destructive',
       })
       return
     }
+  }
 
-    setFormData((prev) => ({ ...prev, [name]: value }))
-
-    // Load available slots when date or service changes
-    if (name === 'date' || name === 'serviceId') {
-      const newFormData = { ...formData, [name]: value }
-      if (newFormData.date && newFormData.serviceId) {
-        loadAvailableSlots(newFormData.date, newFormData.serviceId)
-      }
+  setFormData((prev) => ({ ...prev, [name]: value }))
+  if (name === 'date' || name === 'serviceId') {
+    const newFormData = { ...formData, [name]: value }
+    if (newFormData.date && newFormData.serviceId) {
+      loadAvailableSlots(newFormData.date, newFormData.serviceId)
     }
   }
+}
+
+   
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -305,25 +305,41 @@ function BookingPageContent() {
   }
 
   // Load available slots for the selected service (staff is optional)
+  const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+
   const loadAvailableSlots = async () => {
     if (!selectedService || !date || !businessId) return
 
-      if (!closedDates.has(date)) {
-    const todayReason = getTodayClosedReason(date)
-    if (todayReason) {
-      setAvailableSlots([])
-      setClosedReason(todayReason)
-      return
+    if (!closedDates.has(date)) {
+      const todayReason = getTodayClosedReason(date)
+      if (todayReason) {
+        setAvailableSlots([])
+        setClosedReason(todayReason)
+        return
+      }
     }
-  }
+
+    // NEW: check the selected staff member's own weekly schedule before hitting the API.
+    // Only applies when a specific staff member is chosen — "any available staff" (selectedStaff === null)
+    // should still fall through to the backend, which can pick someone who IS working that day.
+    if (selectedStaff) {
+      const dayName = DAY_KEYS[new Date(date).getDay()]
+      const daySchedule = (selectedStaff as any)?.workingHours?.[dayName]
+      if (daySchedule && daySchedule.isWorking === false) {
+        setAvailableSlots([])
+        setClosedReason(`${selectedStaff.firstName} does not work on ${dayName.charAt(0).toUpperCase() + dayName.slice(1)}s`)
+        setError('')
+        return
+      }
+    }
 
     try {
       setLoading(true)
+      setClosedReason(null) // clear any previous staff-day-off message
 
       const response = await bookingsApi.getBusinessAvailableSlots(businessId, selectedService.id, date, selectedStaff?.id)
 
       if (response.success) {
-        // Handle nested response: response.data could be array or {data: array}
         let slots: string[] = []
         if (Array.isArray(response.data)) {
           slots = response.data
@@ -331,9 +347,7 @@ function BookingPageContent() {
           slots = (response.data as any).data
         }
 
-
         if (slots.length > 0) {
-          // Store time strings directly
           setAvailableSlots(slots as any)
           setError('')
         } else {
@@ -804,6 +818,11 @@ function BookingPageContent() {
                   <div className="flex justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
                   </div>
+                ) : closedReason ? (
+                  <div className="flex items-center justify-center py-6 border border-input rounded-md bg-amber-50 border-amber-200">
+                    <AlertCircle className="w-4 h-4 mr-2 text-amber-600" />
+                    <span className="text-sm text-amber-600">{closedReason}</span>
+                  </div>
                 ) : availableSlots.length === 0 ? (
                   <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
                     <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
@@ -835,7 +854,7 @@ function BookingPageContent() {
               </div>
             )}
 
-              {/* Step 5: Customer Info */}
+            {/* Step 5: Customer Info */}
             {selectedService && date && selectedTime && (
               <div className="mb-8 p-6 bg-secondary/20 rounded-lg border border-border">
                 <div className="flex items-center justify-between mb-4">

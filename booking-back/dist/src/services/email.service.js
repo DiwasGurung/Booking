@@ -349,7 +349,7 @@ exports.emailService = {
             const ctaUrl = bookingDetails.verificationToken
                 ? `${process.env.NEXT_PUBLIC_APP_URL || APP_URL}/book/verify/${bookingDetails.verificationToken}`
                 : APP_URL;
-            const ctaLabel = bookingDetails.verificationToken ? 'Confirm & Visit Appoint Nepal' : 'Visit Appoint Nepal';
+            const ctaLabel = bookingDetails.verificationToken ? 'Visit Appoint Nepal' : 'Visit Appoint Nepal';
             const mailOptions = {
                 from: emailFrom,
                 to: customerEmail,

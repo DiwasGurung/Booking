@@ -63,14 +63,13 @@ class SeedController {
                     priceSemiAnnualNPR: 4794, // 6 months @ 20% discount
                     priceAnnualNPR: 8991, // 12 months @ 25% discount
                     features: [
-                        'Unlimited bookings',
-                        'Staff management (up to 5 staff)',
-                        'Customer database',
-                        'Email notifications & reminders for booking date',
-                        'Online booking',
-                        'Booking analytics and reports',
-                        'PDF export of filtered bookings',
-                        'Priority email support',
+                        "Unlimited bookings",
+                        "Staff management (up to 5 staff)",
+                        "Email notifications & reminders for booking date",
+                        "Online booking",
+                        "Booking analytics and reports",
+                        "PDF export of filtered bookings",
+                        "Priority email support",
                     ],
                     // Limits
                     maxAppointmentsPerMonth: -1, // Unlimited
@@ -99,14 +98,14 @@ class SeedController {
                     priceSemiAnnualNPR: 11994, // 6 months @ 20% discount
                     priceAnnualNPR: 22491, // 12 months @ 25% discount
                     features: [
-                        'Everything in Professional',
-                        'Unlimited staff',
-                        'Advanced booking analytics',
-                        'Staff performance analytics',
-                        'Custom branding',
-                        'Priority email support',
-                        'SMS reminders for booking date with customer visit history',
-                        'PDF export of filtered bookings',
+                        "Everything in Professional",
+                        "Unlimited staff",
+                        "Advanced booking analytics",
+                        "Staff performance analytics",
+                        "Custom analytics and history",
+                        "Priority email support",
+                        "SMS reminders for booking date",
+                        "PDF export of filtered bookings",
                     ],
                     // Limits
                     maxAppointmentsPerMonth: -1, // Unlimited
