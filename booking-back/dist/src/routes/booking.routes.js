@@ -36,6 +36,7 @@ bookingRoutes.post("/business", auth_middleware_1.auth, booking_controller_1.def
 // Get available slots for BUSINESS bookings (with staff/timeoff checking)
 bookingRoutes.get("/business/businesses/:businessId/services/:serviceId/available-slots", booking_controller_1.default.getBusinessAvailableSlots);
 bookingRoutes.post("/business/:businessId/notify-closure", auth_middleware_1.auth, booking_controller_1.default.notifyAndCancelForClosure);
+bookingRoutes.post('/business/manual', auth_middleware_1.auth, booking_controller_1.default.createManualBooking);
 // Get all bookings for a specific user/customer
 bookingRoutes.get("/users/:userId/bookings", auth_middleware_1.auth, booking_controller_1.default.getCustomerBookings);
 bookingRoutes.post("/businesses/:businessId/remind-today", auth_middleware_1.auth, booking_controller_1.default.sendTodayReminders);

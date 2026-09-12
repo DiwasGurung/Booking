@@ -410,6 +410,12 @@ export default function BookingsPage() {
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Bookings</h1>
             <p className="text-slate-500">Manage all customer bookings</p>
           </div>
+
+          <Link href="/dashboard/bookings/new">
+  <Button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white">
+    + Add Booking
+  </Button>
+</Link>
           {(canSendReminders || canExportBookings) && (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               {canSendReminders && (

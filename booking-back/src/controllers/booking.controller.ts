@@ -127,22 +127,28 @@ export async function sendBookingConfirmationByPlan(
 ) {
   const isEnterprise = business.subscription?.plan?.name === ENTERPRISE_PLAN
 
-  if (isEnterprise) {
-    if (!booking.customerPhone) {
-      console.warn(`[v0] Enterprise business ${businessId} booking ${booking.id} has no customer phone; skipping SMS confirmation`)
-      return
-    }
+  if (isEnterprise && booking.customerPhone) {
     const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
     const dt = DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ })
-    return SparrowSMSService.sendBookingConfirmation(businessId, booking.customerPhone, {
+
+    const result = await SparrowSMSService.sendBookingConfirmation(businessId, booking.customerPhone, {
       businessName: business.name,
       serviceName,
       date: dt.setLocale('en').toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
       time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
       bookingId: booking.id,
     })
+
+    if (result.success) return result
+
+    console.warn(`[v0] SMS confirmation failed for booking ${booking.id} (${result.error}); falling back to email`)
+    // fall through to email below
+  } else if (isEnterprise) {
+    console.warn(`[v0] Enterprise booking ${booking.id} has no customerPhone on file; falling back to email confirmation`)
   }
 
+  // Reached for: non-Enterprise plans (Starter/Professional), Enterprise with no phone,
+  // or Enterprise where the SMS send failed.
   return emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
     customerName: booking.customerName,
     serviceName,
@@ -634,14 +640,14 @@ class BookingController {
       // confirmation whose CTA button doubles as the verification link —
       // there's no separate verification email for this plan anymore.
       try {
-        if (alreadyVerified) {
-          await sendBookingConfirmationByPlan(businessId, booking.business, booking, booking.service.name)
-        } else if (isEmailVerificationPlan && verificationToken) {
-          await sendBookingConfirmationByPlan(businessId, booking.business, booking, booking.service.name, verificationToken)
-        }
-      } catch (notifyError) {
-        console.error('[v0] Failed to send booking confirmation:', notifyError)
-      }
+  if (alreadyVerified) {
+    await sendBookingConfirmationByPlan(businessId, booking.business, booking, booking.service.name)
+  } else if (isEmailVerificationPlan && verificationToken) {
+    await sendBookingConfirmationByPlan(businessId, booking.business, booking, booking.service.name, verificationToken)
+  } 
+} catch (notifyError) {
+  console.error('[v0] Failed to send booking confirmation:', notifyError)
+}
 
       res.status(201).json({
         success: true,
@@ -664,6 +670,131 @@ class BookingController {
       res.status(500).json({ success: false, error: error?.message || "Failed to create booking" })
     }
   }
+
+  /**
+ * Manual booking creation by a business owner from the dashboard.
+ * Skips public verification entirely — an owner creating a booking on a
+ * customer's behalf is trusted by definition, so it's created straight
+ * into CONFIRMED. Deliberately minimal: no slot-generation UI, no
+ * multi-channel verification branching — just create it, and best-effort
+ * notify the customer if we have an email on file.
+ */
+async createManualBooking(req: Request, res: Response): Promise<Response | void> {
+  try {
+    const userId = (req as any).userId
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Please log in to create a booking." })
+    }
+
+    const {
+      businessId,
+      serviceId,
+      staffId,
+      customerName,
+      customerEmail,
+      customerPhone,
+      startTime: bodyStartTime,
+      notes,
+    } = req.body
+
+    if (!businessId || !serviceId || !customerName || !bodyStartTime) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: businessId, serviceId, customerName, startTime",
+      })
+    }
+
+    // Confirm this business belongs to the requesting owner — a manual
+    // booking is a privileged write, so businessId from the body alone
+    // isn't trusted.
+    const business = await prisma.business.findFirst({
+      where: { id: businessId, userId },
+    })
+    if (!business) {
+      return res.status(403).json({ success: false, message: "You don't have access to this business." })
+    }
+
+    const service = await prisma.service.findUnique({ where: { id: serviceId } })
+    if (!service || service.businessId !== businessId) {
+      return res.status(404).json({ success: false, message: "Service not found" })
+    }
+
+    if (staffId) {
+      const staff = await prisma.staff.findUnique({ where: { id: staffId } })
+      if (!staff || staff.businessId !== businessId) {
+        return res.status(404).json({ success: false, message: "Staff member not found" })
+      }
+    }
+
+    const startTime = new Date(bodyStartTime)
+    if (isNaN(startTime.getTime())) {
+      return res.status(400).json({ success: false, message: "Invalid startTime" })
+    }
+    const endTime = new Date(startTime.getTime() + (service.duration || 60) * 60000)
+
+    // Basic double-booking guard when a specific staff member is chosen.
+    // No availability grid for manual bookings — the owner is trusted to
+    // pick a sane time; this just stops an accidental overlap.
+    if (staffId) {
+      const conflict = await prisma.booking.findFirst({
+        where: {
+          staffId,
+          status: { in: ['CONFIRMED', 'PENDING'] },
+          startTime: { lt: endTime },
+          endTime: { gt: startTime },
+        },
+      })
+      if (conflict) {
+        return res.status(409).json({
+          success: false,
+          message: "This staff member already has a booking that overlaps this time.",
+        })
+      }
+    }
+
+    const booking = await prisma.booking.create({
+      data: {
+        startTime,
+        endTime,
+        customerName,
+        customerEmail: customerEmail || '',
+        customerPhone: customerPhone || '',
+        notes: notes || '',
+        status: 'CONFIRMED',
+        isEmailVerified: true,
+        isPhoneVerified: true,
+        service: { connect: { id: serviceId } },
+        business: { connect: { id: businessId } },
+        ...(staffId ? { staff: { connect: { id: staffId } } } : {}),
+      },
+      include: { service: true, staff: true },
+    })
+
+    // Best-effort confirmation — never blocks the response on failure.
+    if (customerEmail) {
+      try {
+        const businessForNotify = await prisma.business.findUnique({
+          where: { id: businessId },
+          include: { subscription: { select: { plan: { select: { name: true } } } } },
+        })
+        if (businessForNotify) {
+          await sendBookingConfirmationByPlan(businessId, businessForNotify, booking, service.name)
+        }
+      } catch (notifyError) {
+        console.error('[v0] Failed to send manual booking confirmation:', notifyError)
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Booking created successfully.',
+      data: { booking },
+    })
+  } catch (error: any) {
+    console.error('[v0] Manual booking creation error:', error)
+    return res.status(500).json({ success: false, error: error?.message || "Failed to create booking" })
+  }
+}
 
   /**
      * Create a new booking for authenticated users

@@ -55,6 +55,8 @@ bookingRoutes.get(
 
 bookingRoutes.post("/business/:businessId/notify-closure", auth, BookingController.notifyAndCancelForClosure)
 
+bookingRoutes.post('/business/manual', auth, BookingController.createManualBooking)
+
 
 // Get all bookings for a specific user/customer
 bookingRoutes.get("/users/:userId/bookings", auth, BookingController.getCustomerBookings);

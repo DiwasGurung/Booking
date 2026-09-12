@@ -488,6 +488,23 @@ export const phoneVerificationApi = {
 
 // Bookings API - /api/booking prefix
 export const bookingsApi = {
+
+    // Create a manual booking on behalf of a customer (business owner/dashboard use)
+  createManualBooking: (data: {
+    businessId: string
+    serviceId: string
+    staffId?: string
+    customerName: string
+    customerEmail?: string
+    customerPhone?: string
+    startTime: string
+    notes?: string
+  }) =>
+    apiCall<{ booking: Booking }>('/api/booking/business/manual', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  
   // ==================== STAFF INDIVIDUAL BOOKING ====================
   // Create a new booking for authenticated users (staff individual booking)
   createBooking: (data: {
