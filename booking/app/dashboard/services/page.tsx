@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { servicesApi } from '@/lib/api'
-import { Loader, AlertCircle, Edit, Trash2, Plus, Copy, Check } from 'lucide-react'
+import { Loader, AlertCircle, Edit, Trash2, Plus } from 'lucide-react'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionUsage } from '@/hooks/useSubscriptionUsage'
 
@@ -44,7 +44,6 @@ export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
@@ -53,7 +52,6 @@ export default function ServicesPage() {
   const [description, setDescription] = useState('')
   const [capacity, setCapacity] = useState('1')
   const [isServiceActive, setIsServiceActive] = useState(true)
-  const bookingUrl = businessId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/book/${businessId}` : ''
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { usage: subscriptionUsage, refetch: refetchUsage } = useSubscriptionUsage(businessId)
 
@@ -174,11 +172,7 @@ export default function ServicesPage() {
       setIsSubmitting(false)
     }
   }
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(bookingUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+
 
   if (loading || fetchingBusinessId) {
     return (
@@ -257,34 +251,6 @@ export default function ServicesPage() {
           <p className="text-muted-foreground">Manage your services and business hours</p>
         </div>
 
-        {/* Booking URL Section */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Booking Page URL</CardTitle>
-            <CardDescription>Share this link with customers to book appointments</CardDescription>
-          </CardHeader>
-          <CardContent className="flex gap-2">
-            <Input value={bookingUrl} readOnly className="flex-1" />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={copyToClipboard}
-              className="flex items-center gap-2"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4" />
-                  Copy
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
 
         {/* Services Section */}
         <div className="grid gap-6 lg:grid-cols-3 mb-8">

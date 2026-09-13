@@ -11,11 +11,12 @@ import { AuthWrapper } from '@/components/AuthWrapper'
 import Link from 'next/link'
 import {
   Loader, Calendar, CheckCircle, TrendingUp, AlertCircle,
-  Eye, ArrowRight, BarChart3, Clock
+  Eye, ArrowRight, BarChart3, Clock, Copy, Check
 } from 'lucide-react'
 import { businessApi, bookingsApi, paymentApi, businessHoursApi } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
+import { Input } from '@/components/ui/Input'
 
 interface BusinessStats {
   totalBookings: number
@@ -66,6 +67,14 @@ export default function BusinessDashboardPage() {
   const [error, setError] = useState<string | null>(null)
   // null = still loading; true/false once hours are known
   const [hoursConfigured, setHoursConfigured] = useState<boolean | null>(null)
+  const [copied, setCopied] = useState(false)
+const bookingUrl = businessId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/book/${businessId}` : ''
+
+const copyToClipboard = () => {
+  navigator.clipboard.writeText(bookingUrl)
+  setCopied(true)
+  setTimeout(() => setCopied(false), 2000)
+}
 
   // Check subscription status and redirect if no subscription
   useEffect(() => {
@@ -161,6 +170,36 @@ export default function BusinessDashboardPage() {
               ]}
             />
           </div>
+             {/* Booking URL Section */}
+          {businessId && (
+            <Card className="mb-4 md:mb-6 border border-slate-200 shadow-sm p-4 md:p-6 bg-white">
+              <div className="mb-3">
+                <h3 className="text-base md:text-lg font-semibold text-slate-900">Booking Page URL</h3>
+                <p className="text-xs md:text-sm text-slate-500">Share this link with customers to book appointments</p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input value={bookingUrl} readOnly className="flex-1 min-w-0" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={copyToClipboard}
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto flex-shrink-0"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      Copy
+                    </>
+                  )}
+                </Button>
+              </div>
+            </Card>
+          )}
 
           {/* Error Alert */}
           {error && (
