@@ -910,7 +910,7 @@ class BookingController {
             // Convert verified string to boolean
             const verifiedValue = verified === 'true' ? true : verified === 'false' ? false : undefined;
             // Validate status against BookingStatus enum
-            const validStatuses = ['PENDING', 'CONFIRMED', 'CANCELLED'];
+            const validStatuses = ['PENDING', "UNVERIFIED", 'CONFIRMED', 'CANCELLED'];
             let validatedStatus;
             if (status && validStatuses.includes(status)) {
                 validatedStatus = status;

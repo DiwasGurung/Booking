@@ -1091,7 +1091,7 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
       const verifiedValue = verified === 'true' ? true : verified === 'false' ? false : undefined
 
       // Validate status against BookingStatus enum
-      const validStatuses: BookingStatus[] = ['PENDING', 'CONFIRMED', 'CANCELLED']
+      const validStatuses: BookingStatus[] = ['PENDING',"UNVERIFIED", 'CONFIRMED', 'CANCELLED']
       let validatedStatus: BookingStatus | undefined
       if (status && validStatuses.includes(status as BookingStatus)) {
         validatedStatus = status as BookingStatus
