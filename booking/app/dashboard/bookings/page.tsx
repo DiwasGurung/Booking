@@ -36,7 +36,7 @@ const STATUS_FILTERS: StatusFilter[] = ['ALL', 'UNVERIFIED', 'CONFIRMED', 'COMPL
 // Statuses the backend endpoint actually validates/accepts as a `status` query param.
 // Anything else must be filtered on the client (the server ignores unknown values
 // and returns everything, which is what made the filters look broken).
-const SERVER_SUPPORTED: StatusFilter[] = ['CONFIRMED', 'CANCELLED']
+const SERVER_SUPPORTED: StatusFilter[] = ['UNVERIFIED', 'COMPLETED','CONFIRMED', 'CANCELLED']
 
 const PAGE_SIZE = 10
 
