@@ -134,6 +134,9 @@ const copyToClipboard = () => {
       setLoading(false)
     }
   }
+  const totalRevenue = recentBookings
+  .filter((b) => b.status === 'COMPLETED')
+  .reduce((sum, b) => sum + (b.service?.price || 0), 0)
 
   const statCards = [
     {
@@ -152,6 +155,14 @@ const copyToClipboard = () => {
       bg: 'bg-emerald-50',
       href: '/dashboard/bookings'
     },
+     {
+    title: 'Total Revenue',
+    value: `Rs.${totalRevenue.toFixed(2)}`,
+    icon: TrendingUp,
+    color: 'text-purple-600',
+    bg: 'bg-purple-50',
+    href: '/dashboard'
+  },
   ]
 
   return (

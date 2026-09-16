@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { AlertCircle, Calendar, CheckCircle, Clock, Copy, Link as LinkIcon, User, Mail, Loader } from 'lucide-react'
+import {
+  AlertCircle, Calendar, CheckCircle, Clock, Copy, Link as LinkIcon,
+  User, Mail, Loader, Search, X, Wallet, XCircle
+} from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { StaffSidebar } from '@/components/StaffSidebar'
 
@@ -38,6 +41,8 @@ interface Booking {
   notes?: string
 }
 
+type TabKey = 'upcoming' | 'past'
+
 export default function StaffDashboard() {
   const router = useRouter()
   const { toast } = useToast()
@@ -47,6 +52,12 @@ export default function StaffDashboard() {
   const [staff, setStaff] = useState<Staff | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [staffCode, setStaffCode] = useState('')
+
+  const [activeTab, setActiveTab] = useState<TabKey>('upcoming')
+  const [searchQuery, setSearchQuery] = useState('')
+  // Tracks which booking currently has a status-change request in flight,
+  // so we can disable just that row's buttons and show a small spinner.
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
 
   useEffect(() => {
     const verifyAndLoadData = async () => {
@@ -106,7 +117,7 @@ export default function StaffDashboard() {
         const bookingsData = await bookingsResponse.json()
         setBookings(Array.isArray(bookingsData) ? bookingsData : bookingsData.bookings || [])
       } catch (err: any) {
-  
+
         setError('Failed to load dashboard data')
       } finally {
         setLoading(false)
@@ -147,19 +158,99 @@ export default function StaffDashboard() {
     })
   }
 
-const now = new Date()
-const upcomingBookings = bookings.filter(
-  (booking) =>
-    !['COMPLETED', 'CANCELLED'].includes(booking.status) &&
-    new Date(booking.startTime) >= now
-)
+  // NOTE: this assumes a `PATCH /api/staff/bookings/:id/status` route exists
+  // on the backend that accepts { status: 'COMPLETED' | 'CANCELLED' } and
+  // returns the updated booking (or 200/204). Adjust the path/payload to
+  // match your actual API if it differs.
+  const updateBookingStatus = async (bookingId: string, status: 'COMPLETED' | 'CANCELLED') => {
+    const previousBookings = bookings
+    setUpdatingId(bookingId)
 
-const upcomingBookingsCount = bookings.filter((booking) => {
-  const start = new Date(booking.startTime)
-  return !['COMPLETED', 'CANCELLED'].includes(booking.status) && start >= now
-}).length
+    // Optimistic update so the row moves/updates immediately.
+    setBookings((prev) =>
+      prev.map((b) => (b.id === bookingId ? { ...b, status } : b))
+    )
+
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+      const response = await fetch(`${API_URL}/api/staff/bookings/${bookingId}/status`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update booking status')
+      }
+
+      toast({
+        title: status === 'COMPLETED' ? 'Marked as completed' : 'Booking cancelled',
+        description:
+          status === 'COMPLETED'
+            ? 'The appointment has been marked as completed.'
+            : 'The appointment has been cancelled.',
+      })
+    } catch (err) {
+      // Roll back on failure.
+      setBookings(previousBookings)
+      toast({
+        title: 'Something went wrong',
+        description: 'Could not update the booking. Please try again.',
+        variant: 'destructive' as any,
+      })
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
+  const handleMarkComplete = (bookingId: string) => {
+    updateBookingStatus(bookingId, 'COMPLETED')
+  }
+
+  const handleCancel = (bookingId: string) => {
+    const confirmed = window.confirm('Cancel this booking? The customer will need to rebook if this was a mistake.')
+    if (!confirmed) return
+    updateBookingStatus(bookingId, 'CANCELLED')
+  }
+
+  const now = new Date()
+
+  const upcomingBookings = bookings.filter(
+    (booking) =>
+      !['COMPLETED', 'CANCELLED'].includes(booking.status) &&
+      new Date(booking.startTime) >= now
+  )
+
+  const pastBookings = bookings.filter(
+    (booking) =>
+      ['COMPLETED', 'CANCELLED'].includes(booking.status) ||
+      new Date(booking.startTime) < now
+  )
+
+  const upcomingBookingsCount = upcomingBookings.length
   const completedBookings = bookings.filter((booking) => booking.status === 'COMPLETED').length
   const pendingBookings = bookings.filter((booking) => ['PENDING', 'UNVERIFIED'].includes(booking.status)).length
+
+  const totalEarnings = bookings
+    .filter((booking) => booking.status === 'COMPLETED')
+    .reduce((sum, booking) => sum + (booking.service?.price || 0), 0)
+
+  const activeList = activeTab === 'upcoming' ? upcomingBookings : pastBookings
+
+  const filteredList = searchQuery.trim()
+    ? activeList.filter((booking) =>
+        booking.customer.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
+      )
+    : activeList
+
+  // Newest first for past bookings so recent history is at the top.
+  const sortedList =
+    activeTab === 'past'
+      ? [...filteredList].sort(
+          (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+        )
+      : filteredList
 
   if (loading) {
     return (
@@ -217,12 +308,13 @@ const upcomingBookingsCount = bookings.filter((booking) => {
           </Button>
         </div>
 
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {[
             { label: 'Total bookings', value: bookings.length, icon: Calendar, tone: 'bg-primary/10 text-primary' },
             { label: 'Upcoming', value: upcomingBookingsCount, icon: Clock, tone: 'bg-blue-500/10 text-blue-700' },
             { label: 'Completed', value: completedBookings, icon: CheckCircle, tone: 'bg-emerald-500/10 text-emerald-700' },
             { label: 'Needs attention', value: pendingBookings, icon: AlertCircle, tone: 'bg-amber-500/10 text-amber-700' },
+            { label: 'Earnings', value: `Rs.${totalEarnings.toFixed(2)}`, icon: Wallet, tone: 'bg-purple-500/10 text-purple-700' },
           ].map((stat) => {
             const Icon = stat.icon
             return (
@@ -316,66 +408,180 @@ const upcomingBookingsCount = bookings.filter((booking) => {
           </CardContent>
         </Card>
 
-        {/* Upcoming Bookings */}
+        {/* Bookings: Upcoming / Past */}
         <Card>
           <CardHeader>
-            <CardTitle>Upcoming Bookings</CardTitle>
-            <CardDescription>Your confirmed appointments</CardDescription>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle>Bookings</CardTitle>
+                <CardDescription>
+                  {activeTab === 'upcoming' ? 'Your confirmed appointments' : 'Completed and cancelled appointments'}
+                </CardDescription>
+              </div>
+
+              {/* Tabs */}
+              <div className="inline-flex rounded-lg border border-border bg-muted/40 p-1 self-start">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('upcoming')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    activeTab === 'upcoming'
+                      ? 'bg-white shadow-sm text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Upcoming ({upcomingBookings.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('past')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    activeTab === 'past'
+                      ? 'bg-white shadow-sm text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Past ({pastBookings.length})
+                </button>
+              </div>
+            </div>
+
+            {/* Search */}
+            <div className="relative mt-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by customer name..."
+                className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {bookings.length === 0 ? (
               <div className="py-12 text-center">
                 <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-                <p className="text-muted-foreground">No upcoming bookings yet</p>
+                <p className="text-muted-foreground">No bookings yet</p>
                 <p className="text-sm text-muted-foreground mt-2">
                   Share your booking link to get your first booking!
                 </p>
               </div>
+            ) : sortedList.length === 0 ? (
+              <div className="py-12 text-center">
+                <Search className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-50" />
+                <p className="text-muted-foreground">
+                  {searchQuery ? 'No bookings match that search' : `No ${activeTab} bookings`}
+                </p>
+              </div>
             ) : (
               <div className="space-y-4">
-                {upcomingBookings.map((booking) => (
-                  <div key={booking.id} className="border rounded-lg p-4 hover:bg-accent/50 transition-colors">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Customer Info */}
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Customer</p>
-                        <p className="font-semibold">{booking.customer.name}</p>
-                        <p className="text-sm text-muted-foreground">{booking.customer.email}</p>
-                      </div>
+                {sortedList.map((booking) => {
+                  const isUpdating = updatingId === booking.id
+                  return (
+                    <div key={booking.id} className="border rounded-lg p-4 hover:bg-accent/50 transition-colors">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Customer Info */}
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">Customer</p>
+                          <p className="font-semibold">{booking.customer.name}</p>
+                          <p className="text-sm text-muted-foreground">{booking.customer.email}</p>
+                        </div>
 
-                      {/* Service & Time */}
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Service</p>
-                        <p className="font-semibold">{booking.service.name}</p>
-                        <div className="flex items-center gap-2 mt-2 text-sm">
-                          <Clock className="w-4 h-4 text-muted-foreground" />
-                          <span>{booking.service.duration} minutes</span>
+                        {/* Service & Time */}
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">Service</p>
+                          <p className="font-semibold">{booking.service.name}</p>
+                          <div className="flex items-center gap-2 mt-2 text-sm">
+                            <Clock className="w-4 h-4 text-muted-foreground" />
+                            <span>{booking.service.duration} minutes</span>
+                          </div>
+                        </div>
+
+                        {/* Date & Time */}
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-1">Appointment</p>
+                          <p className="font-semibold">
+                            {new Date(booking.startTime).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm">
+                            {new Date(booking.startTime).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
                         </div>
                       </div>
 
-                      {/* Date & Time */}
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">Appointment</p>
-                        <p className="font-semibold">
-                          {new Date(booking.startTime).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm">
-                          {new Date(booking.startTime).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </p>
+                      {booking.notes && (
+                        <div className="mt-4 pt-4 border-t">
+                          <p className="text-sm text-muted-foreground mb-1">Notes</p>
+                          <p className="text-sm">{booking.notes}</p>
+                        </div>
+                      )}
+
+                      <div className="mt-4 pt-4 border-t flex items-center justify-between gap-3 flex-wrap">
+                        <span
+                          className={`text-xs font-medium px-2 py-1 rounded-full ${
+                            booking.status === 'COMPLETED'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : booking.status === 'CANCELLED'
+                                ? 'bg-red-100 text-red-800'
+                                : booking.status === 'CONFIRMED'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {booking.status}
+                        </span>
+
+                        {activeTab === 'upcoming' && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isUpdating}
+                              onClick={() => handleCancel(booking.id)}
+                              className="text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                              {isUpdating ? (
+                                <Loader className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <XCircle className="w-4 h-4 mr-1" />
+                                  Cancel
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={isUpdating}
+                              onClick={() => handleMarkComplete(booking.id)}
+                            >
+                              {isUpdating ? (
+                                <Loader className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <CheckCircle className="w-4 h-4 mr-1" />
+                                  Mark Complete
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
-
-                    {booking.notes && (
-                      <div className="mt-4 pt-4 border-t">
-                        <p className="text-sm text-muted-foreground mb-1">Notes</p>
-                        <p className="text-sm">{booking.notes}</p>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </CardContent>
