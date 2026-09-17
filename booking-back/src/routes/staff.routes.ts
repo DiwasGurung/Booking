@@ -15,7 +15,8 @@ import {
   addTimeOff,
   getTimeOff,
   getStaffBookingsByDate,
-  getStaffPerformance
+  getStaffPerformance,
+  updateBookingStatus
 } from "../controllers/staff.controller"
 
 const router = Router()
@@ -96,6 +97,13 @@ router.get("/code/:staffCode", getStaffByCode)
  * @access Public
  */
 router.get("/code/:staffCode/bookings", getStaffBookings)
+
+/**
+ * @route PATCH /api/staff/bookings/:bookingId/status
+ * @desc Mark a booking COMPLETED or CANCELLED from the staff dashboard
+ * @access Private (Staff - can only update their own bookings)
+ */
+router.patch("/bookings/:bookingId/status", auth, updateBookingStatus)
 
 
 /**

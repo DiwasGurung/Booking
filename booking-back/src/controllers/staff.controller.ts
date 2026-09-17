@@ -278,6 +278,68 @@ export const getStaffByCode = async (req: Request, res: Response) => {
 }
 
 /**
+ * Update the status of a booking (mark complete / cancel) from the staff
+ * self-service dashboard. Only the staff member the booking is assigned to
+ * may change its status.
+ *
+ * NOTE: this relies on a staff-auth middleware having set `req.staffId`
+ * (the same pattern used by getStaffAuthenticatedBookings above). Wire the
+ * matching middleware onto this route — see staff.routes.ts.
+ */
+export const updateBookingStatus = async (req: any, res: Response) => {
+  try {
+    const bookingId = req.params.bookingId as string
+    const { status } = req.body
+    const requestingStaffId = req.staffId // From staff-auth middleware
+ 
+    if (!requestingStaffId) {
+      return res.status(401).json({ error: "Unauthorized" })
+    }
+ 
+    const allowedStatuses = ["COMPLETED", "CANCELLED"]
+    if (!status || !allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        error: `Status is required and must be one of: ${allowedStatuses.join(", ")}`,
+      })
+    }
+ 
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } })
+ 
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found" })
+    }
+ 
+    // Security: staff can only update bookings assigned to them.
+    if (booking.staffId !== requestingStaffId) {
+      return res.status(403).json({ error: "Unauthorized: You can only update your own bookings" })
+    }
+ 
+    // Avoid re-updating a booking that's already in a terminal state.
+    if (["COMPLETED", "CANCELLED"].includes(booking.status)) {
+      return res.status(400).json({ error: `Booking is already ${booking.status.toLowerCase()}` })
+    }
+ 
+    const updatedBooking = await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status },
+      include: {
+        customer: {
+          select: { id: true, name: true, email: true, phone: true },
+        },
+        service: {
+          select: { id: true, name: true, duration: true, price: true },
+        },
+      },
+    })
+ 
+    res.json({ success: true, booking: updatedBooking })
+  } catch (error: any) {
+    console.error("[Staff Controller] Update booking status error:", error.message)
+    res.status(500).json({ error: "Failed to update booking status" })
+  }
+}
+
+/**
  * Get staff bookings by staffCode (public - for staff booking view)
  */
 export const getStaffBookings = async (req: Request, res: Response) => {

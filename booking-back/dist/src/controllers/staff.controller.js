@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getStaffBookingsByDate = exports.addTimeOff = exports.getTimeOff = exports.getStaffAuthenticatedBookings = exports.getStaffBookings = exports.getStaffByCode = exports.getStaffStats = exports.getStaffAvailability = exports.toggleStaffStatus = exports.deleteStaff = exports.updateStaff = exports.getStaffPerformance = exports.getStaffForService = exports.getBusinessStaff = exports.getStaffById = exports.createStaff = void 0;
+exports.getStaffBookingsByDate = exports.addTimeOff = exports.getTimeOff = exports.getStaffAuthenticatedBookings = exports.getStaffBookings = exports.updateBookingStatus = exports.getStaffByCode = exports.getStaffStats = exports.getStaffAvailability = exports.toggleStaffStatus = exports.deleteStaff = exports.updateStaff = exports.getStaffPerformance = exports.getStaffForService = exports.getBusinessStaff = exports.getStaffById = exports.createStaff = void 0;
 const staff_service_1 = __importDefault(require("../services/staff.service"));
 const index_1 = require("../validators/index");
 const subscription_service_1 = __importDefault(require("../services/subscription.service"));
@@ -256,6 +256,61 @@ const getStaffByCode = async (req, res) => {
     }
 };
 exports.getStaffByCode = getStaffByCode;
+/**
+ * Update the status of a booking (mark complete / cancel) from the staff
+ * self-service dashboard. Only the staff member the booking is assigned to
+ * may change its status.
+ *
+ * NOTE: this relies on a staff-auth middleware having set `req.staffId`
+ * (the same pattern used by getStaffAuthenticatedBookings above). Wire the
+ * matching middleware onto this route — see staff.routes.ts.
+ */
+const updateBookingStatus = async (req, res) => {
+    try {
+        const bookingId = req.params.bookingId;
+        const { status } = req.body;
+        const requestingStaffId = req.staffId; // From staff-auth middleware
+        if (!requestingStaffId) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+        const allowedStatuses = ["COMPLETED", "CANCELLED"];
+        if (!status || !allowedStatuses.includes(status)) {
+            return res.status(400).json({
+                error: `Status is required and must be one of: ${allowedStatuses.join(", ")}`,
+            });
+        }
+        const booking = await prisma_1.default.booking.findUnique({ where: { id: bookingId } });
+        if (!booking) {
+            return res.status(404).json({ error: "Booking not found" });
+        }
+        // Security: staff can only update bookings assigned to them.
+        if (booking.staffId !== requestingStaffId) {
+            return res.status(403).json({ error: "Unauthorized: You can only update your own bookings" });
+        }
+        // Avoid re-updating a booking that's already in a terminal state.
+        if (["COMPLETED", "CANCELLED"].includes(booking.status)) {
+            return res.status(400).json({ error: `Booking is already ${booking.status.toLowerCase()}` });
+        }
+        const updatedBooking = await prisma_1.default.booking.update({
+            where: { id: bookingId },
+            data: { status },
+            include: {
+                customer: {
+                    select: { id: true, name: true, email: true, phone: true },
+                },
+                service: {
+                    select: { id: true, name: true, duration: true, price: true },
+                },
+            },
+        });
+        res.json({ success: true, booking: updatedBooking });
+    }
+    catch (error) {
+        console.error("[Staff Controller] Update booking status error:", error.message);
+        res.status(500).json({ error: "Failed to update booking status" });
+    }
+};
+exports.updateBookingStatus = updateBookingStatus;
 /**
  * Get staff bookings by staffCode (public - for staff booking view)
  */
