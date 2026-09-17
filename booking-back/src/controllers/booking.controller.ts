@@ -478,6 +478,7 @@ class BookingController {
         customerPhone: user?.phone || '',
         notes: notes || '',
         status: bookingStatus,
+        price: service.offerPrice ?? service.price, 
         isEmailVerified: true,
         isPhoneVerified,
         user: { connect: { id: userId } },
@@ -761,6 +762,7 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
         customerPhone: customerPhone || '',
         notes: notes || '',
         status: 'CONFIRMED',
+        price: service.offerPrice ?? service.price, 
         isEmailVerified: true,
         isPhoneVerified: true,
         service: { connect: { id: serviceId } },
@@ -914,7 +916,8 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
         customerEmail: user.email,
         customerPhone: user.phone || '',
         notes: notes || '',
-        status: 'CONFIRMED', // Authenticated users are immediately confirmed
+        status: 'CONFIRMED', 
+        price: service.offerPrice ?? service.price, 
         isEmailVerified: true, // Already verified since user is authenticated
         user: { connect: { id: userId } }, // Link to authenticated user using relation
         service: { connect: { id: serviceId } },
@@ -1465,6 +1468,7 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
         customerPhone,
         notes: notes || '',
         status: alreadyVerified ? 'CONFIRMED' : 'UNVERIFIED',
+        price: service.offerPrice ?? service.price, 
         isEmailVerified: isEmailVerificationPlan ? alreadyVerified : (customer.isEmailVerified === true),
         isPhoneVerified: isEmailVerificationPlan ? (customer.isPhoneVerified === true) : alreadyVerified,
         ...(isEmailVerificationPlan && !alreadyVerified ? { verificationToken, verificationTokenExpires } : {}),

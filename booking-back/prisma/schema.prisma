@@ -342,6 +342,8 @@ model Booking {
   userId String?
   user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  price      Float 
+
   startTime     DateTime
   endTime       DateTime
   customerName  String
