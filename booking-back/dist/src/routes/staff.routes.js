@@ -75,7 +75,7 @@ router.get("/code/:staffCode/bookings", staff_controller_1.getStaffBookings);
  * @desc Mark a booking COMPLETED or CANCELLED from the staff dashboard
  * @access Private (Staff - can only update their own bookings)
  */
-router.patch("/bookings/:bookingId/status", auth_middleware_1.auth, staff_controller_1.updateBookingStatus);
+router.patch("/bookings/:bookingId/status", staff_controller_1.updateBookingStatus);
 /**
  * @route GET /api/staff/:staffId/time-off
  * @desc Get time off for a staff member

@@ -103,7 +103,7 @@ router.get("/code/:staffCode/bookings", getStaffBookings)
  * @desc Mark a booking COMPLETED or CANCELLED from the staff dashboard
  * @access Private (Staff - can only update their own bookings)
  */
-router.patch("/bookings/:bookingId/status", auth, updateBookingStatus)
+router.patch("/bookings/:bookingId/status",updateBookingStatus)
 
 
 /**
