@@ -9,7 +9,7 @@ import type { BookingStatus } from "@prisma/client";
 import { DateTime } from 'luxon'
 
 // Adjust to match your SubscriptionPlan enum's actual value for Enterprise.
-const ENTERPRISE_PLAN = "ENTERPRISE"
+const ENTERPRISE_PLAN = "enterprise"
 
 type ConfirmationBusiness = {
   name: string

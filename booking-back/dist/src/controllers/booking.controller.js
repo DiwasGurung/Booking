@@ -12,7 +12,7 @@ const sparrow_sms_service_1 = __importDefault(require("../services/sparrow-sms.s
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const luxon_1 = require("luxon");
 // Adjust to match your SubscriptionPlan enum's actual value for Enterprise.
-const ENTERPRISE_PLAN = "ENTERPRISE";
+const ENTERPRISE_PLAN = "enterprise";
 async function notifyCancellationByPlan(business, plan, booking, serviceName, reasonNote) {
     const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
     const dt = luxon_1.DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ });
