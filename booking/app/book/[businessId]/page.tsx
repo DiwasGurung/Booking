@@ -179,29 +179,39 @@ setError(reason || 'Please choose a different date for this staff member')
 
 
   const sendPhoneVerificationCode = async (id: string) => {
-    setSendingCode(true)
-    setCodeError(null)
-    try {
-      const res = await fetch(`${API_URL}/api/public-verification/bookings/${id}/send-phone-verification`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ purpose: 'PHONE_VERIFICATION' }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) {
-        setCodeError(data.error || 'Failed to send verification code')
-        if (typeof data.retryAfterSeconds === 'number') setResendCooldown(data.retryAfterSeconds)
-        return false
-      }
-      setResendCooldown(30)
+  setSendingCode(true)
+  setCodeError(null)
+  try {
+    const res = await fetch(`${API_URL}/api/public-verification/bookings/${id}/send-phone-verification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ purpose: 'PHONE_VERIFICATION' }),
+    })
+    const data = await res.json()
+
+    // If the backend tells us this phone is already verified, there's
+    // nothing to send and nothing for the customer to enter — skip the
+    // code-entry step entirely and treat the booking as confirmed.
+    if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
+      setShowVerificationModal(false)
+      setBookingSuccess(true)
       return true
-    } catch {
-      setCodeError('Failed to send verification code. Please try again.')
-      return false
-    } finally {
-      setSendingCode(false)
     }
+
+    if (!res.ok || !data.success) {
+      setCodeError(data.error || 'Failed to send verification code')
+      if (typeof data.retryAfterSeconds === 'number') setResendCooldown(data.retryAfterSeconds)
+      return false
+    }
+    setResendCooldown(30)
+    return true
+  } catch {
+    setCodeError('Failed to send verification code. Please try again.')
+    return false
+  } finally {
+    setSendingCode(false)
   }
+}
 
   const handleResendCode = async () => {
     if (!bookingId || resendCooldown > 0) return
@@ -209,36 +219,45 @@ setError(reason || 'Please choose a different date for this staff member')
   }
 
   const handleVerifyCode = async () => {
-    if (!bookingId) return
-    if (!verificationCode || verificationCode.length < 4) {
-      setCodeError('Please enter the verification code')
-      return
-    }
-    setVerifyingCode(true)
-    setCodeError(null)
-    try {
-      const res = await fetch(`${API_URL}/api/public-verification/bookings/${bookingId}/verify-phone`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: verificationCode, purpose: 'PHONE_VERIFICATION' }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) {
-        setCodeError(
-          typeof data.attemptsRemaining === 'number'
-            ? `${data.error || 'Invalid code'} (${data.attemptsRemaining} attempts remaining)`
-            : data.error || 'Invalid verification code'
-        )
-        return
-      }
+  if (!bookingId) return
+  if (!verificationCode || verificationCode.length < 4) {
+    setCodeError('Please enter the verification code')
+    return
+  }
+  setVerifyingCode(true)
+  setCodeError(null)
+  try {
+    const res = await fetch(`${API_URL}/api/public-verification/bookings/${bookingId}/verify-phone`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: verificationCode, purpose: 'PHONE_VERIFICATION' }),
+    })
+    const data = await res.json()
+
+    // Same case here — "already verified" from this endpoint means the
+    // booking is effectively confirmed, not that the code was wrong.
+    if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
       setShowVerificationModal(false)
       setBookingSuccess(true)
-    } catch {
-      setCodeError('Failed to verify code. Please try again.')
-    } finally {
-      setVerifyingCode(false)
+      return
     }
+
+    if (!res.ok || !data.success) {
+      setCodeError(
+        typeof data.attemptsRemaining === 'number'
+          ? `${data.error || 'Invalid code'} (${data.attemptsRemaining} attempts remaining)`
+          : data.error || 'Invalid verification code'
+      )
+      return
+    }
+    setShowVerificationModal(false)
+    setBookingSuccess(true)
+  } catch {
+    setCodeError('Failed to verify code. Please try again.')
+  } finally {
+    setVerifyingCode(false)
   }
+}
 
   const loadBusinessData = async () => {
     try {

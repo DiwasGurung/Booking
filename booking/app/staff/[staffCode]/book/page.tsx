@@ -215,30 +215,41 @@ export default function StaffBookPage() {
 
 
   const sendPhoneVerificationCode = async (bookingId: string) => {
-    setSendingCode(true)
-    setCodeError(null)
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      const res = await fetch(`${API_URL}/api/public-verification/bookings/${bookingId}/send-phone-verification`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ purpose: 'PHONE_VERIFICATION' }),
+  setSendingCode(true)
+  setCodeError(null)
+  try {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+    const res = await fetch(`${API_URL}/api/public-verification/bookings/${bookingId}/send-phone-verification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ purpose: 'PHONE_VERIFICATION' }),
+    })
+    const data = await res.json()
+
+    if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
+      setIsPhoneVerificationModalOpen(false)
+      toast({
+        title: 'Booking Confirmed!',
+        description: 'This phone number is already verified — your appointment is confirmed.',
       })
-      const data = await res.json()
-      if (!res.ok || !data.success) {
-        setCodeError(data.error || 'Failed to send verification code')
-        if (typeof data.retryAfterSeconds === 'number') setResendCooldown(data.retryAfterSeconds)
-        return false
-      }
-      setResendCooldown(30)
+      setTimeout(() => router.push('/'), 1500)
       return true
-    } catch {
-      setCodeError('Failed to send verification code. Please try again.')
-      return false
-    } finally {
-      setSendingCode(false)
     }
+
+    if (!res.ok || !data.success) {
+      setCodeError(data.error || 'Failed to send verification code')
+      if (typeof data.retryAfterSeconds === 'number') setResendCooldown(data.retryAfterSeconds)
+      return false
+    }
+    setResendCooldown(30)
+    return true
+  } catch {
+    setCodeError('Failed to send verification code. Please try again.')
+    return false
+  } finally {
+    setSendingCode(false)
   }
+}
 
   const handleResendCode = async () => {
     if (!pendingBookingId || resendCooldown > 0) return
@@ -246,43 +257,55 @@ export default function StaffBookPage() {
   }
 
   const handleVerifyPhoneCode = async () => {
-    if (!pendingBookingId) return
-    if (!verificationCode || verificationCode.length < 4) {
-      setCodeError('Please enter the verification code')
-      return
-    }
-    setVerifyingCode(true)
-    setCodeError(null)
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-      const res = await fetch(`${API_URL}/api/public-verification/bookings/${pendingBookingId}/verify-phone`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: verificationCode, purpose: 'PHONE_VERIFICATION' }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) {
-        setCodeError(
-          typeof data.attemptsRemaining === 'number'
-            ? `${data.error || 'Invalid code'} (${data.attemptsRemaining} attempts remaining)`
-            : data.error || 'Invalid verification code'
-        )
-        return
-      }
+  if (!pendingBookingId) return
+  if (!verificationCode || verificationCode.length < 4) {
+    setCodeError('Please enter the verification code')
+    return
+  }
+  setVerifyingCode(true)
+  setCodeError(null)
+  try {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+    const res = await fetch(`${API_URL}/api/public-verification/bookings/${pendingBookingId}/verify-phone`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: verificationCode, purpose: 'PHONE_VERIFICATION' }),
+    })
+    const data = await res.json()
 
+    if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
       setIsPhoneVerificationModalOpen(false)
       setVerificationCode('')
       toast({
         title: 'Booking Confirmed!',
-        description: 'Your phone number has been verified and your appointment is confirmed.',
+        description: 'This phone number is already verified — your appointment is confirmed.',
       })
       setTimeout(() => router.push('/'), 1500)
-    } catch {
-      setCodeError('Failed to verify code. Please try again.')
-    } finally {
-      setVerifyingCode(false)
+      return
     }
+
+    if (!res.ok || !data.success) {
+      setCodeError(
+        typeof data.attemptsRemaining === 'number'
+          ? `${data.error || 'Invalid code'} (${data.attemptsRemaining} attempts remaining)`
+          : data.error || 'Invalid verification code'
+      )
+      return
+    }
+
+    setIsPhoneVerificationModalOpen(false)
+    setVerificationCode('')
+    toast({
+      title: 'Booking Confirmed!',
+      description: 'Your phone number has been verified and your appointment is confirmed.',
+    })
+    setTimeout(() => router.push('/'), 1500)
+  } catch {
+    setCodeError('Failed to verify code. Please try again.')
+  } finally {
+    setVerifyingCode(false)
   }
+}
   // Generate time slots (30-minute intervals)
   const generateTimeSlots = (openingTime: string, closingTime: string): TimeSlot[] => {
     const slots: TimeSlot[] = []
