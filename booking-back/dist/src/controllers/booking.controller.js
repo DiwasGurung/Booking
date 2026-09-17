@@ -78,16 +78,18 @@ function isStartTimeInFuture(startTime) {
  * else (Starter and Professional).
  *
  * For the email channel, an optional verificationToken can be supplied —
- * when present, the booking is still UNVERIFIED and the email's CTA
- * button doubles as the verification link (see email.service.ts). When
- * omitted, the booking is already verified/confirmed and the CTA is a
- * plain link to the app.
+ * when present, the booking's email address is still UNVERIFIED and the
+ * email's CTA button doubles as the email-verification link (see
+ * email.service.ts). When omitted, the email is already verified (or this
+ * plan doesn't do email verification) and the CTA is a plain link to the
+ * app.
  *
- * Fires independent of email/phone verification state as a gate — the
- * caller decides when to call this (immediately for already-verified
- * bookings, or with a token for unverified email-plan bookings so the
- * confirmation IS the verification step; phone-OTP plans call this only
- * after the OTP is verified — see verification.controller.ts).
+ * NOTE: this token is now purely a secondary "also verify your email"
+ * channel for non-Enterprise plans. It has no bearing on the booking's
+ * `status` — phone verification (isPhoneVerified) is the single gate that
+ * confirms a booking across every plan. Callers decide when to invoke
+ * this: immediately for bookings whose phone is already verified, or
+ * after the phone-OTP step succeeds (see verification.controller.ts).
  */
 async function sendBookingConfirmationByPlan(businessId, business, booking, serviceName, verificationToken) {
     const isEnterprise = business.subscription?.plan?.name === ENTERPRISE_PLAN;
@@ -434,6 +436,17 @@ class BookingController {
             res.status(500).json({ success: false, error: error?.message || "Failed to create booking" });
         }
     }
+    /**
+     * Public (guest) booking on a business's own booking page.
+     *
+     * Booking status is now gated purely on PHONE verification, for every
+     * plan — this matches the frontend, which always runs the phone-OTP
+     * modal off `isPhoneVerified` regardless of plan. The email-link flow
+     * (non-Enterprise plans only) is a secondary, independent channel: it
+     * verifies the customer's *email address*, but no longer has any power
+     * to move `status` to CONFIRMED. See sendBookingConfirmationByPlan and
+     * verification.controller.ts for the phone-side confirmation trigger.
+     */
     async createBusinessPublicBooking(req, res) {
         try {
             const { businessId, staffId, serviceId, startTime: bodyStartTime, endTime: bodyEndTime, customerName, customerEmail, customerPhone, notes } = req.body;
@@ -517,19 +530,22 @@ class BookingController {
                 }
                 assignedStaffId = freeStaff.id;
             }
-            // Email-link verification applies to every plan except Enterprise
-            // (Enterprise verifies + notifies via phone/SMS instead). This mirrors
-            // the SMS-vs-email split already used for notifications in
-            // sendBookingConfirmationByPlan, so Starter AND Professional both use
-            // the email-confirmation-doubles-as-verification flow below.
+            // PHONE verification is the single gate that confirms a booking,
+            // across every plan. A returning customer whose phone was already
+            // verified on a prior booking skips the OTP step and is confirmed
+            // immediately; everyone else is created UNVERIFIED and confirmed by
+            // verification.controller.ts once the OTP succeeds.
+            const alreadyVerified = customer.isPhoneVerified === true;
+            // Email-link verification is a SEPARATE, secondary channel that
+            // applies to every plan except Enterprise (Enterprise verifies +
+            // notifies via phone/SMS only). It only ever touches isEmailVerified
+            // — never `status` — and only gets issued if this customer's email
+            // isn't already verified.
             const planName = business.subscription?.plan?.name;
             const isEnterprisePlan = planName === ENTERPRISE_PLAN;
-            const isEmailVerificationPlan = !isEnterprisePlan;
-            const alreadyVerified = isEmailVerificationPlan
-                ? customer.isEmailVerified === true
-                : customer.isPhoneVerified === true;
-            const verificationToken = isEmailVerificationPlan && !alreadyVerified ? (0, crypto_1.randomBytes)(32).toString('hex') : null;
-            const verificationTokenExpires = isEmailVerificationPlan && !alreadyVerified ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
+            const needsEmailVerification = !isEnterprisePlan && customer.isEmailVerified !== true;
+            const verificationToken = needsEmailVerification ? (0, crypto_1.randomBytes)(32).toString('hex') : null;
+            const verificationTokenExpires = needsEmailVerification ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
             const booking = await prisma_1.default.booking.create({
                 data: {
                     startTime,
@@ -540,9 +556,9 @@ class BookingController {
                     notes: notes || '',
                     status: alreadyVerified ? 'CONFIRMED' : 'UNVERIFIED',
                     price: service.offerPrice ?? service.price,
-                    isEmailVerified: isEmailVerificationPlan ? alreadyVerified : (customer.isEmailVerified === true),
-                    isPhoneVerified: isEmailVerificationPlan ? (customer.isPhoneVerified === true) : alreadyVerified,
-                    ...(isEmailVerificationPlan && !alreadyVerified ? { verificationToken, verificationTokenExpires } : {}),
+                    isEmailVerified: customer.isEmailVerified === true,
+                    isPhoneVerified: alreadyVerified,
+                    ...(needsEmailVerification ? { verificationToken, verificationTokenExpires } : {}),
                     customer: { connect: { id: customer.id } },
                     service: { connect: { id: serviceId } },
                     business: { connect: { id: businessId } },
@@ -554,16 +570,14 @@ class BookingController {
                     business: { include: { subscription: { select: { plan: { select: { name: true } } } } } },
                 }
             });
-            // Already-verified (or non-email-verification-plan) bookings get a
-            // plain confirmation right away. Unverified email-plan bookings get a
-            // confirmation whose CTA button doubles as the verification link —
-            // there's no separate verification email for this plan anymore.
+            // Only send the confirmation now if the phone is already verified.
+            // Unverified bookings get their confirmation later, from
+            // verification.controller.ts, once the phone OTP succeeds — that
+            // send will carry `verificationToken` along so the email-verify CTA
+            // still goes out for non-Enterprise plans.
             try {
                 if (alreadyVerified) {
-                    await sendBookingConfirmationByPlan(businessId, booking.business, booking, booking.service.name);
-                }
-                else if (isEmailVerificationPlan && verificationToken) {
-                    await sendBookingConfirmationByPlan(businessId, booking.business, booking, booking.service.name, verificationToken);
+                    await sendBookingConfirmationByPlan(businessId, booking.business, booking, booking.service.name, needsEmailVerification ? verificationToken : undefined);
                 }
             }
             catch (notifyError) {
@@ -573,15 +587,13 @@ class BookingController {
                 success: true,
                 message: alreadyVerified
                     ? "Booking confirmed!"
-                    : isEmailVerificationPlan
-                        ? "Booking created! Check your email to verify."
-                        : "Booking created! Please verify your phone number to confirm your appointment.",
+                    : "Booking created! Please verify your phone number to confirm your appointment.",
                 booking: {
                     id: booking.id,
                     status: booking.status,
                     isEmailVerified: booking.isEmailVerified,
                     isPhoneVerified: booking.isPhoneVerified,
-                    verificationChannel: isEmailVerificationPlan ? 'email' : 'phone',
+                    verificationChannel: 'phone',
                 }
             });
             return;
@@ -1169,6 +1181,11 @@ class BookingController {
             });
         }
     }
+    /**
+     * Public (guest) booking on a staff member's individual booking page.
+     * Same phone-first confirmation model as createBusinessPublicBooking —
+     * see the comment there for the full rationale.
+     */
     async createPublicBooking(req, res) {
         try {
             const { businessId, staffId, serviceId, startTime, endTime, customerName, customerEmail, customerPhone, notes } = req.body;
@@ -1251,20 +1268,16 @@ class BookingController {
                     return res.status(500).json({ success: false, message: "Failed to create customer", error: err.message });
                 }
             }
-            // Verification channel is decided by plan: every plan except
-            // Enterprise uses email-link verification (Starter AND Professional),
-            // Enterprise uses phone OTP. This mirrors the channel choice already
-            // used for confirmations (sendBookingConfirmationByPlan) but is a
-            // separate decision — one picks how we NOTIFY, this picks how we
-            // VERIFY a first-time customer.
+            // PHONE verification is the single gate that confirms a booking,
+            // across every plan — mirrors createBusinessPublicBooking.
+            const alreadyVerified = customer.isPhoneVerified === true;
+            // Email-link verification (Starter/Professional only) is a separate,
+            // secondary channel that only ever touches isEmailVerified.
             const planName = business.subscription?.plan?.name;
             const isEnterprisePlan = planName === ENTERPRISE_PLAN;
-            const isEmailVerificationPlan = !isEnterprisePlan;
-            const alreadyVerified = isEmailVerificationPlan
-                ? customer.isEmailVerified === true
-                : customer.isPhoneVerified === true;
-            const verificationToken = isEmailVerificationPlan && !alreadyVerified ? (0, crypto_1.randomBytes)(32).toString('hex') : null;
-            const verificationTokenExpires = isEmailVerificationPlan && !alreadyVerified ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
+            const needsEmailVerification = !isEnterprisePlan && customer.isEmailVerified !== true;
+            const verificationToken = needsEmailVerification ? (0, crypto_1.randomBytes)(32).toString('hex') : null;
+            const verificationTokenExpires = needsEmailVerification ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
             const bookingData = {
                 startTime: new Date(startTime),
                 endTime: new Date(endTime),
@@ -1274,9 +1287,9 @@ class BookingController {
                 notes: notes || '',
                 status: alreadyVerified ? 'CONFIRMED' : 'UNVERIFIED',
                 price: service.offerPrice ?? service.price,
-                isEmailVerified: isEmailVerificationPlan ? alreadyVerified : (customer.isEmailVerified === true),
-                isPhoneVerified: isEmailVerificationPlan ? (customer.isPhoneVerified === true) : alreadyVerified,
-                ...(isEmailVerificationPlan && !alreadyVerified ? { verificationToken, verificationTokenExpires } : {}),
+                isEmailVerified: customer.isEmailVerified === true,
+                isPhoneVerified: alreadyVerified,
+                ...(needsEmailVerification ? { verificationToken, verificationTokenExpires } : {}),
                 service: { connect: { id: serviceId } },
                 business: { connect: { id: businessId } },
                 customer: { connect: { id: customer.id } },
@@ -1305,16 +1318,13 @@ class BookingController {
                 console.error('[v0] Failed to send email to owner:', emailError);
                 warnings.push('Unable to notify business owner due to email delivery issue');
             }
-            // Already-verified (or non-email-verification-plan) bookings get a
-            // plain confirmation right away. Unverified email-plan bookings
-            // (Starter or Professional) get a confirmation whose CTA button
-            // doubles as the verification link — no separate verification email.
+            // Only send the customer-facing confirmation now if the phone is
+            // already verified. Otherwise verification.controller.ts sends it
+            // once the phone OTP succeeds, carrying `verificationToken` along so
+            // the email-verify CTA still goes out for non-Enterprise plans.
             try {
                 if (alreadyVerified) {
-                    await sendBookingConfirmationByPlan(businessId, business, booking, service.name);
-                }
-                else if (isEmailVerificationPlan && verificationToken) {
-                    await sendBookingConfirmationByPlan(businessId, business, booking, service.name, verificationToken);
+                    await sendBookingConfirmationByPlan(businessId, business, booking, service.name, needsEmailVerification ? verificationToken : undefined);
                 }
             }
             catch (notifyError) {
@@ -1325,9 +1335,7 @@ class BookingController {
                 success: true,
                 message: alreadyVerified
                     ? 'Booking confirmed! Your appointment is scheduled.'
-                    : isEmailVerificationPlan
-                        ? 'Booking created! Check your email to verify and confirm your appointment.'
-                        : 'Booking created! Please verify your phone number to confirm your appointment.',
+                    : 'Booking created! Please verify your phone number to confirm your appointment.',
                 warnings: warnings.length > 0 ? warnings : undefined,
                 booking: {
                     id: booking.id,
@@ -1336,7 +1344,7 @@ class BookingController {
                     status: booking.status,
                     isEmailVerified: booking.isEmailVerified,
                     isPhoneVerified: booking.isPhoneVerified,
-                    verificationChannel: isEmailVerificationPlan ? 'email' : 'phone',
+                    verificationChannel: 'phone',
                     isNewCustomer,
                 }
             });
@@ -1350,6 +1358,13 @@ class BookingController {
             });
         }
     }
+    /**
+     * Confirms the customer's EMAIL address via the link sent alongside the
+     * booking confirmation. This is now a secondary, independent channel —
+     * it flips `isEmailVerified` only and never touches `status` or
+     * `isPhoneVerified`. Phone verification (see verification.controller.ts)
+     * is the single gate that confirms a booking's `status`.
+     */
     async verifyBookingEmail(req, res) {
         try {
             const tokenParam = req.params.token;
@@ -1386,7 +1401,7 @@ class BookingController {
             if (booking.isEmailVerified) {
                 return res.status(400).json({
                     success: false,
-                    message: "This booking has already been verified.",
+                    message: "This email address has already been verified.",
                 });
             }
             // Mark customer as verified if customer exists
@@ -1396,31 +1411,34 @@ class BookingController {
                     data: { isEmailVerified: true },
                 });
             }
-            // Update booking to CONFIRMED and clear token fields
-            const confirmedBooking = await prisma_1.default.booking.update({
+            // Only flip isEmailVerified and clear the token fields. `status` is
+            // deliberately left untouched here — phone verification is what
+            // confirms the booking, and an already-CONFIRMED booking whose phone
+            // check happened first should stay CONFIRMED regardless of when (or
+            // whether) the customer clicks this link. An UNVERIFIED booking
+            // stays UNVERIFIED until its phone OTP succeeds, even after the
+            // customer verifies their email.
+            const updatedBooking = await prisma_1.default.booking.update({
                 where: { id: booking.id },
                 data: {
-                    status: 'CONFIRMED',
                     isEmailVerified: true,
                     verificationToken: null,
                     verificationTokenExpires: null,
                 },
             });
-            // NOTE: the booking confirmation email is already sent at creation
-            // time in createBusinessPublicBooking / createPublicBooking for
-            // email-verification-plan bookings (Starter and Professional) — its
-            // "Confirm & Visit Appoint Nepal" CTA button IS this very
-            // verification link. So nothing is sent here again to avoid a
-            // duplicate confirmation; this step only unlocks the booking.
             // Respond success
             return res.status(200).json({
                 success: true,
-                message: 'Email verified! Your booking is now confirmed.',
+                message: updatedBooking.status === 'CONFIRMED'
+                    ? 'Email verified! Your booking is confirmed.'
+                    : 'Email verified! Your booking will be confirmed once your phone number is verified.',
                 booking: {
-                    id: confirmedBooking.id,
-                    startTime: confirmedBooking.startTime,
-                    endTime: confirmedBooking.endTime,
-                    status: confirmedBooking.status,
+                    id: updatedBooking.id,
+                    startTime: updatedBooking.startTime,
+                    endTime: updatedBooking.endTime,
+                    status: updatedBooking.status,
+                    isEmailVerified: updatedBooking.isEmailVerified,
+                    isPhoneVerified: updatedBooking.isPhoneVerified,
                 },
             });
         }

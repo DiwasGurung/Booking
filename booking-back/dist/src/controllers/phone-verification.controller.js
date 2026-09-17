@@ -80,11 +80,12 @@ exports.VerificationController = {
             });
         }
         await resolver.markVerified(entityId);
-        // Booking phone verification (Enterprise-plan bookings only — every
-        // other plan verifies via the email link instead) is the trigger for
-        // sending the customer-facing booking confirmation SMS. The booking
-        // is created UNVERIFIED and isn't a confirmed appointment until this
-        // step completes.
+        // Phone verification is now the universal gate that confirms a
+        // booking, regardless of plan (Enterprise included — the difference
+        // between plans is only which channel PLUS whether an email-verify
+        // link also needs to go out, not whether phone confirms the booking).
+        // Booking is created UNVERIFIED and isn't a confirmed appointment
+        // until this step completes.
         if (entityType === 'BOOKING') {
             try {
                 const booking = await prisma_1.default.booking.findUnique({
@@ -94,8 +95,12 @@ exports.VerificationController = {
                         business: { include: { subscription: { include: { plan: true } } } },
                     },
                 });
-                if (booking) {
-                    await (0, booking_controller_1.sendBookingConfirmationByPlan)(booking.businessId, booking.business, booking, booking.service.name);
+                if (booking && booking.status !== 'CONFIRMED') {
+                    const confirmedBooking = await prisma_1.default.booking.update({
+                        where: { id: booking.id },
+                        data: { status: 'CONFIRMED', isPhoneVerified: true },
+                    });
+                    await (0, booking_controller_1.sendBookingConfirmationByPlan)(booking.businessId, booking.business, confirmedBooking, booking.service.name, booking.verificationToken ?? undefined);
                 }
             }
             catch (notifyError) {
