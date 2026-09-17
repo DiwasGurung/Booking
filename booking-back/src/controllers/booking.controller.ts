@@ -557,14 +557,41 @@ class BookingController {
 
       const finalEndTime = bodyEndTime ? new Date(bodyEndTime) : new Date(startTime.getTime() + (service.duration || 60) * 60000)
 
-      let customer = await prisma.customer.findUnique({
-        where: { businessId_email: { businessId, email: customerEmail } }
+      let customer
+      let isNewCustomer = false
+
+      const existingCustomer = await prisma.customer.findUnique({
+        where: { businessId_phone: { businessId, phone: customerPhone } },
       })
 
-      if (!customer) {
-        customer = await prisma.customer.create({
-          data: { businessId, name: customerName, email: customerEmail, phone: customerPhone || '', isEmailVerified: false, isPhoneVerified: false }
-        })
+      if (existingCustomer) {
+        isNewCustomer = false
+        customer = existingCustomer
+
+        // A known phone doesn't mean THIS email was verified — only reuse
+        // isEmailVerified if the email matches what was actually verified.
+        if (existingCustomer.email !== customerEmail) {
+          customer = { ...existingCustomer, isEmailVerified: false }
+        }
+      } else {
+        try {
+          customer = await prisma.customer.create({
+            data: {
+              businessId,
+              name: customerName,
+              email: customerEmail,
+              phone: customerPhone,
+              notes: notes || '',
+              isEmailVerified: false,
+              isPhoneVerified: false,
+            },
+          })
+          isNewCustomer = true
+        } catch (err: any) {
+          console.error('[v0] Error creating customer:', err)
+          res.status(500).json({ success: false, message: "Failed to create customer", error: err.message })
+          return
+        }
       }
 
       let assignedStaffId = staffId
@@ -1418,12 +1445,18 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
       let isNewCustomer = false
 
       const existingCustomer = await prisma.customer.findUnique({
-        where: { businessId_email: { businessId, email: customerEmail } },
+        where: { businessId_phone: { businessId, phone: customerPhone } },
       })
 
       if (existingCustomer) {
-        customer = existingCustomer
         isNewCustomer = false
+        customer = existingCustomer
+
+        // A known phone doesn't mean THIS email was verified — only reuse
+        // isEmailVerified if the email matches what was actually verified.
+        if (existingCustomer.email !== customerEmail) {
+          customer = { ...existingCustomer, isEmailVerified: false }
+        }
       } else {
         try {
           customer = await prisma.customer.create({

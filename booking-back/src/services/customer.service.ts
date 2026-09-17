@@ -163,14 +163,14 @@ async getCustomerHistory(businessId: string, customerId: string) {
   }): Promise<Customer> {
     return prisma.customer.upsert({
       where: {
-        businessId_email: {
+        businessId_phone: {
           businessId: data.businessId,
-          email: data.email,
+          phone: data.phone,
         },
       },
       update: {
         name: data.name,
-        phone: data.phone,
+        email: data.email,
       },
       create: data,
     })

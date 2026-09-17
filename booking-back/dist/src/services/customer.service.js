@@ -57,9 +57,11 @@ class CustomerService {
         if (!customer)
             return null;
         const completed = customer.bookings.filter(b => b.status === "COMPLETED");
-        // Bookings do not store a price, so use the service's offer price when
-        // available and fall back to its regular price.
-        const totalSpent = completed.reduce((sum, b) => sum + (b.service.offerPrice ?? b.service.price), 0);
+        // Use each booking's own stored price, not the service's current price/
+        // offerPrice — the service's pricing can change after the booking was
+        // made, so recomputing from it would misstate what the customer actually
+        // paid at the time.
+        const totalSpent = completed.reduce((sum, b) => sum + b.price, 0);
         // bookings are already sorted desc, so the first COMPLETED one is the
         // most recent actual visit — not just the most recent booking of any status
         const lastVisit = completed[0]?.startTime ?? null;
@@ -79,8 +81,8 @@ class CustomerService {
                 endTime: b.endTime,
                 status: b.status,
                 notes: b.notes,
-                price: b.service.offerPrice ?? b.service.price,
-                service: b.service,
+                price: b.price, // ← the price actually charged for this booking
+                service: b.service, // kept for display (name, current price/offer) — not used for totals
                 staff: b.staff,
             })),
         };
@@ -136,14 +138,14 @@ class CustomerService {
     async getOrCreateCustomer(data) {
         return prisma_1.default.customer.upsert({
             where: {
-                businessId_email: {
+                businessId_phone: {
                     businessId: data.businessId,
-                    email: data.email,
+                    phone: data.phone,
                 },
             },
             update: {
                 name: data.name,
-                phone: data.phone,
+                email: data.email,
             },
             create: data,
         });

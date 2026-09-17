@@ -456,13 +456,40 @@ class BookingController {
                 return;
             }
             const finalEndTime = bodyEndTime ? new Date(bodyEndTime) : new Date(startTime.getTime() + (service.duration || 60) * 60000);
-            let customer = await prisma_1.default.customer.findUnique({
-                where: { businessId_email: { businessId, email: customerEmail } }
+            let customer;
+            let isNewCustomer = false;
+            const existingCustomer = await prisma_1.default.customer.findUnique({
+                where: { businessId_phone: { businessId, phone: customerPhone } },
             });
-            if (!customer) {
-                customer = await prisma_1.default.customer.create({
-                    data: { businessId, name: customerName, email: customerEmail, phone: customerPhone || '', isEmailVerified: false, isPhoneVerified: false }
-                });
+            if (existingCustomer) {
+                isNewCustomer = false;
+                customer = existingCustomer;
+                // A known phone doesn't mean THIS email was verified — only reuse
+                // isEmailVerified if the email matches what was actually verified.
+                if (existingCustomer.email !== customerEmail) {
+                    customer = { ...existingCustomer, isEmailVerified: false };
+                }
+            }
+            else {
+                try {
+                    customer = await prisma_1.default.customer.create({
+                        data: {
+                            businessId,
+                            name: customerName,
+                            email: customerEmail,
+                            phone: customerPhone,
+                            notes: notes || '',
+                            isEmailVerified: false,
+                            isPhoneVerified: false,
+                        },
+                    });
+                    isNewCustomer = true;
+                }
+                catch (err) {
+                    console.error('[v0] Error creating customer:', err);
+                    res.status(500).json({ success: false, message: "Failed to create customer", error: err.message });
+                    return;
+                }
             }
             let assignedStaffId = staffId;
             if (!assignedStaffId) {
@@ -1193,11 +1220,16 @@ class BookingController {
             let customer;
             let isNewCustomer = false;
             const existingCustomer = await prisma_1.default.customer.findUnique({
-                where: { businessId_email: { businessId, email: customerEmail } },
+                where: { businessId_phone: { businessId, phone: customerPhone } },
             });
             if (existingCustomer) {
-                customer = existingCustomer;
                 isNewCustomer = false;
+                customer = existingCustomer;
+                // A known phone doesn't mean THIS email was verified — only reuse
+                // isEmailVerified if the email matches what was actually verified.
+                if (existingCustomer.email !== customerEmail) {
+                    customer = { ...existingCustomer, isEmailVerified: false };
+                }
             }
             else {
                 try {
