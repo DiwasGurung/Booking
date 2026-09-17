@@ -39,6 +39,7 @@ interface Booking {
   endTime: string
   status: string
   notes?: string
+  price: number
 }
 
 type TabKey = 'upcoming' | 'past'
@@ -234,7 +235,7 @@ export default function StaffDashboard() {
 
   const totalEarnings = bookings
     .filter((booking) => booking.status === 'COMPLETED')
-    .reduce((sum, booking) => sum + (booking.service?.price || 0), 0)
+    .reduce((sum, booking) => sum + (booking.price || 0), 0)
 
   const activeList = activeTab === 'upcoming' ? upcomingBookings : pastBookings
 
