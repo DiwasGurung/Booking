@@ -238,6 +238,7 @@ export interface Booking {
   customerEmail: string
   customerPhone: string
   status: string
+  price: number
   notes?: string
   staff?: {
     id: string

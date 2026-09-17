@@ -33,6 +33,7 @@ interface Booking {
   customerName: string
   customerEmail: string
   customerPhone: string
+  price: number
   status: string
   isEmailVerified: boolean
   notes?: string
@@ -136,7 +137,7 @@ const copyToClipboard = () => {
   }
   const totalRevenue = recentBookings
   .filter((b) => b.status === 'COMPLETED')
-  .reduce((sum, b) => sum + (b.service?.price || 0), 0)
+  .reduce((sum, b) => sum + (b.price || 0), 0)
 
   const statCards = [
     {

@@ -16,6 +16,7 @@ export class BookingService {
     customerEmail: string
     customerPhone: string
     notes?: string
+    price: number
   }): Promise<Booking> {
     return prisma.booking.create({
       data,

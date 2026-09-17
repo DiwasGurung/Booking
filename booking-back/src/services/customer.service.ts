@@ -40,7 +40,6 @@ export class CustomerService {
   }
 
 
-  // customer.service.ts
 async getCustomerHistory(businessId: string, customerId: string) {
   const customer = await prisma.customer.findFirst({
     // findFirst + both fields, not findUnique(id) — this is what actually
@@ -66,10 +65,11 @@ async getCustomerHistory(businessId: string, customerId: string) {
 
   const completed = customer.bookings.filter(b => b.status === "COMPLETED")
 
-  const totalSpent = completed.reduce(
-    (sum, b) => sum + (b.service.offerPrice ?? b.service.price),
-    0,
-  )
+  // Use each booking's own stored price, not the service's current price/
+  // offerPrice — the service's pricing can change after the booking was
+  // made, so recomputing from it would misstate what the customer actually
+  // paid at the time.
+  const totalSpent = completed.reduce((sum, b) => sum + b.price, 0)
 
   // bookings are already sorted desc, so the first COMPLETED one is the
   // most recent actual visit — not just the most recent booking of any status
@@ -91,7 +91,8 @@ async getCustomerHistory(businessId: string, customerId: string) {
       endTime: b.endTime,
       status: b.status,
       notes: b.notes,
-      service: b.service,
+      price: b.price,        // ← the price actually charged for this booking
+      service: b.service,    // kept for display (name, current price/offer) — not used for totals
       staff: b.staff,
     })),
   }

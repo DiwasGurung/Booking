@@ -621,6 +621,7 @@ class BookingController {
           customerPhone: customerPhone || '',
           notes: notes || '',
           status: alreadyVerified ? 'CONFIRMED' : 'UNVERIFIED',
+          price: service.offerPrice ?? service.price,
           isEmailVerified: isEmailVerificationPlan ? alreadyVerified : (customer.isEmailVerified === true),
           isPhoneVerified: isEmailVerificationPlan ? (customer.isPhoneVerified === true) : alreadyVerified,
           ...(isEmailVerificationPlan && !alreadyVerified ? { verificationToken, verificationTokenExpires } : {}),

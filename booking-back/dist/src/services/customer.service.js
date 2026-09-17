@@ -34,7 +34,6 @@ class CustomerService {
             };
         }).sort((a, b) => b.visitCount - a.visitCount);
     }
-    // customer.service.ts
     async getCustomerHistory(businessId, customerId) {
         const customer = await prisma_1.default.customer.findFirst({
             // findFirst + both fields, not findUnique(id) — this is what actually
@@ -58,6 +57,8 @@ class CustomerService {
         if (!customer)
             return null;
         const completed = customer.bookings.filter(b => b.status === "COMPLETED");
+        // Bookings do not store a price, so use the service's offer price when
+        // available and fall back to its regular price.
         const totalSpent = completed.reduce((sum, b) => sum + (b.service.offerPrice ?? b.service.price), 0);
         // bookings are already sorted desc, so the first COMPLETED one is the
         // most recent actual visit — not just the most recent booking of any status
@@ -78,6 +79,7 @@ class CustomerService {
                 endTime: b.endTime,
                 status: b.status,
                 notes: b.notes,
+                price: b.service.offerPrice ?? b.service.price,
                 service: b.service,
                 staff: b.staff,
             })),

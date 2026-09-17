@@ -21,6 +21,7 @@ interface Booking {
   serviceId: string
   customerPhone?: string
   service?: { name: string; price: number; offerPrice?: number | null }
+  price: number
   startTime: string
   endTime: string
   status: string
@@ -383,13 +384,10 @@ export default function BookingsPage() {
   }
 
   const BookingAmount = ({ booking }: { booking: Booking }) =>
-    booking.service?.offerPrice != null && booking.service.offerPrice < booking.service.price ? (
-      <div className="flex flex-col">
-        <span className="text-sm text-slate-400 line-through">Rs.{booking.service.price.toFixed(2)}</span>
-        <span className="text-emerald-700">Rs.{booking.service.offerPrice.toFixed(2)}</span>
-      </div>
+    booking.price === 0 ? (
+      <span>Rs.{booking.price.toFixed(2)}</span>
     ) : (
-      <span>Rs.{(booking.service?.price ?? 0).toFixed(2)}</span>
+      <span>Rs.{booking.price.toFixed(2)}</span>
     )
 
   return (
@@ -594,7 +592,7 @@ export default function BookingsPage() {
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-wide text-slate-400">Amount</p>
-                      <BookingAmount booking={booking} />
+                      <p className="text-slate-900">Rs.{booking.price.toFixed(2)}</p>
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-wide text-slate-400">Date & time</p>

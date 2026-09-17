@@ -34,6 +34,7 @@ interface Booking {
   endTime: string
   status: string
   notes?: string
+  price: number
 }
 
 export default function StaffBookingsPage() {
@@ -258,7 +259,7 @@ export default function StaffBookingsPage() {
                       <div className="text-right">
                         <p className="text-sm text-muted-foreground">Price</p>
                         <p className="text-lg font-bold text-primary">
-                          Rs. {booking.service.price.toFixed(2)}
+                          Rs. {booking.price.toFixed(2)}
                         </p>
                       </div>
                     </div>
