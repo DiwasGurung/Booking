@@ -1,5 +1,6 @@
 import  prisma  from "../lib/prisma"
 import type  {Business, Prisma} from "@prisma/client"
+import { normalizeDataUrlImage } from "../utils/image"
 
 
 export class BusinessService {
@@ -298,6 +299,13 @@ export class BusinessService {
    */
   async updateBusinessSettings(businessId: string, settings: any) {
     try {
+      if (settings.logo) {
+  settings.logo = await normalizeDataUrlImage(settings.logo, "logo");
+}
+if (settings.coverImage) {
+  settings.coverImage = await normalizeDataUrlImage(settings.coverImage, "cover");
+}
+
       const business = await prisma.business.update({
         where: { id: businessId },
         data: {
@@ -342,4 +350,4 @@ export class BusinessService {
   }
 }
 
-export default new BusinessService()
+

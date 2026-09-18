@@ -93,6 +93,41 @@ export default function SettingsPage() {
   // or freshly loaded from the server in a verified state.
   const [phoneLocked, setPhoneLocked] = useState(true)
 
+  const cropToDataUrl = (
+  file: File,
+  targetWidth: number,
+  targetHeight: number,
+  mimeType: 'image/png' | 'image/jpeg' = 'image/jpeg',
+  quality = 0.85
+): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Could not read the selected image'))
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = () => reject(new Error('Could not load the selected image'))
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = targetWidth
+        canvas.height = targetHeight
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return reject(new Error('Your browser does not support image processing'))
+
+        // "cover" math: scale so the image fills the target box, then crop the overflow
+        const scale = Math.max(targetWidth / img.width, targetHeight / img.height)
+        const scaledW = img.width * scale
+        const scaledH = img.height * scale
+        const dx = (targetWidth - scaledW) / 2
+        const dy = (targetHeight - scaledH) / 2
+
+        ctx.drawImage(img, dx, dy, scaledW, scaledH)
+        resolve(canvas.toDataURL(mimeType, quality))
+      }
+      img.src = reader.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+
   // Tick the cooldown down once a second while active.
   useEffect(() => {
     if (resendCooldown <= 0) return
@@ -248,7 +283,7 @@ export default function SettingsPage() {
 
     setIsLoadingCover(true)
     try {
-      const dataUrl = await compressToDataUrl(coverFile, 1200)
+      const dataUrl = await cropToDataUrl(coverFile, 1600, 400, 'image/jpeg', 0.85)
       const updated = { ...formData, coverImage: dataUrl }
       const response = await businessApi.updateSettings(businessId, updated)
 
@@ -293,32 +328,6 @@ export default function SettingsPage() {
       setTimeout(() => setError(null), 4000)
     }
   }
-  // Compress an image file to a small PNG data URL. Storing the logo directly on
-  // the business record avoids ephemeral disk storage and localhost/mixed-content
-  // URL problems that made the previous upload endpoint fail.
-  const compressToDataUrl = (file: File, maxSize = 400): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onerror = () => reject(new Error('Could not read the selected image'))
-      reader.onload = () => {
-        const img = new Image()
-        img.onerror = () => reject(new Error('Could not load the selected image'))
-        img.onload = () => {
-          const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
-          const w = Math.max(1, Math.round(img.width * scale))
-          const h = Math.max(1, Math.round(img.height * scale))
-          const canvas = document.createElement('canvas')
-          canvas.width = w
-          canvas.height = h
-          const ctx = canvas.getContext('2d')
-          if (!ctx) return reject(new Error('Your browser does not support image processing'))
-          ctx.drawImage(img, 0, 0, w, h)
-          resolve(canvas.toDataURL('image/png'))
-        }
-        img.src = reader.result as string
-      }
-      reader.readAsDataURL(file)
-    })
 
   // Handle logo upload — persist directly to the business via the settings API.
   const handleLogoUpload = async () => {
@@ -326,7 +335,7 @@ export default function SettingsPage() {
 
     setIsLoadingLogo(true)
     try {
-      const dataUrl = await compressToDataUrl(logoFile)
+      const dataUrl = await cropToDataUrl(logoFile, 400, 400, 'image/png')
       const updated = { ...formData, logo: dataUrl }
       const response = await businessApi.updateSettings(businessId, updated)
 
