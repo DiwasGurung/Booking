@@ -199,9 +199,9 @@ function SearchPageContent() {
                     <div className="mb-5 flex items-start gap-4">
                       <div className="w-24 h-24 rounded-2xl bg-card border-4 border-card shadow-md flex items-center justify-center overflow-hidden flex-shrink-0">
                         {typeof business?.logo === 'string' && business.logo ? (
-                          <img src={business.logo} alt={business.name} className="h-full w-full object-contain p-1" />
+                          <img src={business.logo} alt={business.name} className="h-full w-full object-cover" />
                         ) : (
-                          <Briefcase className="w-10 h-10 text-primary" />
+                          <Building2 className="w-10 h-10 text-primary" />
                         )}
                       </div>
                       <div className="min-w-0">
