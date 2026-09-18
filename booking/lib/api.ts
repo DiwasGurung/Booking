@@ -3,6 +3,7 @@ import { ReactNode } from "react"
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
 export type ApiResponse<T> = {
+  coverImage: any
   logo?: any
   id?: any
   paymentId?: any
@@ -73,6 +74,7 @@ export interface Service {
 
 export interface Business {
   logo: import("react/jsx-runtime").JSX.Element
+  coverImage: import("react/jsx-runtime").JSX.Element
   category: ReactNode
   rating: any
   description: any

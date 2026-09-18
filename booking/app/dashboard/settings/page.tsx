@@ -61,6 +61,9 @@ export default function SettingsPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [activeTab, setActiveTab] = useState('business')
   const [hasBusinessHours, setHasBusinessHours] = useState(false)
+  const [coverPreview, setCoverPreview] = useState<string | null>(null)
+  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [isLoadingCover, setIsLoadingCover] = useState(false)
 
   // Plan gating for SMS notifications — only an Enterprise business with a
   // currently valid (active/trial) subscription may enable SMS; email
@@ -215,6 +218,81 @@ export default function SettingsPage() {
     }
   }
 
+  // Handle cover image file selection
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file')
+        return
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size should be less than 5MB')
+        return
+      }
+      setCoverFile(file)
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        setCoverPreview(event.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  // Handle cover image upload — persist directly to the business via the settings API.
+  // Uses a wider max dimension than the logo (1200 vs 400) since it renders as a
+  // full-width banner rather than a small square, and reuses the same
+  // compressToDataUrl helper defined above for the logo.
+  const handleCoverUpload = async () => {
+    if (!coverFile || !businessId || !formData) return
+
+    setIsLoadingCover(true)
+    try {
+      const dataUrl = await compressToDataUrl(coverFile, 1200)
+      const updated = { ...formData, coverImage: dataUrl }
+      const response = await businessApi.updateSettings(businessId, updated)
+
+      if (!response.success && !response.data) {
+        throw new Error(response.error || 'Failed to save cover image')
+      }
+
+      setFormData(updated)
+      setSettings(updated)
+      setCoverFile(null)
+      setCoverPreview(dataUrl)
+      setSuccess('Cover image uploaded successfully')
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (error: any) {
+      setError(error?.message || 'Failed to upload cover image')
+      setTimeout(() => setError(null), 4000)
+    } finally {
+      setIsLoadingCover(false)
+    }
+  }
+
+  // Remove cover image — persist the removal so it does not reappear after refresh.
+  const handleRemoveCover = async () => {
+    if (!formData || !businessId) return
+
+    try {
+      const updated = { ...formData, coverImage: '' }
+      const response = await businessApi.updateSettings(businessId, updated)
+
+      if (!response.success && !response.data) {
+        throw new Error(response.error || 'Failed to remove cover image')
+      }
+
+      setFormData(updated)
+      setSettings(updated)
+      setCoverFile(null)
+      setCoverPreview(null)
+      setSuccess('Cover image removed successfully')
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (error: any) {
+      setError(error?.message || 'Failed to remove cover image')
+      setTimeout(() => setError(null), 4000)
+    }
+  }
   // Compress an image file to a small PNG data URL. Storing the logo directly on
   // the business record avoids ephemeral disk storage and localhost/mixed-content
   // URL problems that made the previous upload endpoint fail.
@@ -351,9 +429,9 @@ export default function SettingsPage() {
       setFormData((prev) =>
         prev
           ? {
-              ...prev,
-              notificationSettings: { ...prev.notificationSettings, smsNotifications: false },
-            }
+            ...prev,
+            notificationSettings: { ...prev.notificationSettings, smsNotifications: false },
+          }
           : prev
       )
     }
@@ -392,6 +470,9 @@ export default function SettingsPage() {
       )
       if (response.logo) {
         setLogoPreview(response.logo)
+      }
+      if (response.coverImage) {
+        setCoverPreview(response.coverImage)
       }
       if (response.success && response.data) {
         setSettings(response.data)
@@ -690,6 +771,90 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+            {/* Cover Image Upload */}
+            <Card className="border border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5" />
+                  Cover Image
+                </CardTitle>
+                <CardDescription>
+                  A banner image shown at the top of your public booking page (recommended: wide, landscape orientation)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Cover Preview — wide banner aspect instead of the square logo box */}
+                <div className="w-full h-40 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border overflow-hidden">
+                  {coverPreview || formData?.coverImage ? (
+                    <img
+                      src={coverPreview || formData?.coverImage}
+                      alt="Business cover"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Upload className="w-8 h-8" />
+                      <span className="text-sm">No cover image set</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Upload Controls */}
+                <div>
+                  <Label htmlFor="cover-upload" className="block mb-2">Upload Cover Image (PNG, JPG - Max 5MB)</Label>
+                  <Input
+                    id="cover-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCoverChange}
+                    className="block"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  {coverFile && (
+                    <>
+                      <Button
+                        onClick={handleCoverUpload}
+                        disabled={isLoadingCover}
+                        className="bg-primary text-primary-foreground hover:bg-primary/90"
+                      >
+                        {isLoadingCover ? (
+                          <>
+                            <Loader className="w-4 h-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4 mr-2" />
+                            Upload Cover Image
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setCoverFile(null)
+                          setCoverPreview(formData?.coverImage || null)
+                        }}
+                        variant="outline"
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  )}
+                  {(formData?.coverImage || coverPreview) && !coverFile && (
+                    <Button
+                      onClick={handleRemoveCover}
+                      variant="destructive"
+                      className="gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Remove Cover Image
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
