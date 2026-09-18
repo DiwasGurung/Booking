@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState, useRef, JSX } from 'react'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/card'
-import { Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, MessageCircle, User, Mail, Loader2, X, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
+import { Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, MessageCircle, User, Mail, Loader2, X, ChevronLeft, ChevronRight, Calendar as CalendarIcon, MapPin, Phone } from 'lucide-react'
 import { servicesApi, bookingsApi, businessApi, staffApi, type Service, type Business, type Staff } from '@/lib/api'
 import { useAuth } from '@/context/authContext'
 import { DateTime } from 'luxon';
@@ -805,10 +805,69 @@ setError(reason || 'Please choose a different date for this staff member')
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
       <div className="mx-auto max-w-3xl">
-        <div className="mb-10 text-center">
-          <h1 className="text-4xl font-bold text-foreground mb-3">{business?.name || 'Book Your Appointment'}</h1>
-          <p className="text-lg text-muted-foreground">Select a service, date, staff (optional) and time</p>
+        <Card className="overflow-hidden border border-border shadow-lg">
+    {/* Cover image banner, falls back to a subtle gradient if none set
+    <div
+      className="h-32 md:h-40 w-full bg-gradient-to-r from-primary/20 to-primary/5 bg-cover bg-center"
+      style={business?.coverImage ? { backgroundImage: `url(${business.coverImage})` } : undefined}
+    /> */}
+
+    <div className="px-6 md:px-8 pb-6 -mt-12">
+      <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+        {/* Logo */}
+        <div className="w-24 h-24 rounded-2xl bg-card border-4 border-card shadow-md flex items-center justify-center overflow-hidden flex-shrink-0">
+          {business?.logo ? (
+            <img
+              src={typeof business.logo === 'string' ? business.logo : undefined}
+              alt={business.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <Briefcase className="w-10 h-10 text-primary" />
+          )}
         </div>
+
+        <div className="flex-1 pt-2 sm:pt-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+              {business?.name || 'Book Your Appointment'}
+            </h1>
+            {business?.isVerified && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold bg-primary/10 text-primary px-2 py-1 rounded-full">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Verified
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
+            {business?.category && (
+              <span className="inline-flex items-center gap-1">
+                <Briefcase className="w-3.5 h-3.5" />
+                {business.category}
+              </span>
+            )}
+            {business?.phone && (
+              <span className="inline-flex items-center gap-1">
+                <Phone className="w-3.5 h-3.5" />
+                {business.phone}
+              </span>
+            )}
+            {(business?.address || business?.city) && (
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5" />
+                {[business?.address, business?.city].filter(Boolean).join(', ')}
+              </span>
+            )}
+          </div>
+
+          {business?.description && (
+            <p className="mt-3 text-sm text-muted-foreground max-w-2xl">{business.description}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  </Card>
 
         {error && (
           <Card className="border border-destructive/50 bg-destructive/5 mb-6">

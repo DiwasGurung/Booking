@@ -83,6 +83,7 @@ export interface Business {
   name: string
   phone: string
   email: string
+  isVerified: boolean
   location?: string
   createdAt: string
 }
