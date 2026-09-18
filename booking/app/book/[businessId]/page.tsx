@@ -806,11 +806,11 @@ setError(reason || 'Please choose a different date for this staff member')
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
       <div className="mx-auto max-w-3xl">
         <Card className="overflow-hidden border border-border shadow-lg">
-    {/* Cover image banner, falls back to a subtle gradient if none set
+    Cover image banner, falls back to a subtle gradient if none set
     <div
       className="h-32 md:h-40 w-full bg-gradient-to-r from-primary/20 to-primary/5 bg-cover bg-center"
       style={business?.coverImage ? { backgroundImage: `url(${business.coverImage})` } : undefined}
-    /> */}
+    />
 
     <div className="px-6 md:px-8 pb-6 -mt-12">
       <div className="flex flex-col sm:flex-row sm:items-end gap-4">

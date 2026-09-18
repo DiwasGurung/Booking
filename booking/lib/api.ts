@@ -3,7 +3,7 @@ import { ReactNode } from "react"
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
 export type ApiResponse<T> = {
-  coverImage: any
+  coverImage?: any
   logo?: any
   id?: any
   paymentId?: any
