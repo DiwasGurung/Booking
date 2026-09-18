@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BusinessService = void 0;
 const prisma_1 = __importDefault(require("../lib/prisma"));
+const image_1 = require("../utils/image");
 class BusinessService {
     /**
      * Create a new business
@@ -260,6 +261,12 @@ class BusinessService {
      */
     async updateBusinessSettings(businessId, settings) {
         try {
+            if (settings.logo) {
+                settings.logo = await (0, image_1.normalizeDataUrlImage)(settings.logo, "logo");
+            }
+            if (settings.coverImage) {
+                settings.coverImage = await (0, image_1.normalizeDataUrlImage)(settings.coverImage, "cover");
+            }
             const business = await prisma_1.default.business.update({
                 where: { id: businessId },
                 data: {

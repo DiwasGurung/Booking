@@ -6,7 +6,7 @@ import { useAuth } from '@/context/authContext'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Search, MapPin, Phone, Globe, Loader, AlertCircle, Building2 } from 'lucide-react'
+import { Search, MapPin, Phone, Globe, Loader, AlertCircle, Building2, Briefcase } from 'lucide-react'
 import { businessApi, type Business } from '@/lib/api'
 import { useRoleProtection } from '@/hooks/useRoleProtection'
 
@@ -22,7 +22,7 @@ function SearchPageContent() {
   const [searched, setSearched] = useState(false)
   // Filter state
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  
+
   // Get unique categories
   const categories = React.useMemo(() => {
     const cats = new Set(businesses.map(b => b.category).filter(Boolean))
@@ -197,11 +197,11 @@ function SearchPageContent() {
                 <Card key={business.id} className="group flex flex-col overflow-hidden border-border bg-card shadow-sm transition-shadow hover:shadow-md">
                   <div className="flex flex-1 flex-col p-5 md:p-6">
                     <div className="mb-5 flex items-start gap-4">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
-                        {business.logo ? (
-                          <img src={typeof business.logo === 'string' ? business.logo : ''} alt={`${business.name} logo`} className="h-full w-full object-contain p-1" />
+                      <div className="w-24 h-24 rounded-2xl bg-card border-4 border-card shadow-md flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {typeof business?.logo === 'string' && business.logo ? (
+                          <img src={business.logo} alt={business.name} className="h-full w-full object-contain p-1" />
                         ) : (
-                          <Building2 className="h-6 w-6 text-muted-foreground" />
+                          <Briefcase className="w-10 h-10 text-primary" />
                         )}
                       </div>
                       <div className="min-w-0">

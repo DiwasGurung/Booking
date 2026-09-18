@@ -350,4 +350,4 @@ if (settings.coverImage) {
   }
 }
 
-
+export default new BusinessService()
