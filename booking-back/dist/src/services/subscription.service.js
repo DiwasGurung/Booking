@@ -85,6 +85,23 @@ class SubscriptionService {
             throw error;
         }
     }
+    async expireIfNeeded(subscription) {
+        const now = new Date();
+        const shouldExpire = (subscription.status === 'TRIAL' &&
+            subscription.trialEndsAt !== null &&
+            subscription.trialEndsAt <= now) ||
+            ((subscription.status === 'ACTIVE' || subscription.status === 'CANCELLED') &&
+                subscription.endDate !== null &&
+                subscription.endDate <= now);
+        if (!shouldExpire)
+            return subscription;
+        console.log(`[v0] Subscription ${subscription.id} crossed expiry — updating status to EXPIRED`);
+        const updated = await prisma_1.default.subscription.update({
+            where: { id: subscription.id },
+            data: { status: 'EXPIRED' },
+        });
+        return { ...subscription, ...updated };
+    }
     /**
      * Get business subscription
      */
@@ -97,10 +114,32 @@ class SubscriptionService {
                     business: true,
                 },
             });
-            return subscription;
+            if (!subscription)
+                return null;
+            return await this.expireIfNeeded(subscription);
         }
         catch (error) {
             console.error(`[v0] Failed to get subscription for business: ${businessId}`, error);
+            throw error;
+        }
+    }
+    async expireOverdueSubscriptions() {
+        try {
+            const now = new Date();
+            const result = await prisma_1.default.subscription.updateMany({
+                where: {
+                    OR: [
+                        { status: 'TRIAL', trialEndsAt: { lte: now } },
+                        { status: { in: ['ACTIVE', 'CANCELLED'] }, endDate: { lte: now } },
+                    ],
+                },
+                data: { status: 'EXPIRED' },
+            });
+            console.log(`[v0] Expired ${result.count} overdue subscription(s)`);
+            return result.count;
+        }
+        catch (error) {
+            console.error(`[v0] Failed to expire overdue subscriptions:`, error);
             throw error;
         }
     }
@@ -144,16 +183,9 @@ class SubscriptionService {
     */
     async getSubscriptionStatus(businessId) {
         try {
-            const subscription = await prisma_1.default.subscription.findUnique({
+            let subscription = await prisma_1.default.subscription.findUnique({
                 where: { businessId },
-                select: {
-                    id: true,
-                    status: true,
-                    trialEndsAt: true,
-                    endDate: true,
-                    startDate: true,
-                    autoRenew: true,
-                    isTrialUsed: true,
+                include: {
                     plan: true,
                     business: true,
                 },
@@ -167,6 +199,22 @@ class SubscriptionService {
                     expiresAt: null,
                     isTrialUsed: false,
                 };
+            }
+            subscription = await this.expireIfNeeded(subscription);
+            const now0 = new Date();
+            const shouldExpire = (subscription.status === 'TRIAL' &&
+                subscription.trialEndsAt !== null &&
+                subscription.trialEndsAt <= now0) ||
+                ((subscription.status === 'ACTIVE' || subscription.status === 'CANCELLED') &&
+                    subscription.endDate !== null &&
+                    subscription.endDate <= now0);
+            if (shouldExpire) {
+                console.log(`[v0] Subscription ${subscription.id} crossed expiry — updating status to EXPIRED`);
+                const updated = await prisma_1.default.subscription.update({
+                    where: { id: subscription.id },
+                    data: { status: 'EXPIRED' },
+                });
+                subscription = { ...subscription, status: updated.status };
             }
             const now = new Date();
             let daysRemaining = 0;

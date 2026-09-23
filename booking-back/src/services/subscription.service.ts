@@ -77,6 +77,8 @@ type UsageDetailsResult = {
 } | null
 
 class SubscriptionService {
+
+  
   /**
    * Create subscription with 1 month free trial
    */
@@ -151,6 +153,7 @@ class SubscriptionService {
       throw error
     }
   }
+  
 
   /**
    * Get subscription by ID
@@ -171,25 +174,72 @@ class SubscriptionService {
     }
   }
 
+  private async expireIfNeeded(
+  subscription: SubscriptionWithRelations
+): Promise<SubscriptionWithRelations> {
+  const now = new Date()
+
+  const shouldExpire =
+    (subscription.status === 'TRIAL' &&
+      subscription.trialEndsAt !== null &&
+      subscription.trialEndsAt <= now) ||
+    ((subscription.status === 'ACTIVE' || subscription.status === 'CANCELLED') &&
+      subscription.endDate !== null &&
+      subscription.endDate <= now)
+
+  if (!shouldExpire) return subscription
+
+  console.log(`[v0] Subscription ${subscription.id} crossed expiry — updating status to EXPIRED`)
+  const updated = await prisma.subscription.update({
+    where: { id: subscription.id },
+    data: { status: 'EXPIRED' as SubscriptionStatus },
+  })
+
+  return { ...subscription, ...updated } as SubscriptionWithRelations
+}
+
   /**
    * Get business subscription
    */
   async getBusinessSubscription(businessId: string): Promise<SubscriptionWithRelations | null> {
-    try {
-      const subscription = await prisma.subscription.findUnique({
-        where: { businessId },
-        include: {
-          plan: true,
-          business: true,
-        },
-      })
-      return subscription as SubscriptionWithRelations | null
-    } catch (error) {
-      console.error(`[v0] Failed to get subscription for business: ${businessId}`, error)
-      throw error
-    }
-  }
+  try {
+    const subscription = await prisma.subscription.findUnique({
+      where: { businessId },
+      include: {
+        plan: true,
+        business: true,
+      },
+    })
 
+    if (!subscription) return null
+
+    return await this.expireIfNeeded(subscription as SubscriptionWithRelations)
+  } catch (error) {
+    console.error(`[v0] Failed to get subscription for business: ${businessId}`, error)
+    throw error
+  }
+}
+
+
+async expireOverdueSubscriptions(): Promise<number> {
+  try {
+    const now = new Date()
+    const result = await prisma.subscription.updateMany({
+      where: {
+        OR: [
+          { status: 'TRIAL', trialEndsAt: { lte: now } },
+          { status: { in: ['ACTIVE', 'CANCELLED'] }, endDate: { lte: now } },
+        ],
+      },
+      data: { status: 'EXPIRED' as SubscriptionStatus },
+    })
+    console.log(`[v0] Expired ${result.count} overdue subscription(s)`)
+    return result.count
+  } catch (error) {
+    console.error(`[v0] Failed to expire overdue subscriptions:`, error)
+    throw error
+  }
+}
   /**
    * Check if subscription is valid (trial or active)
    */
@@ -235,20 +285,13 @@ class SubscriptionService {
   */
   async getSubscriptionStatus(businessId: string): Promise<SubscriptionStatusResult> {
     try {
-      const subscription = await prisma.subscription.findUnique({
-  where: { businessId },
-  select: {
-    id: true,
-    status: true,
-    trialEndsAt: true,
-    endDate: true,
-    startDate: true,
-    autoRenew: true,
-    isTrialUsed: true,
-    plan: true,
-    business: true,
-  },
-});
+      let subscription = await prisma.subscription.findUnique({
+        where: { businessId },
+        include: {
+          plan: true,
+          business: true,
+        },
+      })
 
       if (!subscription) {
         return {
@@ -261,7 +304,29 @@ class SubscriptionService {
         }
       }
 
+       subscription = await this.expireIfNeeded(subscription)
+
+
+        const now0 = new Date()
+    const shouldExpire =
+      (subscription.status === 'TRIAL' &&
+        subscription.trialEndsAt !== null &&
+        subscription.trialEndsAt <= now0) ||
+      ((subscription.status === 'ACTIVE' || subscription.status === 'CANCELLED') &&
+        subscription.endDate !== null &&
+        subscription.endDate <= now0)
+
+    if (shouldExpire) {
+      console.log(`[v0] Subscription ${subscription.id} crossed expiry — updating status to EXPIRED`)
+      const updated = await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: { status: 'EXPIRED' as SubscriptionStatus },
+      })
+      subscription = { ...subscription, status: updated.status }
+    }
+
       const now = new Date()
+      
       let daysRemaining = 0
       let expiresAt: Date | null = null
       // Fail closed: only an explicitly validated branch below flips this to true.

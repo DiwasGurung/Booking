@@ -45,13 +45,15 @@ export default function BookingsPage() {
   const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
-  const { subscriptionStatus } = useSubscriptionStatus()
+  const { subscriptionStatus, hasValidSubscription } = useSubscriptionStatus()
   const planName = (subscriptionStatus?.planName || '').toUpperCase()
-  const canExportBookings = ['PROFESSIONAL', 'ENTERPRISE'].includes((subscriptionStatus?.planName || '').toUpperCase())
+
+  const canExportBookings =
+  hasValidSubscription && ['PROFESSIONAL', 'ENTERPRISE'].includes(planName)
   // Reminder eligibility: Enterprise sends via SMS (bulk), Pro/Professional via email.
   const isEnterprisePlan = planName === 'ENTERPRISE'
   const isProPlan = planName === 'PRO' || planName === 'PROFESSIONAL'
-  const canSendReminders = isEnterprisePlan || isProPlan
+  const canSendReminders = hasValidSubscription && (isEnterprisePlan || isProPlan)
 
   const [sendingReminders, setSendingReminders] = useState(false)
   const [reminderMessage, setReminderMessage] = useState<string | null>(null)

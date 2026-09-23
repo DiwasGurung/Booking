@@ -72,9 +72,11 @@ export const useSubscriptionStatus = () => {
     }
   }, [businessId])
 
-  useEffect(() => {
-    fetchSubscriptionStatus()
-  }, [fetchSubscriptionStatus, authLoading])
+ useEffect(() => {
+  fetchSubscriptionStatus()
+  const interval = setInterval(fetchSubscriptionStatus, 60 * 1000)
+  return () => clearInterval(interval)
+}, [fetchSubscriptionStatus, authLoading])
 
   return {
     subscriptionStatus,
