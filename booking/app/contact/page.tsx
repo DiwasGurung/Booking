@@ -7,6 +7,10 @@ import { Mail, Phone, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 
 export default function ContactPage() {
+  const phoneNumber = '+977 9814195023'
+  const phoneNumberDialable = '+9779814195023' // used for tel: and wa.me (no spaces)
+  const email = 'info@appoint-nepal.com'
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
       <div className="mx-auto max-w-4xl">
@@ -21,8 +25,8 @@ export default function ContactPage() {
           <Card className="border border-border shadow-lg p-6 text-center">
             <Mail className="w-12 h-12 text-primary mx-auto mb-4" />
             <h3 className="text-lg font-bold text-foreground mb-2">Email</h3>
-            <p className="text-muted-foreground mb-4">info@appoint-Nepal.com</p>
-            <a href="mailto:support@Appoint-Nepal.com">
+            <p className="text-muted-foreground mb-4">{email}</p>
+            <a href={`mailto:${email}`}>
               <Button variant="outline" className="w-full">Send Email</Button>
             </a>
           </Card>
@@ -30,9 +34,22 @@ export default function ContactPage() {
           <Card className="border border-border shadow-lg p-6 text-center">
             <Phone className="w-12 h-12 text-primary mx-auto mb-4" />
             <h3 className="text-lg font-bold text-foreground mb-2">Phone</h3>
-            <p className="text-muted-foreground mb-4">+977 9814195023</p>
-            <a href="tel:+15551234567">
+            <p className="text-muted-foreground mb-4">{phoneNumber}</p>
+            <a href={`tel:${phoneNumberDialable}`}>
               <Button variant="outline" className="w-full">Call Us</Button>
+            </a>
+          </Card>
+
+          <Card className="border border-border shadow-lg p-6 text-center">
+            <MessageSquare className="w-12 h-12 text-primary mx-auto mb-4" />
+            <h3 className="text-lg font-bold text-foreground mb-2">WhatsApp</h3>
+            <p className="text-muted-foreground mb-4">{phoneNumber}</p>
+            <a
+              href={`https://wa.me/${phoneNumberDialable.replace('+', '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="outline" className="w-full">Chat on WhatsApp</Button>
             </a>
           </Card>
         </div>
