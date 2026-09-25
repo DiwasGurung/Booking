@@ -44,9 +44,9 @@ export function Footer() {
               <Link href="/setup-business" className="text-sm hover:text-white transition block">
                 Get Started
               </Link>
-              <a href="/#pricing" className="text-sm hover:text-white transition block">
+              <Link href="/pricing" className="text-sm hover:text-white transition block">
                 Pricing
-              </a>
+              </Link>
             </div>
           </div>
 
@@ -54,15 +54,15 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold text-white mb-4">Legal</h4>
             <div className="space-y-2">
-              <a href="/privacy" className="text-sm hover:text-white transition block">
+              <Link href="/privacy" className="text-sm hover:text-white transition block">
                 Privacy Policy
-              </a>
-              <a href="/terms" className="text-sm hover:text-white transition block">
+              </Link>
+              <Link href="/terms" className="text-sm hover:text-white transition block">
                 Terms of Service
-              </a>
-              <a href="/contact" className="text-sm hover:text-white transition block">
+              </Link>
+              <Link href="/contact" className="text-sm hover:text-white transition block">
                 Contact Us
-              </a>
+              </Link>
               <button
                 onClick={() => setFeedbackOpen(true)}
                 className="text-sm hover:text-white transition flex items-center gap-1.5"
