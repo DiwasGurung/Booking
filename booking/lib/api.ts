@@ -746,8 +746,8 @@ export const businessApi = {
     ),
 
   // Get business by ID
-  getBusinessById: (businessId: string) =>
-    apiCall<Business>(`/api/businesses/${businessId}`),
+  getBusinessById: (id: string) =>
+    apiCall<Business>(`/api/businesses/${id}`),
 
   // Get business by user ID
   getByUserId: (userId: string) =>
