@@ -1,9 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  images: {
-    unoptimized: true, 
+  env: {
+    // value wins — this is just a safety-net fallback.
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "https://api.appoint-nepal.com",
+  },
 
+  images: {
+    unoptimized: true,
   },
 
   async headers() {
