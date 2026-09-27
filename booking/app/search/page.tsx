@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { Search, MapPin, Phone, Globe, Loader, AlertCircle, Building2, Briefcase } from 'lucide-react'
 import { businessApi, type Business } from '@/lib/api'
 import { useRoleProtection } from '@/hooks/useRoleProtection'
+import Link from 'next/link'
 
 function SearchPageContent() {
   const router = useRouter()
@@ -235,9 +236,9 @@ function SearchPageContent() {
                       ) : null}
                     </div>
 
-                    <Button onClick={() => router.push(`/book/${business.id}`)} className="mt-auto w-full">
-                      View availability
-                    </Button>
+                    <Link href={`/business/${business.id}`} className="mt-auto w-full">
+                      <Button className="w-full">View availability</Button>
+                    </Link>
                   </div>
                 </Card>
               ))}
