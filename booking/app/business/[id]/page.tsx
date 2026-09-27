@@ -5,7 +5,7 @@ import { MapPin, Phone, Globe, Star, Building2 } from 'lucide-react'
 import { businessApi, servicesApi, type Business, type Service } from '@/lib/api'
 
 interface PageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 async function getBusiness(id: string): Promise<Business | null> {
@@ -20,7 +20,8 @@ async function getServices(businessId: string): Promise<Service[]> {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const business = await getBusiness(params.id)
+  const { id } = await params
+  const business = await getBusiness(id)
 
   if (!business) {
     return { title: 'Business Not Found' }
@@ -34,7 +35,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     : `Book an appointment with ${name}${category ? `, a ${category} business` : ''}${city ? ` in ${city}` : ''}. View services, hours, and contact details.`
 
   const title = `${name}${city ? ` – Book an Appointment in ${city}` : ' – Book an Appointment'}`
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ''
+  const siteUrl = 'https://appoint-nepal.com'
   const canonical = `/business/${business.id}`
   const logoUrl = typeof business.logo === 'string' ? business.logo : undefined
 
@@ -46,7 +47,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title,
       description,
       type: 'website',
-      url: siteUrl ? `${siteUrl}${canonical}` : canonical,
+      url: `${siteUrl}${canonical}`,
       images: logoUrl ? [{ url: logoUrl }] : undefined,
     },
     twitter: {
@@ -72,7 +73,8 @@ export async function generateStaticParams() {
 export const revalidate = 3600 // re-check for updates hourly (ISR)
 
 export default async function PublicBusinessPage({ params }: PageProps) {
-  const business = await getBusiness(params.id)
+  const { id } = await params
+  const business = await getBusiness(id)
   if (!business) notFound()
 
   const services = await getServices(business.id)
