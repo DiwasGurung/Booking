@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { Fraunces, Inter } from 'next/font/google'
 import {
   MapPin,
   Phone,
@@ -9,13 +10,19 @@ import {
   CheckCircle2,
   ChevronLeft,
   Clock,
+  ArrowUpRight,
+  CalendarCheck,
 } from 'lucide-react'
 import { businessApi, servicesApi, type Business, type Service } from '@/lib/api'
 import { OpenStatus } from '@/components/OpenStatus'
+import { HoursTable } from '@/components/HoursTable'
 import { BusinessMap } from '@/components/BusinessMap'
 
+const fraunces = Fraunces({ subsets: ['latin'], weight: ['400', '500', '600'] })
+const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600'] })
+
 interface BusinessHour {
-  dayOfWeek: number // 0 = Sunday, matching JS Date.getDay() — confirm this matches your backend
+  dayOfWeek: number
   openTime: string
   closeTime: string
   isClosed: boolean
@@ -24,13 +31,13 @@ interface BusinessHour {
 type BusinessDetail = Business & {
   hours?: BusinessHour[]
   services?: (Service & { isActive?: boolean })[]
+  latitude?: number | string | null
+  longitude?: number | string | null
 }
 
 interface PageProps {
   params: Promise<{ id: string }>
 }
-
-const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 async function getBusiness(id: string): Promise<BusinessDetail | null> {
   const res = await businessApi.getPublic(id)
@@ -49,28 +56,10 @@ function getInitials(name: string) {
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
   return (words[0][0] + words[1][0]).toUpperCase()
 }
+
 function toCoord(v: unknown, min: number, max: number): number | null {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN
   return Number.isFinite(n) && n >= min && n <= max ? n : null
-}
-
-function formatTime(time: string) {
-  const [h, m] = time.split(':').map(Number)
-  const period = h >= 12 ? 'PM' : 'AM'
-  const hour12 = h % 12 === 0 ? 12 : h % 12
-  return m === 0 ? `${hour12} ${period}` : `${hour12}:${String(m).padStart(2, '0')} ${period}`
-}
-
-function getOpenStatus(hours: BusinessHour[] | undefined) {
-  if (!hours || hours.length === 0) return null
-  const now = new Date()
-  const today = hours.find((h) => h.dayOfWeek === now.getDay())
-  if (!today || today.isClosed) return { open: false, today }
-  const [openH, openM] = today.openTime.split(':').map(Number)
-  const [closeH, closeM] = today.closeTime.split(':').map(Number)
-  const minutesNow = now.getHours() * 60 + now.getMinutes()
-  const open = minutesNow >= openH * 60 + openM && minutesNow < closeH * 60 + closeM
-  return { open, today }
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -143,16 +132,16 @@ export default async function PublicBusinessPage({ params }: PageProps) {
   const rating = typeof business.rating === 'number' && business.rating > 0 ? business.rating : undefined
 
   const hours = [...(business.hours || [])].sort((a, b) => a.dayOfWeek - b.dayOfWeek)
-  
-  const lat = toCoord((business as any).latitude, -90, 90)
-const lng = toCoord((business as any).longitude, -180, 180)
-const hasCoords = lat !== null && lng !== null
 
-const mapsHref = hasCoords
-  ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
-  : address || city
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([name, address, city].filter(Boolean).join(', '))}`
-    : undefined
+  const lat = toCoord(business.latitude, -90, 90)
+  const lng = toCoord(business.longitude, -180, 180)
+  const hasCoords = lat !== null && lng !== null
+
+  const mapsHref = hasCoords
+    ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+    : address || city
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([name, address, city].filter(Boolean).join(', '))}`
+      : undefined
 
   const jsonLd: Record<string, any> = {
     '@context': 'https://schema.org',
@@ -165,6 +154,7 @@ const mapsHref = hasCoords
     address: address || city
       ? { '@type': 'PostalAddress', streetAddress: address || undefined, addressLocality: city || undefined }
       : undefined,
+    geo: hasCoords ? { '@type': 'GeoCoordinates', latitude: lat, longitude: lng } : undefined,
     aggregateRating: rating
       ? { '@type': 'AggregateRating', ratingValue: rating, bestRating: 5 }
       : undefined,
@@ -178,7 +168,7 @@ const mapsHref = hasCoords
   ].filter(Boolean) as { id: string; label: string }[]
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-0">
+    <div className={`${inter.className} min-h-screen bg-[#FBF8F2] text-[#171F1B] pb-28 md:pb-0`}>
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
@@ -186,10 +176,10 @@ const mapsHref = hasCoords
       />
 
       {/* Back navigation */}
-      <div className="mx-auto max-w-3xl px-4 md:px-8 pt-4">
+      <div className="mx-auto max-w-5xl px-4 md:px-8 pt-5">
         <Link
           href="/search"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-[#4B554E] hover:text-[#171F1B] transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
           Back to search
@@ -197,48 +187,52 @@ const mapsHref = hasCoords
       </div>
 
       {/* Hero */}
-      <div className="mx-auto max-w-3xl px-4 md:px-8 pt-4">
-        <div className="relative overflow-hidden rounded-2xl border border-border">
+      <div className="mx-auto max-w-5xl px-4 md:px-8 mt-4">
+        <div className="relative overflow-hidden rounded-2xl bg-[#171F1B]">
           <div
-            className="h-28 md:h-36 w-full bg-gradient-to-br from-primary/20 via-primary/5 to-transparent"
+            className="relative h-56 md:h-72 w-full"
             style={
               coverUrl
                 ? { backgroundImage: `url(${coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
                 : undefined
             }
-          />
-          <div className="bg-card px-5 md:px-7 pb-6">
-            <div className="flex items-end gap-4 -mt-10">
-              <div className="h-20 w-20 md:h-24 md:w-24 rounded-2xl bg-primary text-primary-foreground shadow-md ring-4 ring-card flex items-center justify-center overflow-hidden flex-shrink-0">
-                {logoUrl ? (
-                  <img src={logoUrl} alt={name} className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-2xl md:text-3xl font-semibold">{getInitials(name)}</span>
-                )}
-              </div>
+          >
+            {!coverUrl && (
+              <div className="absolute inset-0 bg-gradient-to-br from-[#233830] via-[#171F1B] to-[#171F1B]" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#171F1B] via-[#171F1Bcc] to-transparent" />
+          </div>
+
+          <div className="relative px-5 md:px-9 pb-7 -mt-16 md:-mt-20">
+            <div className="h-24 w-24 md:h-28 md:w-28 rounded-2xl bg-[#B9873B] ring-4 ring-[#171F1B] shadow-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+              {logoUrl ? (
+                <img src={logoUrl} alt={name} className="h-full w-full object-cover" />
+              ) : (
+                <span className={`${fraunces.className} text-3xl font-medium text-[#171F1B]`}>
+                  {getInitials(name)}
+                </span>
+              )}
             </div>
 
-            <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
+            <div className="mt-5 flex flex-wrap items-start justify-between gap-5">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl md:text-3xl font-bold text-foreground leading-tight">{name}</h1>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className={`${fraunces.className} text-3xl md:text-4xl font-medium text-white leading-tight`}>
+                    {name}
+                  </h1>
                   {business.isVerified && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
-                      <CheckCircle2 className="h-4 w-4" />
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#6FA787]/40 bg-[#3F6B52]/20 px-2.5 py-1 text-xs font-medium text-[#8FC3A4]">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
                       Verified
                     </span>
                   )}
                 </div>
 
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {category && (
-                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                      {category}
-                    </span>
-                  )}
+                <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[#D8D2C0]">
+                  {category && <span>{category}</span>}
                   {rating && (
-                    <span className="inline-flex items-center gap-1 text-sm text-foreground">
-                      <Star className="h-3.5 w-3.5 fill-primary text-primary" />
+                    <span className="inline-flex items-center gap-1">
+                      <Star className="h-3.5 w-3.5 fill-[#D9A968] text-[#D9A968]" />
                       {rating.toFixed(1)}
                     </span>
                   )}
@@ -246,7 +240,7 @@ const mapsHref = hasCoords
                 </div>
 
                 {(address || city) && (
-                  <p className="mt-2 flex items-start gap-1.5 text-sm text-muted-foreground">
+                  <p className="mt-3 flex items-start gap-1.5 text-sm text-[#D8D2C0]">
                     <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
                     {[address, city].filter(Boolean).join(', ')}
                   </p>
@@ -255,48 +249,40 @@ const mapsHref = hasCoords
 
               <Link
                 href={`/book/${business.id}`}
-                className="hidden md:inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground px-5 py-2.5 font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
+                className="hidden md:inline-flex items-center gap-2 rounded-lg bg-[#B9873B] text-[#171F1B] px-5 py-3 font-medium hover:bg-[#CB9950] transition-colors flex-shrink-0"
               >
+                <CalendarCheck className="h-4 w-4" />
                 Book an appointment
               </Link>
             </div>
 
-            {/* Quick actions */}
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-5 flex flex-wrap gap-2">
               {business.phone && (
                 
-                 <a href={`tel:${business.phone}`}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-secondary/50 transition-colors"
+                <a  href={`tel:${business.phone}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#3A443C] px-3 py-1.5 text-sm text-[#D8D2C0] hover:bg-white/5 hover:text-white transition-colors"
                 >
                   <Phone className="h-3.5 w-3.5" />
                   Call
                 </a>
               )}
               {mapsHref && (
-  <section id="location" className="scroll-mt-16">
-    <h2 className="text-lg font-semibold text-foreground mb-3">Location</h2>
-    <div className="space-y-3">
-      {hasCoords && <BusinessMap lat={lat!} lng={lng!} />}
-      <div className="rounded-xl border border-border p-4 bg-card flex items-start justify-between gap-4">
-        <p className="text-sm text-muted-foreground">{[address, city].filter(Boolean).join(', ')}</p>
-        
-         <a href={mapsHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-shrink-0 text-sm font-medium text-primary hover:underline"
-        >
-          Get directions
-        </a>
-      </div>
-    </div>
-  </section>
-)}
-              {website && (
                 
-                   <a href={website}
+                <a  href={mapsHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-secondary/50 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#3A443C] px-3 py-1.5 text-sm text-[#D8D2C0] hover:bg-white/5 hover:text-white transition-colors"
+                >
+                  <MapPin className="h-3.5 w-3.5" />
+                  Directions
+                </a>
+              )}
+              {website && (
+                
+                <a  href={website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#3A443C] px-3 py-1.5 text-sm text-[#D8D2C0] hover:bg-white/5 hover:text-white transition-colors"
                 >
                   <Globe className="h-3.5 w-3.5" />
                   Website
@@ -309,13 +295,13 @@ const mapsHref = hasCoords
 
       {/* Section tabs */}
       {tabs.length > 1 && (
-        <div className="sticky top-0 z-30 mt-6 border-b border-border bg-background/95 backdrop-blur-sm">
-          <div className="mx-auto max-w-3xl px-4 md:px-8 flex gap-6 overflow-x-auto">
+        <div className="sticky top-0 z-30 mt-8 border-b border-[#E4DFD1] bg-[#FBF8F2]/95 backdrop-blur-sm">
+          <div className="mx-auto max-w-5xl px-4 md:px-8 flex gap-7 overflow-x-auto">
             {tabs.map((t) => (
-              
-               <a key={t.id}
+              <a
+                key={t.id}
                 href={`#${t.id}`}
-                className="whitespace-nowrap py-3 text-sm font-medium text-muted-foreground hover:text-foreground border-b-2 border-transparent hover:border-primary transition-colors"
+                className="whitespace-nowrap py-3.5 text-sm text-[#4B554E] hover:text-[#171F1B] border-b-2 border-transparent hover:border-[#B9873B] transition-colors"
               >
                 {t.label}
               </a>
@@ -324,97 +310,135 @@ const mapsHref = hasCoords
         </div>
       )}
 
-      <div className="mx-auto max-w-3xl px-4 md:px-8 py-8 space-y-10">
-        {description && (
-          <section id="overview" className="scroll-mt-16">
-            <h2 className="text-lg font-semibold text-foreground mb-3">Overview</h2>
-            <p className="text-muted-foreground leading-relaxed">{description}</p>
-          </section>
-        )}
+      <div className="mx-auto max-w-5xl px-4 md:px-8 py-10">
+        <div className="md:grid md:grid-cols-[280px_1fr] md:gap-12">
+          {/* Sticky quick-facts panel */}
+          <aside className="hidden md:block">
+            <div className="sticky top-24 space-y-5">
+              {(address || city || business.phone || website) && (
+                <div className="rounded-xl border border-[#E4DFD1] p-5 space-y-4">
+                  {(address || city) && (
+                    <div className="flex items-start gap-3">
+                      <MapPin className="h-4 w-4 mt-0.5 text-[#B9873B] shrink-0" />
+                      <p className="text-sm text-[#4B554E]">{[address, city].filter(Boolean).join(', ')}</p>
+                    </div>
+                  )}
+                  {business.phone && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-[#B9873B] shrink-0" />
+                      
+                       <a href={`tel:${business.phone}`}
+                        className="text-sm text-[#171F1B] hover:text-[#B9873B] transition-colors"
+                      >
+                        {business.phone}
+                      </a>
+                    </div>
+                  )}
+                  {website && (
+                    <div className="flex items-center gap-3">
+                      <Globe className="h-4 w-4 text-[#B9873B] shrink-0" />
+                      
+                      <a  href={website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-[#171F1B] hover:text-[#B9873B] transition-colors truncate"
+                      >
+                        {website.replace(/^https?:\/\//, '')}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+              <Link
+                href={`/book/${business.id}`}
+                className="flex items-center justify-center gap-2 rounded-lg bg-[#B9873B] text-[#171F1B] py-3 font-medium hover:bg-[#CB9950] transition-colors"
+              >
+                <CalendarCheck className="h-4 w-4" />
+                Book an appointment
+              </Link>
+            </div>
+          </aside>
 
-        <section id="services" className="scroll-mt-16">
-          <h2 className="text-lg font-semibold text-foreground mb-3">Services</h2>
-          {services.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No services listed yet.</p>
-          ) : (
-            <div className="divide-y divide-border rounded-xl border border-border overflow-hidden">
-              {services.map((s) => (
-                <div key={s.id} className="flex items-center justify-between gap-4 p-4 bg-card">
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground">{s.name}</p>
-                    {s.description && (
-                      <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">{s.description}</p>
-                    )}
-                    <p className="mt-1 text-xs text-muted-foreground">{s.duration} min</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    {s.offerPrice ? (
-                      <>
-                        <p className="text-xs text-muted-foreground line-through">Rs {s.price.toFixed(0)}</p>
-                        <p className="font-semibold text-foreground">Rs {s.offerPrice.toFixed(0)}</p>
-                      </>
-                    ) : (
-                      <p className="font-semibold text-foreground">Rs {s.price.toFixed(0)}</p>
-                    )}
+          {/* Flowing content */}
+          <div className="space-y-12">
+            {description && (
+              <section id="overview" className="scroll-mt-24">
+                <h2 className={`${fraunces.className} text-xl font-medium text-[#171F1B] mb-3`}>Overview</h2>
+                <p className="max-w-[62ch] text-[#4B554E] leading-relaxed">{description}</p>
+              </section>
+            )}
+
+            <section id="services" className="scroll-mt-24">
+              <h2 className={`${fraunces.className} text-xl font-medium text-[#171F1B] mb-5`}>Services</h2>
+              {services.length === 0 ? (
+                <p className="text-sm text-[#4B554E]">No services listed yet.</p>
+              ) : (
+                <div className="divide-y divide-[#E4DFD1]">
+                  {services.map((s) => (
+                    <div key={s.id} className="py-4">
+                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <p className="font-medium text-[#171F1B]">{s.name}</p>
+                        <span className="min-w-[1.5rem] flex-1 border-b border-dotted border-[#C9C2AD]" />
+                        <p className="font-medium text-[#B9873B] flex-shrink-0">
+                          Rs {(s.offerPrice ?? s.price).toFixed(0)}
+                        </p>
+                      </div>
+                      {s.offerPrice && (
+                        <p className="text-xs text-[#8B8471] line-through">Rs {s.price.toFixed(0)}</p>
+                      )}
+                      {s.description && (
+                        <p className="mt-1.5 max-w-[56ch] text-sm text-[#4B554E] line-clamp-2">{s.description}</p>
+                      )}
+                      <p className="mt-1 text-xs text-[#8B8471]">{s.duration} min</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {hours.length > 0 && (
+              <section id="hours" className="scroll-mt-24">
+                <h2 className={`${fraunces.className} flex items-center gap-2 text-xl font-medium text-[#171F1B] mb-5`}>
+                  <Clock className="h-4 w-4" />
+                  Hours
+                </h2>
+                <HoursTable hours={hours} />
+              </section>
+            )}
+
+            {mapsHref && (
+              <section id="location" className="scroll-mt-24">
+                <h2 className={`${fraunces.className} text-xl font-medium text-[#171F1B] mb-5`}>Location</h2>
+                <div className="space-y-3">
+                  {hasCoords && <BusinessMap lat={lat!} lng={lng!} />}
+                  <div className="flex items-start justify-between gap-4 rounded-xl border border-[#E4DFD1] p-4">
+                    <p className="text-sm text-[#4B554E]">{[address, city].filter(Boolean).join(', ')}</p>
+                    
+                     <a href={mapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 flex-shrink-0 text-sm font-medium text-[#B9873B] hover:text-[#9C7130] transition-colors"
+                    >
+                      Get directions <ArrowUpRight className="h-3.5 w-3.5" />
+                    </a>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {hours.length > 0 && (
-          <section id="hours" className="scroll-mt-16">
-            <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Hours
-            </h2>
-            <div className="rounded-xl border border-border overflow-hidden">
-              {hours.map((h) => {
-                const isToday = h.dayOfWeek === new Date().getDay()
-                return (
-                  <div
-                    key={h.dayOfWeek}
-                    className={`flex items-center justify-between px-4 py-2.5 text-sm ${
-                      isToday ? 'bg-primary/5 font-medium text-foreground' : 'text-muted-foreground'
-                    } ${h.dayOfWeek !== 6 ? 'border-b border-border' : ''}`}
-                  >
-                    <span>{DAY_LABELS[h.dayOfWeek]}</span>
-                    <span>{h.isClosed ? 'Closed' : `${formatTime(h.openTime)} – ${formatTime(h.closeTime)}`}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        )}
-
-        {mapsHref && (
-          <section id="location" className="scroll-mt-16">
-            <h2 className="text-lg font-semibold text-foreground mb-3">Location</h2>
-            <div className="rounded-xl border border-border p-4 bg-card flex items-start justify-between gap-4">
-              <p className="text-sm text-muted-foreground">{[address, city].filter(Boolean).join(', ')}</p>
-              
-               <a href={mapsHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-shrink-0 text-sm font-medium text-primary hover:underline"
-              >
-                Get directions
-              </a>
-            </div>
-          </section>
-        )}
+              </section>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Mobile sticky book bar */}
       <div
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur-sm p-3 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E4DFD1] bg-[#FBF8F2]/95 backdrop-blur-sm p-3 md:hidden"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         <Link
           href={`/book/${business.id}`}
-          className="flex items-center justify-center rounded-lg bg-primary text-primary-foreground py-3 font-medium"
+          className="flex items-center justify-center gap-2 rounded-lg bg-[#B9873B] text-[#171F1B] py-3 font-medium"
         >
+          <CalendarCheck className="h-4 w-4" />
           Book an appointment
         </Link>
       </div>

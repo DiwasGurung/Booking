@@ -1,4 +1,3 @@
-// components/OpenStatus.tsx
 'use client'
 
 import { useEffect, useState } from 'react'
@@ -40,7 +39,6 @@ function computeOpen(hours: BusinessHour[]) {
   if (!today || today.isClosed) return false
   const open = toMinutes(today.openTime)
   const close = toMinutes(today.closeTime)
-  // handles overnight ranges like 18:00–02:00 (same-day portion only)
   return close > open ? minutes >= open && minutes < close : minutes >= open || minutes < close
 }
 
@@ -53,10 +51,11 @@ export function OpenStatus({ hours }: { hours: BusinessHour[] }) {
     return () => clearInterval(id)
   }, [hours])
 
-  if (open === null) return null // avoids hydration mismatch
+  if (open === null) return null
 
   return (
-    <span className={`text-xs font-medium ${open ? 'text-primary' : 'text-muted-foreground'}`}>
+    <span className="inline-flex items-center gap-1.5 text-[#D8D2C0]">
+      <span className={`h-1.5 w-1.5 rounded-full ${open ? 'bg-[#8FC3A4]' : 'bg-[#C99C86]'}`} />
       {open ? 'Open now' : 'Closed now'}
     </span>
   )
