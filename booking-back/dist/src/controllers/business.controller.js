@@ -225,6 +225,23 @@ class BusinessController {
         }
     }
     /**
+   * Get public business profile (safe fields only, no auth required)
+   */
+    async getPublicById(req, res) {
+        try {
+            const { id } = req.params;
+            const business = await business_service_1.default.getPublicBusinessById(id);
+            if (!business || !business.isActive) {
+                return res.status(404).json({ message: "Business not found" });
+            }
+            res.json(business);
+        }
+        catch (error) {
+            console.error('[Business] getPublicById error:', error);
+            res.status(500).json({ message: "Failed to fetch business" });
+        }
+    }
+    /**
      * Update business settings
      */
     async updateSettings(req, res) {

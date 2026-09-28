@@ -249,6 +249,24 @@ async create(req: Request, res: Response) {
       res.status(500).json({ message: "Failed to fetch settings", error: errorMessage })
     }
   }
+    /**
+   * Get public business profile (safe fields only, no auth required)
+   */
+  async getPublicById(req: Request, res: Response) {
+    try {
+      const { id } = req.params
+      const business = await BusinessService.getPublicBusinessById(id as string)
+
+      if (!business || !business.isActive) {
+        return res.status(404).json({ message: "Business not found" })
+      }
+
+      res.json(business)
+    } catch (error) {
+      console.error('[Business] getPublicById error:', error)
+      res.status(500).json({ message: "Failed to fetch business" })
+    }
+  }
 
   /**
    * Update business settings

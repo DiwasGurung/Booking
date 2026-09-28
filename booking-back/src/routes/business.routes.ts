@@ -42,6 +42,8 @@ businessRoutes.delete("/:id", BusinessController.delete)
   businessRoutes.get("/:businessId/analytics", auth, BusinessController.analytics)
   businessRoutes.get("/:businessId/stats", BusinessController.stats)
 
+  businessRoutes.get("/public/:id", BusinessController.getPublicById)
+
   businessRoutes.get("/:businessId/customer-insights", auth, BusinessController.customerInsights)
 
 export default businessRoutes

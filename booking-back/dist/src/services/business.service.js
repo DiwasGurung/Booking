@@ -217,6 +217,22 @@ class BusinessService {
             throw error;
         }
     }
+    // business.service.ts
+    async getPublicBusinessById(id) {
+        return prisma_1.default.business.findUnique({
+            where: { id },
+            select: {
+                id: true, name: true, description: true, logo: true, coverImage: true,
+                phone: true, website: true, category: true, address: true, city: true,
+                state: true, country: true, isVerified: true, isActive: true, rating: true,
+                services: {
+                    where: { isActive: true },
+                    select: { id: true, name: true, description: true, price: true, offerPrice: true, duration: true, capacity: true },
+                },
+                hours: { select: { dayOfWeek: true, openTime: true, closeTime: true, isClosed: true } },
+            },
+        });
+    }
     /**
      * Get booking and customer analytics. Subscription payments are intentionally excluded.
      */

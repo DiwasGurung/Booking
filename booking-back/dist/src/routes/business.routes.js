@@ -31,5 +31,6 @@ businessRoutes.delete("/:id", business_controller_1.default.delete);
 // Analytics and statistics routes (specific routes before /:id)
 businessRoutes.get("/:businessId/analytics", auth_middleware_1.auth, business_controller_1.default.analytics);
 businessRoutes.get("/:businessId/stats", business_controller_1.default.stats);
+businessRoutes.get("/public/:id", business_controller_1.default.getPublicById);
 businessRoutes.get("/:businessId/customer-insights", auth_middleware_1.auth, business_controller_1.default.customerInsights);
 exports.default = businessRoutes;

@@ -64,6 +64,7 @@ export interface CustomerStats {
 
 // Export types for use in components
 export interface Service {
+  isActive: boolean
   id: string
   name: string
   description?: string
@@ -744,6 +745,10 @@ export const businessApi = {
     apiCall<Business[] | { businesses: Business[] }>(
       `/api/businesses/search?q=${encodeURIComponent(query)}&limit=${limit}`
     ),
+
+      // Public profile (no auth, safe fields only)
+  getPublic: (businessId: string) =>
+    apiCall<Business>(`/api/businesses/public/${businessId}`),
 
   // Get business by ID
   getBusinessById: (id: string) =>

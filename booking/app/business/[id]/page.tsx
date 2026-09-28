@@ -19,10 +19,10 @@ interface BusinessHour {
   isClosed: boolean
 }
 
-// Extends the shared Business type with fields the single-business endpoint
-// returns but the shared type doesn't declare yet (add these to lib/api.ts
-// when convenient — kept local here so nothing else breaks in the meantime).
-type BusinessDetail = Business & { hours?: BusinessHour[] }
+type BusinessDetail = Business & {
+  hours?: BusinessHour[]
+  services?: (Service & { isActive?: boolean })[]
+}
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -31,7 +31,7 @@ interface PageProps {
 const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 async function getBusiness(id: string): Promise<BusinessDetail | null> {
-  const res = await businessApi.getBusinessById(id)
+  const res = await businessApi.getPublic(id)
   if (!res.success || !res.data) return null
   return res.data as BusinessDetail
 }
@@ -124,7 +124,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
   const business = await getBusiness(id)
   if (!business) notFound()
 
-  const services = await getServices(business.id)
+  const services = (business.services ?? []).filter((s) => s.isActive !== false)
 
   const name = String(business.name)
   const city = business.city ? String(business.city) : ''
@@ -138,9 +138,11 @@ export default async function PublicBusinessPage({ params }: PageProps) {
 
   const hours = [...(business.hours || [])].sort((a, b) => a.dayOfWeek - b.dayOfWeek)
   const status = getOpenStatus(hours)
-  const mapsHref = address || city
+  const mapsHref =
+  (business as any).mapsUrl ||
+  (address || city
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([name, address, city].filter(Boolean).join(', '))}`
-    : undefined
+    : undefined)
 
   const jsonLd: Record<string, any> = {
     '@context': 'https://schema.org',
