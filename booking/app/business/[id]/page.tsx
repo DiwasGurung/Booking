@@ -11,6 +11,7 @@ import {
   Clock,
 } from 'lucide-react'
 import { businessApi, servicesApi, type Business, type Service } from '@/lib/api'
+import { OpenStatus } from '@/components/OpenStatus'
 
 interface BusinessHour {
   dayOfWeek: number // 0 = Sunday, matching JS Date.getDay() — confirm this matches your backend
@@ -232,11 +233,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                       {rating.toFixed(1)}
                     </span>
                   )}
-                  {status && (
-                    <span className={`text-xs font-medium ${status.open ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {status.open ? 'Open now' : 'Closed now'}
-                    </span>
-                  )}
+                  {hours.length > 0 && <OpenStatus hours={hours} />}
                 </div>
 
                 {(address || city) && (
