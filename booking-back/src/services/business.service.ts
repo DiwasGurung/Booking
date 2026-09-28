@@ -3,6 +3,15 @@ import type  {Business, Prisma} from "@prisma/client"
 import { normalizeDataUrlImage } from "../utils/image"
 
 
+function parseCoord(value: unknown, min: number, max: number): number | null | undefined {
+  if (value === undefined) return undefined // field not sent: leave unchanged
+  if (value === null || value === '') return null // explicit removal
+  const n = Number(value)
+  if (!Number.isFinite(n) || n < min || n > max) {
+    throw new Error('Invalid coordinates')
+  }
+  return n
+}
 export class BusinessService {
   /**
    * Create a new business
@@ -211,6 +220,8 @@ export class BusinessService {
           coverImage: true,
           socialMedia: true,
           notificationSettings: true,
+          latitude: true,
+longitude: true,
         }
       })
       
@@ -233,6 +244,8 @@ export class BusinessService {
         category: business.category || '',
         logo: business.logo || '',
         coverImage: business.coverImage || '',
+        latitude: business.latitude ?? null,
+longitude: business.longitude ?? null,
         socialMedia: business.socialMedia || {
           facebook: '',
           instagram: '',
@@ -250,6 +263,7 @@ export class BusinessService {
       throw error
     }
   }
+  
   // business.service.ts
 async getPublicBusinessById(id: string) {
   return prisma.business.findUnique({
@@ -257,7 +271,7 @@ async getPublicBusinessById(id: string) {
     select: {
       id: true, name: true, description: true, logo: true, coverImage: true,
       phone: true, website: true, category: true, address: true, city: true,
-      state: true, country: true, isVerified: true, isActive: true, rating: true,
+      state: true, country: true, isVerified: true, isActive: true, rating: true,latitude: true, longitude: true,
       services: {
         where: { isActive: true },
         select: { id: true, name: true, description: true, price: true, offerPrice: true, duration: true, capacity: true },
@@ -321,6 +335,13 @@ async getPublicBusinessById(id: string) {
 if (settings.coverImage) {
   settings.coverImage = await normalizeDataUrlImage(settings.coverImage, "cover");
 }
+const latitude = parseCoord(settings.latitude, -90, 90)
+const longitude = parseCoord(settings.longitude, -180, 180)
+
+// Either both are set or both are cleared
+if ((latitude === null) !== (longitude === null) && latitude !== undefined && longitude !== undefined) {
+  throw new Error('Invalid coordinates')
+}
 
       const business = await prisma.business.update({
         where: { id: businessId },
@@ -336,6 +357,8 @@ if (settings.coverImage) {
           description: settings.description,
           website: settings.website,
           category: settings.category,
+          ...(latitude !== undefined && { latitude }),
+...(longitude !== undefined && { longitude }),
           ...(settings.logo !== undefined && { logo: settings.logo || null }),
           ...(settings.coverImage !== undefined && { coverImage: settings.coverImage || null }),
           ...(settings.socialMedia && { socialMedia: settings.socialMedia }),
@@ -359,6 +382,8 @@ if (settings.coverImage) {
         coverImage: business.coverImage,
         socialMedia: business.socialMedia,
         notificationSettings: business.notificationSettings,
+        latitude: business.latitude,
+        longitude: business.longitude,
       }
     } catch (error) {
       throw error

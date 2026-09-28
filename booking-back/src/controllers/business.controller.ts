@@ -280,6 +280,7 @@ async create(req: Request, res: Response) {
       )
       res.json(settings)
     } catch (error) {
+      
       console.error('[v0] updateSettings error:', error)
       const errorMessage = error instanceof Error ? error.message : String(error)
       res.status(500).json({ message: "Failed to update settings", error: errorMessage })

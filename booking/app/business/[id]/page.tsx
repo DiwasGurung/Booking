@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { businessApi, servicesApi, type Business, type Service } from '@/lib/api'
 import { OpenStatus } from '@/components/OpenStatus'
+import { BusinessMap } from '@/components/BusinessMap'
 
 interface BusinessHour {
   dayOfWeek: number // 0 = Sunday, matching JS Date.getDay() — confirm this matches your backend
@@ -47,6 +48,10 @@ function getInitials(name: string) {
   if (words.length === 0) return '?'
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
   return (words[0][0] + words[1][0]).toUpperCase()
+}
+function toCoord(v: unknown, min: number, max: number): number | null {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN
+  return Number.isFinite(n) && n >= min && n <= max ? n : null
 }
 
 function formatTime(time: string) {
@@ -138,12 +143,16 @@ export default async function PublicBusinessPage({ params }: PageProps) {
   const rating = typeof business.rating === 'number' && business.rating > 0 ? business.rating : undefined
 
   const hours = [...(business.hours || [])].sort((a, b) => a.dayOfWeek - b.dayOfWeek)
-  const status = getOpenStatus(hours)
-  const mapsHref =
-  (business as any).mapsUrl ||
-  (address || city
+  
+  const lat = toCoord((business as any).latitude, -90, 90)
+const lng = toCoord((business as any).longitude, -180, 180)
+const hasCoords = lat !== null && lng !== null
+
+const mapsHref = hasCoords
+  ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+  : address || city
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([name, address, city].filter(Boolean).join(', '))}`
-    : undefined)
+    : undefined
 
   const jsonLd: Record<string, any> = {
     '@context': 'https://schema.org',
@@ -264,16 +273,24 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                 </a>
               )}
               {mapsHref && (
-                
-                 <a href={mapsHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-secondary/50 transition-colors"
-                >
-                  <MapPin className="h-3.5 w-3.5" />
-                  Directions
-                </a>
-              )}
+  <section id="location" className="scroll-mt-16">
+    <h2 className="text-lg font-semibold text-foreground mb-3">Location</h2>
+    <div className="space-y-3">
+      {hasCoords && <BusinessMap lat={lat!} lng={lng!} />}
+      <div className="rounded-xl border border-border p-4 bg-card flex items-start justify-between gap-4">
+        <p className="text-sm text-muted-foreground">{[address, city].filter(Boolean).join(', ')}</p>
+        
+         <a href={mapsHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-shrink-0 text-sm font-medium text-primary hover:underline"
+        >
+          Get directions
+        </a>
+      </div>
+    </div>
+  </section>
+)}
               {website && (
                 
                    <a href={website}

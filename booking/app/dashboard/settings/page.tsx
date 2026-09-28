@@ -16,6 +16,12 @@ import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 import { businessApi, businessHoursApi, phoneVerificationApi } from '@/lib/api'
 import { Loader, AlertCircle, Save, Settings, Bell, Lock, Trash2, Copy, Check, Upload, X, Sparkles, Phone } from 'lucide-react'
+import dynamic from 'next/dynamic'
+
+const LocationPicker = dynamic(() => import('@/components/LocationPicker'), {
+  ssr: false,
+  loading: () => <div className="h-80 w-full animate-pulse rounded-xl bg-muted" />,
+})
 
 interface BusinessSettings {
   businessName: string
@@ -32,6 +38,8 @@ interface BusinessSettings {
   category: string
   logo?: string
   coverImage?: string
+  latitude?: number | null
+  longitude?: number | null
   socialMedia?: {
     facebook?: string
     instagram?: string
@@ -94,39 +102,39 @@ export default function SettingsPage() {
   const [phoneLocked, setPhoneLocked] = useState(true)
 
   const cropToDataUrl = (
-  file: File,
-  targetWidth: number,
-  targetHeight: number,
-  mimeType: 'image/png' | 'image/jpeg' = 'image/jpeg',
-  quality = 0.85
-): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onerror = () => reject(new Error('Could not read the selected image'))
-    reader.onload = () => {
-      const img = new Image()
-      img.onerror = () => reject(new Error('Could not load the selected image'))
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = targetWidth
-        canvas.height = targetHeight
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return reject(new Error('Your browser does not support image processing'))
+    file: File,
+    targetWidth: number,
+    targetHeight: number,
+    mimeType: 'image/png' | 'image/jpeg' = 'image/jpeg',
+    quality = 0.85
+  ): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onerror = () => reject(new Error('Could not read the selected image'))
+      reader.onload = () => {
+        const img = new Image()
+        img.onerror = () => reject(new Error('Could not load the selected image'))
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = targetWidth
+          canvas.height = targetHeight
+          const ctx = canvas.getContext('2d')
+          if (!ctx) return reject(new Error('Your browser does not support image processing'))
 
-        // "cover" math: scale so the image fills the target box, then crop the overflow
-        const scale = Math.max(targetWidth / img.width, targetHeight / img.height)
-        const scaledW = img.width * scale
-        const scaledH = img.height * scale
-        const dx = (targetWidth - scaledW) / 2
-        const dy = (targetHeight - scaledH) / 2
+          // "cover" math: scale so the image fills the target box, then crop the overflow
+          const scale = Math.max(targetWidth / img.width, targetHeight / img.height)
+          const scaledW = img.width * scale
+          const scaledH = img.height * scale
+          const dx = (targetWidth - scaledW) / 2
+          const dy = (targetHeight - scaledH) / 2
 
-        ctx.drawImage(img, dx, dy, scaledW, scaledH)
-        resolve(canvas.toDataURL(mimeType, quality))
+          ctx.drawImage(img, dx, dy, scaledW, scaledH)
+          resolve(canvas.toDataURL(mimeType, quality))
+        }
+        img.src = reader.result as string
       }
-      img.src = reader.result as string
-    }
-    reader.readAsDataURL(file)
-  })
+      reader.readAsDataURL(file)
+    })
 
   // Tick the cooldown down once a second while active.
   useEffect(() => {
@@ -226,7 +234,8 @@ export default function SettingsPage() {
       data.address,
       data.city,
       data.description,
-      data.logo
+      data.logo,
+      data.latitude != null && data.longitude != null ? 'set' : '',
     ]
     const completedFields = requiredFields.filter(field => field && field.length > 0).length
     return Math.round((completedFields / requiredFields.length) * 100)
@@ -512,6 +521,15 @@ export default function SettingsPage() {
   const handleSaveSettings = async (tab: string) => {
     if (!businessId || !formData) return
 
+    const hasLat = formData.latitude != null
+    const hasLng = formData.longitude != null
+    if (hasLat !== hasLng) {
+      setError('Please pick a location on the map or remove the pin')
+      setTimeout(() => setError(null), 4000)
+      return
+    }
+
+
     if (formData.phone && !isValidPhone(formData.phone)) {
       setError('Phone number must be exactly 10 digits')
       setTimeout(() => setError(null), 4000)
@@ -538,6 +556,7 @@ export default function SettingsPage() {
         setPhoneLocked(!!payload.isPhoneVerified)
         setSuccess(`${tab === 'business' ? 'Business' : tab === 'notifications' ? 'Notification' : 'Security'} settings updated successfully`)
         setTimeout(() => setSuccess(null), 3000)
+        setProfileCompletion(calculateProfileCompletion(payload))
       } else {
         setError(response.error || 'Failed to save settings')
       }
@@ -1047,6 +1066,24 @@ export default function SettingsPage() {
                     placeholder="Tell customers about your business..."
                     className="mt-2"
                     rows={4}
+                  />
+                </div>
+                <div>
+                  <Label>Business Location</Label>
+                  <p className="mt-1 mb-3 text-xs text-muted-foreground">
+                    Customers use this pin to get directions to your business.
+                  </p>
+                  <LocationPicker
+                    value={
+                      formData.latitude != null && formData.longitude != null
+                        ? { lat: formData.latitude, lng: formData.longitude }
+                        : null
+                    }
+                    onChange={(p) => {
+                      const updated = { ...formData, latitude: p?.lat ?? null, longitude: p?.lng ?? null }
+                      setFormData(updated)
+                      setProfileCompletion(calculateProfileCompletion(updated))
+                    }}
                   />
                 </div>
 

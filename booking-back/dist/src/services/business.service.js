@@ -6,6 +6,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BusinessService = void 0;
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const image_1 = require("../utils/image");
+function parseCoord(value, min, max) {
+    if (value === undefined)
+        return undefined; // field not sent: leave unchanged
+    if (value === null || value === '')
+        return null; // explicit removal
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < min || n > max) {
+        throw new Error('Invalid coordinates');
+    }
+    return n;
+}
 class BusinessService {
     /**
      * Create a new business
@@ -180,6 +191,8 @@ class BusinessService {
                     coverImage: true,
                     socialMedia: true,
                     notificationSettings: true,
+                    latitude: true,
+                    longitude: true,
                 }
             });
             if (!business) {
@@ -199,6 +212,8 @@ class BusinessService {
                 category: business.category || '',
                 logo: business.logo || '',
                 coverImage: business.coverImage || '',
+                latitude: business.latitude ?? null,
+                longitude: business.longitude ?? null,
                 socialMedia: business.socialMedia || {
                     facebook: '',
                     instagram: '',
@@ -224,7 +239,7 @@ class BusinessService {
             select: {
                 id: true, name: true, description: true, logo: true, coverImage: true,
                 phone: true, website: true, category: true, address: true, city: true,
-                state: true, country: true, isVerified: true, isActive: true, rating: true,
+                state: true, country: true, isVerified: true, isActive: true, rating: true, latitude: true, longitude: true,
                 services: {
                     where: { isActive: true },
                     select: { id: true, name: true, description: true, price: true, offerPrice: true, duration: true, capacity: true },
@@ -283,6 +298,12 @@ class BusinessService {
             if (settings.coverImage) {
                 settings.coverImage = await (0, image_1.normalizeDataUrlImage)(settings.coverImage, "cover");
             }
+            const latitude = parseCoord(settings.latitude, -90, 90);
+            const longitude = parseCoord(settings.longitude, -180, 180);
+            // Either both are set or both are cleared
+            if ((latitude === null) !== (longitude === null) && latitude !== undefined && longitude !== undefined) {
+                throw new Error('Invalid coordinates');
+            }
             const business = await prisma_1.default.business.update({
                 where: { id: businessId },
                 data: {
@@ -297,6 +318,8 @@ class BusinessService {
                     description: settings.description,
                     website: settings.website,
                     category: settings.category,
+                    ...(latitude !== undefined && { latitude }),
+                    ...(longitude !== undefined && { longitude }),
                     ...(settings.logo !== undefined && { logo: settings.logo || null }),
                     ...(settings.coverImage !== undefined && { coverImage: settings.coverImage || null }),
                     ...(settings.socialMedia && { socialMedia: settings.socialMedia }),
@@ -319,6 +342,8 @@ class BusinessService {
                 coverImage: business.coverImage,
                 socialMedia: business.socialMedia,
                 notificationSettings: business.notificationSettings,
+                latitude: business.latitude ?? null,
+                longitude: business.longitude ?? null,
             };
         }
         catch (error) {
