@@ -54,8 +54,8 @@ export function OpenStatus({ hours }: { hours: BusinessHour[] }) {
   if (open === null) return null
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-[#D8D2C0]">
-      <span className={`h-1.5 w-1.5 rounded-full ${open ? 'bg-[#8FC3A4]' : 'bg-[#C99C86]'}`} />
+    <span className="inline-flex items-center gap-1.5 text-background/80">
+      <span className={`h-1.5 w-1.5 rounded-full ${open ? 'bg-primary' : 'bg-muted-foreground'}`} />
       {open ? 'Open now' : 'Closed now'}
     </span>
   )

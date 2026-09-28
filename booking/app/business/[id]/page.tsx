@@ -167,8 +167,8 @@ export default async function PublicBusinessPage({ params }: PageProps) {
     mapsHref ? { id: 'location', label: 'Location' } : null,
   ].filter(Boolean) as { id: string; label: string }[]
 
-  return (
-    <div className={`${inter.className} min-h-screen bg-[#FBF8F2] text-[#171F1B] pb-28 md:pb-0`}>
+    return (
+    <div className={`${inter.className} min-h-screen bg-background text-foreground pb-28 md:pb-0`}>
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
@@ -179,7 +179,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
       <div className="mx-auto max-w-5xl px-4 md:px-8 pt-5">
         <Link
           href="/search"
-          className="inline-flex items-center gap-1.5 text-sm text-[#4B554E] hover:text-[#171F1B] transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />
           Back to search
@@ -188,7 +188,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
 
       {/* Hero */}
       <div className="mx-auto max-w-5xl px-4 md:px-8 mt-4">
-        <div className="relative overflow-hidden rounded-2xl bg-[#171F1B]">
+        <div className="relative overflow-hidden rounded-2xl bg-foreground">
           <div
             className="relative h-56 md:h-72 w-full"
             style={
@@ -198,41 +198,39 @@ export default async function PublicBusinessPage({ params }: PageProps) {
             }
           >
             {!coverUrl && (
-              <div className="absolute inset-0 bg-gradient-to-br from-[#233830] via-[#171F1B] to-[#171F1B]" />
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-foreground to-foreground" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#171F1B] via-[#171F1Bcc] to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-foreground via-foreground/80 to-transparent" />
           </div>
 
           <div className="relative px-5 md:px-9 pb-7 -mt-16 md:-mt-20">
-            <div className="h-24 w-24 md:h-28 md:w-28 rounded-2xl bg-[#B9873B] ring-4 ring-[#171F1B] shadow-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+            <div className="h-24 w-24 md:h-28 md:w-28 rounded-2xl bg-primary text-primary-foreground ring-4 ring-foreground shadow-lg flex items-center justify-center overflow-hidden flex-shrink-0">
               {logoUrl ? (
                 <img src={logoUrl} alt={name} className="h-full w-full object-cover" />
               ) : (
-                <span className={`${fraunces.className} text-3xl font-medium text-[#171F1B]`}>
-                  {getInitials(name)}
-                </span>
+                <span className={`${fraunces.className} text-3xl font-medium`}>{getInitials(name)}</span>
               )}
             </div>
 
             <div className="mt-5 flex flex-wrap items-start justify-between gap-5">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
-                  <h1 className={`${fraunces.className} text-3xl md:text-4xl font-medium text-white leading-tight`}>
+                  <h1 className={`${fraunces.className} text-3xl md:text-4xl font-medium text-background leading-tight`}>
                     {name}
                   </h1>
                   {business.isVerified && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[#6FA787]/40 bg-[#3F6B52]/20 px-2.5 py-1 text-xs font-medium text-[#8FC3A4]">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/15 px-2.5 py-1 text-xs font-medium text-primary">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Verified
                     </span>
                   )}
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[#D8D2C0]">
+                <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-background/70">
                   {category && <span>{category}</span>}
                   {rating && (
                     <span className="inline-flex items-center gap-1">
-                      <Star className="h-3.5 w-3.5 fill-[#D9A968] text-[#D9A968]" />
+                      <Star className="h-3.5 w-3.5 fill-primary text-primary" />
                       {rating.toFixed(1)}
                     </span>
                   )}
@@ -240,7 +238,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                 </div>
 
                 {(address || city) && (
-                  <p className="mt-3 flex items-start gap-1.5 text-sm text-[#D8D2C0]">
+                  <p className="mt-3 flex items-start gap-1.5 text-sm text-background/70">
                     <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
                     {[address, city].filter(Boolean).join(', ')}
                   </p>
@@ -249,7 +247,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
 
               <Link
                 href={`/book/${business.id}`}
-                className="hidden md:inline-flex items-center gap-2 rounded-lg bg-[#B9873B] text-[#171F1B] px-5 py-3 font-medium hover:bg-[#CB9950] transition-colors flex-shrink-0"
+                className="hidden md:inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-5 py-3 font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
               >
                 <CalendarCheck className="h-4 w-4" />
                 Book an appointment
@@ -259,8 +257,8 @@ export default async function PublicBusinessPage({ params }: PageProps) {
             <div className="mt-5 flex flex-wrap gap-2">
               {business.phone && (
                 
-                <a  href={`tel:${business.phone}`}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#3A443C] px-3 py-1.5 text-sm text-[#D8D2C0] hover:bg-white/5 hover:text-white transition-colors"
+                 <a href={`tel:${business.phone}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-background/20 px-3 py-1.5 text-sm text-background/80 hover:bg-background/10 hover:text-background transition-colors"
                 >
                   <Phone className="h-3.5 w-3.5" />
                   Call
@@ -271,7 +269,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                 <a  href={mapsHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#3A443C] px-3 py-1.5 text-sm text-[#D8D2C0] hover:bg-white/5 hover:text-white transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-background/20 px-3 py-1.5 text-sm text-background/80 hover:bg-background/10 hover:text-background transition-colors"
                 >
                   <MapPin className="h-3.5 w-3.5" />
                   Directions
@@ -279,10 +277,10 @@ export default async function PublicBusinessPage({ params }: PageProps) {
               )}
               {website && (
                 
-                <a  href={website}
+                 <a href={website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#3A443C] px-3 py-1.5 text-sm text-[#D8D2C0] hover:bg-white/5 hover:text-white transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-background/20 px-3 py-1.5 text-sm text-background/80 hover:bg-background/10 hover:text-background transition-colors"
                 >
                   <Globe className="h-3.5 w-3.5" />
                   Website
@@ -295,13 +293,13 @@ export default async function PublicBusinessPage({ params }: PageProps) {
 
       {/* Section tabs */}
       {tabs.length > 1 && (
-        <div className="sticky top-0 z-30 mt-8 border-b border-[#E4DFD1] bg-[#FBF8F2]/95 backdrop-blur-sm">
+        <div className="sticky top-0 z-30 mt-8 border-b border-border bg-background/95 backdrop-blur-sm">
           <div className="mx-auto max-w-5xl px-4 md:px-8 flex gap-7 overflow-x-auto">
             {tabs.map((t) => (
-              <a
-                key={t.id}
+              
+               <a key={t.id}
                 href={`#${t.id}`}
-                className="whitespace-nowrap py-3.5 text-sm text-[#4B554E] hover:text-[#171F1B] border-b-2 border-transparent hover:border-[#B9873B] transition-colors"
+                className="whitespace-nowrap py-3.5 text-sm text-muted-foreground hover:text-foreground border-b-2 border-transparent hover:border-primary transition-colors"
               >
                 {t.label}
               </a>
@@ -316,19 +314,19 @@ export default async function PublicBusinessPage({ params }: PageProps) {
           <aside className="hidden md:block">
             <div className="sticky top-24 space-y-5">
               {(address || city || business.phone || website) && (
-                <div className="rounded-xl border border-[#E4DFD1] p-5 space-y-4">
+                <div className="rounded-xl border border-border p-5 space-y-4">
                   {(address || city) && (
                     <div className="flex items-start gap-3">
-                      <MapPin className="h-4 w-4 mt-0.5 text-[#B9873B] shrink-0" />
-                      <p className="text-sm text-[#4B554E]">{[address, city].filter(Boolean).join(', ')}</p>
+                      <MapPin className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                      <p className="text-sm text-muted-foreground">{[address, city].filter(Boolean).join(', ')}</p>
                     </div>
                   )}
                   {business.phone && (
                     <div className="flex items-center gap-3">
-                      <Phone className="h-4 w-4 text-[#B9873B] shrink-0" />
+                      <Phone className="h-4 w-4 text-primary shrink-0" />
                       
-                       <a href={`tel:${business.phone}`}
-                        className="text-sm text-[#171F1B] hover:text-[#B9873B] transition-colors"
+                      <a  href={`tel:${business.phone}`}
+                        className="text-sm text-foreground hover:text-primary transition-colors"
                       >
                         {business.phone}
                       </a>
@@ -336,12 +334,12 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                   )}
                   {website && (
                     <div className="flex items-center gap-3">
-                      <Globe className="h-4 w-4 text-[#B9873B] shrink-0" />
+                      <Globe className="h-4 w-4 text-primary shrink-0" />
                       
-                      <a  href={website}
+                       <a href={website}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-[#171F1B] hover:text-[#B9873B] transition-colors truncate"
+                        className="text-sm text-foreground hover:text-primary transition-colors truncate"
                       >
                         {website.replace(/^https?:\/\//, '')}
                       </a>
@@ -351,7 +349,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
               )}
               <Link
                 href={`/book/${business.id}`}
-                className="flex items-center justify-center gap-2 rounded-lg bg-[#B9873B] text-[#171F1B] py-3 font-medium hover:bg-[#CB9950] transition-colors"
+                className="flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground py-3 font-medium hover:bg-primary/90 transition-colors"
               >
                 <CalendarCheck className="h-4 w-4" />
                 Book an appointment
@@ -363,33 +361,33 @@ export default async function PublicBusinessPage({ params }: PageProps) {
           <div className="space-y-12">
             {description && (
               <section id="overview" className="scroll-mt-24">
-                <h2 className={`${fraunces.className} text-xl font-medium text-[#171F1B] mb-3`}>Overview</h2>
-                <p className="max-w-[62ch] text-[#4B554E] leading-relaxed">{description}</p>
+                <h2 className={`${fraunces.className} text-xl font-medium text-foreground mb-3`}>Overview</h2>
+                <p className="max-w-[62ch] text-muted-foreground leading-relaxed">{description}</p>
               </section>
             )}
 
             <section id="services" className="scroll-mt-24">
-              <h2 className={`${fraunces.className} text-xl font-medium text-[#171F1B] mb-5`}>Services</h2>
+              <h2 className={`${fraunces.className} text-xl font-medium text-foreground mb-5`}>Services</h2>
               {services.length === 0 ? (
-                <p className="text-sm text-[#4B554E]">No services listed yet.</p>
+                <p className="text-sm text-muted-foreground">No services listed yet.</p>
               ) : (
-                <div className="divide-y divide-[#E4DFD1]">
+                <div className="divide-y divide-border">
                   {services.map((s) => (
                     <div key={s.id} className="py-4">
                       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                        <p className="font-medium text-[#171F1B]">{s.name}</p>
-                        <span className="min-w-[1.5rem] flex-1 border-b border-dotted border-[#C9C2AD]" />
-                        <p className="font-medium text-[#B9873B] flex-shrink-0">
+                        <p className="font-medium text-foreground">{s.name}</p>
+                        <span className="min-w-[1.5rem] flex-1 border-b border-dotted border-border" />
+                        <p className="font-medium text-primary flex-shrink-0">
                           Rs {(s.offerPrice ?? s.price).toFixed(0)}
                         </p>
                       </div>
                       {s.offerPrice && (
-                        <p className="text-xs text-[#8B8471] line-through">Rs {s.price.toFixed(0)}</p>
+                        <p className="text-xs text-muted-foreground line-through">Rs {s.price.toFixed(0)}</p>
                       )}
                       {s.description && (
-                        <p className="mt-1.5 max-w-[56ch] text-sm text-[#4B554E] line-clamp-2">{s.description}</p>
+                        <p className="mt-1.5 max-w-[56ch] text-sm text-muted-foreground line-clamp-2">{s.description}</p>
                       )}
-                      <p className="mt-1 text-xs text-[#8B8471]">{s.duration} min</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{s.duration} min</p>
                     </div>
                   ))}
                 </div>
@@ -398,7 +396,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
 
             {hours.length > 0 && (
               <section id="hours" className="scroll-mt-24">
-                <h2 className={`${fraunces.className} flex items-center gap-2 text-xl font-medium text-[#171F1B] mb-5`}>
+                <h2 className={`${fraunces.className} flex items-center gap-2 text-xl font-medium text-foreground mb-5`}>
                   <Clock className="h-4 w-4" />
                   Hours
                 </h2>
@@ -408,16 +406,16 @@ export default async function PublicBusinessPage({ params }: PageProps) {
 
             {mapsHref && (
               <section id="location" className="scroll-mt-24">
-                <h2 className={`${fraunces.className} text-xl font-medium text-[#171F1B] mb-5`}>Location</h2>
+                <h2 className={`${fraunces.className} text-xl font-medium text-foreground mb-5`}>Location</h2>
                 <div className="space-y-3">
                   {hasCoords && <BusinessMap lat={lat!} lng={lng!} />}
-                  <div className="flex items-start justify-between gap-4 rounded-xl border border-[#E4DFD1] p-4">
-                    <p className="text-sm text-[#4B554E]">{[address, city].filter(Boolean).join(', ')}</p>
+                  <div className="flex items-start justify-between gap-4 rounded-xl border border-border p-4">
+                    <p className="text-sm text-muted-foreground">{[address, city].filter(Boolean).join(', ')}</p>
                     
                      <a href={mapsHref}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 flex-shrink-0 text-sm font-medium text-[#B9873B] hover:text-[#9C7130] transition-colors"
+                      className="inline-flex items-center gap-1 flex-shrink-0 text-sm font-medium text-primary hover:underline"
                     >
                       Get directions <ArrowUpRight className="h-3.5 w-3.5" />
                     </a>
@@ -431,12 +429,12 @@ export default async function PublicBusinessPage({ params }: PageProps) {
 
       {/* Mobile sticky book bar */}
       <div
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E4DFD1] bg-[#FBF8F2]/95 backdrop-blur-sm p-3 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-sm p-3 md:hidden"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         <Link
           href={`/book/${business.id}`}
-          className="flex items-center justify-center gap-2 rounded-lg bg-[#B9873B] text-[#171F1B] py-3 font-medium"
+          className="flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground py-3 font-medium hover:bg-primary/90 transition-colors"
         >
           <CalendarCheck className="h-4 w-4" />
           Book an appointment
