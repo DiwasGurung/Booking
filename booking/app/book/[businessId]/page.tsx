@@ -26,15 +26,15 @@ function BusinessHeaderContent({ business }: { business: Business | null }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-end gap-4">
       {/* Logo */}
-      <div className="w-24 h-24 rounded-2xl bg-card border-4 border-card shadow-md flex items-center justify-center overflow-hidden flex-shrink-0">
-        {typeof business?.logo === 'string' && business.logo ? (
-          <img src={business.logo} alt={business.name} className="w-full h-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-primary/10">
-            <span className="text-lg font-semibold text-primary">{getInitials(business?.name || '')}</span>
-          </div>
-        )}
-      </div>
+      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl shadow-sm ring-1 ring-border">
+                        {typeof business?.logo === 'string' && business.logo ? (
+                          <img src={business.logo} alt={business.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-primary/10">
+                            <span className="text-lg font-semibold text-primary">{getInitials(business?.name || '')}</span>
+                          </div>
+                        )}
+                      </div>
 
       <div className="flex-1 pt-2 sm:pt-0">
         <div className="flex flex-wrap items-center gap-2">
