@@ -12,6 +12,13 @@ import { DateTime } from 'luxon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
+function getInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return '?'
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
+  return (words[0][0] + words[1][0]).toUpperCase()
+}
+
 // Seconds the verification notice counts down before telling the user to check their inbox.
 const VERIFICATION_COUNTDOWN = 10
 
@@ -23,7 +30,9 @@ function BusinessHeaderContent({ business }: { business: Business | null }) {
         {typeof business?.logo === 'string' && business.logo ? (
           <img src={business.logo} alt={business.name} className="w-full h-full object-cover" />
         ) : (
-          <Briefcase className="w-10 h-10 text-primary" />
+          <div className="flex h-full w-full items-center justify-center bg-primary/10">
+            <span className="text-lg font-semibold text-primary">{getInitials(business?.name || '')}</span>
+          </div>
         )}
       </div>
 
@@ -128,16 +137,16 @@ function BookingPageContent() {
   }
 
   useEffect(() => {
-  if (!date || !selectedStaff) return
-  const [y, m, d] = date.split('-').map(Number)
-  const { disabled, reason } = getDateDisabledInfo(new Date(y, m - 1, d))
-  if (disabled) {
-    setDate('')
-    setSelectedTime(null)
-    setClosedReason(null)
-setError(reason || 'Please choose a different date for this staff member')
-  }
-}, [selectedStaff])
+    if (!date || !selectedStaff) return
+    const [y, m, d] = date.split('-').map(Number)
+    const { disabled, reason } = getDateDisabledInfo(new Date(y, m - 1, d))
+    if (disabled) {
+      setDate('')
+      setSelectedTime(null)
+      setClosedReason(null)
+      setError(reason || 'Please choose a different date for this staff member')
+    }
+  }, [selectedStaff])
 
   // Pre-fill customer info from logged-in user
   useEffect(() => {
@@ -233,39 +242,39 @@ setError(reason || 'Please choose a different date for this staff member')
 
 
   const sendPhoneVerificationCode = async (id: string) => {
-  setSendingCode(true)
-  setCodeError(null)
-  try {
-    const res = await fetch(`${API_URL}/api/public-verification/bookings/${id}/send-phone-verification`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ purpose: 'PHONE_VERIFICATION' }),
-    })
-    const data = await res.json()
+    setSendingCode(true)
+    setCodeError(null)
+    try {
+      const res = await fetch(`${API_URL}/api/public-verification/bookings/${id}/send-phone-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purpose: 'PHONE_VERIFICATION' }),
+      })
+      const data = await res.json()
 
-    // If the backend tells us this phone is already verified, there's
-    // nothing to send and nothing for the customer to enter — skip the
-    // code-entry step entirely and treat the booking as confirmed.
-    if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
-      setShowVerificationModal(false)
-      setBookingSuccess(true)
+      // If the backend tells us this phone is already verified, there's
+      // nothing to send and nothing for the customer to enter — skip the
+      // code-entry step entirely and treat the booking as confirmed.
+      if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
+        setShowVerificationModal(false)
+        setBookingSuccess(true)
+        return true
+      }
+
+      if (!res.ok || !data.success) {
+        setCodeError(data.error || 'Failed to send verification code')
+        if (typeof data.retryAfterSeconds === 'number') setResendCooldown(data.retryAfterSeconds)
+        return false
+      }
+      setResendCooldown(30)
       return true
-    }
-
-    if (!res.ok || !data.success) {
-      setCodeError(data.error || 'Failed to send verification code')
-      if (typeof data.retryAfterSeconds === 'number') setResendCooldown(data.retryAfterSeconds)
+    } catch {
+      setCodeError('Failed to send verification code. Please try again.')
       return false
+    } finally {
+      setSendingCode(false)
     }
-    setResendCooldown(30)
-    return true
-  } catch {
-    setCodeError('Failed to send verification code. Please try again.')
-    return false
-  } finally {
-    setSendingCode(false)
   }
-}
 
   const handleResendCode = async () => {
     if (!bookingId || resendCooldown > 0) return
@@ -273,45 +282,45 @@ setError(reason || 'Please choose a different date for this staff member')
   }
 
   const handleVerifyCode = async () => {
-  if (!bookingId) return
-  if (!verificationCode || verificationCode.length < 4) {
-    setCodeError('Please enter the verification code')
-    return
-  }
-  setVerifyingCode(true)
-  setCodeError(null)
-  try {
-    const res = await fetch(`${API_URL}/api/public-verification/bookings/${bookingId}/verify-phone`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: verificationCode, purpose: 'PHONE_VERIFICATION' }),
-    })
-    const data = await res.json()
+    if (!bookingId) return
+    if (!verificationCode || verificationCode.length < 4) {
+      setCodeError('Please enter the verification code')
+      return
+    }
+    setVerifyingCode(true)
+    setCodeError(null)
+    try {
+      const res = await fetch(`${API_URL}/api/public-verification/bookings/${bookingId}/verify-phone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: verificationCode, purpose: 'PHONE_VERIFICATION' }),
+      })
+      const data = await res.json()
 
-    // Same case here — "already verified" from this endpoint means the
-    // booking is effectively confirmed, not that the code was wrong.
-    if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
+      // Same case here — "already verified" from this endpoint means the
+      // booking is effectively confirmed, not that the code was wrong.
+      if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
+        setShowVerificationModal(false)
+        setBookingSuccess(true)
+        return
+      }
+
+      if (!res.ok || !data.success) {
+        setCodeError(
+          typeof data.attemptsRemaining === 'number'
+            ? `${data.error || 'Invalid code'} (${data.attemptsRemaining} attempts remaining)`
+            : data.error || 'Invalid verification code'
+        )
+        return
+      }
       setShowVerificationModal(false)
       setBookingSuccess(true)
-      return
+    } catch {
+      setCodeError('Failed to verify code. Please try again.')
+    } finally {
+      setVerifyingCode(false)
     }
-
-    if (!res.ok || !data.success) {
-      setCodeError(
-        typeof data.attemptsRemaining === 'number'
-          ? `${data.error || 'Invalid code'} (${data.attemptsRemaining} attempts remaining)`
-          : data.error || 'Invalid verification code'
-      )
-      return
-    }
-    setShowVerificationModal(false)
-    setBookingSuccess(true)
-  } catch {
-    setCodeError('Failed to verify code. Please try again.')
-  } finally {
-    setVerifyingCode(false)
   }
-}
 
   const loadBusinessData = async () => {
     try {
@@ -666,93 +675,93 @@ setError(reason || 'Please choose a different date for this staff member')
   }
 
   const handleConfirmBooking = async () => {
-  if (!selectedService || !date || !selectedTime) {
-    setError('Please select service, date, and time')
-    return
-  }
-
-  if (!isSlotInFuture(date, selectedTime)) {
-    setError('This time slot has passed. Please select a different time.')
-    setSelectedTime(null)
-    return
-  }
-
-  if (closedDates.has(date)) {
-    setError(closedDates.get(date) || 'The business is closed on this date')
-    return
-  }
-
-  if (!user) {
-    if (!customerName || !customerEmail || !customerPhone) {
-      setError('Please fill in all required fields')
+    if (!selectedService || !date || !selectedTime) {
+      setError('Please select service, date, and time')
       return
     }
-  }
 
-  try {
-    setLoading(true)
-
-    const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
-    const startDateTime = DateTime.fromISO(`${date}T${selectedTime}`, { zone: BUSINESS_TZ });
-    const startTimeISO = startDateTime.toISO();
-    const endDateTime = startDateTime.plus({ minutes: selectedService.duration });
-    const endTimeISO = endDateTime.toISO();
-
-    const basePayload: any = {
-      serviceId: selectedService.id,
-      businessId,
-      startTime: startTimeISO,
-      endTime: endTimeISO,
-      notes,
+    if (!isSlotInFuture(date, selectedTime)) {
+      setError('This time slot has passed. Please select a different time.')
+      setSelectedTime(null)
+      return
     }
 
-    if (selectedStaff?.id) {
-      basePayload.staffId = selectedStaff.id
+    if (closedDates.has(date)) {
+      setError(closedDates.get(date) || 'The business is closed on this date')
+      return
     }
 
-    let response
-    if (user) {
-      response = await bookingsApi.createBusinessBooking(basePayload)
-    } else {
-      response = await bookingsApi.createBusinessPublicBooking({
-        ...basePayload,
-        customerName,
-        customerEmail,
-        customerPhone,
-      })
-    }
-
-
-    const payload = (response as any)?.data ?? response
-    const createdBooking = payload?.booking
-
-    if (response.success !== false && createdBooking?.id) {
-      const newBookingId = createdBooking.id
-      setBookingId(newBookingId)
-
-      const requiresVerification =
-        createdBooking.isPhoneVerified === false ||
-        createdBooking.status === 'UNVERIFIED'
-
-      setError('')
-
-      if (requiresVerification) {
-        setVerificationCode('')
-        setCodeError(null)
-        await sendPhoneVerificationCode(newBookingId)
-        setShowVerificationModal(true)
-      } else {
-        setBookingSuccess(true)
+    if (!user) {
+      if (!customerName || !customerEmail || !customerPhone) {
+        setError('Please fill in all required fields')
+        return
       }
-    } else {
-      setError((response as any)?.error || payload?.message || 'Failed to create booking')
     }
-  } catch (err: any) {
-    setError('Failed to book appointment. Please try again.')
-  } finally {
-    setLoading(false)
+
+    try {
+      setLoading(true)
+
+      const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
+      const startDateTime = DateTime.fromISO(`${date}T${selectedTime}`, { zone: BUSINESS_TZ });
+      const startTimeISO = startDateTime.toISO();
+      const endDateTime = startDateTime.plus({ minutes: selectedService.duration });
+      const endTimeISO = endDateTime.toISO();
+
+      const basePayload: any = {
+        serviceId: selectedService.id,
+        businessId,
+        startTime: startTimeISO,
+        endTime: endTimeISO,
+        notes,
+      }
+
+      if (selectedStaff?.id) {
+        basePayload.staffId = selectedStaff.id
+      }
+
+      let response
+      if (user) {
+        response = await bookingsApi.createBusinessBooking(basePayload)
+      } else {
+        response = await bookingsApi.createBusinessPublicBooking({
+          ...basePayload,
+          customerName,
+          customerEmail,
+          customerPhone,
+        })
+      }
+
+
+      const payload = (response as any)?.data ?? response
+      const createdBooking = payload?.booking
+
+      if (response.success !== false && createdBooking?.id) {
+        const newBookingId = createdBooking.id
+        setBookingId(newBookingId)
+
+        const requiresVerification =
+          createdBooking.isPhoneVerified === false ||
+          createdBooking.status === 'UNVERIFIED'
+
+        setError('')
+
+        if (requiresVerification) {
+          setVerificationCode('')
+          setCodeError(null)
+          await sendPhoneVerificationCode(newBookingId)
+          setShowVerificationModal(true)
+        } else {
+          setBookingSuccess(true)
+        }
+      } else {
+        setError((response as any)?.error || payload?.message || 'Failed to create booking')
+      }
+    } catch (err: any) {
+      setError('Failed to book appointment. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   // Show loading during auth check
   if (loading || !businessId) {
@@ -860,31 +869,31 @@ setError(reason || 'Please choose a different date for this staff member')
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
       <div className="mx-auto max-w-3xl">
         <div className="mb-10">
-  <Card className="overflow-hidden border border-border shadow-lg">
-    {business?.coverImage ? (
-      <>
-        {/* Cover image banner — only rendered when a real cover image exists */}
-        <div
-          className="h-32 md:h-40 w-full bg-cover bg-center"
-          style={{ backgroundImage: `url(${business.coverImage})` }}
-        />
-        <div className="px-6 md:px-8 pb-6 -mt-12">
-          <BusinessHeaderContent business={business} />
-        </div>
-      </>
-    ) : (
-      // No cover image: skip the banner entirely, no gradient placeholder,
-      // logo sits directly in normal flow instead of overlapping a banner.
-      <div className="px-6 md:px-8 py-6">
-        <BusinessHeaderContent business={business} />
-      </div>
-    )}
-  </Card>
+          <Card className="overflow-hidden border border-border shadow-lg">
+            {business?.coverImage ? (
+              <>
+                {/* Cover image banner — only rendered when a real cover image exists */}
+                <div
+                  className="h-32 md:h-40 w-full bg-cover bg-center"
+                  style={{ backgroundImage: `url(${business.coverImage})` }}
+                />
+                <div className="px-6 md:px-8 pb-6 -mt-12">
+                  <BusinessHeaderContent business={business} />
+                </div>
+              </>
+            ) : (
+              // No cover image: skip the banner entirely, no gradient placeholder,
+              // logo sits directly in normal flow instead of overlapping a banner.
+              <div className="px-6 md:px-8 py-6">
+                <BusinessHeaderContent business={business} />
+              </div>
+            )}
+          </Card>
 
-  <p className="text-center text-sm text-muted-foreground mt-4">
-    Select a service, date, staff (optional) and time
-  </p>
-</div>
+          <p className="text-center text-sm text-muted-foreground mt-4">
+            Select a service, date, staff (optional) and time
+          </p>
+        </div>
 
         {error && (
           <Card className="border border-destructive/50 bg-destructive/5 mb-6">
@@ -1017,10 +1026,10 @@ setError(reason || 'Please choose a different date for this staff member')
                                 title={disabled ? reason : undefined}
                                 onClick={() => !disabled && selectDate(dateStr)}
                                 className={`h-8 w-8 mx-auto flex items-center justify-center rounded-md text-sm transition-colors ${disabled
-                                    ? 'text-muted-foreground/40 cursor-not-allowed line-through'
-                                    : isSelected
-                                      ? 'bg-primary text-primary-foreground font-semibold'
-                                      : 'hover:bg-primary/10 text-foreground'
+                                  ? 'text-muted-foreground/40 cursor-not-allowed line-through'
+                                  : isSelected
+                                    ? 'bg-primary text-primary-foreground font-semibold'
+                                    : 'hover:bg-primary/10 text-foreground'
                                   }`}
                               >
                                 {day}
