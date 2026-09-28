@@ -747,8 +747,8 @@ export const businessApi = {
     ),
 
       // Public profile (no auth, safe fields only)
-  getPublic: (businessId: string) =>
-    apiCall<Business>(`/api/businesses/public/${businessId}`),
+  getPublic: (id: string) =>
+    apiCall<Business>(`/api/businesses/public/${id}`),
 
   // Get business by ID
   getBusinessById: (id: string) =>
