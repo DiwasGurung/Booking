@@ -17,6 +17,26 @@ function parseCoord(value, min, max) {
     }
     return n;
 }
+const publicBusinessListSelect = {
+    id: true,
+    name: true,
+    category: true,
+    description: true,
+    phone: true,
+    website: true,
+    address: true,
+    city: true,
+    state: true,
+    country: true,
+    logo: true,
+    coverImage: true,
+    isVerified: true,
+    isActive: true,
+    rating: true,
+    latitude: true,
+    longitude: true,
+    createdAt: true,
+};
 class BusinessService {
     /**
      * Create a new business
@@ -101,9 +121,6 @@ class BusinessService {
             where: { id },
         });
     }
-    /**
-     * Get all businesses with pagination
-     */
     async getAllBusinesses(page = 1, limit = 10, category, isActive) {
         const skip = (page - 1) * limit;
         const where = {};
@@ -116,7 +133,26 @@ class BusinessService {
                 where,
                 skip,
                 take: limit,
-                include: { user: true },
+                select: {
+                    id: true,
+                    name: true,
+                    category: true,
+                    description: true,
+                    phone: true,
+                    website: true,
+                    address: true,
+                    city: true,
+                    state: true,
+                    country: true,
+                    logo: true,
+                    coverImage: true,
+                    isVerified: true,
+                    isActive: true,
+                    rating: true,
+                    latitude: true,
+                    longitude: true,
+                    createdAt: true,
+                },
                 orderBy: { createdAt: "desc" },
             }),
             prisma_1.default.business.count({ where }),
@@ -342,8 +378,8 @@ class BusinessService {
                 coverImage: business.coverImage,
                 socialMedia: business.socialMedia,
                 notificationSettings: business.notificationSettings,
-                latitude: business.latitude ?? null,
-                longitude: business.longitude ?? null,
+                latitude: business.latitude,
+                longitude: business.longitude,
             };
         }
         catch (error) {

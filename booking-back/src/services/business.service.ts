@@ -12,6 +12,31 @@ function parseCoord(value: unknown, min: number, max: number): number | null | u
   }
   return n
 }
+
+const publicBusinessListSelect = {
+  id: true,
+  name: true,
+  category: true,
+  description: true,
+  phone: true,
+  website: true,
+  address: true,
+  city: true,
+  state: true,
+  country: true,
+  logo: true,
+  coverImage: true,
+  isVerified: true,
+  isActive: true,
+  rating: true,
+  latitude: true,
+  longitude: true,
+  createdAt: true,
+} satisfies Prisma.BusinessSelect
+
+type PublicBusinessListItem = Prisma.BusinessGetPayload<{
+  select: typeof publicBusinessListSelect
+}>
 export class BusinessService {
   /**
    * Create a new business
@@ -120,35 +145,52 @@ export class BusinessService {
     })
   }
 
-  /**
-   * Get all businesses with pagination
-   */
-  async getAllBusinesses(
-    page = 1,
-    limit = 10,
-    category?: string,
-    isActive?: boolean,
-  ): Promise<{ businesses: Business[]; total: number }> {
-    const skip = (page - 1) * limit
+ 
 
-    const where: Prisma.BusinessWhereInput = {}
-    if (category) where.category = category
-    if (isActive !== undefined) where.isActive = isActive
+async getAllBusinesses(
+  page = 1,
+  limit = 10,
+  category?: string,
+  isActive?: boolean,
+): Promise<{ businesses: PublicBusinessListItem[]; total: number }> {
+  const skip = (page - 1) * limit
 
-    const [businesses, total] = await Promise.all([
-      prisma.business.findMany({
-        where,
-        skip,
-        take: limit,
-        include: { user: true },
-        orderBy: { createdAt: "desc" },
-      }),
-      prisma.business.count({ where }),
-    ])
+  const where: Prisma.BusinessWhereInput = {}
+  if (category) where.category = category
+  if (isActive !== undefined) where.isActive = isActive
 
-    return { businesses, total }
-  }
+  const [businesses, total] = await Promise.all([
+    prisma.business.findMany({
+      where,
+      skip,
+      take: limit,
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        description: true,
+        phone: true,
+        website: true,
+        address: true,
+        city: true,
+        state: true,
+        country: true,
+        logo: true,
+        coverImage: true,
+        isVerified: true,
+        isActive: true,
+        rating: true,
+        latitude: true,
+        longitude: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.business.count({ where }),
+  ])
 
+  return { businesses, total }
+}
   /**
    * Get business statistics
    */

@@ -11,6 +11,13 @@ import { businessApi, type Business } from '@/lib/api'
 import { useRoleProtection } from '@/hooks/useRoleProtection'
 import Link from 'next/link'
 
+function getInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return '?'
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
+  return (words[0][0] + words[1][0]).toUpperCase()
+}
+
 function SearchPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -198,11 +205,13 @@ function SearchPageContent() {
                 <Card key={business.id} className="group flex flex-col overflow-hidden border-border bg-card shadow-sm transition-shadow hover:shadow-md">
                   <div className="flex flex-1 flex-col p-5 md:p-6">
                     <div className="mb-5 flex items-start gap-4">
-                      <div className="w-24 h-24 rounded-2xl bg-card border-4 border-card shadow-md flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl shadow-sm ring-1 ring-border">
                         {typeof business?.logo === 'string' && business.logo ? (
                           <img src={business.logo} alt={business.name} className="h-full w-full object-cover" />
                         ) : (
-                          <Building2 className="w-10 h-10 text-primary" />
+                          <div className="flex h-full w-full items-center justify-center bg-primary/10">
+                            <span className="text-lg font-semibold text-primary">{getInitials(business.name)}</span>
+                          </div>
                         )}
                       </div>
                       <div className="min-w-0">
