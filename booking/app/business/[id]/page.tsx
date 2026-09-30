@@ -189,32 +189,32 @@ export default async function PublicBusinessPage({ params }: PageProps) {
             {/* Hero */}
             <div className="mx-auto max-w-5xl px-4 md:px-8 mt-4">
                 <div className="relative overflow-hidden rounded-2xl bg-foreground">
-                    <div className="relative h-56 md:h-72 w-full overflow-hidden">
+                    {/* Background layer — one continuous layer behind the whole card, no internal seam */}
+                    <div className="absolute inset-0">
                         {coverUrl ? (
                             <>
                                 <div
                                     className="absolute inset-0"
                                     style={{ backgroundImage: `url(${coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-foreground via-foreground/80 to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-foreground via-foreground/70 to-transparent" />
                             </>
                         ) : (
-                            <div className="absolute inset-0 bg-foreground">
-                                {/* soft glow anchored where the logo sits */}
-                                <div className="absolute inset-0 bg-gradient-to-tr from-primary/25 via-transparent to-transparent" />
-                                {/* oversized initials watermark, masthead-style */}
+                            <>
+                                <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-foreground to-foreground" />
                                 <div
                                     aria-hidden
-                                    className={`${fraunces.className} pointer-events-none absolute -right-4 -bottom-8 select-none leading-none text-background/[0.07] md:-bottom-10`}
-                                    style={{ fontSize: 'clamp(140px, 22vw, 260px)' }}
+                                    className={`${fraunces.className} pointer-events-none absolute -right-6 -top-10 select-none leading-none text-background/[0.05]`}
+                                    style={{ fontSize: 'clamp(160px, 20vw, 240px)' }}
                                 >
                                     {getInitials(name)}
                                 </div>
-                            </div>
+                            </>
                         )}
                     </div>
 
-                    <div className="relative px-5 md:px-9 pb-7 -mt-16 md:-mt-20">
+                    {/* Content */}
+                    <div className={`relative px-5 md:px-9 pb-7 ${coverUrl ? 'pt-36 md:pt-48' : 'pt-10 md:pt-12'}`}>
                         <div className="h-24 w-24 md:h-28 md:w-28 rounded-2xl bg-primary text-primary-foreground ring-4 ring-foreground shadow-lg flex items-center justify-center overflow-hidden flex-shrink-0">
                             {logoUrl ? (
                                 <img src={logoUrl} alt={name} className="h-full w-full object-cover" />
