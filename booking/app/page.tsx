@@ -2,11 +2,31 @@
 
 import type React from "react"
 import Link from "next/link"
-import { ArrowRight, Calendar, Shield, Zap, TrendingUp, Users, Smartphone } from "lucide-react"
+import { ArrowRight, Calendar, Shield, Zap, TrendingUp, Users, Smartphone, MessageCircle } from "lucide-react"
 import { useAuth } from "@/context/authContext"
 import { useEffect } from "react" 
 import { useRouter } from "next/navigation"
 
+const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || ''
+const WHATSAPP_MESSAGE = "Hi! I'd like to know more about Appoint Nepal."
+
+function WhatsAppButton() {
+  if (!WHATSAPP_NUMBER) return null
+
+  const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Chat with us on WhatsApp"
+      className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-105 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#25D366]"
+    >
+      <MessageCircle className="h-7 w-7" fill="white" strokeWidth={0} />
+    </a>
+  )
+}
 
 export default function HomePage() {
   const { user, loading } = useAuth()
@@ -52,13 +72,11 @@ export default function HomePage() {
         }}
       />
 
+      <WhatsAppButton />
+
       {/* HERO SECTION */}
       <section className="relative px-6 py-24 md:py-32 overflow-hidden">
         <div className="max-w-4xl mx-auto">
-          {/* <div className="inline-block mb-6 px-4 py-2 bg-accent/10 rounded-full border border-accent/30">
-            <span className="text-sm font-medium text-accent">✨ Trusted by 500+ businesses</span>
-          </div> */}
-
           <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6 text-balance leading-tight">
             Online appointment booking for Nepal businesses
           </h1>
