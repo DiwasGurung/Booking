@@ -70,15 +70,7 @@ export default function BusinessDashboardPage() {
   const [hoursConfigured, setHoursConfigured] = useState<boolean | null>(null)
   const [copied, setCopied] = useState(false)
   const [slug, setSlug] = useState<string | null>(null)
-const bookingUrl = businessId
-  ? `${typeof window !== 'undefined' ? window.location.origin : ''}/book/${slug ?? businessId}`
-  : ''
 
-const copyToClipboard = () => {
-  navigator.clipboard.writeText(bookingUrl)
-  setCopied(true)
-  setTimeout(() => setCopied(false), 2000)
-}
 
   // Check subscription status and redirect if no subscription
   useEffect(() => {
@@ -113,6 +105,7 @@ const copyToClipboard = () => {
 ])
 
 setSlug(businessResponse?.data?.slug ?? null)
+
       
 
       // Hours are "configured" only if there is at least one open day.
@@ -172,7 +165,15 @@ setSlug(businessResponse?.data?.slug ?? null)
     href: '/dashboard'
   },
   ]
+const bookingUrl = businessId
+  ? `${typeof window !== 'undefined' ? window.location.origin : ''}/book/${slug ?? businessId}`
+  : ''
 
+const copyToClipboard = () => {
+  navigator.clipboard.writeText(bookingUrl)
+  setCopied(true)
+  setTimeout(() => setCopied(false), 2000)
+}
   return (
     <AuthWrapper mode="business-only">
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
