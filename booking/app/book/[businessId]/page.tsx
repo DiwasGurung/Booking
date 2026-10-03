@@ -109,6 +109,23 @@ function BookingPageContent() {
   // Verification modal state
   const [showVerificationModal, setShowVerificationModal] = useState(false)
   const [countdown, setCountdown] = useState(VERIFICATION_COUNTDOWN)
+  const params = useParams()
+const identifier = params.id as string          // slug or old ID from the URL
+
+
+useEffect(() => {
+  async function load() {
+    const res = await fetch(`${API_URL}/api/businesses/public/${identifier}`)
+    if (!res.ok) { /* show not found */ return }
+    const b = await res.json()
+    setBusiness(b)
+    // services and hours already come back inside this response
+  }
+  load()
+}, [identifier])
+
+// From here on, always use business.id, never `identifier`:
+// availability, staff, creating the booking, etc.
 
 
   // Returns true if this slot's start time (for the given date) is still in
