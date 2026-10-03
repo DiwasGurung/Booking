@@ -7,6 +7,7 @@ const business_service_1 = __importDefault(require("../services/business.service
 const user_service_1 = require("../services/user.service");
 const subscription_service_1 = __importDefault(require("../services/subscription.service"));
 const customer_service_1 = __importDefault(require("../services/customer.service"));
+const slug_1 = require("../utils/slug");
 class BusinessController {
     constructor() {
     }
@@ -114,6 +115,53 @@ class BusinessController {
         }
         catch (error) {
             res.status(500).json({ message: 'Failed to fetch analytics', error });
+        }
+    }
+    /**
+   * Check if a slug is available (owner only)
+   */
+    async checkSlug(req, res) {
+        try {
+            const { businessId } = req.params;
+            const slug = String(req.query.slug || '').toLowerCase().trim();
+            const invalid = (0, slug_1.validateSlug)(slug);
+            if (invalid)
+                return res.json({ available: false, reason: invalid });
+            const owned = await business_service_1.default.getBusinessByUserId(req.userId);
+            if (!owned || owned.id !== businessId) {
+                return res.status(403).json({ message: 'Forbidden' });
+            }
+            const available = await business_service_1.default.isSlugAvailable(slug, businessId);
+            res.json({ available, reason: available ? null : 'Already taken' });
+        }
+        catch (error) {
+            console.error('[Business] checkSlug error:', error);
+            res.status(500).json({ message: 'Failed to check slug' });
+        }
+    }
+    /**
+     * Update booking slug (owner only)
+     */
+    async updateSlug(req, res) {
+        try {
+            const { businessId } = req.params;
+            const slug = String(req.body.slug || '').toLowerCase().trim();
+            const invalid = (0, slug_1.validateSlug)(slug);
+            if (invalid)
+                return res.status(400).json({ message: invalid });
+            const owned = await business_service_1.default.getBusinessByUserId(req.userId);
+            if (!owned || owned.id !== businessId) {
+                return res.status(403).json({ message: 'Forbidden' });
+            }
+            const updated = await business_service_1.default.updateSlug(businessId, slug);
+            res.json(updated);
+        }
+        catch (error) {
+            if (error?.code === 'P2002') {
+                return res.status(409).json({ message: 'This slug is already taken' });
+            }
+            console.error('[Business] updateSlug error:', error);
+            res.status(500).json({ message: 'Failed to update slug' });
         }
     }
     /**

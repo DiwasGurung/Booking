@@ -17,6 +17,7 @@ function parseCoord(value: unknown, min: number, max: number): number | null | u
 const publicBusinessListSelect = {
   id: true,
   name: true,
+  slug: true,
   category: true,
   description: true,
   phone: true,
@@ -210,6 +211,7 @@ async getAllBusinesses(
         latitude: true,
         longitude: true,
         createdAt: true,
+        slug: true,
       },
       orderBy: { createdAt: "desc" },
     }),

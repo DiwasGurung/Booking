@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BusinessService = void 0;
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const image_1 = require("../utils/image");
+const slug_1 = require("../utils/slug");
 function parseCoord(value, min, max) {
     if (value === undefined)
         return undefined; // field not sent: leave unchanged
@@ -20,6 +21,7 @@ function parseCoord(value, min, max) {
 const publicBusinessListSelect = {
     id: true,
     name: true,
+    slug: true,
     category: true,
     description: true,
     phone: true,
@@ -38,6 +40,17 @@ const publicBusinessListSelect = {
     createdAt: true,
 };
 class BusinessService {
+    async isSlugAvailable(slug, businessId) {
+        const existing = await prisma_1.default.business.findUnique({ where: { slug }, select: { id: true } });
+        return !existing || existing.id === businessId;
+    }
+    async updateSlug(businessId, slug) {
+        return prisma_1.default.business.update({
+            where: { id: businessId },
+            data: { slug },
+            select: { id: true, slug: true },
+        });
+    }
     /**
      * Create a new business
      */
@@ -49,26 +62,40 @@ class BusinessService {
         if (existingBusiness) {
             throw new Error("This user already has a business");
         }
-        // Create business and update user role to business_owner
-        const business = await prisma_1.default.business.create({
-            data: {
-                name: data.name,
-                email: data.email,
-                phone: data.phone,
-                category: data.category,
-                address: data.address,
-                city: data.city,
-                state: data.state || '',
-                zipCode: data.zipCode || '',
-                country: data.country,
-                description: data.description,
-                website: data.website,
-                logo: data.logo,
-                user: {
-                    connect: { id: data.userId },
-                },
-            },
-        });
+        let business = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const slug = await (0, slug_1.generateUniqueSlug)(data.name);
+                business = await prisma_1.default.business.create({
+                    data: {
+                        name: data.name,
+                        slug,
+                        email: data.email,
+                        phone: data.phone,
+                        category: data.category,
+                        address: data.address,
+                        city: data.city,
+                        state: data.state || '',
+                        zipCode: data.zipCode || '',
+                        country: data.country,
+                        description: data.description,
+                        website: data.website,
+                        logo: data.logo,
+                        user: { connect: { id: data.userId } },
+                    },
+                });
+                break;
+            }
+            catch (err) {
+                const target = err?.meta?.target ?? [];
+                // Only retry when the collision was on slug (not userId or email)
+                if (err?.code === 'P2002' && target.includes('slug'))
+                    continue;
+                throw err;
+            }
+        }
+        if (!business)
+            throw new Error('Could not generate a unique booking URL');
         // Update user role to BUSINESS_OWNER (must match the UserRole enum)
         await prisma_1.default.user.update({
             where: { id: data.userId },
@@ -152,6 +179,7 @@ class BusinessService {
                     latitude: true,
                     longitude: true,
                     createdAt: true,
+                    slug: true,
                 },
                 orderBy: { createdAt: "desc" },
             }),
@@ -268,14 +296,14 @@ class BusinessService {
             throw error;
         }
     }
-    // business.service.ts
-    async getPublicBusinessById(id) {
-        return prisma_1.default.business.findUnique({
-            where: { id },
+    async getPublicBusinessById(identifier) {
+        return prisma_1.default.business.findFirst({
+            where: { OR: [{ slug: identifier.toLowerCase() }, { id: identifier }] },
             select: {
-                id: true, name: true, description: true, logo: true, coverImage: true,
+                id: true, slug: true, name: true, description: true, logo: true, coverImage: true,
                 phone: true, website: true, category: true, address: true, city: true,
-                state: true, country: true, isVerified: true, isActive: true, rating: true, latitude: true, longitude: true,
+                state: true, country: true, isVerified: true, isActive: true, rating: true,
+                latitude: true, longitude: true,
                 services: {
                     where: { isActive: true },
                     select: { id: true, name: true, description: true, price: true, offerPrice: true, duration: true, capacity: true },
