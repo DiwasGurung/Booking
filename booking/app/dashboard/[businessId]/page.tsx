@@ -69,7 +69,10 @@ export default function BusinessDashboardPage() {
   // null = still loading; true/false once hours are known
   const [hoursConfigured, setHoursConfigured] = useState<boolean | null>(null)
   const [copied, setCopied] = useState(false)
-const bookingUrl = businessId ? `${typeof window !== 'undefined' ? window.location.origin : ''}/book/${businessId}` : ''
+  const [slug, setSlug] = useState<string | null>(null)
+const bookingUrl = businessId
+  ? `${typeof window !== 'undefined' ? window.location.origin : ''}/book/${slug ?? businessId}`
+  : ''
 
 const copyToClipboard = () => {
   navigator.clipboard.writeText(bookingUrl)
@@ -101,12 +104,16 @@ const copyToClipboard = () => {
       setLoading(true)
       setError(null)
 
-      const [statsResponse, bookingsResponse, paymentsResponse, hoursResponse] = await Promise.all([
-        businessApi.getStats(businessId),
-        bookingsApi.getBusinessBookings(businessId, 1, 5),
-        paymentApi.getBusinessPayments(businessId, 1, 5),
-        businessHoursApi.getBusinessHours(businessId).catch(() => null),
-      ])
+      const [statsResponse, bookingsResponse, paymentsResponse, hoursResponse, businessResponse] = await Promise.all([
+  businessApi.getStats(businessId),
+  bookingsApi.getBusinessBookings(businessId, 1, 5),
+  paymentApi.getBusinessPayments(businessId, 1, 5),
+  businessHoursApi.getBusinessHours(businessId).catch(() => null),
+  businessApi.getBusinessById(businessId).catch(() => null),   // use your actual method name
+])
+
+setSlug(businessResponse?.data?.slug ?? null)
+      
 
       // Hours are "configured" only if there is at least one open day.
       const hours = hoursResponse?.data
@@ -183,7 +190,7 @@ const copyToClipboard = () => {
             />
           </div>
              {/* Booking URL Section */}
-          {businessId && (
+          {businessId  && !loading && (
             <Card className="mb-4 md:mb-6 border border-slate-200 shadow-sm p-4 md:p-6 bg-white">
               <div className="mb-3">
                 <h3 className="text-base md:text-lg font-semibold text-slate-900">Booking Page URL</h3>

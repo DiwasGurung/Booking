@@ -38,6 +38,10 @@ businessRoutes.put("/:id", BusinessController.update)
 // Delete business
 businessRoutes.delete("/:id", BusinessController.delete)
 
+businessRoutes.get('/public/:id', BusinessController.getPublicById)          // already exists
+businessRoutes.get('/:businessId/slug-available', auth, BusinessController.checkSlug)
+businessRoutes.patch('/:businessId/slug', auth, BusinessController.updateSlug)
+
  // Analytics and statistics routes (specific routes before /:id)
   businessRoutes.get("/:businessId/analytics", auth, BusinessController.analytics)
   businessRoutes.get("/:businessId/stats", BusinessController.stats)

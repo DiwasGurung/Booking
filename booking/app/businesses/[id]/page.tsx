@@ -28,6 +28,7 @@ import { Loader2, Copy, Check } from "lucide-react"
 interface Business {
   id: string
   name: string
+  slug?: string | null
   description?: string
   email: string
   phone: string
@@ -107,9 +108,9 @@ export default function BusinessPage() {
   // Booking URL
   const [copied, setCopied] = useState(false)
   const bookingUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/book/${business?.id}`
-      : ""
+  typeof window !== "undefined" && business
+    ? `${window.location.origin}/book/${business.slug ?? business.id}`
+    : ""
 
   // Fetch logged-in user from cookie
   useEffect(() => {

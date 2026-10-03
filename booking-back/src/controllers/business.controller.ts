@@ -3,6 +3,7 @@ import BusinessService from "../services/business.service"
 import  {userService}  from "../services/user.service"
 import SubscriptionService from "../services/subscription.service"
 import CustomerService from "../services/customer.service"
+import { generateUniqueSlug, validateSlug } from '../utils/slug'
 
 
 class BusinessController {
@@ -69,6 +70,7 @@ class BusinessController {
    */
 async create(req: Request, res: Response) {
   try {
+    
     const business = await BusinessService.createBusiness(req.body)
     res.status(201).json(business)
   } catch (error) {
@@ -127,6 +129,57 @@ async create(req: Request, res: Response) {
     }
   }
 
+
+    /**
+   * Check if a slug is available (owner only)
+   */
+  async checkSlug(req: any, res: Response) {
+    try {
+      const { businessId } = req.params
+      const slug = String(req.query.slug || '').toLowerCase().trim()
+
+      const invalid = validateSlug(slug)
+      if (invalid) return res.json({ available: false, reason: invalid })
+
+      const owned = await BusinessService.getBusinessByUserId(req.userId)
+      if (!owned || owned.id !== businessId) {
+        return res.status(403).json({ message: 'Forbidden' })
+      }
+
+      const available = await BusinessService.isSlugAvailable(slug, businessId)
+      res.json({ available, reason: available ? null : 'Already taken' })
+    } catch (error) {
+      console.error('[Business] checkSlug error:', error)
+      res.status(500).json({ message: 'Failed to check slug' })
+    }
+  }
+
+  /**
+   * Update booking slug (owner only)
+   */
+  async updateSlug(req: any, res: Response) {
+    try {
+      const { businessId } = req.params
+      const slug = String(req.body.slug || '').toLowerCase().trim()
+
+      const invalid = validateSlug(slug)
+      if (invalid) return res.status(400).json({ message: invalid })
+
+      const owned = await BusinessService.getBusinessByUserId(req.userId)
+      if (!owned || owned.id !== businessId) {
+        return res.status(403).json({ message: 'Forbidden' })
+      }
+
+      const updated = await BusinessService.updateSlug(businessId, slug)
+      res.json(updated)
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        return res.status(409).json({ message: 'This slug is already taken' })
+      }
+      console.error('[Business] updateSlug error:', error)
+      res.status(500).json({ message: 'Failed to update slug' })
+    }
+  }
   /**
    * Get business by user ID
    */

@@ -79,6 +79,7 @@ export interface Business {
   category: ReactNode
   rating: any
   description: any
+  slug: string
   address: ReactNode
   city: ReactNode
   website: any
