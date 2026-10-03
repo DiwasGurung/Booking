@@ -27,14 +27,14 @@ function BusinessHeaderContent({ business }: { business: Business | null }) {
     <div className="flex flex-col sm:flex-row sm:items-end gap-4">
       {/* Logo */}
       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl shadow-sm ring-1 ring-border">
-                        {typeof business?.logo === 'string' && business.logo ? (
-                          <img src={business.logo} alt={business.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-primary/10">
-                            <span className="text-lg font-semibold text-primary">{getInitials(business?.name || '')}</span>
-                          </div>
-                        )}
-                      </div>
+        {typeof business?.logo === 'string' && business.logo ? (
+          <img src={business.logo} alt={business.name} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-primary/10">
+            <span className="text-lg font-semibold text-primary">{getInitials(business?.name || '')}</span>
+          </div>
+        )}
+      </div>
 
       <div className="flex-1 pt-2 sm:pt-0">
         <div className="flex flex-wrap items-center gap-2">
@@ -79,14 +79,14 @@ function BusinessHeaderContent({ business }: { business: Business | null }) {
 }
 
 function BookingPageContent() {
- const params = useParams()
-const router = useRouter()
-const { user } = useAuth()
+  const params = useParams()
+  const router = useRouter()
+  const { user } = useAuth()
 
-const slug = params.slug as string          // from the URL
-const [businessId, setBusinessId] = useState('')  // real DB id, resolved from slug
-const [resolving, setResolving] = useState(true)
-const [notFound, setNotFound] = useState(false)
+  const slug = params.slug as string          // from the URL
+  const [businessId, setBusinessId] = useState('')  // real DB id, resolved from slug
+  const [resolving, setResolving] = useState(true)
+  const [notFound, setNotFound] = useState(false)
 
   const [services, setServices] = useState<Service[]>([])
   const [selectedService, setSelectedService] = useState<Service | null>(null)
@@ -114,17 +114,17 @@ const [notFound, setNotFound] = useState(false)
   const [showVerificationModal, setShowVerificationModal] = useState(false)
   const [countdown, setCountdown] = useState(VERIFICATION_COUNTDOWN)
   // Redirect unauthenticated users to public booking page
-useEffect(() => {
-  if (!slug) return
-  if (!user && !loading) {
-    router.push(`/book/${slug}`)
-  }
-}, [slug, user, loading, router])
+  useEffect(() => {
+    if (!slug) return
+    if (!user && !loading) {
+      router.push(`/book/${slug}`)
+    }
+  }, [slug, user, loading, router])
 
-useEffect(() => {
-  if (!slug) return
-  loadBusinessData()
-}, [slug])
+  useEffect(() => {
+    if (!slug) return
+    loadBusinessData()
+  }, [slug])
 
 
   // Returns true if this slot's start time (for the given date) is still in
@@ -197,7 +197,7 @@ useEffect(() => {
     }
   }, [businessId, user, loading, router])
 
-  
+
 
   // Load staff when service is selected
   useEffect(() => {
@@ -336,66 +336,66 @@ useEffect(() => {
   }
 
 
-  
-const loadBusinessData = async () => {
-  try {
-    setResolving(true)
-    setServicesLoading(true)
-    setError('')
-    setNotFound(false)
 
-    // 1. Resolve slug (or id) -> business. Public endpoint, no auth.
-    const businessRes = await businessApi.getPublic(slug)
-    const biz = businessRes.data as Business | undefined
+  const loadBusinessData = async () => {
+    try {
+      setResolving(true)
+      setServicesLoading(true)
+      setError('')
+      setNotFound(false)
 
-    if (!businessRes.success || !biz?.id) {
-      setNotFound(true)
-      return
-    }
+      // 1. Resolve slug (or id) -> business. Public endpoint, no auth.
+      const businessRes = await businessApi.getPublic(slug)
+      const biz = businessRes.data as Business | undefined
 
-    setBusiness(biz)
-    setBusinessId(biz.id)   // everything else keeps using `businessId`
-
-    // 2. Use the real id for all other endpoints
-    const [servicesRes, hoursRes, closedDatesRes] = await Promise.all([
-      servicesApi.getBusinessServices(biz.id),
-      fetch(`${API_URL}/api/business-hours/business/${biz.id}`),
-      fetch(`${API_URL}/api/business-hours/${biz.id}/closed-dates`),
-    ])
-
-    if (servicesRes.data) {
-      let list: Service[] = []
-      if (Array.isArray(servicesRes.data)) {
-        list = servicesRes.data
-      } else if (typeof servicesRes.data === 'object' && servicesRes.data !== null) {
-        const data = servicesRes.data as Record<string, any>
-        list = data.services || data.data || []
+      if (!businessRes.success || !biz?.id) {
+        setNotFound(true)
+        return
       }
-      setServices(list)
-    }
 
-    if (hoursRes.ok) {
-      setBusinessHours(await hoursRes.json())
-    }
+      setBusiness(biz)
+      setBusinessId(biz.id)   // everything else keeps using `businessId`
 
-    if (closedDatesRes.ok) {
-      const closedDatesData = await closedDatesRes.json()
-      const closedDatesMap = new Map<string, string>()
-      if (closedDatesData.success && closedDatesData.data) {
-        closedDatesData.data.forEach((cd: any) => {
-          const dateStr = new Date(cd.date).toISOString().split('T')[0]
-          closedDatesMap.set(dateStr, cd.reason || 'Business is closed')
-        })
+      // 2. Use the real id for all other endpoints
+      const [servicesRes, hoursRes, closedDatesRes] = await Promise.all([
+        servicesApi.getBusinessServices(biz.id),
+        fetch(`${API_URL}/api/business-hours/business/${biz.id}`),
+        fetch(`${API_URL}/api/business-hours/${biz.id}/closed-dates`),
+      ])
+
+      if (servicesRes.data) {
+        let list: Service[] = []
+        if (Array.isArray(servicesRes.data)) {
+          list = servicesRes.data
+        } else if (typeof servicesRes.data === 'object' && servicesRes.data !== null) {
+          const data = servicesRes.data as Record<string, any>
+          list = data.services || data.data || []
+        }
+        setServices(list)
       }
-      setClosedDates(closedDatesMap)
+
+      if (hoursRes.ok) {
+        setBusinessHours(await hoursRes.json())
+      }
+
+      if (closedDatesRes.ok) {
+        const closedDatesData = await closedDatesRes.json()
+        const closedDatesMap = new Map<string, string>()
+        if (closedDatesData.success && closedDatesData.data) {
+          closedDatesData.data.forEach((cd: any) => {
+            const dateStr = new Date(cd.date).toISOString().split('T')[0]
+            closedDatesMap.set(dateStr, cd.reason || 'Business is closed')
+          })
+        }
+        setClosedDates(closedDatesMap)
+      }
+    } catch (err) {
+      setError('Failed to load business information. Please try again.')
+    } finally {
+      setServicesLoading(false)
+      setResolving(false)
     }
-  } catch (err) {
-    setError('Failed to load business information. Please try again.')
-  } finally {
-    setServicesLoading(false)
-    setResolving(false)
   }
-}
 
   const loadStaffForService = async (serviceId: string) => {
     try {
@@ -781,647 +781,646 @@ const loadBusinessData = async () => {
       setLoading(false)
     }
   }
-
-  // Show loading during auth check
-  if (loading || resolving) {
-    if (loading) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent mx-auto mb-4" />
-            <p className="text-lg text-muted-foreground">Loading...</p>
-          </div>
+  // Still resolving the slug (or the effect hasn't run yet on first render)
+  if (loading || resolving || (!businessId && !notFound)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent mx-auto mb-4" />
+          <p className="text-lg text-muted-foreground">Loading...</p>
         </div>
-      )
-      
-    }
-    if (!slug || notFound) {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-      <div className="mx-auto max-w-2xl text-center">
-        <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-        <h1 className="text-3xl font-bold text-foreground mb-2">Business not found</h1>
-        <p className="text-muted-foreground mb-6">This booking link is invalid or the business is inactive</p>
-        <Button onClick={() => router.push('/search')}>Browse Businesses</Button>
       </div>
-    </div>
-  )
-}
+    )
+  }
 
+  // Only show this after the lookup actually finished and failed
+  if (!slug || notFound) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
         <div className="mx-auto max-w-2xl text-center">
           <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-foreground mb-2">Invalid Request</h1>
-          <p className="text-muted-foreground mb-6">No business selected for booking</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Business not found</h1>
+          <p className="text-muted-foreground mb-6">This booking link is invalid or the business is inactive</p>
           <Button onClick={() => router.push('/search')}>Browse Businesses</Button>
         </div>
       </div>
     )
   }
 
-  if (bookingSuccess) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8 flex items-center justify-center">
-        <div className="mx-auto w-full max-w-2xl">
-          <Card className="border border-border shadow-2xl">
-            <div className="p-8 md:p-12 text-center">
-              {/* Success Icon */}
-              <div className="mb-8">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle2 className="w-12 h-12 text-primary" />
-                </div>
-                <h1 className="text-4xl font-bold text-foreground mb-3">Booking Confirmed!</h1>
-                <p className="text-lg text-muted-foreground">Your appointment has been successfully booked</p>
-              </div>
-
-              {/* Details Card */}
-              <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-xl p-8 mb-10 text-left">
-                <div className="space-y-5">
-                  <div className="flex items-start gap-3">
-                    <div className="text-sm font-semibold text-foreground min-w-fit">Business:</div>
-                    <div className="text-sm text-foreground">{business?.name || 'N/A'}</div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="text-sm font-semibold text-foreground min-w-fit">Service:</div>
-                    <div className="text-sm text-foreground">{selectedService?.name || 'N/A'}</div>
-                  </div>
-                  {selectedStaff && (
-                    <div className="flex items-start gap-3">
-                      <div className="text-sm font-semibold text-foreground min-w-fit">Staff:</div>
-                      <div className="text-sm text-foreground">{selectedStaff.firstName} {selectedStaff.lastName}</div>
-                    </div>
-                  )}
-                  <div className="h-px bg-border my-1"></div>
-                  <div className="flex items-start gap-3">
-                    <div className="text-sm font-semibold text-foreground min-w-fit">Date:</div>
-
-
-                    <div className="text-sm text-foreground">
-                      {DateTime.fromISO(date + 'T00:00:00', { zone: 'Asia/Kathmandu' }).setLocale('en').toLocaleString({
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="text-sm font-semibold text-foreground min-w-fit">Time:</div>
-                    <div className="text-sm text-foreground font-medium">{getDisplayTime(selectedTime || '')}</div>
-                  </div>
-                  <div className="h-px bg-border my-1"></div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3 mb-8">
-                <Button
-                  onClick={() => window.location.href = `/book/${business?.slug}`}
-                  className="w-full h-12 bg-primary hover:bg-primary/90 font-semibold"
-                >
-                  Book Another Service
-                </Button>
-              </div>
-
-              {/* Confirmation Email */}
-              <div className="pt-6 border-t border-border">
-                <p className="text-sm text-muted-foreground">
-                  A confirmation email has been sent to <span className="font-semibold text-foreground">{customerEmail}</span>
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-10">
-          <Card className="overflow-hidden border border-border shadow-lg">
-            {business?.coverImage ? (
-              <>
-                {/* Cover image banner — only rendered when a real cover image exists */}
-                <div
-                  className="h-32 md:h-40 w-full bg-cover bg-center"
-                  style={{ backgroundImage: `url(${business.coverImage})` }}
-                />
-                <div className="px-6 md:px-8 pb-6 -mt-12">
-                  <BusinessHeaderContent business={business} />
+      <div className="mx-auto max-w-2xl text-center">
+        <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+        <h1 className="text-3xl font-bold text-foreground mb-2">Invalid Request</h1>
+        <p className="text-muted-foreground mb-6">No business selected for booking</p>
+        <Button onClick={() => router.push('/search')}>Browse Businesses</Button>
+      </div>
+    </div>
+  )
+}
+
+if (bookingSuccess) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8 flex items-center justify-center">
+      <div className="mx-auto w-full max-w-2xl">
+        <Card className="border border-border shadow-2xl">
+          <div className="p-8 md:p-12 text-center">
+            {/* Success Icon */}
+            <div className="mb-8">
+              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                <CheckCircle2 className="w-12 h-12 text-primary" />
+              </div>
+              <h1 className="text-4xl font-bold text-foreground mb-3">Booking Confirmed!</h1>
+              <p className="text-lg text-muted-foreground">Your appointment has been successfully booked</p>
+            </div>
+
+            {/* Details Card */}
+            <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-xl p-8 mb-10 text-left">
+              <div className="space-y-5">
+                <div className="flex items-start gap-3">
+                  <div className="text-sm font-semibold text-foreground min-w-fit">Business:</div>
+                  <div className="text-sm text-foreground">{business?.name || 'N/A'}</div>
                 </div>
-              </>
-            ) : (
-              // No cover image: skip the banner entirely, no gradient placeholder,
-              // logo sits directly in normal flow instead of overlapping a banner.
-              <div className="px-6 md:px-8 py-6">
+                <div className="flex items-start gap-3">
+                  <div className="text-sm font-semibold text-foreground min-w-fit">Service:</div>
+                  <div className="text-sm text-foreground">{selectedService?.name || 'N/A'}</div>
+                </div>
+                {selectedStaff && (
+                  <div className="flex items-start gap-3">
+                    <div className="text-sm font-semibold text-foreground min-w-fit">Staff:</div>
+                    <div className="text-sm text-foreground">{selectedStaff.firstName} {selectedStaff.lastName}</div>
+                  </div>
+                )}
+                <div className="h-px bg-border my-1"></div>
+                <div className="flex items-start gap-3">
+                  <div className="text-sm font-semibold text-foreground min-w-fit">Date:</div>
+
+
+                  <div className="text-sm text-foreground">
+                    {DateTime.fromISO(date + 'T00:00:00', { zone: 'Asia/Kathmandu' }).setLocale('en').toLocaleString({
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="text-sm font-semibold text-foreground min-w-fit">Time:</div>
+                  <div className="text-sm text-foreground font-medium">{getDisplayTime(selectedTime || '')}</div>
+                </div>
+                <div className="h-px bg-border my-1"></div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3 mb-8">
+              <Button
+                onClick={() => window.location.href = `/book/${business?.slug}`}
+                className="w-full h-12 bg-primary hover:bg-primary/90 font-semibold"
+              >
+                Book Another Service
+              </Button>
+            </div>
+
+            {/* Confirmation Email */}
+            <div className="pt-6 border-t border-border">
+              <p className="text-sm text-muted-foreground">
+                A confirmation email has been sent to <span className="font-semibold text-foreground">{customerEmail}</span>
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+return (
+  <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
+    <div className="mx-auto max-w-3xl">
+      <div className="mb-10">
+        <Card className="overflow-hidden border border-border shadow-lg">
+          {business?.coverImage ? (
+            <>
+              {/* Cover image banner — only rendered when a real cover image exists */}
+              <div
+                className="h-32 md:h-40 w-full bg-cover bg-center"
+                style={{ backgroundImage: `url(${business.coverImage})` }}
+              />
+              <div className="px-6 md:px-8 pb-6 -mt-12">
                 <BusinessHeaderContent business={business} />
               </div>
-            )}
-          </Card>
-
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            Select a service, date, staff (optional) and time
-          </p>
-        </div>
-
-        {error && (
-          <Card className="border border-destructive/50 bg-destructive/5 mb-6">
-            <div className="p-4 flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-              <p className="text-foreground">{error}</p>
+            </>
+          ) : (
+            // No cover image: skip the banner entirely, no gradient placeholder,
+            // logo sits directly in normal flow instead of overlapping a banner.
+            <div className="px-6 md:px-8 py-6">
+              <BusinessHeaderContent business={business} />
             </div>
-          </Card>
-        )}
+          )}
+        </Card>
 
-        <Card className="border border-border shadow-lg">
-          <div className="p-8 md:p-10">
-            {/* Step 1: Services */}
+        <p className="text-center text-sm text-muted-foreground mt-4">
+          Select a service, date, staff (optional) and time
+        </p>
+      </div>
+
+      {error && (
+        <Card className="border border-destructive/50 bg-destructive/5 mb-6">
+          <div className="p-4 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+            <p className="text-foreground">{error}</p>
+          </div>
+        </Card>
+      )}
+
+      <Card className="border border-border shadow-lg">
+        <div className="p-8 md:p-10">
+          {/* Step 1: Services */}
+          <div className="mb-8">
+            <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-primary" />
+              1. Select Service
+            </label>
+
+            {servicesLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+              </div>
+            ) : services.length === 0 ? (
+              <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+                No services available
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {services.map(service => (
+                  <button
+                    key={service.id}
+                    onClick={() => {
+                      setSelectedService(service)
+                      setSelectedStaff(null)
+                      setDate('')
+                      setSelectedTime(null)
+                    }}
+                    className={`p-4 rounded-lg border-2 text-left transition-all ${selectedService?.id === service.id
+                      ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                      : 'bg-card text-foreground border-border hover:border-primary'
+                      }`}
+                  >
+                    <div className="font-semibold">{service.name}</div>
+                    {service.description && <div className="text-sm opacity-75 mt-1">{service.description}</div>}
+                    <div className="flex justify-between items-center mt-2 text-xs opacity-75">
+                      <span>{service.duration} mins</span>
+                      <span className="font-semibold">
+                        {service.offerPrice ? (
+                          <><span className="line-through">Rs.{service.price.toFixed(2)}</span> Rs.{service.offerPrice.toFixed(2)}</>
+                        ) : (
+                          `Rs.${service.price.toFixed(2)}`
+                        )}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Step 2: Select Date */}
+          {selectedService && (
+            <div className="mb-8">
+              <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-primary" />
+                2. Select Date
+              </label>
+              <div className="relative" ref={dateCalendarRef}>
+                <button
+                  type="button"
+                  onClick={() => setDateCalendarOpen((open) => !open)}
+                  className="w-full h-12 flex items-center justify-between px-3 border border-border rounded-md bg-background text-left text-sm"
+                >
+                  <span className={date ? '' : 'text-muted-foreground'}>
+                    {date
+                      ? new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
+                        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+                      })
+                      : 'Select a date'}
+                  </span>
+                  <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                </button>
+
+                {dateCalendarOpen && (
+                  <div className="absolute z-20 mt-2 w-72 rounded-lg border border-border bg-card shadow-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <button type="button" onClick={goToPrevMonth} className="p-1 rounded hover:bg-muted">
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <span className="text-sm font-semibold">
+                        {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                      </span>
+                      <button type="button" onClick={goToNextMonth} className="p-1 rounded hover:bg-muted">
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1 mb-1">
+                      {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                        <div key={d} className="text-center text-xs font-medium text-muted-foreground">{d}</div>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1">
+                      {(() => {
+                        const year = calendarMonth.getFullYear()
+                        const month = calendarMonth.getMonth()
+                        const firstDayOfMonth = new Date(year, month, 1)
+                        const startOffset = firstDayOfMonth.getDay()
+                        const daysInMonth = new Date(year, month + 1, 0).getDate()
+                        const cells: JSX.Element[] = []
+
+                        for (let i = 0; i < startOffset; i++) {
+                          cells.push(<div key={`blank-${i}`} />)
+                        }
+
+                        for (let day = 1; day <= daysInMonth; day++) {
+                          const cellDate = new Date(year, month, day)
+                          const dateStr = formatDateStr(cellDate)
+                          const { disabled, reason } = getDateDisabledInfo(cellDate)
+                          const isSelected = date === dateStr
+
+                          cells.push(
+                            <button
+                              key={dateStr}
+                              type="button"
+                              disabled={disabled}
+                              title={disabled ? reason : undefined}
+                              onClick={() => !disabled && selectDate(dateStr)}
+                              className={`h-8 w-8 mx-auto flex items-center justify-center rounded-md text-sm transition-colors ${disabled
+                                ? 'text-muted-foreground/40 cursor-not-allowed line-through'
+                                : isSelected
+                                  ? 'bg-primary text-primary-foreground font-semibold'
+                                  : 'hover:bg-primary/10 text-foreground'
+                                }`}
+                            >
+                              {day}
+                            </button>
+                          )
+                        }
+
+                        return cells
+                      })()}
+                    </div>
+
+                    <p className="mt-3 text-xs text-muted-foreground border-t pt-2">
+                      Greyed-out days are unavailable — closed dates, business hours, or the selected staff member's day off.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Show closed message if applicable */}
+              {closedReason && (
+                <div className="flex items-center justify-center py-6 border border-input rounded-md bg-amber-50 border-amber-200 mt-4">
+                  <AlertCircle className="w-4 h-4 mr-2 text-amber-600" />
+                  <span className="text-sm text-amber-600">{closedReason || 'Business is closed'}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+
+
+          {/* Step 3: Staff Selection (Optional) - Show after date is selected */}
+          {selectedService && date && staffMembers.length > 1 && !closedReason && (
             <div className="mb-8">
               <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-primary" />
-                1. Select Service
+                <User className="w-4 h-4 text-primary" />
+                3. Select Staff <span className="text-xs opacity-60">(Optional)</span>
               </label>
 
-              {servicesLoading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-                </div>
-              ) : services.length === 0 ? (
-                <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                  No services available
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {services.map(service => (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {staffMembers.map(staff => (
                     <button
-                      key={service.id}
+                      key={staff.id}
                       onClick={() => {
-                        setSelectedService(service)
-                        setSelectedStaff(null)
-                        setDate('')
+                        setSelectedStaff(staff)
                         setSelectedTime(null)
                       }}
-                      className={`p-4 rounded-lg border-2 text-left transition-all ${selectedService?.id === service.id
+                      className={`p-4 rounded-lg border-2 text-center transition-all ${selectedStaff?.id === staff.id
                         ? 'bg-primary text-primary-foreground border-primary shadow-md'
                         : 'bg-card text-foreground border-border hover:border-primary'
                         }`}
                     >
-                      <div className="font-semibold">{service.name}</div>
-                      {service.description && <div className="text-sm opacity-75 mt-1">{service.description}</div>}
-                      <div className="flex justify-between items-center mt-2 text-xs opacity-75">
-                        <span>{service.duration} mins</span>
-                        <span className="font-semibold">
-                          {service.offerPrice ? (
-                            <><span className="line-through">Rs.{service.price.toFixed(2)}</span> Rs.{service.offerPrice.toFixed(2)}</>
-                          ) : (
-                            `Rs.${service.price.toFixed(2)}`
-                          )}
-                        </span>
+                      <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-2">
+                        {staff.avatar ? (
+                          <img src={staff.avatar || "/placeholder.svg"} alt={staff.firstName} className="w-12 h-12 rounded-full object-cover" />
+                        ) : (
+                          <User className="w-6 h-6" />
+                        )}
                       </div>
+                      <div className="font-semibold text-sm">{staff.firstName} {staff.lastName}</div>
+                      <div className="text-xs opacity-75 mt-1">{staff.role}</div>
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
 
-            {/* Step 2: Select Date */}
-            {selectedService && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  2. Select Date
-                </label>
-                <div className="relative" ref={dateCalendarRef}>
+                {selectedStaff && (
                   <button
-                    type="button"
-                    onClick={() => setDateCalendarOpen((open) => !open)}
-                    className="w-full h-12 flex items-center justify-between px-3 border border-border rounded-md bg-background text-left text-sm"
+                    onClick={() => {
+                      setSelectedStaff(null)
+                      setSelectedTime(null)
+                    }}
+                    className="w-full py-2 px-4 rounded-lg border-2 border-border hover:border-primary text-sm font-medium transition-all text-muted-foreground hover:text-foreground"
                   >
-                    <span className={date ? '' : 'text-muted-foreground'}>
-                      {date
-                        ? new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
-                          weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
-                        })
-                        : 'Select a date'}
-                    </span>
-                    <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                    Clear selection (system will auto-assign any available staff)
                   </button>
-
-                  {dateCalendarOpen && (
-                    <div className="absolute z-20 mt-2 w-72 rounded-lg border border-border bg-card shadow-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <button type="button" onClick={goToPrevMonth} className="p-1 rounded hover:bg-muted">
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <span className="text-sm font-semibold">
-                          {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-                        </span>
-                        <button type="button" onClick={goToNextMonth} className="p-1 rounded hover:bg-muted">
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-7 gap-1 mb-1">
-                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                          <div key={d} className="text-center text-xs font-medium text-muted-foreground">{d}</div>
-                        ))}
-                      </div>
-
-                      <div className="grid grid-cols-7 gap-1">
-                        {(() => {
-                          const year = calendarMonth.getFullYear()
-                          const month = calendarMonth.getMonth()
-                          const firstDayOfMonth = new Date(year, month, 1)
-                          const startOffset = firstDayOfMonth.getDay()
-                          const daysInMonth = new Date(year, month + 1, 0).getDate()
-                          const cells: JSX.Element[] = []
-
-                          for (let i = 0; i < startOffset; i++) {
-                            cells.push(<div key={`blank-${i}`} />)
-                          }
-
-                          for (let day = 1; day <= daysInMonth; day++) {
-                            const cellDate = new Date(year, month, day)
-                            const dateStr = formatDateStr(cellDate)
-                            const { disabled, reason } = getDateDisabledInfo(cellDate)
-                            const isSelected = date === dateStr
-
-                            cells.push(
-                              <button
-                                key={dateStr}
-                                type="button"
-                                disabled={disabled}
-                                title={disabled ? reason : undefined}
-                                onClick={() => !disabled && selectDate(dateStr)}
-                                className={`h-8 w-8 mx-auto flex items-center justify-center rounded-md text-sm transition-colors ${disabled
-                                  ? 'text-muted-foreground/40 cursor-not-allowed line-through'
-                                  : isSelected
-                                    ? 'bg-primary text-primary-foreground font-semibold'
-                                    : 'hover:bg-primary/10 text-foreground'
-                                  }`}
-                              >
-                                {day}
-                              </button>
-                            )
-                          }
-
-                          return cells
-                        })()}
-                      </div>
-
-                      <p className="mt-3 text-xs text-muted-foreground border-t pt-2">
-                        Greyed-out days are unavailable — closed dates, business hours, or the selected staff member's day off.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Show closed message if applicable */}
-                {closedReason && (
-                  <div className="flex items-center justify-center py-6 border border-input rounded-md bg-amber-50 border-amber-200 mt-4">
-                    <AlertCircle className="w-4 h-4 mr-2 text-amber-600" />
-                    <span className="text-sm text-amber-600">{closedReason || 'Business is closed'}</span>
-                  </div>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
+          {selectedService && date && staffMembers.length === 1 && !closedReason && (
+            <div className="mb-8">
+              <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                <User className="w-4 h-4 text-primary" />
+                Staff
+              </label>
+              <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-secondary/50 flex items-center justify-center flex-shrink-0">
+                  {staffMembers[0].avatar ? (
+                    <img src={staffMembers[0].avatar} alt={staffMembers[0].firstName} className="w-10 h-10 rounded-full object-cover" />
+                  ) : (
+                    <User className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <div className="font-semibold text-sm">{staffMembers[0].firstName} {staffMembers[0].lastName}</div>
+                  <div className="text-xs text-muted-foreground">{staffMembers[0].role} · only staff for this service</div>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Step 4: Time */}
+          {selectedService && date && !closedReason && (
+            <div className="mb-8">
+              <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                4. Select Time
+              </label>
 
-
-            {/* Step 3: Staff Selection (Optional) - Show after date is selected */}
-            {selectedService && date && staffMembers.length > 1 && !closedReason && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <User className="w-4 h-4 text-primary" />
-                  3. Select Staff <span className="text-xs opacity-60">(Optional)</span>
-                </label>
-
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {staffMembers.map(staff => (
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+                </div>
+              ) : closedReason ? (
+                <div className="flex items-center justify-center py-6 border border-input rounded-md bg-amber-50 border-amber-200">
+                  <AlertCircle className="w-4 h-4 mr-2 text-amber-600" />
+                  <span className="text-sm text-amber-600">{closedReason}</span>
+                </div>
+              ) : availableSlots.length === 0 ? (
+                <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+                  No available slots for this date{selectedStaff ? ` with ${selectedStaff.firstName}` : ''}
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                  {availableSlots.map((slot, idx) => {
+                    const isPast = !isSlotInFuture(date, slot)
+                    return (
                       <button
-                        key={staff.id}
-                        onClick={() => {
-                          setSelectedStaff(staff)
-                          setSelectedTime(null)
-                        }}
-                        className={`p-4 rounded-lg border-2 text-center transition-all ${selectedStaff?.id === staff.id
-                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                          : 'bg-card text-foreground border-border hover:border-primary'
+                        key={idx}
+                        onClick={() => !isPast && setSelectedTime(slot)}
+                        disabled={isPast}
+                        title={isPast ? 'This time has already passed' : undefined}
+                        className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${isPast
+                          ? 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
+                          : selectedTime === slot
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-card text-foreground border-border hover:border-primary'
                           }`}
                       >
-                        <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-2">
-                          {staff.avatar ? (
-                            <img src={staff.avatar || "/placeholder.svg"} alt={staff.firstName} className="w-12 h-12 rounded-full object-cover" />
-                          ) : (
-                            <User className="w-6 h-6" />
-                          )}
-                        </div>
-                        <div className="font-semibold text-sm">{staff.firstName} {staff.lastName}</div>
-                        <div className="text-xs opacity-75 mt-1">{staff.role}</div>
+                        {formatTimeSlot(slot)}
                       </button>
-                    ))}
-                  </div>
-
-                  {selectedStaff && (
-                    <button
-                      onClick={() => {
-                        setSelectedStaff(null)
-                        setSelectedTime(null)
-                      }}
-                      className="w-full py-2 px-4 rounded-lg border-2 border-border hover:border-primary text-sm font-medium transition-all text-muted-foreground hover:text-foreground"
-                    >
-                      Clear selection (system will auto-assign any available staff)
-                    </button>
-                  )}
+                    )
+                  })}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+          )}
 
-            {selectedService && date && staffMembers.length === 1 && !closedReason && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <User className="w-4 h-4 text-primary" />
-                  Staff
-                </label>
-                <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-secondary/50 flex items-center justify-center flex-shrink-0">
-                    {staffMembers[0].avatar ? (
-                      <img src={staffMembers[0].avatar} alt={staffMembers[0].firstName} className="w-10 h-10 rounded-full object-cover" />
-                    ) : (
-                      <User className="w-5 h-5" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-sm">{staffMembers[0].firstName} {staffMembers[0].lastName}</div>
-                    <div className="text-xs text-muted-foreground">{staffMembers[0].role} · only staff for this service</div>
-                  </div>
-                </div>
+          {/* Step 5: Customer Info */}
+          {selectedService && date && selectedTime && (
+            <div className="mb-8 p-6 bg-secondary/20 rounded-lg border border-border">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-foreground">5. Your Information</h3>
+                {user && <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Verified</span>}
               </div>
-            )}
-            {/* Step 4: Time */}
-            {selectedService && date && !closedReason && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-primary" />
-                  4. Select Time
-                </label>
-
-                {loading ? (
-                  <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-                  </div>
-                ) : closedReason ? (
-                  <div className="flex items-center justify-center py-6 border border-input rounded-md bg-amber-50 border-amber-200">
-                    <AlertCircle className="w-4 h-4 mr-2 text-amber-600" />
-                    <span className="text-sm text-amber-600">{closedReason}</span>
-                  </div>
-                ) : availableSlots.length === 0 ? (
-                  <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                    No available slots for this date{selectedStaff ? ` with ${selectedStaff.firstName}` : ''}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
-                    {availableSlots.map((slot, idx) => {
-                      const isPast = !isSlotInFuture(date, slot)
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => !isPast && setSelectedTime(slot)}
-                          disabled={isPast}
-                          title={isPast ? 'This time has already passed' : undefined}
-                          className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${isPast
-                            ? 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
-                            : selectedTime === slot
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-card text-foreground border-border hover:border-primary'
-                            }`}
-                        >
-                          {formatTimeSlot(slot)}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Step 5: Customer Info */}
-            {selectedService && date && selectedTime && (
-              <div className="mb-8 p-6 bg-secondary/20 rounded-lg border border-border">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-foreground">5. Your Information</h3>
-                  {user && <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Verified</span>}
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
-                      Full Name *
-                      {user && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">(verified)</span>}
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder="Full Name *"
-                      value={customerName}
-                      onChange={user ? undefined : (e => setCustomerName(e.target.value))}
-                      disabled={!!user}
-                      className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
-                      Email Address *
-                      {user && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">(verified)</span>}
-                    </label>
-                    <Input
-                      type="email"
-                      placeholder="Email Address *"
-                      value={customerEmail}
-                      onChange={user ? undefined : (e => setCustomerEmail(e.target.value))}
-                      disabled={!!user}
-                      className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1">Phone Number *</label>
-                    <Input
-                      type="tel"
-                      inputMode="numeric"
-                      placeholder="98XXXXXXXX"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      maxLength={10}
-                      className="bg-background border-border text-foreground"
-                      required
-                    />
-                    {customerPhone.length > 0 && customerPhone.length !== 10 && (
-                      <p className="mt-1 text-xs text-destructive">Phone number must be exactly 10 digits.</p>
-                    )}
-                  </div>
-                  <textarea
-                    placeholder="Notes (optional)"
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    className="w-full p-3 border-2 border-border rounded-lg text-sm focus:border-primary focus:outline-none bg-background"
-                    rows={3}
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+                    Full Name *
+                    {user && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">(verified)</span>}
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="Full Name *"
+                    value={customerName}
+                    onChange={user ? undefined : (e => setCustomerName(e.target.value))}
+                    disabled={!!user}
+                    className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
                   />
                 </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+                    Email Address *
+                    {user && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">(verified)</span>}
+                  </label>
+                  <Input
+                    type="email"
+                    placeholder="Email Address *"
+                    value={customerEmail}
+                    onChange={user ? undefined : (e => setCustomerEmail(e.target.value))}
+                    disabled={!!user}
+                    className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1">Phone Number *</label>
+                  <Input
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="98XXXXXXXX"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    maxLength={10}
+                    className="bg-background border-border text-foreground"
+                    required
+                  />
+                  {customerPhone.length > 0 && customerPhone.length !== 10 && (
+                    <p className="mt-1 text-xs text-destructive">Phone number must be exactly 10 digits.</p>
+                  )}
+                </div>
+                <textarea
+                  placeholder="Notes (optional)"
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  className="w-full p-3 border-2 border-border rounded-lg text-sm focus:border-primary focus:outline-none bg-background"
+                  rows={3}
+                />
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Summary */}
-            {selectedService && date && selectedTime && (
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 mb-8">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground mb-3">Booking Summary</p>
-                    <div className="space-y-2 text-sm">
+          {/* Summary */}
+          {selectedService && date && selectedTime && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 mb-8">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-foreground mb-3">Booking Summary</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Service:</span>
+                      <span className="font-medium">{selectedService.name}</span>
+                    </div>
+                    {selectedStaff && (
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Service:</span>
-                        <span className="font-medium">{selectedService.name}</span>
+                        <span className="text-muted-foreground">Staff:</span>
+                        <span className="font-medium">{selectedStaff.firstName} {selectedStaff.lastName}</span>
                       </div>
-                      {selectedStaff && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Staff:</span>
-                          <span className="font-medium">{selectedStaff.firstName} {selectedStaff.lastName}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Date:</span>
-                        <span className="font-medium">{new Date(date).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Time:</span>
-                        <span className="font-medium">{formatTimeSlot(selectedTime)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Duration:</span>
-                        <span className="font-medium">{selectedService.duration} min</span>
-                      </div>
-                      <div className="flex justify-between pt-2 border-t border-primary/20">
-                        <span className="text-muted-foreground">Price:</span>
-                        <span className="font-bold text-primary">Rs.{(selectedService.offerPrice || selectedService.price).toFixed(2)}</span>
-                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Date:</span>
+                      <span className="font-medium">{new Date(date).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Time:</span>
+                      <span className="font-medium">{formatTimeSlot(selectedTime)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Duration:</span>
+                      <span className="font-medium">{selectedService.duration} min</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-primary/20">
+                      <span className="text-muted-foreground">Price:</span>
+                      <span className="font-bold text-primary">Rs.{(selectedService.offerPrice || selectedService.price).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          {selectedService && date && selectedTime && (
+            <div className="flex gap-3">
+              <Button
+                onClick={handleConfirmBooking}
+                disabled={loading || !customerName || !customerEmail || !customerPhone}
+                className="flex-1 h-12 bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {loading ? 'Confirming...' : 'Confirm Booking'}
+              </Button>
+              <Button
+                onClick={() => setSelectedTime(null)}
+                variant="outline"
+                className="px-6 h-12"
+              >
+                Clear
+              </Button>
+            </div>
+          )}
+        </div>
+      </Card>
+    </div>
+
+    {/* Unverified customer verification notice */}
+    {showVerificationModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="verification-title"
+        aria-describedby="verification-desc"
+      >
+        <Card className="relative w-full max-w-md border border-border shadow-2xl">
+          <div className="p-8 text-center">
+            {/* Close */}
+            <button
+              onClick={() => {
+                setShowVerificationModal(false)
+                router.replace(`/book/${slug}`)
+              }}
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Icon */}
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
+              <Mail className="w-8 h-8 text-primary" />
+            </div>
+
+            <h2 id="verification-title" className="text-2xl font-bold text-foreground mb-2">
+              Verify your Phone Number
+            </h2>
+            <p id="verification-desc" className="text-sm text-muted-foreground mb-1">
+              Your appointment is <span className="font-semibold text-foreground">pending confirmation</span>. We&apos;ve sent a verification code to
+            </p>
+            <p className="text-sm font-semibold text-foreground mb-6 break-all">
+              {customerPhone}
+            </p>
+
+            {/* Countdown / status */}
+            <div
+              className="rounded-lg border border-border bg-secondary/30 p-4 mb-6"
+              aria-live="polite"
+            >
+              <div className="mt-2 space-y-3">
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Enter verification code"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  disabled={verifyingCode}
+                  className="h-11 text-center text-lg tracking-widest"
+                />
+                {codeError && <p className="text-sm text-destructive">{codeError}</p>}
+              </div>
+            </div>
+
+            {bookingId && (
+              <p className="text-xs text-muted-foreground mb-6">
+                Booking reference:{' '}
+                <code className="font-mono text-foreground">{bookingId}</code>
+              </p>
             )}
 
-            {/* Actions */}
-            {selectedService && date && selectedTime && (
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleConfirmBooking}
-                  disabled={loading || !customerName || !customerEmail || !customerPhone}
-                  className="flex-1 h-12 bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  {loading ? 'Confirming...' : 'Confirm Booking'}
-                </Button>
-                <Button
-                  onClick={() => setSelectedTime(null)}
-                  variant="outline"
-                  className="px-6 h-12"
-                >
-                  Clear
-                </Button>
-              </div>
-            )}
+            <Button
+              onClick={handleVerifyCode}
+              disabled={verifyingCode || sendingCode}
+              className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
+            >
+              {verifyingCode ? 'Verifying...' : 'Verify & Confirm'}
+            </Button>
+            <button
+              type="button"
+              onClick={handleResendCode}
+              disabled={sendingCode || resendCooldown > 0}
+              className="mt-3 w-full text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+            >
+              {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : sendingCode ? 'Sending...' : "Didn't get a code? Resend"}
+            </button>
           </div>
         </Card>
       </div>
-
-      {/* Unverified customer verification notice */}
-      {showVerificationModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="verification-title"
-          aria-describedby="verification-desc"
-        >
-          <Card className="relative w-full max-w-md border border-border shadow-2xl">
-            <div className="p-8 text-center">
-              {/* Close */}
-              <button
-                onClick={() => {
-                  setShowVerificationModal(false)
-                  router.replace(`/book/${slug}`)
-                }}
-                className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              {/* Icon */}
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
-                <Mail className="w-8 h-8 text-primary" />
-              </div>
-
-              <h2 id="verification-title" className="text-2xl font-bold text-foreground mb-2">
-                Verify your Phone Number
-              </h2>
-              <p id="verification-desc" className="text-sm text-muted-foreground mb-1">
-                Your appointment is <span className="font-semibold text-foreground">pending confirmation</span>. We&apos;ve sent a verification code to
-              </p>
-              <p className="text-sm font-semibold text-foreground mb-6 break-all">
-                {customerPhone}
-              </p>
-
-              {/* Countdown / status */}
-              <div
-                className="rounded-lg border border-border bg-secondary/30 p-4 mb-6"
-                aria-live="polite"
-              >
-                <div className="mt-2 space-y-3">
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="Enter verification code"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    disabled={verifyingCode}
-                    className="h-11 text-center text-lg tracking-widest"
-                  />
-                  {codeError && <p className="text-sm text-destructive">{codeError}</p>}
-                </div>
-              </div>
-
-              {bookingId && (
-                <p className="text-xs text-muted-foreground mb-6">
-                  Booking reference:{' '}
-                  <code className="font-mono text-foreground">{bookingId}</code>
-                </p>
-              )}
-
-              <Button
-                onClick={handleVerifyCode}
-                disabled={verifyingCode || sendingCode}
-                className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
-              >
-                {verifyingCode ? 'Verifying...' : 'Verify & Confirm'}
-              </Button>
-              <button
-                type="button"
-                onClick={handleResendCode}
-                disabled={sendingCode || resendCooldown > 0}
-                className="mt-3 w-full text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
-              >
-                {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : sendingCode ? 'Sending...' : "Didn't get a code? Resend"}
-              </button>
-            </div>
-          </Card>
-        </div>
-      )}
-    </div>
-  )
+    )}
+  </div>
+)
 }
 
 export default function BookingPage() {
