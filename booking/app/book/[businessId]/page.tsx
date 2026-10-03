@@ -1,1418 +1,378 @@
 'use client'
 
-import { useRouter, useParams } from 'next/navigation'
-import { Suspense, useEffect, useState, useRef, JSX } from 'react'
-import { Input } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useParams } from 'next/navigation'
 import { Card } from '@/components/ui/card'
-import { Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, MessageCircle, User, Mail, Loader2, X, ChevronLeft, ChevronRight, Calendar as CalendarIcon, MapPin, Phone } from 'lucide-react'
-import { servicesApi, bookingsApi, businessApi, staffApi, type Service, type Business, type Staff } from '@/lib/api'
-import { useAuth } from '@/context/authContext'
-import { DateTime } from 'luxon';
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, Clock, MapPin, Phone, CheckCircle, AlertCircle } from 'lucide-react'
+import { usePublicBusiness } from '@/hooks/usePublicBusiness'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
+const API_URL = process.env.NEXT_PUBLIC_API_URL // e.g. https://api.appoint-nepal.com
 
-function getInitials(name: string) {
-  const words = name.trim().split(/\s+/).filter(Boolean)
-  if (words.length === 0) return '?'
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
-  return (words[0][0] + words[1][0]).toUpperCase()
+/* ------------------------------------------------------------------ */
+/* ADJUST THESE TWO CALLS to match your existing endpoints.            */
+/* Both receive the REAL business id, never the slug.                  */
+/* ------------------------------------------------------------------ */
+
+// Expected result: array of "HH:mm" strings, or { slots: [...] } / { data: [...] }
+async function fetchSlots(businessId: string, serviceId: string, date: string): Promise<string[]> {
+  const qs = new URLSearchParams({ businessId, serviceId, date })
+  const res = await fetch(`${API_URL}/api/bookings/availability?${qs}`)
+  if (!res.ok) throw new Error('Could not load times')
+  const data = await res.json()
+  const list = Array.isArray(data) ? data : data.slots ?? data.data ?? []
+  return list.map((s: any) => (typeof s === 'string' ? s : s.time ?? s.startTime))
 }
 
-// Seconds the verification notice counts down before telling the user to check their inbox.
-const VERIFICATION_COUNTDOWN = 10
-
-function BusinessHeaderContent({ business }: { business: Business | null }) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-      {/* Logo */}
-      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl shadow-sm ring-1 ring-border">
-                        {typeof business?.logo === 'string' && business.logo ? (
-                          <img src={business.logo} alt={business.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-primary/10">
-                            <span className="text-lg font-semibold text-primary">{getInitials(business?.name || '')}</span>
-                          </div>
-                        )}
-                      </div>
-
-      <div className="flex-1 pt-2 sm:pt-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-            {business?.name || 'Book Your Appointment'}
-          </h1>
-          {business?.isVerified && (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold bg-primary/10 text-primary px-2 py-1 rounded-full">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Verified
-            </span>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-          {business?.category && (
-            <span className="inline-flex items-center gap-1">
-              <Briefcase className="w-3.5 h-3.5" />
-              {business.category}
-            </span>
-          )}
-          {business?.phone && (
-            <span className="inline-flex items-center gap-1">
-              <Phone className="w-3.5 h-3.5" />
-              {business.phone}
-            </span>
-          )}
-          {(business?.address || business?.city) && (
-            <span className="inline-flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5" />
-              {[business?.address, business?.city].filter(Boolean).join(', ')}
-            </span>
-          )}
-        </div>
-
-        {business?.description && (
-          <p className="mt-3 text-sm text-muted-foreground max-w-2xl">{business.description}</p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function BookingPageContent() {
-  const searchParams = useParams()
-  const router = useRouter()
-  const { user } = useAuth()
-  const businessId = searchParams.businessId as string
-
-  const [services, setServices] = useState<Service[]>([])
-  const [selectedService, setSelectedService] = useState<Service | null>(null)
-  const [servicesLoading, setServicesLoading] = useState(false)
-  const [business, setBusiness] = useState<Business | null>(null)
-
-  // Staff state
-  const [staffMembers, setStaffMembers] = useState<Staff[]>([])
-  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null)
-  const [staffLoading, setStaffLoading] = useState(false)
-
-  const [date, setDate] = useState('')
-  const [selectedTime, setSelectedTime] = useState<string | null>(null)
-  const [availableSlots, setAvailableSlots] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
-  const [customerName, setCustomerName] = useState('')
-  const [customerEmail, setCustomerEmail] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [notes, setNotes] = useState('')
-  const [businessHours, setBusinessHours] = useState<any[]>([])
-  const [closedDates, setClosedDates] = useState<Map<string, string>>(new Map())
-  const [closedReason, setClosedReason] = useState<string | null>(null)
-
-  // Verification modal state
-  const [showVerificationModal, setShowVerificationModal] = useState(false)
-  const [countdown, setCountdown] = useState(VERIFICATION_COUNTDOWN)
-  const params = useParams()
-const identifier = params.id as string          // slug or old ID from the URL
-
-
-useEffect(() => {
-  async function load() {
-    const res = await fetch(`${API_URL}/api/businesses/public/${identifier}`)
-    if (!res.ok) { /* show not found */ return }
-    const b = await res.json()
-    setBusiness(b)
-    // services and hours already come back inside this response
-  }
-  load()
-}, [identifier])
-
-// From here on, always use business.id, never `identifier`:
-// availability, staff, creating the booking, etc.
-
-
-  // Returns true if this slot's start time (for the given date) is still in
-  // the future. Mirrors the past-time filtering already done in the staff
-  // booking page — applied here so an already-passed slot for today renders
-  // disabled instead of being clickable.
-  const isSlotInFuture = (dateStr: string, timeString: string): boolean => {
-    const now = new Date()
-    const todayStr = now.toISOString().split('T')[0]
-    if (dateStr !== todayStr) return true // any future date is fine as-is
-
-    let hours: number, minutes: number
-    if (timeString.includes('T')) {
-      const d = new Date(timeString)
-      hours = d.getHours()
-      minutes = d.getMinutes()
-    } else {
-      const parts = timeString.split(':')
-      hours = parseInt(parts[0], 10)
-      minutes = parseInt(parts[1], 10)
-    }
-
-    const slotDateTime = new Date(dateStr)
-    slotDateTime.setHours(hours, minutes, 0, 0)
-    return slotDateTime > now
-  }
-
-  useEffect(() => {
-    if (!date || !selectedStaff) return
-    const [y, m, d] = date.split('-').map(Number)
-    const { disabled, reason } = getDateDisabledInfo(new Date(y, m - 1, d))
-    if (disabled) {
-      setDate('')
-      setSelectedTime(null)
-      setClosedReason(null)
-      setError(reason || 'Please choose a different date for this staff member')
-    }
-  }, [selectedStaff])
-
-  // Pre-fill customer info from logged-in user
-  useEffect(() => {
-    if (user) {
-      const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim()
-      setCustomerName(fullName)
-      setCustomerEmail(user.email || '')
-      setCustomerPhone(user.phone || '')
-    }
-  }, [user])
-  const [bookingSuccess, setBookingSuccess] = useState(false)
-  const [bookingId, setBookingId] = useState('')
-  const [error, setError] = useState('')
-
-  const [verificationCode, setVerificationCode] = useState('')
-  const [sendingCode, setSendingCode] = useState(false)
-  const [verifyingCode, setVerifyingCode] = useState(false)
-  const [codeError, setCodeError] = useState<string | null>(null)
-  const [resendCooldown, setResendCooldown] = useState(0)
-
-  useEffect(() => {
-    if (resendCooldown <= 0) return
-    const timer = setInterval(() => setResendCooldown((v) => (v <= 1 ? 0 : v - 1)), 1000)
-    return () => clearInterval(timer)
-  }, [resendCooldown])
-
-  // Redirect unauthenticated users to public booking page
-  useEffect(() => {
-    if (!businessId) return
-    if (!user && !loading) {
-      router.push(`/book/${businessId}`)
-    }
-  }, [businessId, user, loading, router])
-
-  useEffect(() => {
-    if (!businessId) return
-    loadBusinessData()
-  }, [businessId])
-
-  // Load staff when service is selected
-  useEffect(() => {
-    if (selectedService) {
-      loadStaffForService(selectedService.id)
-    } else {
-      setStaffMembers([])
-      setSelectedStaff(null)
-    }
-  }, [selectedService])
-
-  // Load available slots when date and service are selected (staff is optional)
-  useEffect(() => {
-    if (date && selectedService) {
-      loadAvailableSlots()
-    }
-  }, [date, selectedService])
-
-  // Reload slots when staff selection changes
-  useEffect(() => {
-    if (date && selectedService) {
-      loadAvailableSlots()
-    }
-  }, [selectedStaff])
-
-  // Countdown that only runs while the verification modal is open.
-  // It resets to the full duration each time the modal opens and stops cleanly at 0.
-  useEffect(() => {
-    if (!showVerificationModal) return
-
-    setCountdown(VERIFICATION_COUNTDOWN)
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [showVerificationModal])
-
-  // Lock body scroll while the modal is open.
-  useEffect(() => {
-    if (showVerificationModal) {
-      const original = document.body.style.overflow
-      document.body.style.overflow = 'hidden'
-      return () => {
-        document.body.style.overflow = original
-      }
-    }
-  }, [showVerificationModal])
-
-
-  const sendPhoneVerificationCode = async (id: string) => {
-    setSendingCode(true)
-    setCodeError(null)
-    try {
-      const res = await fetch(`${API_URL}/api/public-verification/bookings/${id}/send-phone-verification`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ purpose: 'PHONE_VERIFICATION' }),
-      })
-      const data = await res.json()
-
-      // If the backend tells us this phone is already verified, there's
-      // nothing to send and nothing for the customer to enter — skip the
-      // code-entry step entirely and treat the booking as confirmed.
-      if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
-        setShowVerificationModal(false)
-        setBookingSuccess(true)
-        return true
-      }
-
-      if (!res.ok || !data.success) {
-        setCodeError(data.error || 'Failed to send verification code')
-        if (typeof data.retryAfterSeconds === 'number') setResendCooldown(data.retryAfterSeconds)
-        return false
-      }
-      setResendCooldown(30)
-      return true
-    } catch {
-      setCodeError('Failed to send verification code. Please try again.')
-      return false
-    } finally {
-      setSendingCode(false)
-    }
-  }
-
-  const handleResendCode = async () => {
-    if (!bookingId || resendCooldown > 0) return
-    await sendPhoneVerificationCode(bookingId)
-  }
-
-  const handleVerifyCode = async () => {
-    if (!bookingId) return
-    if (!verificationCode || verificationCode.length < 4) {
-      setCodeError('Please enter the verification code')
-      return
-    }
-    setVerifyingCode(true)
-    setCodeError(null)
-    try {
-      const res = await fetch(`${API_URL}/api/public-verification/bookings/${bookingId}/verify-phone`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: verificationCode, purpose: 'PHONE_VERIFICATION' }),
-      })
-      const data = await res.json()
-
-      // Same case here — "already verified" from this endpoint means the
-      // booking is effectively confirmed, not that the code was wrong.
-      if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
-        setShowVerificationModal(false)
-        setBookingSuccess(true)
-        return
-      }
-
-      if (!res.ok || !data.success) {
-        setCodeError(
-          typeof data.attemptsRemaining === 'number'
-            ? `${data.error || 'Invalid code'} (${data.attemptsRemaining} attempts remaining)`
-            : data.error || 'Invalid verification code'
-        )
-        return
-      }
-      setShowVerificationModal(false)
-      setBookingSuccess(true)
-    } catch {
-      setCodeError('Failed to verify code. Please try again.')
-    } finally {
-      setVerifyingCode(false)
-    }
-  }
-
-  const loadBusinessData = async () => {
-    try {
-      setServicesLoading(true)
-      setError('')
-
-      const [servicesRes, businessRes, hoursRes, closedDatesRes] = await Promise.all([
-        servicesApi.getBusinessServices(businessId),
-        businessApi.getBusinessById(businessId),
-        fetch(`${API_URL}/api/business-hours/business/${businessId}`),
-        fetch(`${API_URL}/api/business-hours/${businessId}/closed-dates`), // Fetch closed dates
-      ])
-
-      if (servicesRes.data) {
-        let list: Service[] = []
-        if (Array.isArray(servicesRes.data)) {
-          list = servicesRes.data
-        } else if (typeof servicesRes.data === 'object' && servicesRes.data !== null) {
-          const data = servicesRes.data as Record<string, any>
-          list = data.services || data.data || []
-        }
-        setServices(list)
-      }
-
-      if (businessRes.data) {
-        if (typeof businessRes.data === 'object') {
-          setBusiness(businessRes.data as Business)
-        }
-      }
-
-      // Fetch business hours
-      if (hoursRes.ok) {
-        const hoursData = await hoursRes.json()
-        setBusinessHours(hoursData)
-      }
-
-      // Fetch closed dates
-      if (closedDatesRes.ok) {
-        const closedDatesData = await closedDatesRes.json()
-        const closedDatesMap = new Map<string, string>()
-        if (closedDatesData.success && closedDatesData.data) {
-          closedDatesData.data.forEach((cd: any) => {
-            const dateStr = new Date(cd.date).toISOString().split('T')[0]
-            closedDatesMap.set(dateStr, cd.reason || 'Business is closed')
-          })
-        }
-        setClosedDates(closedDatesMap)
-      }
-    } catch (err) {
-      setError('Failed to load business information. Please try again.')
-    } finally {
-      setServicesLoading(false)
-    }
-  }
-
-
-
-  const loadStaffForService = async (serviceId: string) => {
-    try {
-      setStaffLoading(true)
-      const response = await staffApi.getStaffForService(serviceId)
-      if (response.data?.staff) {
-        setStaffMembers(response.data.staff)
-        // Auto-select when there's exactly one staff member — there's no real
-        // choice to make, so treat them as selected immediately. This also
-        // means their weekly schedule correctly drives slot generation and
-        // the day-off check below, instead of quietly ignoring it because
-        // selectedStaff was null.
-        setSelectedStaff(response.data.staff.length === 1 ? response.data.staff[0] : null)
-      } else {
-        setStaffMembers([])
-        setSelectedStaff(null)
-      }
-    } catch (err) {
-      setStaffMembers([])
-      setSelectedStaff(null)
-    } finally {
-      setStaffLoading(false)
-    }
-  }
-  const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-  const DAY_LABELS: Record<string, string> = {
-    sunday: 'Sunday', monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday',
-    thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday',
-  }
-
-  const [dateCalendarOpen, setDateCalendarOpen] = useState(false)
-  const [calendarMonth, setCalendarMonth] = useState(() => {
-    const d = new Date()
-    d.setDate(1)
-    return d
+async function createBooking(payload: {
+  businessId: string
+  serviceId: string
+  startTime: string // ISO string
+  customerName: string
+  customerEmail: string
+  customerPhone: string
+  notes?: string
+}) {
+  const res = await fetch(`${API_URL}/api/bookings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   })
-  const dateCalendarRef = useRef<HTMLDivElement>(null)
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.message || data.error || 'Booking failed')
+  return data
+}
 
+/* ------------------------------------------------------------------ */
+
+interface Service {
+  id: string
+  name: string
+  description?: string
+  price: number
+  offerPrice?: number | null
+  duration: number
+  capacity: number
+}
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+function todayISO() {
+  const d = new Date()
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 10)
+}
+
+export default function BookingPage() {
+  const params = useParams()
+  const identifier = params.businessId as string // slug or old id from the URL
+
+  const { business, loading, notFound, error } = usePublicBusiness(identifier)
+
+  // The REAL id. Use this everywhere instead of the URL param.
+  const businessId: string | undefined = business?.id
+  const services: Service[] = business?.services ?? []
+  const hours: any[] = business?.hours ?? []
+
+  const [serviceId, setServiceId] = useState<string | null>(null)
+  const [date, setDate] = useState(todayISO())
+  const [slots, setSlots] = useState<string[]>([])
+  const [slotsLoading, setSlotsLoading] = useState(false)
+  const [slotsError, setSlotsError] = useState<string | null>(null)
+  const [time, setTime] = useState<string | null>(null)
+
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [notes, setNotes] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+
+  const selectedService = useMemo(
+    () => services.find((s) => s.id === serviceId) ?? null,
+    [services, serviceId]
+  )
+
+  // Load available times once we have the real id, a service and a date
   useEffect(() => {
-    if (!dateCalendarOpen) return
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dateCalendarRef.current && !dateCalendarRef.current.contains(e.target as Node)) {
-        setDateCalendarOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [dateCalendarOpen])
-
-  const formatDateStr = (d: Date): string =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
-  interface DaySchedule {
-    start: string
-    end: string
-    isWorking: boolean
-  }
-
-  const getNormalizedWorkingHours = (staffData: any): Record<string, DaySchedule> | null => {
-    let raw = staffData?.workingHours
-    if (!raw) return null
-    if (typeof raw === 'string') {
-      try { raw = JSON.parse(raw) } catch { return null }
-    }
-    if (typeof raw !== 'object') return null
-    const normalized: Record<string, DaySchedule> = {}
-    Object.keys(raw).forEach((key) => { normalized[key.toLowerCase()] = raw[key] })
-    return normalized
-  }
-
-  // Single source of truth for whether a calendar day is pickable. Checks, in
-  // order: past dates, explicit business closed-dates, the business's own
-  // weekly hours, and — only if a specific staff member is selected — that
-  // staff member's recurring day off. When no staff is selected ("any
-  // available staff"), we deliberately don't block on any one staff's
-  // schedule, since the backend can auto-assign someone who IS working.
-  const getDateDisabledInfo = (d: Date): { disabled: boolean; reason?: string } => {
-    const dateStr = formatDateStr(d)
-
-    const startOfToday = new Date()
-    startOfToday.setHours(0, 0, 0, 0)
-    if (d < startOfToday) {
-      return { disabled: true, reason: 'Past date' }
-    }
-
-    if (closedDates.has(dateStr)) {
-      return { disabled: true, reason: closedDates.get(dateStr) || 'Business is closed' }
-    }
-
-    const adjustedDayOfWeek = d.getDay() === 0 ? 6 : d.getDay() - 1
-    const dayHours = businessHours.find((bh: any) => bh.dayOfWeek === adjustedDayOfWeek)
-    if (!dayHours || dayHours.isClosed) {
-      return { disabled: true, reason: 'Business is closed on this day' }
-    }
-
-    // If today, and the business's closing time has already passed, disable.
-    const startOfCellDay = new Date(d)
-    startOfCellDay.setHours(0, 0, 0, 0)
-    const isCellToday = startOfCellDay.getTime() === startOfToday.getTime()
-    if (isCellToday && dayHours.closeTime) {
-      const [closeHour, closeMin] = dayHours.closeTime.split(':').map(Number)
-      const closingDateTime = new Date(d)
-      closingDateTime.setHours(closeHour, closeMin, 0, 0)
-      if (new Date() > closingDateTime) {
-        return { disabled: true, reason: 'Business is closed for today' }
-      }
-    }
-
-    // Only enforce a specific staff member's day off if one is selected.
-    if (selectedStaff) {
-      const dayName = DAY_KEYS[d.getDay()]
-      const staffWorkingHours = getNormalizedWorkingHours(selectedStaff)
-      const daySchedule = staffWorkingHours?.[dayName]
-      if (daySchedule && daySchedule.isWorking === false) {
-        return { disabled: true, reason: `${selectedStaff.firstName} does not work on ${DAY_LABELS[dayName]}s` }
-      }
-    }
-
-    return { disabled: false }
-  }
-
-  // Applies a validated date pick: sets date, clears any previously chosen
-  // time, closes the picker, and recomputes the closed-reason banner exactly
-  // like the old input's onChange did.
-  const selectDate = (dateStr: string) => {
-    setDate(dateStr)
-    setSelectedTime(null)
-    setDateCalendarOpen(false)
-
-    if (closedDates.has(dateStr)) {
-      setClosedReason(closedDates.get(dateStr) || 'Business is closed')
-    } else {
-      const todayReason = getTodayClosedReason(dateStr)
-      setClosedReason(todayReason)
-    }
-  }
-
-  const goToPrevMonth = () => {
-    setCalendarMonth((prev) => {
-      const next = new Date(prev)
-      next.setMonth(next.getMonth() - 1)
-      const startOfThisMonth = new Date()
-      startOfThisMonth.setDate(1)
-      startOfThisMonth.setHours(0, 0, 0, 0)
-      return next < startOfThisMonth ? prev : next
-    })
-  }
-
-  const goToNextMonth = () => {
-    setCalendarMonth((prev) => {
-      const next = new Date(prev)
-      next.setMonth(next.getMonth() + 1)
-      return next
-    })
-  }
-
-  // Keep the visible month in sync if `date` is ever set from elsewhere
-  useEffect(() => {
-    if (date) {
-      const [y, m] = date.split('-').map(Number)
-      setCalendarMonth(new Date(y, m - 1, 1))
-    }
-  }, [date])
-
-
-  const loadAvailableSlots = async () => {
-    if (!selectedService || !date || !businessId) return
-
-    if (!closedDates.has(date)) {
-      const todayReason = getTodayClosedReason(date)
-      if (todayReason) {
-        setAvailableSlots([])
-        setClosedReason(todayReason)
-        return
-      }
-    }
-
-    // NEW: check the selected staff member's own weekly schedule before hitting the API.
-    // Only applies when a specific staff member is chosen — "any available staff" (selectedStaff === null)
-    // should still fall through to the backend, which can pick someone who IS working that day.
-    if (selectedStaff) {
-      const dayName = DAY_KEYS[new Date(date).getDay()]
-      const daySchedule = (selectedStaff as any)?.workingHours?.[dayName]
-      if (daySchedule && daySchedule.isWorking === false) {
-        setAvailableSlots([])
-        setClosedReason(`${selectedStaff.firstName} does not work on ${dayName.charAt(0).toUpperCase() + dayName.slice(1)}s`)
-        setError('')
-        return
-      }
-    }
-
-    try {
-      setLoading(true)
-      setClosedReason(null) // clear any previous staff-day-off message
-
-      const response = await bookingsApi.getBusinessAvailableSlots(businessId, selectedService.id, date, selectedStaff?.id)
-
-      if (response.success) {
-        let slots: string[] = []
-        if (Array.isArray(response.data)) {
-          slots = response.data
-        } else if (response.data && typeof response.data === 'object' && 'data' in response.data && Array.isArray((response.data as any).data)) {
-          slots = (response.data as any).data
+    if (!businessId || !serviceId || !date) return
+    let cancelled = false
+    setTime(null)
+    setSlotsLoading(true)
+    setSlotsError(null)
+    fetchSlots(businessId, serviceId, date)
+      .then((s) => !cancelled && setSlots(s))
+      .catch((e) => {
+        if (!cancelled) {
+          setSlots([])
+          setSlotsError(e.message)
         }
-
-        if (slots.length > 0) {
-          setAvailableSlots(slots as any)
-          setError('')
-        } else {
-          setAvailableSlots([])
-          setError('No available slots for the selected date')
-        }
-      } else {
-        setAvailableSlots([])
-        setError(response.error || 'Unable to load available slots')
-      }
-    } catch (err) {
-      setAvailableSlots([])
-      setError('Failed to load available slots')
-    } finally {
-      setLoading(false)
+      })
+      .finally(() => !cancelled && setSlotsLoading(false))
+    return () => {
+      cancelled = true
     }
-  }
+  }, [businessId, serviceId, date])
 
-  const formatTimeSlot = (timeString: string): string => {
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!businessId || !serviceId || !time) return
+    setSubmitting(true)
+    setSubmitError(null)
     try {
-      // Handle both "HH:MM" format and ISO date strings
-      let hours: number, minutes: number
-
-      if (timeString.includes('T') || timeString.includes(':') && timeString.length > 5) {
-        // ISO date string like "2026-08-06T11:00:00"
-        const date = new Date(timeString)
-        hours = date.getHours()
-        minutes = date.getMinutes()
-      } else {
-        // Simple time string like "11:00"
-        const parts = timeString.split(':')
-        hours = parseInt(parts[0], 10)
-        minutes = parseInt(parts[1], 10)
-      }
-
-      // Format as 12-hour time
-      const period = hours >= 12 ? 'PM' : 'AM'
-      const displayHours = hours % 12 || 12
-      return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`
-    } catch {
-      return timeString
-    }
-  }
-
-  // Given today's date, finds the day's business hours and checks whether
-  // the current time is already past closing. Mirrors the equivalent check
-  // in the staff booking page. Day-of-week mapping: JS Date.getDay() is
-  // 0-6 (Sun-Sat), but business hours store 0-6 as Mon-Sun, so Sunday (0)
-  // maps to 6, and every other day shifts down by 1.
-  const getTodayClosedReason = (dateStr: string): string | null => {
-    const now = new Date()
-    const todayStr = now.toISOString().split('T')[0]
-    if (dateStr !== todayStr) return null // only relevant for today
-
-    const dayOfWeek = now.getDay()
-    const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-    const dayHours = businessHours.find((bh: any) => bh.dayOfWeek === adjustedDayOfWeek)
-
-    if (!dayHours || dayHours.isClosed) {
-      return dayHours ? 'Business is closed on this day' : null
-    }
-
-    const [closingHour, closingMin] = dayHours.closeTime.split(':').map(Number)
-    const closingDateTime = new Date(dateStr)
-    closingDateTime.setHours(closingHour, closingMin, 0, 0)
-
-    if (now > closingDateTime) {
-      return 'Business is closed for today'
-    }
-
-    return null
-  }
-
-  const getDisplayTime = (timeString: string): string => {
-    if (!timeString) return 'N/A'
-    try {
-      // Handle "HH:MM" format
-      const parts = timeString.split(':')
-      if (parts.length === 2) {
-        const hours = parseInt(parts[0], 10)
-        const minutes = parseInt(parts[1], 10)
-        const period = hours >= 12 ? 'PM' : 'AM'
-        const displayHours = hours % 12 || 12
-        return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`
-      }
-      return timeString
-    } catch {
-      return timeString
-    }
-  }
-
-  const handleConfirmBooking = async () => {
-    if (!selectedService || !date || !selectedTime) {
-      setError('Please select service, date, and time')
-      return
-    }
-
-    if (!isSlotInFuture(date, selectedTime)) {
-      setError('This time slot has passed. Please select a different time.')
-      setSelectedTime(null)
-      return
-    }
-
-    if (closedDates.has(date)) {
-      setError(closedDates.get(date) || 'The business is closed on this date')
-      return
-    }
-
-    if (!user) {
-      if (!customerName || !customerEmail || !customerPhone) {
-        setError('Please fill in all required fields')
-        return
-      }
-    }
-
-    try {
-      setLoading(true)
-
-      const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
-      const startDateTime = DateTime.fromISO(`${date}T${selectedTime}`, { zone: BUSINESS_TZ });
-      const startTimeISO = startDateTime.toISO();
-      const endDateTime = startDateTime.plus({ minutes: selectedService.duration });
-      const endTimeISO = endDateTime.toISO();
-
-      const basePayload: any = {
-        serviceId: selectedService.id,
-        businessId,
-        startTime: startTimeISO,
-        endTime: endTimeISO,
-        notes,
-      }
-
-      if (selectedStaff?.id) {
-        basePayload.staffId = selectedStaff.id
-      }
-
-      let response
-      if (user) {
-        response = await bookingsApi.createBusinessBooking(basePayload)
-      } else {
-        response = await bookingsApi.createBusinessPublicBooking({
-          ...basePayload,
-          customerName,
-          customerEmail,
-          customerPhone,
-        })
-      }
-
-
-      const payload = (response as any)?.data ?? response
-      const createdBooking = payload?.booking
-
-      if (response.success !== false && createdBooking?.id) {
-        const newBookingId = createdBooking.id
-        setBookingId(newBookingId)
-
-        const requiresVerification =
-          createdBooking.isPhoneVerified === false ||
-          createdBooking.status === 'UNVERIFIED'
-
-        setError('')
-
-        if (requiresVerification) {
-          setVerificationCode('')
-          setCodeError(null)
-          await sendPhoneVerificationCode(newBookingId)
-          setShowVerificationModal(true)
-        } else {
-          setBookingSuccess(true)
-        }
-      } else {
-        setError((response as any)?.error || payload?.message || 'Failed to create booking')
-      }
+      await createBooking({
+        businessId, // real id, not the slug
+        serviceId,
+        startTime: new Date(`${date}T${time}`).toISOString(),
+        customerName: name.trim(),
+        customerEmail: email.trim(),
+        customerPhone: phone.trim(),
+        notes: notes.trim() || undefined,
+      })
+      setDone(true)
     } catch (err: any) {
-      setError('Failed to book appointment. Please try again.')
+      setSubmitError(err.message)
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
 
-  // Show loading during auth check
-  if (loading || !businessId) {
-    if (loading) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent mx-auto mb-4" />
-            <p className="text-lg text-muted-foreground">Loading...</p>
+  /* ---------------- render states ---------------- */
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      </div>
+    )
+  }
+
+  if (notFound) {
+    return (
+      <div className="flex h-screen items-center justify-center px-4 text-center">
+        <p className="text-slate-600">This booking page doesn&apos;t exist or is no longer active.</p>
+      </div>
+    )
+  }
+
+  if (error || !business) {
+    return (
+      <div className="flex h-screen items-center justify-center px-4 text-center">
+        <p className="text-slate-600">Something went wrong loading this page. Please refresh and try again.</p>
+      </div>
+    )
+  }
+
+  if (done) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <Card className="max-w-md w-full p-8 text-center bg-white">
+          <CheckCircle className="mx-auto mb-4 h-12 w-12 text-emerald-600" />
+          <h1 className="text-xl font-semibold text-slate-900">Booking received</h1>
+          <p className="mt-2 text-sm text-slate-600">
+            {selectedService?.name} at {business.name} on {new Date(`${date}T${time}`).toLocaleString()}.
+            Check {email} to confirm your booking.
+          </p>
+        </Card>
+      </div>
+    )
+  }
+
+  const hoursByDay = [...hours].sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+  const canSubmit = !!serviceId && !!time && name.trim() && email.trim() && phone.trim() && !submitting
+
+  return (
+    <main className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200">
+        {business.coverImage && (
+          <img src={business.coverImage} alt="" className="h-40 w-full object-cover md:h-56" />
+        )}
+        <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-5">
+          {business.logo && (
+            <img
+              src={business.logo}
+              alt={`${business.name} logo`}
+              className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
+            />
+          )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="truncate text-2xl font-bold text-slate-900">{business.name}</h1>
+              {business.isVerified && <Badge className="bg-green-600 text-white">Verified</Badge>}
+            </div>
+            {business.description && (
+              <p className="mt-1 text-sm text-slate-600">{business.description}</p>
+            )}
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+              {business.address && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  {[business.address, business.city].filter(Boolean).join(', ')}
+                </span>
+              )}
+              {business.phone && (
+                <span className="flex items-center gap-1">
+                  <Phone className="h-3 w-3" />
+                  {business.phone}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      )
-    }
+      </header>
 
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-foreground mb-2">Invalid Request</h1>
-          <p className="text-muted-foreground mb-6">No business selected for booking</p>
-          <Button onClick={() => router.push('/search')}>Browse Businesses</Button>
-        </div>
-      </div>
-    )
-  }
-
-  if (bookingSuccess) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8 flex items-center justify-center">
-        <div className="mx-auto w-full max-w-2xl">
-          <Card className="border border-border shadow-2xl">
-            <div className="p-8 md:p-12 text-center">
-              {/* Success Icon */}
-              <div className="mb-8">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle2 className="w-12 h-12 text-primary" />
-                </div>
-                <h1 className="text-4xl font-bold text-foreground mb-3">Booking Confirmed!</h1>
-                <p className="text-lg text-muted-foreground">Your appointment has been successfully booked</p>
-              </div>
-
-              {/* Details Card */}
-              <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-xl p-8 mb-10 text-left">
-                <div className="space-y-5">
-                  <div className="flex items-start gap-3">
-                    <div className="text-sm font-semibold text-foreground min-w-fit">Business:</div>
-                    <div className="text-sm text-foreground">{business?.name || 'N/A'}</div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="text-sm font-semibold text-foreground min-w-fit">Service:</div>
-                    <div className="text-sm text-foreground">{selectedService?.name || 'N/A'}</div>
-                  </div>
-                  {selectedStaff && (
-                    <div className="flex items-start gap-3">
-                      <div className="text-sm font-semibold text-foreground min-w-fit">Staff:</div>
-                      <div className="text-sm text-foreground">{selectedStaff.firstName} {selectedStaff.lastName}</div>
-                    </div>
-                  )}
-                  <div className="h-px bg-border my-1"></div>
-                  <div className="flex items-start gap-3">
-                    <div className="text-sm font-semibold text-foreground min-w-fit">Date:</div>
-
-
-                    <div className="text-sm text-foreground">
-                      {DateTime.fromISO(date + 'T00:00:00', { zone: 'Asia/Kathmandu' }).setLocale('en').toLocaleString({
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="text-sm font-semibold text-foreground min-w-fit">Time:</div>
-                    <div className="text-sm text-foreground font-medium">{getDisplayTime(selectedTime || '')}</div>
-                  </div>
-                  <div className="h-px bg-border my-1"></div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3 mb-8">
-                <Button
-                  onClick={() => window.location.href = `/book/${business?.id}`}
-                  className="w-full h-12 bg-primary hover:bg-primary/90 font-semibold"
-                >
-                  Book Another Service
-                </Button>
-              </div>
-
-              {/* Confirmation Email */}
-              <div className="pt-6 border-t border-border">
-                <p className="text-sm text-muted-foreground">
-                  A confirmation email has been sent to <span className="font-semibold text-foreground">{customerEmail}</span>
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-10">
-          <Card className="overflow-hidden border border-border shadow-lg">
-            {business?.coverImage ? (
-              <>
-                {/* Cover image banner — only rendered when a real cover image exists */}
-                <div
-                  className="h-32 md:h-40 w-full bg-cover bg-center"
-                  style={{ backgroundImage: `url(${business.coverImage})` }}
-                />
-                <div className="px-6 md:px-8 pb-6 -mt-12">
-                  <BusinessHeaderContent business={business} />
-                </div>
-              </>
+      <div className="mx-auto grid max-w-5xl gap-6 px-4 py-6 lg:grid-cols-3">
+        <form onSubmit={handleSubmit} className="space-y-6 lg:col-span-2">
+          {/* 1. Service */}
+          <Card className="p-4 md:p-6 bg-white">
+            <h2 className="mb-3 text-lg font-semibold text-slate-900">Choose a service</h2>
+            {services.length === 0 ? (
+              <p className="text-sm text-slate-500">This business has no services available to book yet.</p>
             ) : (
-              // No cover image: skip the banner entirely, no gradient placeholder,
-              // logo sits directly in normal flow instead of overlapping a banner.
-              <div className="px-6 md:px-8 py-6">
-                <BusinessHeaderContent business={business} />
+              <div className="space-y-2">
+                {services.map((s) => {
+                  const selected = s.id === serviceId
+                  return (
+                    <button
+                      type="button"
+                      key={s.id}
+                      onClick={() => setServiceId(s.id)}
+                      aria-pressed={selected}
+                      className={`w-full rounded-lg border p-3 text-left transition-colors ${
+                        selected ? 'border-blue-600 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900">{s.name}</p>
+                          {s.description && <p className="text-xs text-slate-500">{s.description}</p>}
+                          <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                            <Clock className="h-3 w-3" />
+                            {s.duration} min
+                          </p>
+                        </div>
+                        <div className="flex-shrink-0 text-right">
+                          {s.offerPrice ? (
+                            <>
+                              <p className="text-xs text-slate-400 line-through">Rs.{s.price.toFixed(2)}</p>
+                              <p className="font-semibold text-green-700">Rs.{s.offerPrice.toFixed(2)}</p>
+                            </>
+                          ) : (
+                            <p className="font-semibold text-slate-900">Rs.{s.price.toFixed(2)}</p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             )}
           </Card>
 
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            Select a service, date, staff (optional) and time
-          </p>
-        </div>
+          {/* 2. Date and time */}
+          {serviceId && (
+            <Card className="p-4 md:p-6 bg-white">
+              <h2 className="mb-3 text-lg font-semibold text-slate-900">Pick a date and time</h2>
+              <div className="mb-4 max-w-xs space-y-2">
+                <Label htmlFor="date">Date</Label>
+                <Input id="date" type="date" min={todayISO()} value={date} onChange={(e) => setDate(e.target.value)} />
+              </div>
 
-        {error && (
-          <Card className="border border-destructive/50 bg-destructive/5 mb-6">
-            <div className="p-4 flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-              <p className="text-foreground">{error}</p>
-            </div>
-          </Card>
-        )}
-
-        <Card className="border border-border shadow-lg">
-          <div className="p-8 md:p-10">
-            {/* Step 1: Services */}
-            <div className="mb-8">
-              <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-primary" />
-                1. Select Service
-              </label>
-
-              {servicesLoading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-                </div>
-              ) : services.length === 0 ? (
-                <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                  No services available
-                </div>
+              {slotsLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+              ) : slotsError ? (
+                <p className="flex items-center gap-2 text-sm text-red-700">
+                  <AlertCircle className="h-4 w-4" />
+                  {slotsError}. Try another date.
+                </p>
+              ) : slots.length === 0 ? (
+                <p className="text-sm text-slate-500">No times available on this date. Try another day.</p>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {services.map(service => (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+                  {slots.map((t) => (
                     <button
-                      key={service.id}
-                      onClick={() => {
-                        setSelectedService(service)
-                        setSelectedStaff(null)
-                        setDate('')
-                        setSelectedTime(null)
-                      }}
-                      className={`p-4 rounded-lg border-2 text-left transition-all ${selectedService?.id === service.id
-                        ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                        : 'bg-card text-foreground border-border hover:border-primary'
-                        }`}
+                      type="button"
+                      key={t}
+                      onClick={() => setTime(t)}
+                      aria-pressed={time === t}
+                      className={`rounded-md border px-2 py-2 text-sm transition-colors ${
+                        time === t
+                          ? 'border-blue-600 bg-blue-600 text-white'
+                          : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
                     >
-                      <div className="font-semibold">{service.name}</div>
-                      {service.description && <div className="text-sm opacity-75 mt-1">{service.description}</div>}
-                      <div className="flex justify-between items-center mt-2 text-xs opacity-75">
-                        <span>{service.duration} mins</span>
-                        <span className="font-semibold">
-                          {service.offerPrice ? (
-                            <><span className="line-through">Rs.{service.price.toFixed(2)}</span> Rs.{service.offerPrice.toFixed(2)}</>
-                          ) : (
-                            `Rs.${service.price.toFixed(2)}`
-                          )}
-                        </span>
-                      </div>
+                      {t}
                     </button>
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
+          )}
 
-            {/* Step 2: Select Date */}
-            {selectedService && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  2. Select Date
-                </label>
-                <div className="relative" ref={dateCalendarRef}>
-                  <button
-                    type="button"
-                    onClick={() => setDateCalendarOpen((open) => !open)}
-                    className="w-full h-12 flex items-center justify-between px-3 border border-border rounded-md bg-background text-left text-sm"
-                  >
-                    <span className={date ? '' : 'text-muted-foreground'}>
-                      {date
-                        ? new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
-                          weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
-                        })
-                        : 'Select a date'}
-                    </span>
-                    <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-                  </button>
-
-                  {dateCalendarOpen && (
-                    <div className="absolute z-20 mt-2 w-72 rounded-lg border border-border bg-card shadow-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <button type="button" onClick={goToPrevMonth} className="p-1 rounded hover:bg-muted">
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <span className="text-sm font-semibold">
-                          {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-                        </span>
-                        <button type="button" onClick={goToNextMonth} className="p-1 rounded hover:bg-muted">
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-7 gap-1 mb-1">
-                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                          <div key={d} className="text-center text-xs font-medium text-muted-foreground">{d}</div>
-                        ))}
-                      </div>
-
-                      <div className="grid grid-cols-7 gap-1">
-                        {(() => {
-                          const year = calendarMonth.getFullYear()
-                          const month = calendarMonth.getMonth()
-                          const firstDayOfMonth = new Date(year, month, 1)
-                          const startOffset = firstDayOfMonth.getDay()
-                          const daysInMonth = new Date(year, month + 1, 0).getDate()
-                          const cells: JSX.Element[] = []
-
-                          for (let i = 0; i < startOffset; i++) {
-                            cells.push(<div key={`blank-${i}`} />)
-                          }
-
-                          for (let day = 1; day <= daysInMonth; day++) {
-                            const cellDate = new Date(year, month, day)
-                            const dateStr = formatDateStr(cellDate)
-                            const { disabled, reason } = getDateDisabledInfo(cellDate)
-                            const isSelected = date === dateStr
-
-                            cells.push(
-                              <button
-                                key={dateStr}
-                                type="button"
-                                disabled={disabled}
-                                title={disabled ? reason : undefined}
-                                onClick={() => !disabled && selectDate(dateStr)}
-                                className={`h-8 w-8 mx-auto flex items-center justify-center rounded-md text-sm transition-colors ${disabled
-                                  ? 'text-muted-foreground/40 cursor-not-allowed line-through'
-                                  : isSelected
-                                    ? 'bg-primary text-primary-foreground font-semibold'
-                                    : 'hover:bg-primary/10 text-foreground'
-                                  }`}
-                              >
-                                {day}
-                              </button>
-                            )
-                          }
-
-                          return cells
-                        })()}
-                      </div>
-
-                      <p className="mt-3 text-xs text-muted-foreground border-t pt-2">
-                        Greyed-out days are unavailable — closed dates, business hours, or the selected staff member's day off.
-                      </p>
-                    </div>
-                  )}
+          {/* 3. Your details */}
+          {time && (
+            <Card className="p-4 md:p-6 bg-white">
+              <h2 className="mb-3 text-lg font-semibold text-slate-900">Your details</h2>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Full name</Label>
+                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes (optional)</Label>
+                  <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
                 </div>
 
-                {/* Show closed message if applicable */}
-                {closedReason && (
-                  <div className="flex items-center justify-center py-6 border border-input rounded-md bg-amber-50 border-amber-200 mt-4">
-                    <AlertCircle className="w-4 h-4 mr-2 text-amber-600" />
-                    <span className="text-sm text-amber-600">{closedReason || 'Business is closed'}</span>
-                  </div>
+                {submitError && (
+                  <p className="flex items-center gap-2 text-sm text-red-700">
+                    <AlertCircle className="h-4 w-4" />
+                    {submitError}
+                  </p>
                 )}
-              </div>
-            )}
 
-
-
-            {/* Step 3: Staff Selection (Optional) - Show after date is selected */}
-            {selectedService && date && staffMembers.length > 1 && !closedReason && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <User className="w-4 h-4 text-primary" />
-                  3. Select Staff <span className="text-xs opacity-60">(Optional)</span>
-                </label>
-
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {staffMembers.map(staff => (
-                      <button
-                        key={staff.id}
-                        onClick={() => {
-                          setSelectedStaff(staff)
-                          setSelectedTime(null)
-                        }}
-                        className={`p-4 rounded-lg border-2 text-center transition-all ${selectedStaff?.id === staff.id
-                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                          : 'bg-card text-foreground border-border hover:border-primary'
-                          }`}
-                      >
-                        <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-2">
-                          {staff.avatar ? (
-                            <img src={staff.avatar || "/placeholder.svg"} alt={staff.firstName} className="w-12 h-12 rounded-full object-cover" />
-                          ) : (
-                            <User className="w-6 h-6" />
-                          )}
-                        </div>
-                        <div className="font-semibold text-sm">{staff.firstName} {staff.lastName}</div>
-                        <div className="text-xs opacity-75 mt-1">{staff.role}</div>
-                      </button>
-                    ))}
-                  </div>
-
-                  {selectedStaff && (
-                    <button
-                      onClick={() => {
-                        setSelectedStaff(null)
-                        setSelectedTime(null)
-                      }}
-                      className="w-full py-2 px-4 rounded-lg border-2 border-border hover:border-primary text-sm font-medium transition-all text-muted-foreground hover:text-foreground"
-                    >
-                      Clear selection (system will auto-assign any available staff)
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {selectedService && date && staffMembers.length === 1 && !closedReason && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <User className="w-4 h-4 text-primary" />
-                  Staff
-                </label>
-                <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-secondary/50 flex items-center justify-center flex-shrink-0">
-                    {staffMembers[0].avatar ? (
-                      <img src={staffMembers[0].avatar} alt={staffMembers[0].firstName} className="w-10 h-10 rounded-full object-cover" />
-                    ) : (
-                      <User className="w-5 h-5" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="font-semibold text-sm">{staffMembers[0].firstName} {staffMembers[0].lastName}</div>
-                    <div className="text-xs text-muted-foreground">{staffMembers[0].role} · only staff for this service</div>
-                  </div>
-                </div>
-              </div>
-            )}
-            {/* Step 4: Time */}
-            {selectedService && date && !closedReason && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-primary" />
-                  4. Select Time
-                </label>
-
-                {loading ? (
-                  <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-                  </div>
-                ) : closedReason ? (
-                  <div className="flex items-center justify-center py-6 border border-input rounded-md bg-amber-50 border-amber-200">
-                    <AlertCircle className="w-4 h-4 mr-2 text-amber-600" />
-                    <span className="text-sm text-amber-600">{closedReason}</span>
-                  </div>
-                ) : availableSlots.length === 0 ? (
-                  <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                    No available slots for this date{selectedStaff ? ` with ${selectedStaff.firstName}` : ''}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
-                    {availableSlots.map((slot, idx) => {
-                      const isPast = !isSlotInFuture(date, slot)
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => !isPast && setSelectedTime(slot)}
-                          disabled={isPast}
-                          title={isPast ? 'This time has already passed' : undefined}
-                          className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${isPast
-                            ? 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
-                            : selectedTime === slot
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-card text-foreground border-border hover:border-primary'
-                            }`}
-                        >
-                          {formatTimeSlot(slot)}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Step 5: Customer Info */}
-            {selectedService && date && selectedTime && (
-              <div className="mb-8 p-6 bg-secondary/20 rounded-lg border border-border">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-foreground">5. Your Information</h3>
-                  {user && <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Verified</span>}
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
-                      Full Name *
-                      {user && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">(verified)</span>}
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder="Full Name *"
-                      value={customerName}
-                      onChange={user ? undefined : (e => setCustomerName(e.target.value))}
-                      disabled={!!user}
-                      className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
-                      Email Address *
-                      {user && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">(verified)</span>}
-                    </label>
-                    <Input
-                      type="email"
-                      placeholder="Email Address *"
-                      value={customerEmail}
-                      onChange={user ? undefined : (e => setCustomerEmail(e.target.value))}
-                      disabled={!!user}
-                      className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1">Phone Number *</label>
-                    <Input
-                      type="tel"
-                      inputMode="numeric"
-                      placeholder="98XXXXXXXX"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      maxLength={10}
-                      className="bg-background border-border text-foreground"
-                      required
-                    />
-                    {customerPhone.length > 0 && customerPhone.length !== 10 && (
-                      <p className="mt-1 text-xs text-destructive">Phone number must be exactly 10 digits.</p>
-                    )}
-                  </div>
-                  <textarea
-                    placeholder="Notes (optional)"
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    className="w-full p-3 border-2 border-border rounded-lg text-sm focus:border-primary focus:outline-none bg-background"
-                    rows={3}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Summary */}
-            {selectedService && date && selectedTime && (
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 mb-8">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground mb-3">Booking Summary</p>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Service:</span>
-                        <span className="font-medium">{selectedService.name}</span>
-                      </div>
-                      {selectedStaff && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Staff:</span>
-                          <span className="font-medium">{selectedStaff.firstName} {selectedStaff.lastName}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Date:</span>
-                        <span className="font-medium">{new Date(date).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Time:</span>
-                        <span className="font-medium">{formatTimeSlot(selectedTime)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Duration:</span>
-                        <span className="font-medium">{selectedService.duration} min</span>
-                      </div>
-                      <div className="flex justify-between pt-2 border-t border-primary/20">
-                        <span className="text-muted-foreground">Price:</span>
-                        <span className="font-bold text-primary">Rs.{(selectedService.offerPrice || selectedService.price).toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Actions */}
-            {selectedService && date && selectedTime && (
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleConfirmBooking}
-                  disabled={loading || !customerName || !customerEmail || !customerPhone}
-                  className="flex-1 h-12 bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  {loading ? 'Confirming...' : 'Confirm Booking'}
-                </Button>
-                <Button
-                  onClick={() => setSelectedTime(null)}
-                  variant="outline"
-                  className="px-6 h-12"
-                >
-                  Clear
+                <Button type="submit" className="w-full" disabled={!canSubmit}>
+                  {submitting ? 'Booking...' : 'Confirm booking'}
                 </Button>
               </div>
+            </Card>
+          )}
+        </form>
+
+        {/* Hours */}
+        <aside>
+          <Card className="p-4 md:p-6 bg-white">
+            <h2 className="mb-3 text-lg font-semibold text-slate-900">Opening hours</h2>
+            {hoursByDay.length === 0 ? (
+              <p className="text-sm text-slate-500">Hours not listed.</p>
+            ) : (
+              <ul className="space-y-2 text-sm">
+                {hoursByDay.map((h) => (
+                  <li key={h.dayOfWeek} className="flex justify-between">
+                    <span className="text-slate-700">{DAY_NAMES[h.dayOfWeek]}</span>
+                    <span className="text-slate-500">{h.isClosed ? 'Closed' : `${h.openTime} - ${h.closeTime}`}</span>
+                  </li>
+                ))}
+              </ul>
             )}
-          </div>
-        </Card>
-      </div>
-
-      {/* Unverified customer verification notice */}
-      {showVerificationModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="verification-title"
-          aria-describedby="verification-desc"
-        >
-          <Card className="relative w-full max-w-md border border-border shadow-2xl">
-            <div className="p-8 text-center">
-              {/* Close */}
-              <button
-                onClick={() => {
-                  setShowVerificationModal(false)
-                  router.replace(`/book/${businessId}`)
-                }}
-                className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              {/* Icon */}
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
-                <Mail className="w-8 h-8 text-primary" />
-              </div>
-
-              <h2 id="verification-title" className="text-2xl font-bold text-foreground mb-2">
-                Verify your Phone Number
-              </h2>
-              <p id="verification-desc" className="text-sm text-muted-foreground mb-1">
-                Your appointment is <span className="font-semibold text-foreground">pending confirmation</span>. We&apos;ve sent a verification code to
-              </p>
-              <p className="text-sm font-semibold text-foreground mb-6 break-all">
-                {customerPhone}
-              </p>
-
-              {/* Countdown / status */}
-              <div
-                className="rounded-lg border border-border bg-secondary/30 p-4 mb-6"
-                aria-live="polite"
-              >
-                <div className="mt-2 space-y-3">
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="Enter verification code"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    disabled={verifyingCode}
-                    className="h-11 text-center text-lg tracking-widest"
-                  />
-                  {codeError && <p className="text-sm text-destructive">{codeError}</p>}
-                </div>
-              </div>
-
-              {bookingId && (
-                <p className="text-xs text-muted-foreground mb-6">
-                  Booking reference:{' '}
-                  <code className="font-mono text-foreground">{bookingId}</code>
-                </p>
-              )}
-
-              <Button
-                onClick={handleVerifyCode}
-                disabled={verifyingCode || sendingCode}
-                className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
-              >
-                {verifyingCode ? 'Verifying...' : 'Verify & Confirm'}
-              </Button>
-              <button
-                type="button"
-                onClick={handleResendCode}
-                disabled={sendingCode || resendCooldown > 0}
-                className="mt-3 w-full text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
-              >
-                {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : sendingCode ? 'Sending...' : "Didn't get a code? Resend"}
-              </button>
-            </div>
           </Card>
-        </div>
-      )}
-    </div>
-  )
-}
-
-export default function BookingPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent" /></div>}>
-      <BookingPageContent />
-    </Suspense>
+        </aside>
+      </div>
+    </main>
   )
 }
