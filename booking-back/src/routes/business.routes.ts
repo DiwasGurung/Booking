@@ -16,10 +16,10 @@ businessRoutes.post("/setup/basic", auth, BusinessController.setupBasic)
 businessRoutes.get("/search", BusinessController.search)
 
 // Get business by user ID (specific route before /:id)
-businessRoutes.get("/user/:userId", BusinessController.getByUserId)
+businessRoutes.get("/user/:userId",auth, BusinessController.getByUserId)
 
 // Business statistics (specific route before /:id)
-businessRoutes.get("/:businessId/stats", BusinessController.stats)
+businessRoutes.get("/:businessId/stats", auth, BusinessController.stats)
 
 
 // Get business settings (specific route before /:id)
@@ -30,13 +30,13 @@ businessRoutes.put('/:businessId/settings', auth, BusinessController.updateSetti
 
 businessRoutes.get("/current", auth, (req, res) => BusinessController.getCurrentBusiness(req, res))
 
-businessRoutes.get("/:id", BusinessController.getById)
+businessRoutes.get("/:id", auth, BusinessController.getById)
 
 // Update business
-businessRoutes.put("/:id", BusinessController.update)
+businessRoutes.put("/:id",auth, BusinessController.update)
 
 // Delete business
-businessRoutes.delete("/:id", BusinessController.delete)
+businessRoutes.delete("/:id", auth, BusinessController.delete)
 
 businessRoutes.get('/public/:id', BusinessController.getPublicById)          // already exists
 businessRoutes.get('/:businessId/slug-available', auth, BusinessController.checkSlug)
@@ -44,9 +44,8 @@ businessRoutes.patch('/:businessId/slug', auth, BusinessController.updateSlug)
 
  // Analytics and statistics routes (specific routes before /:id)
   businessRoutes.get("/:businessId/analytics", auth, BusinessController.analytics)
-  businessRoutes.get("/:businessId/stats", BusinessController.stats)
 
-  businessRoutes.get("/public/:id", BusinessController.getPublicById)
+
 
   businessRoutes.get("/:businessId/customer-insights", auth, BusinessController.customerInsights)
 
