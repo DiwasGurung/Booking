@@ -356,6 +356,10 @@ const loadBusinessData = async () => {
     setBusiness(biz)
     setBusinessId(biz.id)   // everything else keeps using `businessId`
 
+    if (biz.slug && slug !== biz.slug) {
+  router.replace(`/book/${biz.slug}`)
+}
+
     // 2. Use the real id for all other endpoints
     const [servicesRes, hoursRes, closedDatesRes] = await Promise.all([
       servicesApi.getBusinessServices(biz.id),
