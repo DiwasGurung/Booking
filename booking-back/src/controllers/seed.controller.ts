@@ -64,7 +64,7 @@ class SeedController {
           monthlySmsCredits: 0,
           // Features
           allowEmailNotifications: true,
-          allowSmsNotifications: false,
+          allowSmsNotifications: true,
           allowOnlineBooking: true,
           allowReports: false,
           allowCustomBranding: false,
@@ -100,7 +100,7 @@ class SeedController {
           monthlySmsCredits: 0,         // No SMS credits included
           // Features
           allowEmailNotifications: true,
-          allowSmsNotifications: false,
+          allowSmsNotifications: true,
           allowOnlineBooking: true,
           allowReports: true,
           allowCustomBranding: false,
@@ -126,18 +126,18 @@ class SeedController {
             "Staff performance analytics",
             "Custom analytics and history",
             "Priority email support",
-            "SMS reminders for booking date",
+            "SMS credits included (200/month)",
             "PDF export of filtered bookings",
           ],
           // Limits
           maxAppointmentsPerMonth: -1,  // Unlimited
           maxStaff: -1,                 // Unlimited
-          maxServices: -1,              // Unlimited
-          maxCustomers: -1,             // Unlimited
-          monthlySmsCredits: 200,         // 200 SMS credits included monthly
+          maxServices: -1,              
+          maxCustomers: -1,           
+          monthlySmsCredits: 200,         
           // Features
           allowEmailNotifications: true,
-          allowSmsNotifications: true, // was missing — Enterprise was silently falling back to email reminders
+          allowSmsNotifications: true,
           allowOnlineBooking: true,
           allowReports: true,
           allowCustomBranding: true,
@@ -148,7 +148,7 @@ class SeedController {
 
       const createdPlans = await Promise.all(
         plans.map((plan) =>
-          prisma.subscriptionPlan.create({
+          prisma.subscriptionPlan.create({ 
             data: plan,
           })
         )

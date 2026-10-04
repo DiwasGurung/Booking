@@ -6,6 +6,47 @@ import  prisma  from '../lib/prisma';
 import esewaService from '../services/esewa.service';
 import subscriptionService from '../services/subscription.service';
 import { getPriceForPeriod, BillingPeriod } from '../utils/billing';
+import SubscriptionSmsService from '../services/subscription-sms.service';
+
+// Months covered by each billing period; credits scale with the period paid for.
+const PERIOD_MONTHS: Record<string, number> = {
+  MONTHLY: 1,
+  QUARTERLY: 3,
+  HALF_YEARLY: 6,
+  SEMI_ANNUAL: 6,
+  YEARLY: 12,
+  ANNUAL: 12,
+};
+
+/**
+ * Grants the plan's included SMS credits for a verified subscription payment.
+ * Idempotent per payment (unique paymentId on the credit ledger), so it is safe
+ * to call from both the first callback and the "already processed" path.
+ * Never throws: a credit failure must not undo a successful activation.
+ */
+async function grantPlanSmsCredits(
+  businessId: string,
+  plan: { displayName: string; monthlySmsCredits: number },
+  billingPeriod: string,
+  paymentId: string
+) {
+  try {
+    if (!plan.monthlySmsCredits || plan.monthlySmsCredits <= 0) return
+
+    const months = PERIOD_MONTHS[String(billingPeriod).toUpperCase()] ?? 1
+    const credits = plan.monthlySmsCredits * months
+
+    const result = await SubscriptionSmsService.addCredits(businessId, credits, 'PLAN_GRANT', {
+      description: `${plan.displayName} plan: ${credits} SMS credits (${months} month${months > 1 ? 's' : ''})`,
+      paymentId,
+    })
+    console.log('[SubscriptionPayment] Plan SMS credits', result.granted ? 'granted' : 'already granted', {
+      businessId, credits, balance: result.balance,
+    })
+  } catch (err) {
+    console.error('[SubscriptionPayment] Failed to grant plan SMS credits:', err)
+  }
+}
 
 const FRONTEND_URL = process.env.FRONTEND_URL || '';
 const BACKEND_URL = process.env.BACKEND_URL || '';
@@ -208,6 +249,7 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
       paymentId: existingPayment.id,
       durationDays: subscription.plan.durationDays || 30,
     });
+    await grantPlanSmsCredits(subscription.businessId, targetPlan, targetBillingPeriod, existingPayment.id);
   }
 }
       return res.redirect(`${FRONTEND_URL}/subscription?status=success&message=Payment already processed`);
@@ -235,6 +277,8 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
     paymentId: payment.id,
     billingPeriod: targetBillingPeriod as BillingPeriod,
   });
+  
+  await grantPlanSmsCredits(payment.businessId, targetPlan, targetBillingPeriod, payment.id);
 
   console.log('[SubscriptionPayment] Subscription plan changed and activated:', payment.subscriptionId);
 }
