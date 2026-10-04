@@ -91,6 +91,7 @@ function SmsCreditsContent() {
   }, [fetchingBusinessId, businessIdError, businessId, router])
 
 
+
   const loadOverview = useCallback(async () => {
     if (!businessId) return
     try {
@@ -142,9 +143,9 @@ setPackages(list)
 
   
 
-  // Coming back from eSewa (Back button, or switching tabs) can restore the page
-// from the browser's bfcache with stale state. Reset the buy button and
-// refetch so the balance and history are current.
+ 
+  useEffect(() => { loadOverview() }, [loadOverview])
+  useEffect(() => { loadTransactions() }, [loadTransactions])
 useEffect(() => {
   const resetAndRefresh = () => {
     setBuyingId(null)
