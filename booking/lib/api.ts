@@ -16,6 +16,8 @@ export type ApiResponse<T> = {
    retryAfterSeconds?: number 
   attemptsRemaining?: number 
   alreadyVerified?: boolean 
+  formData?: Record<string, string>
+  packages?: SmsCreditPackage[]
 }
 
 export interface Customer {
@@ -251,6 +253,49 @@ export interface Booking {
     lastName: string
     avatar?: string
   }
+}
+
+export interface SmsCreditPackage {
+  id: string
+  name: string
+  displayName: string
+  credits: number
+  bonusCredits: number
+  priceNPR: number
+}
+
+export interface SmsUsageStats {
+  credits: { balance: number; usedThisMonth: number }
+  byType: Record<string, number>
+  thisMonth: { total: number; successful: number; failed: number }
+}
+
+export interface SmsCreditTransaction {
+  id: string
+  type: 'PURCHASE' | 'PLAN_GRANT' | 'BONUS' | 'USAGE' | 'REFUND' | 'ADJUSTMENT'
+  amount: number // positive = added, negative = deducted
+  balanceAfter: number
+  description: string | null
+  createdAt: string
+}
+
+// SMS credits - /api/sms-payment, /api/sms, /api/business/:id/sms
+export const smsCreditApi = {
+  getPackages: () => apiCall<SmsCreditPackage[]>('/api/sms/packages'),
+
+  getBalance: (businessId: string) =>
+    apiCall<SmsUsageStats>(`/api/business/${businessId}/sms/balance`),
+
+  getTransactions: (businessId: string, limit = 20, offset = 0) =>
+    apiCall<{ transactions: SmsCreditTransaction[]; total: number }>(
+      `/api/business/${businessId}/sms/transactions?limit=${limit}&offset=${offset}`
+    ),
+
+  initiateEsewaPurchase: (businessId: string, packageId: string) =>
+    apiCall<unknown>('/api/sms-payment/esewa/initiate', {
+      method: 'POST',
+      body: JSON.stringify({ businessId, packageId }),
+    }),
 }
 
 export async function apiCall<T>(

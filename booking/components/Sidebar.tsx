@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { ChevronDown, Menu, X, LayoutDashboard, Calendar, Settings, BarChart3, CreditCard, Users, Home, LogOut, UserCog, Clock } from 'lucide-react'
+import { ChevronDown, Menu, X, LayoutDashboard, Calendar, Settings, BarChart3, CreditCard, Users, Home, LogOut, UserCog, Clock , MessageSquare} from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/authContext'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -62,6 +62,7 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
       href: '/dashboard/staff',
       icon: UserCog,
     },
+    { label: 'SMS Credits', href: '/dashboard/sms-credits', icon: MessageSquare },
     {
       label: 'Staff Performance',
       href: '/dashboard/staff/performance',
