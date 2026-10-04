@@ -37,6 +37,8 @@ export const getSmsPackages = async (_req: Request, res: Response) => {
       where: { active: true },
       orderBy: { sortOrder: 'asc' },
     });
+      res.set('Cache-Control', 'no-store')
+    
     return res.json({ success: true, packages });
   } catch (error: any) {
     console.error('[SmsCreditPayment] Get packages error:', error);
@@ -109,8 +111,8 @@ export const initiateSmsCreditPayment = async (req: Request, res: Response) => {
     const esewaResponse = await esewaService.initiatePayment({
       amount: pkg.priceNPR,
       transactionUuid,
-      successUrl: `${BACKEND_URL}/api/sms-payment/esewa/success`,
-      failureUrl: `${BACKEND_URL}/api/sms-payment/esewa/failure`,
+      successUrl: `${BACKEND_URL}/api/sms-credits/sms-payment/esewa/success`,
+      failureUrl: `${BACKEND_URL}/api/sms-credits/sms-payment/esewa/failure`,
     });
 
     if (!esewaResponse.success) {

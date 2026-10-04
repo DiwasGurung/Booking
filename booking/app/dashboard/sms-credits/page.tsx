@@ -98,19 +98,22 @@ function SmsCreditsContent() {
       ])
       if (bal.data) setStats(bal.data)
 
-      let list = pk.packages ?? []
+    const readPackages = (r: any): SmsCreditPackage[] => r?.packages ?? r?.data ?? []
 
-      // No packages in the DB yet: seed the defaults once, then refetch.
-      if (list.length === 0 && !seedAttempted.current) {
-        seedAttempted.current = true
-        const seeded = await smsCreditApi.seedPackages()
-        if (seeded.success !== false) {
-          const retry = await smsCreditApi.getPackages()
-          list = retry.packages ?? []
-        }
-      }
+let list = readPackages(pk)
 
-      setPackages(list)
+if (list.length === 0 && !seedAttempted.current) {
+  seedAttempted.current = true
+  const seeded = await smsCreditApi.seedPackages()
+  if (seeded.success === false) {
+    console.error('[sms-credits] seeding failed:', seeded.error)
+    setError(`Could not load SMS packages (${seeded.error || 'seed endpoint unreachable'}).`)
+  } else {
+    list = readPackages(await smsCreditApi.getPackages())
+  }
+}
+
+setPackages(list)
     } catch {
       setError('Failed to load SMS credit data. Please try again.')
     } finally {
