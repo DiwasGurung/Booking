@@ -10,4 +10,5 @@ const seedRoutes = (0, express_1.Router)();
 seedRoutes.post('/plans', (req, res) => seed_controller_1.default.seedPlans(req, res));
 // Get all plans
 seedRoutes.get('/plans', (req, res) => seed_controller_1.default.getPlans(req, res));
+seedRoutes.post('/sms-packages', (req, res) => seed_controller_1.default.seedSmsPackages(req, res));
 exports.default = seedRoutes;

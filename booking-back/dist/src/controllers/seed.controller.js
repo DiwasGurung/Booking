@@ -12,11 +12,12 @@ class SeedController {
                 { name: 'sms_500', displayName: '500 SMS Credits', credits: 500, bonusCredits: 25, priceNPR: 700, sortOrder: 2 },
                 { name: 'sms_1000', displayName: '1000 SMS Credits', credits: 1000, bonusCredits: 100, priceNPR: 1300, sortOrder: 3 },
             ];
-            const created = await Promise.all(packages.map((p) => prisma_1.default.smsCreditPackage.upsert({ where: { name: p.name }, update: p, create: p })));
-            res.json({ message: 'SMS packages seeded', packages: created });
+            // update: {} -> only creates missing packages, never overwrites edits
+            const created = await Promise.all(packages.map((p) => prisma_1.default.smsCreditPackage.upsert({ where: { name: p.name }, update: {}, create: p })));
+            res.json({ success: true, message: 'SMS packages seeded', packages: created });
         }
         catch (error) {
-            res.status(500).json({ message: 'Failed to seed SMS packages', error: error.message });
+            res.status(500).json({ success: false, message: 'Failed to seed SMS packages', error: error.message });
         }
     }
     /**

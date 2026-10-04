@@ -286,19 +286,19 @@ export const smsCreditApi = {
 
   seedPackages: () =>
   apiCall<unknown>('/api/seed/sms-packages', { method: 'POST' }),
-  
-  getPackages: () => apiCall<SmsCreditPackage[]>('/api/sms/packages'),
+
+  getPackages: () => apiCall<SmsCreditPackage[]>('/api/sms-credits/sms/packages'),
 
   getBalance: (businessId: string) =>
-    apiCall<SmsUsageStats>(`/api/business/${businessId}/sms/balance`),
+    apiCall<SmsUsageStats>(`/api/sms-credits/business/${businessId}/sms/balance`),
 
   getTransactions: (businessId: string, limit = 20, offset = 0) =>
     apiCall<{ transactions: SmsCreditTransaction[]; total: number }>(
-      `/api/business/${businessId}/sms/transactions?limit=${limit}&offset=${offset}`
+      `/api/sms-credits/business/${businessId}/sms/transactions?limit=${limit}&offset=${offset}`
     ),
 
   initiateEsewaPurchase: (businessId: string, packageId: string) =>
-    apiCall<unknown>('/api/sms-payment/esewa/initiate', {
+    apiCall<unknown>('/api/sms-credits/sms-payment/esewa/initiate', {
       method: 'POST',
       body: JSON.stringify({ businessId, packageId }),
     }),
