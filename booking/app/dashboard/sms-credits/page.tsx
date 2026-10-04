@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { DateTime } from 'luxon'
 import {
   Loader, AlertCircle, CheckCircle, XCircle, MessageSquare, Wallet, Send,
-  History, Gift, TrendingDown, TrendingUp, X, Filter, ShoppingCart, BarChart3, RefreshCw,
+  History, Gift, TrendingDown, TrendingUp, X, Filter, ShoppingCart, BarChart3, RefreshCw,CreditCard,
 } from 'lucide-react'
 import { Sidebar } from '@/components/Sidebar'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
@@ -415,43 +415,50 @@ useEffect(() => {
                           Best value
                         </Badge>
                       )}
-                      <p className="font-medium text-slate-900">{pkg.displayName}</p>
-                      <p className="mt-3 text-3xl font-bold text-slate-900">
-                        Rs. {pkg.priceNPR.toLocaleString('en-IN')}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {totalCredits.toLocaleString('en-IN')} credits · Rs. {costPerCredit(pkg).toFixed(2)} each
-                      </p>
+                     <p className="font-medium text-slate-900">{pkg.displayName}</p>
+<p className="mt-3 text-3xl font-bold text-slate-900">
+  Rs. {pkg.priceNPR.toLocaleString('en-IN')}
+</p>
+<p className="mt-1 text-sm text-slate-500">
+  {totalCredits.toLocaleString('en-IN')} credits · Rs. {costPerCredit(pkg).toFixed(2)} each
+</p>
 
-                      <div className="mt-4 space-y-1.5 text-sm">
-                        <p className="flex items-center gap-2 text-slate-600">
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                          {pkg.credits.toLocaleString('en-IN')} SMS credits
-                        </p>
-                        {pkg.bonusCredits > 0 && (
-                          <p className="flex items-center gap-2 font-medium text-green-700">
-                            <Gift className="w-4 h-4" />
-                            + {pkg.bonusCredits.toLocaleString('en-IN')} bonus credits
-                          </p>
-                        )}
-                        <p className="flex items-center gap-2 text-slate-600">
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                          Never expires
-                        </p>
-                      </div>
+{/* Always exactly two rows, so every card has the same height */}
+<div className="mt-4 space-y-1.5 text-sm">
+  <p className="flex items-center gap-2 text-slate-600">
+    <CheckCircle className="w-4 h-4 shrink-0 text-green-600" />
+    <span>
+      {pkg.credits.toLocaleString('en-IN')} SMS credits
+      {pkg.bonusCredits > 0 && (
+        <span className="ml-1 inline-flex items-center gap-1 font-medium text-green-700">
+          <Gift className="w-3.5 h-3.5" />
+          + {pkg.bonusCredits.toLocaleString('en-IN')} bonus
+        </span>
+      )}
+    </span>
+  </p>
+  <p className="flex items-center gap-2 text-slate-600">
+    <CheckCircle className="w-4 h-4 shrink-0 text-green-600" />
+    Never expires
+  </p>
+</div>
 
-                      <Button
-                        className="mt-5"
-                        variant={best ? 'default' : 'outline'}
-                        disabled={buyingId !== null}
-                        onClick={() => buy(pkg)}
-                      >
-                        {buyingId === pkg.id ? (
-                          <><Loader className="mr-2 h-4 w-4 animate-spin" />Redirecting to eSewa...</>
-                        ) : (
-                          'Pay with eSewa'
-                        )}
-                      </Button>
+
+<div className="mt-auto pt-5">
+
+<Button
+  className="w-full gap-2"
+  variant={best ? 'default' : 'outline'}
+  disabled={buyingId !== null}
+  onClick={() => buy(pkg)}
+>
+  {buyingId === pkg.id ? (
+    <><Loader className="h-4 w-4 animate-spin" />Redirecting to eSewa...</>
+  ) : (
+    <><CreditCard className="h-4 w-4" />Pay with eSewa</>
+  )}
+</Button>
+</div>
                     </div>
                   )
                 })}
