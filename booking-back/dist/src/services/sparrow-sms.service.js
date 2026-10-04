@@ -185,15 +185,19 @@ See you soon!`;
         return sendSMS(businessId, phoneNumber, message, 'status_change');
     },
     async sendOwnerNotification(businessId, phoneNumber, notificationData) {
-        const message = `New Booking Alert!
-    ${notificationData.customerName}
-    Phone: ${notificationData.customerPhone}
-    Service: ${notificationData.serviceName}
-    ${notificationData.staffName ? `Staff: ${notificationData.staffName}` : ''}
-    Date: ${notificationData.date}
-    Time: ${notificationData.time}
-
-Log in to Appoint Nepal dashboard to manage.`;
+        const message = [
+            'New Booking Alert!',
+            notificationData.customerName,
+            `Phone: ${notificationData.customerPhone}`,
+            `Service: ${notificationData.serviceName}`,
+            notificationData.staffName ? `Staff: ${notificationData.staffName}` : null,
+            `Date: ${notificationData.date}`,
+            `Time: ${notificationData.time}`,
+            '',
+            'Log in to Appoint Nepal dashboard to manage.',
+        ]
+            .filter((line) => line !== null)
+            .join('\n');
         return sendSMS(businessId, phoneNumber, message, 'owner_notification');
     },
     async sendBulk(businessId, phoneNumbers, message, type = 'booking') {

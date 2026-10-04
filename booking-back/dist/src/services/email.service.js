@@ -6,6 +6,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.emailService = void 0;
 const nodemailer_1 = __importDefault(require("nodemailer"));
 const deep_email_validator_1 = require("deep-email-validator");
+const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.APP_URL ||
+    'https://appoint-nepal.com').replace(/\/$/, '');
 const emailUser = process.env.EMAIL_USER || '';
 const emailPassword = process.env.EMAIL_PASSWORD || '';
 const emailHost = process.env.EMAIL_HOST || '';
@@ -18,6 +21,7 @@ const businessTimeZone = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
 const formatBookingDate = (value, options) => new Intl.DateTimeFormat('en-US', { ...options, timeZone: businessTimeZone }).format(new Date(value));
 // Verify transporter configuration on startup
 let transporter = null;
+const bookingsUrl = `${appBaseUrl}/dashboard/bookings`;
 const initializeTransporter = () => {
     if (transporter)
         return transporter;
@@ -301,10 +305,16 @@ exports.emailService = {
               </div>
               
               <div style="text-align: center; margin-top: 20px;">
-                <a href="${process.env.NEXT_PUBLIC_APP_URL || ''}/dashboard/bookings" 
-                   style="background-color: #008B8B; color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">
-                  View in Dashboard
-                </a>
+               <div style="text-align: center; margin-top: 20px;">
+  <a href="${bookingsUrl}" target="_blank"
+     style="background-color: #008B8B; color: white; padding: 12px 30px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">
+    Log in &amp; View Bookings
+  </a>
+  <p style="color: #666; font-size: 13px; margin-top: 16px;">
+    Or copy this link into your browser:<br/>
+    <a href="${bookingsUrl}" style="color: #008B8B; word-break: break-all;">${bookingsUrl}</a>
+  </p>
+</div>
               </div>
               
               <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; text-align: center;">

@@ -13,6 +13,68 @@ const prisma_1 = __importDefault(require("../lib/prisma"));
 const luxon_1 = require("luxon");
 // Adjust to match your SubscriptionPlan enum's actual value for Enterprise.
 const ENTERPRISE_PLAN = "enterprise";
+/**
+ * Notifies the business owner that a booking is now confirmed.
+ * Same channel rule as the customer: SMS for Enterprise (falling back to
+ * email if SMS fails or no phone is on file), email for everyone else.
+ * Never throws — an owner-notification failure must not affect the
+ * customer's confirmation or the booking itself.
+ */
+async function notifyOwnerOfConfirmedBooking(businessId, booking, serviceName, isEnterprise) {
+    try {
+        const [business, fullBooking] = await Promise.all([
+            prisma_1.default.business.findUnique({
+                where: { id: businessId },
+                select: { name: true, phone: true, user: { select: { email: true, phone: true } } },
+            }),
+            prisma_1.default.booking.findUnique({
+                where: { id: booking.id },
+                select: { notes: true, staff: { select: { firstName: true, lastName: true } } },
+            }),
+        ]);
+        if (!business)
+            return;
+        const staffName = fullBooking?.staff
+            ? `${fullBooking.staff.firstName} ${fullBooking.staff.lastName}`.trim()
+            : undefined;
+        const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
+        const dt = luxon_1.DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ }).setLocale('en');
+        const ownerPhone = business.user?.phone || business.phone;
+        if (isEnterprise && ownerPhone) {
+            const result = await sparrow_sms_service_1.default.sendOwnerNotification(businessId, ownerPhone, {
+                customerName: booking.customerName,
+                customerPhone: booking.customerPhone,
+                serviceName,
+                staffName,
+                date: dt.toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+                time: dt.toLocaleString({ hour: '2-digit', minute: '2-digit' }),
+                businessName: business.name,
+            });
+            if (result.success)
+                return;
+            console.warn(`[v0] Owner SMS failed for booking ${booking.id} (${result.error}); falling back to email`);
+        }
+        if (business.user?.email) {
+            await email_service_1.emailService.sendNewBookingNotification(business.user.email, {
+                customerName: booking.customerName,
+                customerEmail: booking.customerEmail,
+                customerPhone: booking.customerPhone,
+                serviceName,
+                staffName,
+                startTime: booking.startTime,
+                endTime: booking.endTime,
+                businessName: business.name,
+                notes: fullBooking?.notes || undefined,
+            });
+        }
+        else {
+            console.warn(`[v0] No owner email/phone on file for business ${businessId}; owner not notified`);
+        }
+    }
+    catch (err) {
+        console.error(`[v0] Failed to notify owner of booking ${booking.id}:`, err);
+    }
+}
 async function notifyCancellationByPlan(business, plan, booking, serviceName, reasonNote) {
     const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
     const dt = luxon_1.DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ });
@@ -91,8 +153,14 @@ function isStartTimeInFuture(startTime) {
  * this: immediately for bookings whose phone is already verified, or
  * after the phone-OTP step succeeds (see verification.controller.ts).
  */
-async function sendBookingConfirmationByPlan(businessId, business, booking, serviceName, verificationToken) {
+async function sendBookingConfirmationByPlan(businessId, business, booking, serviceName, verificationToken, options) {
     const isEnterprise = business.subscription?.plan?.name === ENTERPRISE_PLAN;
+    const notifyOwner = options?.notifyOwner !== false;
+    // Fire the owner notification independently of the customer's result.
+    const ownerPromise = notifyOwner
+        ? notifyOwnerOfConfirmedBooking(businessId, booking, serviceName, isEnterprise)
+        : Promise.resolve();
+    let customerResult;
     if (isEnterprise && booking.customerPhone) {
         const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
         const dt = luxon_1.DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ });
@@ -103,26 +171,31 @@ async function sendBookingConfirmationByPlan(businessId, business, booking, serv
             time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
             bookingId: booking.id,
         });
-        if (result.success)
+        if (result.success) {
+            await ownerPromise;
             return result;
+        }
         console.warn(`[v0] SMS confirmation failed for booking ${booking.id} (${result.error}); falling back to email`);
-        // fall through to email below
     }
     else if (isEnterprise) {
         console.warn(`[v0] Enterprise booking ${booking.id} has no customerPhone on file; falling back to email confirmation`);
     }
-    // Reached for: non-Enterprise plans (Starter/Professional), Enterprise with no phone,
-    // or Enterprise where the SMS send failed.
-    return email_service_1.emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
-        customerName: booking.customerName,
-        serviceName,
-        startTime: booking.startTime,
-        endTime: booking.endTime,
-        businessName: business.name,
-        businessPhone: business.phone || '',
-        businessAddress: business.address || '',
-        verificationToken,
-    });
+    try {
+        customerResult = await email_service_1.emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
+            customerName: booking.customerName,
+            serviceName,
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            businessName: business.name,
+            businessPhone: business.phone || '',
+            businessAddress: business.address || '',
+            verificationToken,
+        });
+    }
+    finally {
+        await ownerPromise;
+    }
+    return customerResult;
 }
 class BookingController {
     async sendTodayReminders(req, res) {
@@ -693,7 +766,7 @@ class BookingController {
                         include: { subscription: { select: { plan: { select: { name: true } } } } },
                     });
                     if (businessForNotify) {
-                        await sendBookingConfirmationByPlan(businessId, businessForNotify, booking, service.name);
+                        await sendBookingConfirmationByPlan(businessId, businessForNotify, booking, service.name, undefined, { notifyOwner: false });
                     }
                 }
                 catch (notifyError) {
@@ -1302,22 +1375,6 @@ class BookingController {
                 include: { service: true, business: true, staff: true, customer: true },
             });
             const warnings = [];
-            try {
-                if (business.user?.email) {
-                    await email_service_1.emailService.sendNewBookingNotification(business.user.email, {
-                        customerName, customerEmail, customerPhone,
-                        serviceName: service.name,
-                        startTime: booking.startTime,
-                        endTime: booking.endTime,
-                        businessName: business.name,
-                        notes,
-                    });
-                }
-            }
-            catch (emailError) {
-                console.error('[v0] Failed to send email to owner:', emailError);
-                warnings.push('Unable to notify business owner due to email delivery issue');
-            }
             // Only send the customer-facing confirmation now if the phone is
             // already verified. Otherwise verification.controller.ts sends it
             // once the phone OTP succeeds, carrying `verificationToken` along so

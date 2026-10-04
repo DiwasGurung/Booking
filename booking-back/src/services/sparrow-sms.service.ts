@@ -236,25 +236,30 @@ See you soon!`
     return sendSMS(businessId, phoneNumber, message, 'status_change')
   },
 
-  async sendOwnerNotification(
-    businessId: string,
-    phoneNumber: string,
-    notificationData: {
-      customerName: string; customerPhone: string; serviceName: string
-      staffName?: string; date: string; time: string; businessName: string
-    }
-  ) {
-    const message = `New Booking Alert!
-    ${notificationData.customerName}
-    Phone: ${notificationData.customerPhone}
-    Service: ${notificationData.serviceName}
-    ${notificationData.staffName ? `Staff: ${notificationData.staffName}` : ''}
-    Date: ${notificationData.date}
-    Time: ${notificationData.time}
+ async sendOwnerNotification(
+  businessId: string,
+  phoneNumber: string,
+  notificationData: {
+    customerName: string; customerPhone: string; serviceName: string
+    staffName?: string; date: string; time: string; businessName: string
+  }
+) {
+  const message = [
+    'New Booking Alert!',
+    notificationData.customerName,
+    `Phone: ${notificationData.customerPhone}`,
+    `Service: ${notificationData.serviceName}`,
+    notificationData.staffName ? `Staff: ${notificationData.staffName}` : null,
+    `Date: ${notificationData.date}`,
+    `Time: ${notificationData.time}`,
+    '',
+    'Log in to Appoint Nepal dashboard to manage.',
+  ]
+    .filter((line): line is string => line !== null)
+    .join('\n')
 
-Log in to Appoint Nepal dashboard to manage.`
-    return sendSMS(businessId, phoneNumber, message, 'owner_notification')
-  },
+  return sendSMS(businessId, phoneNumber, message, 'owner_notification')
+},
 
   async sendBulk(businessId: string, phoneNumbers: string[], message: string, type: SmsType = 'booking') {
     const results = await Promise.all(phoneNumbers.map((phone) => sendSMS(businessId, phone, message, type)))

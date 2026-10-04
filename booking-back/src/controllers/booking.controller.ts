@@ -27,7 +27,73 @@ type ConfirmationBooking = {
   endTime: Date
 }
 
+/**
+ * Notifies the business owner that a booking is now confirmed.
+ * Same channel rule as the customer: SMS for Enterprise (falling back to
+ * email if SMS fails or no phone is on file), email for everyone else.
+ * Never throws — an owner-notification failure must not affect the
+ * customer's confirmation or the booking itself.
+ */
+async function notifyOwnerOfConfirmedBooking(
+  businessId: string,
+  booking: ConfirmationBooking,
+  serviceName: string,
+  isEnterprise: boolean
+) {
+  try {
+    const [business, fullBooking] = await Promise.all([
+      prisma.business.findUnique({
+        where: { id: businessId },
+        select: { name: true, phone: true, user: { select: { email: true, phone: true } } },
+      }),
+      prisma.booking.findUnique({
+        where: { id: booking.id },
+        select: { notes: true, staff: { select: { firstName: true, lastName: true } } },
+      }),
+    ])
+    if (!business) return
 
+    const staffName = fullBooking?.staff
+      ? `${fullBooking.staff.firstName} ${fullBooking.staff.lastName}`.trim()
+      : undefined
+
+    const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
+    const dt = DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ }).setLocale('en')
+    const ownerPhone = business.user?.phone || business.phone
+
+    if (isEnterprise && ownerPhone) {
+      const result = await SparrowSMSService.sendOwnerNotification(businessId, ownerPhone, {
+        customerName: booking.customerName,
+        customerPhone: booking.customerPhone,
+        serviceName,
+        staffName,
+        date: dt.toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+        time: dt.toLocaleString({ hour: '2-digit', minute: '2-digit' }),
+        businessName: business.name,
+      })
+      if (result.success) return
+      console.warn(`[v0] Owner SMS failed for booking ${booking.id} (${result.error}); falling back to email`)
+    }
+
+    if (business.user?.email) {
+      await emailService.sendNewBookingNotification(business.user.email, {
+        customerName: booking.customerName,
+        customerEmail: booking.customerEmail,
+        customerPhone: booking.customerPhone,
+        serviceName,
+        staffName,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        businessName: business.name,
+        notes: fullBooking?.notes || undefined,
+      })
+    } else {
+      console.warn(`[v0] No owner email/phone on file for business ${businessId}; owner not notified`)
+    }
+  } catch (err) {
+    console.error(`[v0] Failed to notify owner of booking ${booking.id}:`, err)
+  }
+}
 
 
 async function notifyCancellationByPlan(
@@ -125,9 +191,18 @@ export async function sendBookingConfirmationByPlan(
   business: ConfirmationBusiness,
   booking: ConfirmationBooking,
   serviceName: string,
-  verificationToken?: string
+  verificationToken?: string,
+  options?: { notifyOwner?: boolean }
 ) {
   const isEnterprise = business.subscription?.plan?.name === ENTERPRISE_PLAN
+  const notifyOwner = options?.notifyOwner !== false
+
+  // Fire the owner notification independently of the customer's result.
+  const ownerPromise = notifyOwner
+    ? notifyOwnerOfConfirmedBooking(businessId, booking, serviceName, isEnterprise)
+    : Promise.resolve()
+
+  let customerResult: any
 
   if (isEnterprise && booking.customerPhone) {
     const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
@@ -141,26 +216,30 @@ export async function sendBookingConfirmationByPlan(
       bookingId: booking.id,
     })
 
-    if (result.success) return result
-
+    if (result.success) {
+      await ownerPromise
+      return result
+    }
     console.warn(`[v0] SMS confirmation failed for booking ${booking.id} (${result.error}); falling back to email`)
-    // fall through to email below
   } else if (isEnterprise) {
     console.warn(`[v0] Enterprise booking ${booking.id} has no customerPhone on file; falling back to email confirmation`)
   }
 
-  // Reached for: non-Enterprise plans (Starter/Professional), Enterprise with no phone,
-  // or Enterprise where the SMS send failed.
-  return emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
-    customerName: booking.customerName,
-    serviceName,
-    startTime: booking.startTime,
-    endTime: booking.endTime,
-    businessName: business.name,
-    businessPhone: business.phone || '',
-    businessAddress: business.address || '',
-    verificationToken,
-  })
+  try {
+    customerResult = await emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
+      customerName: booking.customerName,
+      serviceName,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      businessName: business.name,
+      businessPhone: business.phone || '',
+      businessAddress: business.address || '',
+      verificationToken,
+    })
+  } finally {
+    await ownerPromise
+  }
+  return customerResult
 }
 
 class BookingController {
@@ -827,7 +906,7 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
           include: { subscription: { select: { plan: { select: { name: true } } } } },
         })
         if (businessForNotify) {
-          await sendBookingConfirmationByPlan(businessId, businessForNotify, booking, service.name)
+          await sendBookingConfirmationByPlan(businessId, businessForNotify, booking, service.name, undefined, { notifyOwner: false })
         }
       } catch (notifyError) {
         console.error('[v0] Failed to send manual booking confirmation:', notifyError)
@@ -1542,21 +1621,6 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
 
       const warnings: string[] = []
 
-      try {
-        if (business.user?.email) {
-          await emailService.sendNewBookingNotification(business.user.email, {
-            customerName, customerEmail, customerPhone,
-            serviceName: service.name,
-            startTime: booking.startTime,
-            endTime: booking.endTime,
-            businessName: business.name,
-            notes,
-          })
-        }
-      } catch (emailError: any) {
-        console.error('[v0] Failed to send email to owner:', emailError)
-        warnings.push('Unable to notify business owner due to email delivery issue')
-      }
 
       // Only send the customer-facing confirmation now if the phone is
       // already verified. Otherwise verification.controller.ts sends it
