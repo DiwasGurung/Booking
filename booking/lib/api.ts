@@ -279,8 +279,14 @@ export interface SmsCreditTransaction {
   createdAt: string
 }
 
+
+
 // SMS credits - /api/sms-payment, /api/sms, /api/business/:id/sms
 export const smsCreditApi = {
+
+  seedPackages: () =>
+  apiCall<unknown>('/api/seed/sms-packages', { method: 'POST' }),
+  
   getPackages: () => apiCall<SmsCreditPackage[]>('/api/sms/packages'),
 
   getBalance: (businessId: string) =>

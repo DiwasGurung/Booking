@@ -9,4 +9,6 @@ seedRoutes.post('/plans', (req, res) => SeedController.seedPlans(req, res))
 // Get all plans
 seedRoutes.get('/plans', (req, res) => SeedController.getPlans(req, res))
 
+seedRoutes.post('/sms-packages', (req, res) => SeedController.seedSmsPackages(req, res))
+
 export default seedRoutes
