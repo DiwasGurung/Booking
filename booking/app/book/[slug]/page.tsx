@@ -189,13 +189,6 @@ useEffect(() => {
     return () => clearInterval(timer)
   }, [resendCooldown])
 
-  // Redirect unauthenticated users to public booking page
-  useEffect(() => {
-    if (!businessId) return
-    if (!user && !loading) {
-      router.push(`/book/${businessId}`)
-    }
-  }, [businessId, user, loading, router])
 
   
 
