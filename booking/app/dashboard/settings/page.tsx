@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Sidebar } from '@/components/Sidebar'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,13 +10,14 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { useBusinessId } from '@/hooks/useBusinessId'
-import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
-import { businessApi, businessHoursApi, phoneVerificationApi } from '@/lib/api'
-import { Loader, AlertCircle, Save, Settings, Bell, Lock, Trash2, Copy, Check, Upload, X, Sparkles, Phone } from 'lucide-react'
+import { businessApi, businessHoursApi, phoneVerificationApi, smsCreditApi } from '@/lib/api'
+import {
+  Loader, AlertCircle, Save, Settings, Bell, Lock, Trash2, Check, Upload, X, Phone,
+  MessageSquare, Mail,
+} from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const LocationPicker = dynamic(() => import('@/components/LocationPicker'), {
@@ -45,6 +47,8 @@ interface BusinessSettings {
     instagram?: string
     twitter?: string
   }
+  // Kept so previously saved values pass through untouched. No longer editable
+  // in the UI: notification channels are decided by SMS credits.
   notificationSettings?: {
     emailNotifications?: boolean
     smsNotifications?: boolean
@@ -65,7 +69,6 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [activeTab, setActiveTab] = useState('business')
   const [hasBusinessHours, setHasBusinessHours] = useState(false)
@@ -73,16 +76,8 @@ export default function SettingsPage() {
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [isLoadingCover, setIsLoadingCover] = useState(false)
 
-  // Plan gating for SMS notifications — only an Enterprise business with a
-  // currently valid (active/trial) subscription may enable SMS; email
-  // notifications remain available (and default-on) for every plan.
-  const {
-    subscriptionStatus,
-    loading: planLoading,
-    hasValidSubscription,
-  } = useSubscriptionStatus()
-  const isEnterprise =
-    !!hasValidSubscription && subscriptionStatus?.planName?.toLowerCase() === 'enterprise'
+  // SMS credit balance shown on the Notifications tab
+  const [smsBalance, setSmsBalance] = useState<number | null>(null)
 
   // 10-digit numeric validation — matches Nepal mobile format used elsewhere in the app
   const isValidPhone = (value: string) => /^\d{10}$/.test(value)
@@ -97,7 +92,7 @@ export default function SettingsPage() {
 
   // Whether the phone field is locked (read-only) because it's verified.
   // Starts true; flips false only when the user explicitly clicks
-  // "Change number", and flips back true once a number is (re)verified
+  // "Change", and flips back true once a number is (re)verified
   // or freshly loaded from the server in a verified state.
   const [phoneLocked, setPhoneLocked] = useState(true)
 
@@ -142,6 +137,14 @@ export default function SettingsPage() {
     const t = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000)
     return () => clearInterval(t)
   }, [resendCooldown])
+
+  // Load the SMS credit balance for the Notifications tab
+  useEffect(() => {
+    if (!businessId) return
+    smsCreditApi.getBalance(businessId).then((res) => {
+      if (res.data) setSmsBalance(res.data.credits.balance)
+    })
+  }, [businessId])
 
   const handleSendPhoneVerification = async () => {
     if (!businessId || !formData?.phone || resendCooldown > 0) return
@@ -225,6 +228,7 @@ export default function SettingsPage() {
       setVerifyingCode(false)
     }
   }
+
   // Calculate profile completion percentage
   const calculateProfileCompletion = (data: BusinessSettings) => {
     const requiredFields = [
@@ -283,10 +287,7 @@ export default function SettingsPage() {
     }
   }
 
-  // Handle cover image upload — persist directly to the business via the settings API.
-  // Uses a wider max dimension than the logo (1200 vs 400) since it renders as a
-  // full-width banner rather than a small square, and reuses the same
-  // compressToDataUrl helper defined above for the logo.
+  // Cover image upload — persisted directly via the settings API.
   const handleCoverUpload = async () => {
     if (!coverFile || !businessId || !formData) return
 
@@ -338,7 +339,7 @@ export default function SettingsPage() {
     }
   }
 
-  // Handle logo upload — persist directly to the business via the settings API.
+  // Logo upload — persisted directly via the settings API.
   const handleLogoUpload = async () => {
     if (!logoFile || !businessId || !formData) return
 
@@ -387,15 +388,12 @@ export default function SettingsPage() {
       setSuccess('Logo removed successfully')
       setTimeout(() => setSuccess(null), 3000)
     } catch (error: any) {
-
       setError(error?.message || 'Failed to remove logo')
       setTimeout(() => setError(null), 4000)
     }
   }
 
-  // Default settings template — email notifications default ON for every
-  // plan; SMS defaults OFF and can only be switched on by Enterprise
-  // businesses (enforced in handleNotificationChange and on save below).
+  // Default settings template
   const defaultSettings: BusinessSettings = {
     businessName: '',
     email: '',
@@ -420,7 +418,6 @@ export default function SettingsPage() {
       emailNotifications: true,
       smsNotifications: false,
       bookingReminders: true,
-
     },
   }
 
@@ -429,6 +426,7 @@ export default function SettingsPage() {
       loadSettings()
       checkBusinessHours()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId])
 
   // Redirect to login if business ID error or not found
@@ -438,31 +436,12 @@ export default function SettingsPage() {
     }
   }, [fetchingBusinessId, businessIdError, businessId, router])
 
-  // If the plan drops below Enterprise (or the subscription lapses) after
-  // load, make sure we never leave a stale smsNotifications=true sitting in
-  // the form — it will also be stripped again defensively on save.
-  useEffect(() => {
-    if (planLoading) return
-    if (!isEnterprise && formData?.notificationSettings?.smsNotifications) {
-      setFormData((prev) =>
-        prev
-          ? {
-            ...prev,
-            notificationSettings: { ...prev.notificationSettings, smsNotifications: false },
-          }
-          : prev
-      )
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEnterprise, planLoading])
-
   const checkBusinessHours = async () => {
     if (!businessId) {
       return
     }
     try {
       const response = await businessHoursApi.getBusinessHours(businessId)
-      // Check if business hours exist
       const hours = response.data || response
       setHasBusinessHours(
         hours &&
@@ -472,8 +451,6 @@ export default function SettingsPage() {
       setHasBusinessHours(false)
     }
   }
-
-
 
   const loadSettings = async () => {
     if (!businessId) {
@@ -497,7 +474,6 @@ export default function SettingsPage() {
         setFormData(response.data)
         setPhoneLocked(!!response.data.isPhoneVerified)
       } else if (response.data) {
-        // Handle case where response.data directly contains settings
         setSettings(response.data)
         setFormData(response.data)
         setPhoneLocked(!!response.data.isPhoneVerified)
@@ -529,7 +505,6 @@ export default function SettingsPage() {
       return
     }
 
-
     if (formData.phone && !isValidPhone(formData.phone)) {
       setError('Phone number must be exactly 10 digits')
       setTimeout(() => setError(null), 4000)
@@ -538,23 +513,14 @@ export default function SettingsPage() {
     try {
       setSaving(true)
 
-      // Defense in depth: even if the toggle were somehow enabled client-side
-      // (e.g. stale plan check), never persist smsNotifications=true for a
-      // non-Enterprise or non-active-subscription business.
-      const payload: BusinessSettings = {
-        ...formData,
-        notificationSettings: {
-          ...formData.notificationSettings,
-          smsNotifications: isEnterprise ? !!formData.notificationSettings?.smsNotifications : false,
-        },
-      }
+      const payload: BusinessSettings = { ...formData }
 
       const response = await businessApi.updateSettings(businessId, payload)
       if (response.success || response.data) {
         setSettings(payload)
         setFormData(payload)
         setPhoneLocked(!!payload.isPhoneVerified)
-        setSuccess(`${tab === 'business' ? 'Business' : tab === 'notifications' ? 'Notification' : 'Security'} settings updated successfully`)
+        setSuccess(tab === 'business' ? 'Business settings updated successfully' : 'Settings updated successfully')
         setTimeout(() => setSuccess(null), 3000)
         setProfileCompletion(calculateProfileCompletion(payload))
       } else {
@@ -562,31 +528,9 @@ export default function SettingsPage() {
       }
     } catch (err) {
       setError('Failed to save settings')
-
     } finally {
       setSaving(false)
     }
-  }
-
-
-  const handleNotificationChange = (key: string, value: boolean) => {
-    if (!formData) return
-
-    // Block turning SMS on for non-Enterprise plans, even if this handler
-    // somehow gets called (the Switch below is also disabled for them).
-    if (key === 'smsNotifications' && value && !isEnterprise) {
-      setError('SMS notifications are only available on the Enterprise plan')
-      setTimeout(() => setError(null), 4000)
-      return
-    }
-
-    setFormData({
-      ...formData,
-      notificationSettings: {
-        ...formData.notificationSettings,
-        [key]: value,
-      },
-    })
   }
 
   // Only render if we have valid businessId
@@ -727,7 +671,6 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-6">
-                  {/* Logo Preview */}
                   <div className="flex-shrink-0">
                     <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border overflow-hidden">
                       {logoPreview || formData?.logo ? (
@@ -742,7 +685,6 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* Upload Controls */}
                   <div className="flex-1">
                     <div className="space-y-3">
                       <div>
@@ -802,6 +744,7 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+
             {/* Cover Image Upload */}
             <Card className="border border-border">
               <CardHeader>
@@ -814,7 +757,6 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Cover Preview — wide banner aspect instead of the square logo box */}
                 <div className="w-full h-40 bg-muted rounded-lg flex items-center justify-center border-2 border-dashed border-border overflow-hidden">
                   {coverPreview || formData?.coverImage ? (
                     <img
@@ -830,7 +772,6 @@ export default function SettingsPage() {
                   )}
                 </div>
 
-                {/* Upload Controls */}
                 <div>
                   <Label htmlFor="cover-upload" className="block mb-2">Upload Cover Image (PNG, JPG - Max 5MB)</Label>
                   <Input
@@ -1112,92 +1053,65 @@ export default function SettingsPage() {
           <TabsContent value="notifications" className="space-y-6">
             <Card className="border border-border">
               <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>Choose how you want to receive notifications</CardDescription>
+                <CardTitle>Customer Notifications</CardTitle>
+                <CardDescription>
+                  How booking confirmations, reminders and cancellations reach your customers
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">Email Notifications</p>
-                      <p className="text-sm text-muted-foreground">Update customer via email</p>
+                {/* SMS credit balance */}
+                <div className="flex flex-col gap-4 rounded-lg bg-muted/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-blue-50 p-3">
+                      <MessageSquare className="h-5 w-5 text-blue-600" />
                     </div>
-                    <Switch
-                      checked={formData?.notificationSettings?.emailNotifications ?? true}
-                      onCheckedChange={(checked) =>
-                        handleNotificationChange('emailNotifications', checked)
-                      }
-                    />
-                  </div>
-
-                  {/* SMS Notifications — Enterprise plan only */}
-                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-foreground">SMS Notifications</p>
-                        
-                      </div>
+                    <div>
+                      <p className="font-medium text-foreground">SMS credits</p>
                       <p className="text-sm text-muted-foreground">
-                         Receive booking confirmations and updates via SMS
-                        
+                        {smsBalance === null
+                          ? 'Loading...'
+                          : smsBalance > 0
+                            ? `${smsBalance} credits available`
+                            : 'No credits left. Notifications are sent by email.'}
                       </p>
                     </div>
-                    <Switch
-                      checked={formData?.notificationSettings?.smsNotifications ?? true}
-                      onCheckedChange={(checked) => handleNotificationChange('smsNotifications', checked)}
-                    />
                   </div>
-
-                  {/* Booking Reminders */}
-                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">Booking Reminders</p>
-                      <p className="text-sm text-muted-foreground">
-                        {isEnterprise
-                          ? 'Customers get reminders before upcoming bookings via email and SMS'
-                          : 'Customers get reminders before upcoming bookings via email'}
-                      </p>
-                      {!isEnterprise && !planLoading && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Upgrade to Enterprise to also send SMS reminders
-                        </p>
-                      )}
-                    </div>
-                    <Switch
-                      checked={formData?.notificationSettings?.bookingReminders || false}
-                      onCheckedChange={(checked) =>
-                        handleNotificationChange('bookingReminders', checked)
-                      }
-                    />
-                  </div>
+                  <Link href="/dashboard/sms-credits">
+                    <Button variant="outline" size="sm">Manage credits</Button>
+                  </Link>
                 </div>
 
-                <Button
-                  onClick={() => handleSaveSettings('notifications')}
-                  disabled={saving}
-                  className="w-full"
-                >
-                  {saving ? (
-                    <>
-                      <Loader className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Preferences
-                    </>
-                  )}
-                </Button>
+                {/* How it works */}
+                <div className="space-y-3 text-sm">
+                  <p className="font-medium text-foreground">How it works</p>
+                  <div className="flex items-start gap-3">
+                    <MessageSquare className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
+                    <p className="text-muted-foreground">
+                      <span className="font-medium text-foreground">SMS first.</span> If you have credits and the
+                      customer gave a phone number, confirmations, reminders and cancellations are sent by SMS.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Mail className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
+                    <p className="text-muted-foreground">
+                      <span className="font-medium text-foreground">Email as backup.</span> With no credits, no phone
+                      number, or a failed SMS, the customer gets an email instead.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Bell className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600" />
+                    <p className="text-muted-foreground">
+                      <span className="font-medium text-foreground">Reminders</span> go out when you press
+                      &quot;Send reminders&quot; on your bookings page, once per day.
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           {/* Security Tab */}
           <TabsContent value="security" className="space-y-6">
-            {/* API Key */}
-
-            {/* Danger Zone */}
             <Card className="border border-destructive">
               <CardHeader>
                 <CardTitle className="text-destructive">Danger Zone</CardTitle>
