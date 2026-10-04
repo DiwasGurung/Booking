@@ -41,6 +41,7 @@ const USAGE_LABELS: Record<string, string> = {
   verification: 'Verification codes',
 }
 
+
 /** eSewa expects a browser form POST, not a fetch. */
 function submitToEsewa(paymentUrl: string, formData: Record<string, string>) {
   const form = document.createElement('form')
@@ -83,13 +84,17 @@ function SmsCreditsContent() {
   const isLow = balance < LOW_BALANCE
   const healthPct = Math.min(100, Math.round((balance / HEALTHY_BALANCE) * 100))
 
+  
+
   useEffect(() => {
     if (!fetchingBusinessId && (businessIdError || !businessId)) router.push('/login')
   }, [fetchingBusinessId, businessIdError, businessId, router])
 
+
   const loadOverview = useCallback(async () => {
     if (!businessId) return
     try {
+       setBuyingId(null)
       setLoading(true)
       setError(null)
       const [bal, pk] = await Promise.all([
@@ -135,8 +140,37 @@ setPackages(list)
     }
   }, [businessId, currentPage])
 
-  useEffect(() => { loadOverview() }, [loadOverview])
-  useEffect(() => { loadTransactions() }, [loadTransactions])
+  
+
+  // Coming back from eSewa (Back button, or switching tabs) can restore the page
+// from the browser's bfcache with stale state. Reset the buy button and
+// refetch so the balance and history are current.
+useEffect(() => {
+  const resetAndRefresh = () => {
+    setBuyingId(null)
+    loadOverview()
+    loadTransactions()
+  }
+
+  const onPageShow = (e: PageTransitionEvent) => {
+    if (e.persisted) resetAndRefresh() // restored from bfcache
+  }
+
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') {
+      setBuyingId(null)
+      loadTransactions()
+      loadOverview()
+    }
+  }
+
+  window.addEventListener('pageshow', onPageShow)
+  document.addEventListener('visibilitychange', onVisible)
+  return () => {
+    window.removeEventListener('pageshow', onPageShow)
+    document.removeEventListener('visibilitychange', onVisible)
+  }
+}, [loadOverview, loadTransactions])
 
   const refreshAll = () => {
     loadOverview()
@@ -144,17 +178,18 @@ setPackages(list)
   }
 
   const buy = async (pkg: SmsCreditPackage) => {
-    if (!businessId) return
-    setBuyingId(pkg.id)
-    setError(null)
-    const res = await smsCreditApi.initiateEsewaPurchase(businessId, pkg.id)
-    if (!res.success || !res.paymentUrl || !res.formData) {
-      setError(res.error || 'Could not start the payment. Please try again.')
-      setBuyingId(null)
-      return
-    }
-    submitToEsewa(res.paymentUrl, res.formData) // page navigates away
+  if (!businessId) return
+  setBuyingId(pkg.id)
+  setError(null)
+  const res = await smsCreditApi.initiateEsewaPurchase(businessId, pkg.id)
+  if (!res.success || !res.paymentUrl || !res.formData) {
+    setError(res.error || 'Could not start the payment. Please try again.')
+    setBuyingId(null)
+    return
   }
+  submitToEsewa(res.paymentUrl, res.formData) // page navigates away
+  setTimeout(() => setBuyingId(null), 15000)  // fallback if navigation never happens
+}
 
   const scrollToPackages = () =>
     packagesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
