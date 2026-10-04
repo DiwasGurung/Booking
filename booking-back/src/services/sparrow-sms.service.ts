@@ -1,5 +1,5 @@
 import axios from 'axios'
-import SubscriptionSmsService, { SmsType } from './subscription-sms.service'
+import SubscriptionSmsService, { calculateSmsCredits, SmsType } from './subscription-sms.service'
 import { fixieAxios } from '../utils/fixieAxios' 
 
 const SPARROW_SMS_API_URL = 'https://api.sparrowsms.com/v2/sms/'
@@ -20,6 +20,7 @@ interface SendResult {
   success: boolean
   messageId?: string
   error?: string
+  code?: 'INSUFFICIENT_CREDITS' | 'NOT_CONFIGURED' | 'PROVIDER_ERROR'
 }
 
 /**
@@ -61,29 +62,48 @@ async function sendToSparrow(to: string, text: string) {
  * as recoverable by the caller (e.g. fall back to email verification)
  * rather than as a hard error.
  */
-// Modify sendSMS to include skipQuotaCheck parameter
+/**
+ * Core send function for business-paid SMS. Credits are reserved
+ * atomically BEFORE the provider call and refunded if the send fails,
+ * so parallel sends (reminders, bulk) can never overdraw a balance.
+ * Credits, not the plan flag, are the gate here; callers decide whether
+ * a plan is allowed to use SMS at all.
+ */
 async function sendSMS(
   businessId: string,
   phoneNumber: string,
   message: string,
   type: SmsType,
-  options?: { skipQuotaCheck?: boolean }
+  options?: { skipCredits?: boolean }
 ): Promise<SendResult> {
-  // Skip quota check if option provided and type is 'verification'
-  if (!(options?.skipQuotaCheck) && type !== 'verification') {
-    const quota = await SubscriptionSmsService.checkSmsQuota(businessId)
-    if (!quota.available) {
-      console.warn(`[v0] SMS quota exhausted for business ${businessId} (type: ${type})`)
-      return { success: false, error: 'SMS quota exceeded for this billing period' }
-    }
-  }
-
   if (!SPARROW_API_TOKEN || !SPARROW_SENDER_ID) {
     console.warn('[v0] Sparrow SMS not configured, skipping SMS')
-    return { success: false, error: 'Sparrow SMS not configured' }
+    return { success: false, error: 'Sparrow SMS not configured', code: 'NOT_CONFIGURED' }
   }
 
   const formattedPhone = formatPhoneNumber(phoneNumber)
+  const credits = calculateSmsCredits(message)
+  const chargeCredits = !options?.skipCredits
+
+  if (chargeCredits) {
+    const reservation = await SubscriptionSmsService.reserveCredits(
+      businessId, credits, `${type} SMS to ${formattedPhone}`
+    )
+    if (!reservation.ok) {
+      console.warn(`[v0] Insufficient SMS credits for business ${businessId} (need ${credits}, have ${reservation.balance})`)
+      return { success: false, error: 'Insufficient SMS credits', code: 'INSUFFICIENT_CREDITS' }
+    }
+  }
+
+  const refund = async (reason: string) => {
+    if (!chargeCredits) return
+    try {
+      await SubscriptionSmsService.refundCredits(businessId, credits, `Refund: ${reason}`)
+    } catch (e) {
+      console.error(`[v0] CRITICAL: failed to refund ${credits} credit(s) to business ${businessId}`, e)
+    }
+  }
+
   console.log(`[v0] Sending ${type} SMS to:`, formattedPhone)
 
   try {
@@ -91,30 +111,27 @@ async function sendSMS(
 
     if (response.data.response_code === 200) {
       const messageId = response.data.data?.request_id
-      console.log(`[v0] ${type} SMS sent successfully:`, messageId)
-
       await SubscriptionSmsService.logSmsAttempt({
         businessId, phoneNumber: formattedPhone, message, type, status: 'SENT', messageId,
+        creditsUsed: chargeCredits ? credits : 0,
       })
-      await SubscriptionSmsService.incrementSmsUsage(businessId)
-
       return { success: true, messageId }
     }
 
+    await refund(response.data.message)
     await SubscriptionSmsService.logSmsAttempt({
       businessId, phoneNumber: formattedPhone, message, type, status: 'FAILED', errorMessage: response.data.message,
     })
-    return { success: false, error: response.data.message }
+    return { success: false, error: response.data.message, code: 'PROVIDER_ERROR' }
   } catch (error: any) {
-    console.error('[v0] Error sending account SMS via Sparrow:', {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
+    console.error('[v0] Error sending SMS via Sparrow:', {
+      status: error.response?.status, data: error.response?.data, message: error.message,
     })
+    await refund(error.message)
     await SubscriptionSmsService.logSmsAttempt({
       businessId, phoneNumber: formattedPhone, message, type, status: 'FAILED', errorMessage: error.message,
     })
-    return { success: false, error: error.message }
+    return { success: false, error: error.message, code: 'PROVIDER_ERROR' }
   }
 }
 
@@ -170,7 +187,7 @@ export const SparrowSMSService = {
   /** Business-quota-gated — use for Booking verification, tied to a specific business's subscription. */
   async sendVerificationCode(businessId: string, phoneNumber: string, code: string) {
     const message = `Appoint Nepal: Your OTP for verification is ${code}.`
-    return sendSMS(businessId, phoneNumber, message, 'verification', { skipQuotaCheck: true } )
+    return sendSMS(businessId, phoneNumber, message, 'verification', { skipCredits:true } )
   },
 
   /** Ungated — use for User/Staff/Business account phone verification. */
@@ -184,14 +201,16 @@ export const SparrowSMSService = {
     phoneNumber: string,
     bookingData: { businessName: string; serviceName: string; date: string; time: string; bookingId: string }
   ) {
-    const message = `Booking Confirmed!
-    ${bookingData.businessName}
-    Service: ${bookingData.serviceName}
-    Date: ${bookingData.date}
-    Time: ${bookingData.time}
-    Booking ID: ${bookingData.bookingId}
-
-    Thank you for choosing Appoint Nepal!`
+   const message = [
+  'Booking Confirmed!',
+  bookingData.businessName,
+  `Service: ${bookingData.serviceName}`,
+  `Date: ${bookingData.date}`,
+  `Time: ${bookingData.time}`,
+  `Booking ID: ${bookingData.bookingId}`,
+  '',
+  'Thank you for choosing Appoint Nepal!',
+].join('\n')
     return sendSMS(businessId, phoneNumber, message, 'booking')
   },
 
@@ -224,8 +243,8 @@ See you soon!`
         message = `Your appointment at ${statusData.businessName}\nDate: ${statusData.date}\nTime: ${statusData.time}\nStatus: CONFIRMED\nBooking ID: ${statusData.bookingId}`
         break
       case 'cancelled':
-        message = `Your appointment at ${statusData.businessName}\nDate: ${statusData.date}\n is CANCELLED\n`
-        break
+  message = `Your appointment at ${statusData.businessName} on ${statusData.date} has been CANCELLED.`
+  break
       case 'rescheduled':
         message = `Your appointment at ${statusData.businessName} has been RESCHEDULED\nOld: ${statusData.date} at ${statusData.time}\nNew: ${statusData.newDate} at ${statusData.newTime}\nBooking ID: ${statusData.bookingId}`
         break

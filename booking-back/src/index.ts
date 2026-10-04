@@ -25,6 +25,8 @@ import staffVerificationRoutes from "./routes/staff-verification.routes";
 import PublicRouter from "./routes/public-verification.routes";
 import phoneVerificationRouter from "./routes/phone-verification.routes";
 import FeedbackRoutes from "./routes/feedback.routes";
+import router from "./routes/sms.routes";
+import SmsCreditRoutes from "./routes/sms-credit.routes";
 
 
 dotenv.config();
@@ -102,6 +104,10 @@ app.use("/api/staff-auth", StaffAuthRoutes)
 app.use("/api/subscription-payment", subscriptionPaymentRoutes)
 
 app.use("/api/upload", uploadRoutes)
+
+app.use("/api/sms", router)
+
+app.use("/api/sms-credits", SmsCreditRoutes)
 
 
 // Catch-all route (should be last)

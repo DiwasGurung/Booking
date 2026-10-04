@@ -5,6 +5,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const prisma_1 = __importDefault(require("../lib/prisma"));
 class SeedController {
+    async seedSmsPackages(req, res) {
+        try {
+            const packages = [
+                { name: 'sms_100', displayName: '100 SMS Credits', credits: 100, bonusCredits: 0, priceNPR: 150, sortOrder: 1 },
+                { name: 'sms_500', displayName: '500 SMS Credits', credits: 500, bonusCredits: 25, priceNPR: 700, sortOrder: 2 },
+                { name: 'sms_1000', displayName: '1000 SMS Credits', credits: 1000, bonusCredits: 100, priceNPR: 1300, sortOrder: 3 },
+            ];
+            const created = await Promise.all(packages.map((p) => prisma_1.default.smsCreditPackage.upsert({ where: { name: p.name }, update: p, create: p })));
+            res.json({ message: 'SMS packages seeded', packages: created });
+        }
+        catch (error) {
+            res.status(500).json({ message: 'Failed to seed SMS packages', error: error.message });
+        }
+    }
     /**
      * Seed subscription plans (admin only)
      */
@@ -41,6 +55,7 @@ class SeedController {
                     maxStaff: 1,
                     maxServices: 5,
                     maxCustomers: -1,
+                    monthlySmsCredits: 0,
                     // Features
                     allowEmailNotifications: true,
                     allowSmsNotifications: false,
@@ -76,6 +91,7 @@ class SeedController {
                     maxStaff: 5,
                     maxServices: -1, // Unlimited
                     maxCustomers: -1, // Unlimited
+                    monthlySmsCredits: 0, // No SMS credits included
                     // Features
                     allowEmailNotifications: true,
                     allowSmsNotifications: false,
@@ -112,6 +128,7 @@ class SeedController {
                     maxStaff: -1, // Unlimited
                     maxServices: -1, // Unlimited
                     maxCustomers: -1, // Unlimited
+                    monthlySmsCredits: 200, // 200 SMS credits included monthly
                     // Features
                     allowEmailNotifications: true,
                     allowSmsNotifications: true, // was missing — Enterprise was silently falling back to email reminders

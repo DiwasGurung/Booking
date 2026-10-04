@@ -30,6 +30,8 @@ const staff_verification_routes_1 = __importDefault(require("./routes/staff-veri
 const public_verification_routes_1 = __importDefault(require("./routes/public-verification.routes"));
 const phone_verification_routes_1 = __importDefault(require("./routes/phone-verification.routes"));
 const feedback_routes_1 = __importDefault(require("./routes/feedback.routes"));
+const sms_routes_1 = __importDefault(require("./routes/sms.routes"));
+const sms_credit_routes_1 = __importDefault(require("./routes/sms-credit.routes"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 5001;
@@ -73,6 +75,8 @@ app.use("/api/staff-verification", staff_verification_routes_1.default);
 app.use("/api/staff-auth", staff_auth_routes_1.default);
 app.use("/api/subscription-payment", subscription_payment_routes_1.default);
 app.use("/api/upload", upload_routes_1.default);
+app.use("/api/sms", sms_routes_1.default);
+app.use("/api/sms-credits", sms_credit_routes_1.default);
 // Catch-all route (should be last)
 app.use((req, res) => {
     res.status(404).send('Not Found');

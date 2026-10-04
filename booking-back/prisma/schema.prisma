@@ -117,6 +117,46 @@ enum AuthProvider {
   GOOGLE
   FIREBASE
 }
+enum SmsCreditTransactionType {
+  PURCHASE      // bought a package
+  PLAN_GRANT    // monthly credits included with the plan
+  BONUS         // manual / promo
+  USAGE         // deducted for a send
+  REFUND        // returned after a failed send
+  ADJUSTMENT    // admin correction
+}
+
+model SmsCreditTransaction {
+  id           String   @id @default(cuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  type         SmsCreditTransactionType
+  amount       Int      // positive = added, negative = deducted
+  balanceAfter Int
+  description  String?
+
+  paymentId    String?  @unique   // makes top-ups idempotent (one payment = one grant)
+  smsLogId     String?
+
+  createdAt    DateTime @default(now())
+
+  @@index([businessId, createdAt])
+  @@map("sms_credit_transactions")
+}
+
+model SmsCreditPackage {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  displayName  String
+  credits      Int
+  bonusCredits Int      @default(0)
+  priceNPR     Int
+  active       Boolean  @default(true)
+  sortOrder    Int      @default(0)
+
+  @@map("sms_credit_packages")
+}
 
 model Business {
   id     String @id @default(cuid())
@@ -141,6 +181,8 @@ model Business {
   zipCode String
   country String
   lastReminderSentAt DateTime?
+  smsCredits            Int                    @default(0)
+  smsCreditTransactions SmsCreditTransaction[]
 
   isVerified Boolean @default(false)
   isActive   Boolean @default(true)
@@ -188,6 +230,7 @@ model SMSLog {
   errorMessage   String?
 
   createdAt      DateTime      @default(now())
+  creditsUsed Int @default(0)
 
   @@index([businessId])
   @@index([phoneNumber])
@@ -403,6 +446,8 @@ model Payment {
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  purpose           String  @default("SUBSCRIPTION") 
+  smsCreditPackageId String?
 
   @@index([businessId])
   @@index([status])
@@ -501,7 +546,7 @@ model SubscriptionPlan {
   maxStaff                 Int  @default(-1)  // -1 means unlimited
   maxServices              Int  @default(-1)  // -1 means unlimited
   maxCustomers             Int  @default(-1)  // -1 means unlimited
-  maxSmsPerMonth           Int  @default(0)
+    monthlySmsCredits Int @default(0) 
   
   // Features flags (Email-only notifications)
   allowEmailNotifications  Boolean @default(true)
@@ -547,8 +592,6 @@ model Subscription {
   appointmentsThisMonth    Int      @default(0)
   usageResetDate           DateTime?
 
-  smsUsedThisMonth Int      @default(0)
-  smsCreditBalance Int      @default(0)
   smsLogs          SMSLog[]
 
   createdAt       DateTime @default(now())

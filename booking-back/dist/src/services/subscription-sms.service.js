@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.calculateSmsCredits = calculateSmsCredits;
 const prisma_1 = __importDefault(require("../lib/prisma"));
 // Duplicated intentionally (rather than imported from sparrow-sms.service.ts)
 // to avoid a circular import — that service already imports this one.
@@ -13,6 +14,15 @@ function formatPhoneNumber(phoneNumber) {
     if (cleaned.length === 10 && cleaned.startsWith('9'))
         return '977' + cleaned;
     return cleaned;
+}
+/** 1 credit per SMS segment. ASCII/GSM text = 160 chars (153 when multipart); anything else = 70 (67). */
+function calculateSmsCredits(text) {
+    const isAscii = /^[\x00-\x7F]*$/.test(text);
+    const single = isAscii ? 160 : 70;
+    const multi = isAscii ? 153 : 67;
+    if (text.length <= single)
+        return 1;
+    return Math.ceil(text.length / multi);
 }
 /**
  * Single source of truth for:
@@ -25,101 +35,78 @@ function formatPhoneNumber(phoneNumber) {
  * one place that owns quota + logging consistency.
  */
 class SubscriptionSmsService {
-    /**
-     * Check if business has SMS quota available right now.
-     * smsCreditBalance is the source of truth for availability;
-     * smsUsedThisMonth is kept only for display/stats.
-     */
-    async checkSmsQuota(businessId) {
-        try {
-            const subscription = await prisma_1.default.subscription.findUnique({
-                where: { businessId },
-                include: { plan: true },
-            });
-            if (!subscription) {
-                console.log('[v0] No subscription found for business:', businessId);
-                return { available: false, remaining: 0, limit: 0 };
-            }
-            const available = subscription.plan.allowSmsNotifications === true;
-            if (!available) {
-                console.log('[v0] SMS not enabled for plan:', subscription.planId);
-            }
-            // No credit/monthly-limit tracking — availability is purely the plan flag.
-            // remaining/limit are kept in the return shape for callers/UI that still
-            // read them, but no longer represent an enforced cap.
-            return {
-                available,
-                remaining: available ? Infinity : 0,
-                limit: available ? Infinity : 0,
-            };
-        }
-        catch (error) {
-            console.error('[v0] Error checking SMS quota:', error);
-            return { available: false, remaining: 0, limit: 0 };
-        }
+    async getBalance(businessId) {
+        const b = await prisma_1.default.business.findUnique({ where: { id: businessId }, select: { smsCredits: true } });
+        return b?.smsCredits ?? 0;
     }
-    /**
-     * Decrement quota after a successful send. Call this only once the SMS
-     * gateway has confirmed the message was actually sent.
-     */
-    async incrementSmsUsage(businessId, count = 1) {
-        try {
-            const subscription = await prisma_1.default.subscription.findUnique({ where: { businessId } });
-            if (!subscription) {
-                console.log('[v0] Subscription not found for SMS usage increment');
-                return false;
+    /** Atomically deduct credits. Fails (ok:false) if the balance is too low. */
+    async reserveCredits(businessId, credits, description) {
+        return prisma_1.default.$transaction(async (tx) => {
+            const res = await tx.business.updateMany({
+                where: { id: businessId, smsCredits: { gte: credits } },
+                data: { smsCredits: { decrement: credits } },
+            });
+            if (res.count === 0)
+                return { ok: false, balance: await this.getBalance(businessId) };
+            const { smsCredits } = await tx.business.findUniqueOrThrow({
+                where: { id: businessId }, select: { smsCredits: true },
+            });
+            await tx.smsCreditTransaction.create({
+                data: { businessId, type: 'USAGE', amount: -credits, balanceAfter: smsCredits, description },
+            });
+            return { ok: true, balance: smsCredits };
+        });
+    }
+    /** Return credits after a failed send. */
+    async refundCredits(businessId, credits, description) {
+        return this.addCredits(businessId, credits, 'REFUND', { description });
+    }
+    /** Single entry point for every credit increase (purchase, plan grant, bonus, refund, adjustment). */
+    async addCredits(businessId, credits, type, opts) {
+        return prisma_1.default.$transaction(async (tx) => {
+            // Idempotency: one payment can only ever grant credits once.
+            if (opts?.paymentId) {
+                const existing = await tx.smsCreditTransaction.findUnique({ where: { paymentId: opts.paymentId } });
+                if (existing)
+                    return { granted: false, balance: existing.balanceAfter };
             }
-            await prisma_1.default.subscription.update({
-                where: { id: subscription.id },
+            const { smsCredits } = await tx.business.update({
+                where: { id: businessId },
+                data: { smsCredits: { increment: credits } },
+                select: { smsCredits: true },
+            });
+            await tx.smsCreditTransaction.create({
                 data: {
-                    smsUsedThisMonth: subscription.smsUsedThisMonth + count,
-                    smsCreditBalance: Math.max(0, subscription.smsCreditBalance - count),
+                    businessId, type, amount: credits, balanceAfter: smsCredits,
+                    description: opts?.description, paymentId: opts?.paymentId,
                 },
             });
-            return true;
-        }
-        catch (error) {
-            console.error('[v0] Error incrementing SMS usage:', error);
-            return false;
-        }
+            return { granted: true, balance: smsCredits };
+        });
     }
-    /**
-     * Log every send attempt — successful or failed. This is the ONLY place
-     * that writes to SMSLog.
-     */
     async logSmsAttempt(data) {
-        try {
-            let subscriptionId;
-            if (data.businessId) {
-                const subscription = await prisma_1.default.subscription.findUnique({
-                    where: { businessId: data.businessId },
-                    select: { id: true },
-                });
-                subscriptionId = subscription?.id;
-            }
-            await prisma_1.default.sMSLog.create({
-                data: {
-                    businessId: data.businessId,
-                    subscriptionId,
-                    phoneNumber: data.phoneNumber,
-                    message: data.message,
-                    type: data.type,
-                    status: data.status,
-                    messageId: data.messageId,
-                    errorMessage: data.errorMessage,
-                    provider: 'SPARROW',
-                },
-            });
-        }
-        catch (error) {
-            console.error('[v0] Error logging SMS attempt:', error);
-        }
+        const subscription = data.businessId
+            ? await prisma_1.default.subscription.findUnique({ where: { businessId: data.businessId }, select: { id: true } })
+            : null;
+        return prisma_1.default.sMSLog.create({
+            data: {
+                businessId: data.businessId,
+                subscriptionId: subscription?.id,
+                phoneNumber: data.phoneNumber,
+                message: data.message,
+                type: data.type,
+                status: data.status,
+                messageId: data.messageId,
+                errorMessage: data.errorMessage,
+                creditsUsed: data.status === 'SENT' ? data.creditsUsed ?? 0 : 0,
+            },
+        });
     }
     /**
-     * Paginated SMS log list — ALWAYS scoped to a single business. Never
-     * expose an endpoint that queries SMSLog without a businessId filter,
-     * or one business owner could read another's SMS history.
-     */
+    * Paginated SMS log list, ALWAYS scoped to a single business. Never
+    * expose an endpoint that queries SMSLog without a businessId filter,
+    * or one business owner could read another's SMS history.
+    */
     async getLogs(businessId, filters) {
         const where = { businessId };
         if (filters.phoneNumber)
@@ -147,10 +134,7 @@ class SubscriptionSmsService {
             take: 50,
         });
     }
-    /**
-     * Aggregate send/fail counts, scoped to one business, optionally
-     * bounded by a date range.
-     */
+    /** Aggregate send/fail counts, scoped to one business, optionally date-bounded. */
     async getStatistics(businessId, startDate, endDate) {
         const where = { businessId };
         if (startDate || endDate) {
@@ -173,46 +157,41 @@ class SubscriptionSmsService {
             byType: byType.map((t) => ({ type: t.type, count: t._count.id })),
         };
     }
-    /**
-     * SMS usage stats for a business's dashboard.
-     */
+    /** Credit ledger for the business's "credit history" screen. */
+    async getTransactions(businessId, limit = 50, offset = 0) {
+        const [transactions, total] = await Promise.all([
+            prisma_1.default.smsCreditTransaction.findMany({
+                where: { businessId },
+                orderBy: { createdAt: 'desc' },
+                take: limit,
+                skip: offset,
+            }),
+            prisma_1.default.smsCreditTransaction.count({ where: { businessId } }),
+        ]);
+        return { transactions, total };
+    }
+    /** SMS usage stats for a business's dashboard (credit-based). */
     async getSmsUsageStats(businessId) {
         try {
-            const subscription = await prisma_1.default.subscription.findUnique({
-                where: { businessId },
-                include: { plan: true },
-            });
-            if (!subscription)
-                return null;
             const now = new Date();
             const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-            const logs = await prisma_1.default.sMSLog.findMany({
-                where: { businessId, createdAt: { gte: monthStart } },
-                select: { type: true, status: true, createdAt: true },
-            });
+            const where = { businessId, createdAt: { gte: monthStart } };
+            const [balance, logs, creditAgg] = await Promise.all([
+                this.getBalance(businessId),
+                prisma_1.default.sMSLog.findMany({ where, select: { type: true, status: true } }),
+                prisma_1.default.sMSLog.aggregate({ where, _sum: { creditsUsed: true } }),
+            ]);
             const byType = {
-                owner_notification: logs.filter((l) => l.type === 'owner_notification').length,
-                booking: logs.filter((l) => l.type === 'booking').length,
-                reminder: logs.filter((l) => l.type === 'reminder').length,
-                verification: logs.filter((l) => l.type === 'verification').length,
-                status_change: logs.filter((l) => l.type === 'status_change').length,
+                owner_notification: 0, booking: 0, reminder: 0, verification: 0, status_change: 0,
             };
+            for (const l of logs)
+                byType[l.type] = (byType[l.type] ?? 0) + 1;
             return {
-                plan: {
-                    name: subscription.plan.displayName,
-                    maxSmsPerMonth: subscription.plan.maxSmsPerMonth,
-                    allowSms: subscription.plan.allowSmsNotifications,
-                },
-                usage: {
-                    used: subscription.smsUsedThisMonth,
-                    remaining: subscription.smsCreditBalance,
-                    limit: subscription.plan.maxSmsPerMonth,
-                    percentageUsed: subscription.plan.maxSmsPerMonth > 0
-                        ? Math.round((subscription.smsUsedThisMonth / subscription.plan.maxSmsPerMonth) * 100)
-                        : 0,
+                credits: {
+                    balance,
+                    usedThisMonth: creditAgg._sum.creditsUsed ?? 0,
                 },
                 byType,
-                resetDate: subscription.usageResetDate,
                 thisMonth: {
                     total: logs.length,
                     successful: logs.filter((l) => l.status === 'SENT').length,
