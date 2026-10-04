@@ -1135,22 +1135,15 @@ export default function SettingsPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-foreground">SMS Notifications</p>
-                        {!isEnterprise && !planLoading && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 px-2 py-0.5 rounded-full">
-                            <Sparkles className="w-3 h-3" />
-                            Enterprise
-                          </span>
-                        )}
+                        
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {isEnterprise
-                          ? 'Receive booking confirmations and updates via SMS'
-                          : 'Available on the Enterprise plan — upgrade to enable SMS notifications'}
+                         Receive booking confirmations and updates via SMS
+                        
                       </p>
                     </div>
                     <Switch
-                      checked={isEnterprise ? (formData?.notificationSettings?.smsNotifications || false) : false}
-                      disabled={!isEnterprise || planLoading}
+                      checked={formData?.notificationSettings?.smsNotifications ?? true}
                       onCheckedChange={(checked) => handleNotificationChange('smsNotifications', checked)}
                     />
                   </div>

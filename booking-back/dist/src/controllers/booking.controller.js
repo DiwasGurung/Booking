@@ -11,8 +11,11 @@ const subscription_service_1 = __importDefault(require("../services/subscription
 const sparrow_sms_service_1 = __importDefault(require("../services/sparrow-sms.service"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const luxon_1 = require("luxon");
-// Adjust to match your SubscriptionPlan enum's actual value for Enterprise.
-const ENTERPRISE_PLAN = "enterprise";
+const subscription_sms_service_1 = __importDefault(require("../services/subscription-sms.service"));
+/** SMS is available whenever the business has at least 1 credit. Plan is irrelevant. */
+async function hasSmsCredits(businessId) {
+    return (await subscription_sms_service_1.default.getBalance(businessId)) >= 1;
+}
 /**
  * Notifies the business owner that a booking is now confirmed.
  * Same channel rule as the customer: SMS for Enterprise (falling back to
@@ -20,7 +23,7 @@ const ENTERPRISE_PLAN = "enterprise";
  * Never throws — an owner-notification failure must not affect the
  * customer's confirmation or the booking itself.
  */
-async function notifyOwnerOfConfirmedBooking(businessId, booking, serviceName, isEnterprise) {
+async function notifyOwnerOfConfirmedBooking(businessId, booking, serviceName) {
     try {
         const [business, fullBooking] = await Promise.all([
             prisma_1.default.business.findUnique({
@@ -40,7 +43,7 @@ async function notifyOwnerOfConfirmedBooking(businessId, booking, serviceName, i
         const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
         const dt = luxon_1.DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ }).setLocale('en');
         const ownerPhone = business.user?.phone || business.phone;
-        if (isEnterprise && ownerPhone) {
+        if (ownerPhone && (await hasSmsCredits(businessId))) {
             const result = await sparrow_sms_service_1.default.sendOwnerNotification(businessId, ownerPhone, {
                 customerName: booking.customerName,
                 customerPhone: booking.customerPhone,
@@ -75,24 +78,21 @@ async function notifyOwnerOfConfirmedBooking(businessId, booking, serviceName, i
         console.error(`[v0] Failed to notify owner of booking ${booking.id}:`, err);
     }
 }
-async function notifyCancellationByPlan(business, plan, booking, serviceName, reasonNote) {
-    const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
+async function notifyCancellationByPlan(business, emailAllowed, booking, serviceName) {
     const dt = luxon_1.DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ });
-    if (plan.allowSmsNotifications) {
-        if (!booking.customerPhone) {
-            console.warn(`[v0] Booking ${booking.id} has no customerPhone; skipping SMS notification`);
-            return { sent: false, channel: null };
-        }
-        await sparrow_sms_service_1.default.sendStatusChange(booking.businessId, booking.customerPhone, {
+    if (booking.customerPhone && (await hasSmsCredits(booking.businessId))) {
+        const result = await sparrow_sms_service_1.default.sendStatusChange(booking.businessId, booking.customerPhone, {
             businessName: business.name,
             date: dt.setLocale('en').toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
             time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
             status: 'cancelled',
             bookingId: booking.id,
         });
-        return { sent: true, channel: 'sms' };
+        if (result.success)
+            return { sent: true, channel: 'sms' };
+        console.warn(`[v0] Cancellation SMS failed for booking ${booking.id} (${result.code ?? result.error}); falling back to email`);
     }
-    if (plan.allowEmailNotifications) {
+    if (emailAllowed && booking.customerEmail) {
         await email_service_1.emailService.sendBookingCancellationToCustomer(booking.customerEmail, {
             customerName: booking.customerName,
             serviceName,
@@ -154,15 +154,12 @@ function isStartTimeInFuture(startTime) {
  * after the phone-OTP step succeeds (see verification.controller.ts).
  */
 async function sendBookingConfirmationByPlan(businessId, business, booking, serviceName, verificationToken, options) {
-    const isEnterprise = business.subscription?.plan?.name === ENTERPRISE_PLAN;
     const notifyOwner = options?.notifyOwner !== false;
-    // Fire the owner notification independently of the customer's result.
     const ownerPromise = notifyOwner
-        ? notifyOwnerOfConfirmedBooking(businessId, booking, serviceName, isEnterprise)
+        ? notifyOwnerOfConfirmedBooking(businessId, booking, serviceName)
         : Promise.resolve();
-    let customerResult;
-    if (isEnterprise && booking.customerPhone) {
-        const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
+    // SMS first, only when there is a phone number and credits remain
+    if (booking.customerPhone && (await hasSmsCredits(businessId))) {
         const dt = luxon_1.DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ });
         const result = await sparrow_sms_service_1.default.sendBookingConfirmation(businessId, booking.customerPhone, {
             businessName: business.name,
@@ -175,13 +172,14 @@ async function sendBookingConfirmationByPlan(businessId, business, booking, serv
             await ownerPromise;
             return result;
         }
-        console.warn(`[v0] SMS confirmation failed for booking ${booking.id} (${result.error}); falling back to email`);
+        console.warn(`[v0] SMS confirmation failed for booking ${booking.id} (${result.code ?? result.error}); falling back to email`);
     }
-    else if (isEnterprise) {
-        console.warn(`[v0] Enterprise booking ${booking.id} has no customerPhone on file; falling back to email confirmation`);
+    else {
+        console.log(`[v0] Booking ${booking.id}: no phone or no SMS credits; sending confirmation by email`);
     }
+    // Email fallback
     try {
-        customerResult = await email_service_1.emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
+        return await email_service_1.emailService.sendBookingConfirmationToCustomer(booking.customerEmail, {
             customerName: booking.customerName,
             serviceName,
             startTime: booking.startTime,
@@ -195,7 +193,6 @@ async function sendBookingConfirmationByPlan(businessId, business, booking, serv
     finally {
         await ownerPromise;
     }
-    return customerResult;
 }
 class BookingController {
     async sendTodayReminders(req, res) {
@@ -236,15 +233,24 @@ class BookingController {
                     message: 'An active subscription is required to send reminders.',
                 });
             }
-            const canRemind = plan.allowSmsNotifications || plan.allowEmailNotifications;
-            if (!canRemind) {
-                console.warn(`${LOG_PREFIX} Aborted: plan "${plan.name}" does not allow SMS or email notifications`);
+            const emailAllowed = plan.allowEmailNotifications;
+            const hasCredits = await hasSmsCredits(businessId);
+            if (!hasCredits && !emailAllowed) {
                 return res.status(403).json({
                     success: false,
-                    message: 'Your current plan does not include appointment reminders.',
+                    message: 'No SMS credits left. Buy SMS credits to send reminders.',
                 });
             }
-            const channel = plan.allowSmsNotifications ? 'sms' : 'email';
+            let channel = hasCredits ? 'sms' : 'email';
+            if (plan.allowSmsNotifications) {
+                console.warn(`${LOG_PREFIX} No SMS credits; using email for reminders`);
+            }
+            if (channel === 'email' && !emailAllowed) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'No SMS credits left and your plan does not include email reminders. Buy SMS credits to continue.',
+                });
+            }
             console.log(`${LOG_PREFIX} Starting send via ${channel} (plan=${plan.name})`);
             const bookings = await getTodayReminderCandidates(businessId);
             if (bookings.length === 0) {
@@ -253,14 +259,21 @@ class BookingController {
             }
             console.log(`${LOG_PREFIX} Found ${bookings.length} candidate booking(s) for today`);
             let sent = 0;
+            let smsSent = 0;
+            let emailSent = 0;
             const failures = [];
-            if (channel === 'sms') {
-                for (const booking of bookings) {
-                    if (!booking.customerPhone) {
-                        console.warn(`${LOG_PREFIX} SMS skipped for booking=${booking.id}: no customerPhone on file`);
-                        failures.push(booking.id);
-                        continue;
-                    }
+            const sendReminderEmail = (b) => email_service_1.emailService.sendAppointmentReminder(b.customerEmail, {
+                customerName: b.customerName,
+                serviceName: b.service.name,
+                startTime: b.startTime,
+                businessName: business.name,
+                businessPhone: business.phone,
+                businessAddress: business.address,
+            });
+            for (const booking of bookings) {
+                let delivered = false;
+                // SMS first, while the channel is SMS and the booking has a phone
+                if (channel === 'sms' && booking.customerPhone) {
                     const dt = luxon_1.DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ });
                     const hoursUntil = Math.max(1, Math.round(dt.diff(now, 'hours').hours));
                     const result = await sparrow_sms_service_1.default.sendAppointmentReminder(businessId, booking.customerPhone, {
@@ -270,44 +283,43 @@ class BookingController {
                         hoursUntil,
                     });
                     if (result.success) {
-                        sent++;
+                        delivered = true;
+                        smsSent++;
                     }
                     else {
-                        // This is the log that was missing — the actual reason from Sparrow
-                        // (e.g. quota exceeded, bad response code, network error) was being
-                        // swallowed and only the booking id was recorded.
-                        console.error(`${LOG_PREFIX} SMS FAILED for booking=${booking.id} phone=${booking.customerPhone}: ${result.error ?? 'unknown error'}`);
-                        failures.push(booking.id);
+                        console.warn(`${LOG_PREFIX} SMS failed for booking=${booking.id} (${result.code ?? result.error}); trying email`);
+                        // Out of credits: stop trying SMS for the rest of the batch
+                        if (result.code === 'INSUFFICIENT_CREDITS')
+                            channel = 'email';
                     }
                 }
-            }
-            else {
-                for (const booking of bookings) {
+                // Email: primary channel, or fallback for any SMS miss
+                if (!delivered && emailAllowed && booking.customerEmail) {
                     try {
-                        await email_service_1.emailService.sendAppointmentReminder(booking.customerEmail, {
-                            customerName: booking.customerName,
-                            serviceName: booking.service.name,
-                            startTime: booking.startTime,
-                            businessName: business.name,
-                            businessPhone: business.phone,
-                            businessAddress: business.address,
-                        });
-                        sent++;
+                        await sendReminderEmail(booking);
+                        delivered = true;
+                        emailSent++;
                     }
                     catch (err) {
                         console.error(`${LOG_PREFIX} EMAIL FAILED for booking=${booking.id} email=${booking.customerEmail}: ${err?.message || err}`);
-                        failures.push(booking.id);
                     }
                 }
+                if (delivered)
+                    sent++;
+                else
+                    failures.push(booking.id);
             }
-            await prisma_1.default.business.update({
-                where: { id: businessId },
-                data: { lastReminderSentAt: now.toJSDate() },
-            });
-            console.log(`${LOG_PREFIX} Done via ${channel}: sent=${sent} failed=${failures.length}${failures.length ? ` failedIds=[${failures.join(', ')}]` : ''}`);
+            const usedChannel = smsSent > 0 ? 'sms' : 'email';
             return res.status(200).json({
                 success: true,
-                data: { count: sent, failed: failures.length, channel, alreadySentToday: false },
+                data: {
+                    count: sent,
+                    failed: failures.length,
+                    channel: usedChannel,
+                    smsSent,
+                    emailSent,
+                    alreadySentToday: false,
+                },
             });
         }
         catch (error) {
@@ -363,9 +375,9 @@ class BookingController {
                         where: { id: booking.id },
                         data: { status: 'CANCELLED' },
                     });
-                    if (plan && isSubscriptionUsable) {
-                        const outcome = await notifyCancellationByPlan(business, plan, booking, booking.service?.name || 'your service', reason);
-                        results.push({ bookingId: booking.id, notified: outcome.sent, channel: outcome.channel });
+                    if (business) {
+                        const emailAllowed = !!(isSubscriptionUsable && plan?.allowEmailNotifications);
+                        await notifyCancellationByPlan(business, emailAllowed, booking, booking.service?.name || 'your service');
                     }
                     else {
                         results.push({ bookingId: booking.id, notified: false, channel: null });
@@ -614,9 +626,7 @@ class BookingController {
             // notifies via phone/SMS only). It only ever touches isEmailVerified
             // — never `status` — and only gets issued if this customer's email
             // isn't already verified.
-            const planName = business.subscription?.plan?.name;
-            const isEnterprisePlan = planName === ENTERPRISE_PLAN;
-            const needsEmailVerification = !isEnterprisePlan && customer.isEmailVerified !== true;
+            const needsEmailVerification = customer.isEmailVerified !== true;
             const verificationToken = needsEmailVerification ? (0, crypto_1.randomBytes)(32).toString('hex') : null;
             const verificationTokenExpires = needsEmailVerification ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
             const booking = await prisma_1.default.booking.create({
@@ -1064,8 +1074,8 @@ class BookingController {
                     message: 'Booking not found',
                 });
             }
-            // Capture the pre-update status BEFORE calling updateBookingStatus below —
-            // we only notify on a CONFIRMED -> CANCELLED transition, not any other one.
+            // Capture the pre-update status BEFORE updating: we only notify on a
+            // CONFIRMED -> CANCELLED transition.
             const wasConfirmed = booking.status === 'CONFIRMED';
             const isBeingCancelled = status === 'CANCELLED';
             const updatedBooking = await booking_service_1.default.updateBookingStatus(bookingId, status);
@@ -1078,35 +1088,14 @@ class BookingController {
                         }),
                         prisma_1.default.service.findUnique({ where: { id: booking.serviceId } }),
                     ]);
-                    const subscription = business?.subscription;
-                    const plan = subscription?.plan;
-                    const isSubscriptionUsable = subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL');
-                    if (business && plan && isSubscriptionUsable) {
-                        const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
-                        const dt = luxon_1.DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ });
-                        if (plan.allowSmsNotifications) {
-                            if (booking.customerPhone) {
-                                await sparrow_sms_service_1.default.sendStatusChange(booking.businessId, booking.customerPhone, {
-                                    businessName: business.name,
-                                    date: dt.setLocale('en').toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-                                    time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
-                                    status: 'cancelled',
-                                    bookingId: booking.id,
-                                });
-                            }
-                            else {
-                                console.warn(`[v0] Booking ${booking.id} cancelled but has no customerPhone; skipping SMS notification`);
-                            }
-                        }
-                        else if (plan.allowEmailNotifications) {
-                            await email_service_1.emailService.sendBookingCancellationToCustomer(booking.customerEmail, {
-                                customerName: booking.customerName,
-                                serviceName: service?.name || 'your service',
-                                startTime: booking.startTime,
-                                businessName: business.name,
-                                businessPhone: business.phone,
-                                businessAddress: business.address,
-                            });
+                    if (business) {
+                        const subscription = business.subscription;
+                        const isSubscriptionUsable = !!subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL');
+                        const emailAllowed = !!(isSubscriptionUsable && subscription?.plan?.allowEmailNotifications);
+                        // SMS if the business has credits, otherwise (or on SMS failure) email.
+                        const outcome = await notifyCancellationByPlan(business, emailAllowed, booking, service?.name || 'your service');
+                        if (!outcome.sent) {
+                            console.warn(`[v0] Booking ${booking.id} cancelled but the customer could not be notified (no credits/phone and email unavailable)`);
                         }
                     }
                 }
@@ -1143,14 +1132,11 @@ class BookingController {
             res.status(500).json({ message: "Error updating booking", error });
         }
     }
-    /**
-     * Cancel booking
-     */
     async cancelBooking(req, res) {
         try {
             const { id } = req.params;
             const bookingId = Array.isArray(id) ? id[0] : id;
-            // Capture pre-cancel status BEFORE cancelling — we only notify on a
+            // Capture pre-cancel status BEFORE cancelling: we only notify on a
             // CONFIRMED -> CANCELLED transition, mirroring updateBookingStatus.
             const existingBooking = await booking_service_1.default.getBookingById(bookingId);
             const wasConfirmed = existingBooking?.status === 'CONFIRMED';
@@ -1164,35 +1150,13 @@ class BookingController {
                         }),
                         prisma_1.default.service.findUnique({ where: { id: existingBooking.serviceId } }),
                     ]);
-                    const subscription = business?.subscription;
-                    const plan = subscription?.plan;
-                    const isSubscriptionUsable = subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL');
-                    if (business && plan && isSubscriptionUsable) {
-                        const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
-                        const dt = luxon_1.DateTime.fromJSDate(existingBooking.startTime, { zone: BUSINESS_TZ });
-                        if (plan.allowSmsNotifications) {
-                            if (existingBooking.customerPhone) {
-                                await sparrow_sms_service_1.default.sendStatusChange(existingBooking.businessId, existingBooking.customerPhone, {
-                                    businessName: business.name,
-                                    date: dt.setLocale('en').toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-                                    time: dt.setLocale('en').toLocaleString({ hour: '2-digit', minute: '2-digit' }),
-                                    status: 'cancelled',
-                                    bookingId: existingBooking.id,
-                                });
-                            }
-                            else {
-                                console.warn(`[v0] Booking ${existingBooking.id} cancelled but has no customerPhone; skipping SMS notification`);
-                            }
-                        }
-                        else if (plan.allowEmailNotifications) {
-                            await email_service_1.emailService.sendBookingCancellationToCustomer(existingBooking.customerEmail, {
-                                customerName: existingBooking.customerName,
-                                serviceName: service?.name || 'your service',
-                                startTime: existingBooking.startTime,
-                                businessName: business.name,
-                                businessPhone: business.phone,
-                                businessAddress: business.address,
-                            });
+                    if (business) {
+                        const subscription = business.subscription;
+                        const isSubscriptionUsable = !!subscription && (subscription.status === 'ACTIVE' || subscription.status === 'TRIAL');
+                        const emailAllowed = !!(isSubscriptionUsable && subscription?.plan?.allowEmailNotifications);
+                        const outcome = await notifyCancellationByPlan(business, emailAllowed, existingBooking, service?.name || 'your service');
+                        if (!outcome.sent) {
+                            console.warn(`[v0] Booking ${existingBooking.id} cancelled but the customer could not be notified (no credits/phone and email unavailable)`);
                         }
                     }
                 }
@@ -1204,7 +1168,7 @@ class BookingController {
             res.status(200).json(booking);
         }
         catch (error) {
-            res.status(500).json({ message: "Error canceling booking", error });
+            res.status(500).json({ message: 'Error canceling booking', error });
         }
     }
     /**
@@ -1346,9 +1310,7 @@ class BookingController {
             const alreadyVerified = customer.isPhoneVerified === true;
             // Email-link verification (Starter/Professional only) is a separate,
             // secondary channel that only ever touches isEmailVerified.
-            const planName = business.subscription?.plan?.name;
-            const isEnterprisePlan = planName === ENTERPRISE_PLAN;
-            const needsEmailVerification = !isEnterprisePlan && customer.isEmailVerified !== true;
+            const needsEmailVerification = customer.isEmailVerified !== true;
             const verificationToken = needsEmailVerification ? (0, crypto_1.randomBytes)(32).toString('hex') : null;
             const verificationTokenExpires = needsEmailVerification ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null;
             const bookingData = {
