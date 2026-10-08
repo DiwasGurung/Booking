@@ -7,6 +7,7 @@ exports.BusinessService = void 0;
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const image_1 = require("../utils/image");
 const slug_1 = require("../utils/slug");
+const branch_1 = require("../lib/branch");
 function parseCoord(value, min, max) {
     if (value === undefined)
         return undefined; // field not sent: leave unchanged
@@ -52,7 +53,9 @@ class BusinessService {
         });
     }
     /**
-     * Create a new business
+     * Create a new business. The business, its Main branch and the owner's
+     * role change are created in one transaction, so a business can never
+     * exist without a branch.
      */
     async createBusiness(data) {
         if (!data.userId)
@@ -66,23 +69,33 @@ class BusinessService {
         for (let attempt = 0; attempt < 3; attempt++) {
             try {
                 const slug = await (0, slug_1.generateUniqueSlug)(data.name);
-                business = await prisma_1.default.business.create({
-                    data: {
-                        name: data.name,
-                        slug,
-                        email: data.email,
-                        phone: data.phone,
-                        category: data.category,
-                        address: data.address,
-                        city: data.city,
-                        state: data.state || '',
-                        zipCode: data.zipCode || '',
-                        country: data.country,
-                        description: data.description,
-                        website: data.website,
-                        logo: data.logo,
-                        user: { connect: { id: data.userId } },
-                    },
+                business = await prisma_1.default.$transaction(async (tx) => {
+                    const created = await tx.business.create({
+                        data: {
+                            name: data.name,
+                            slug,
+                            email: data.email,
+                            phone: data.phone,
+                            category: data.category,
+                            address: data.address,
+                            city: data.city,
+                            state: data.state || '',
+                            zipCode: data.zipCode || '',
+                            country: data.country,
+                            description: data.description,
+                            website: data.website,
+                            logo: data.logo,
+                            user: { connect: { id: data.userId } },
+                        },
+                    });
+                    // Every business always has a Main branch
+                    await (0, branch_1.createMainBranch)(tx, created);
+                    // Update user role to BUSINESS_OWNER (must match the UserRole enum)
+                    await tx.user.update({
+                        where: { id: data.userId },
+                        data: { role: 'BUSINESS_OWNER' },
+                    });
+                    return created;
                 });
                 break;
             }
@@ -96,11 +109,6 @@ class BusinessService {
         }
         if (!business)
             throw new Error('Could not generate a unique booking URL');
-        // Update user role to BUSINESS_OWNER (must match the UserRole enum)
-        await prisma_1.default.user.update({
-            where: { id: data.userId },
-            data: { role: 'BUSINESS_OWNER' }
-        });
         return business;
     }
     /**
@@ -114,6 +122,7 @@ class BusinessService {
                 services: true,
                 staff: true,
                 hours: true,
+                branches: true,
             },
         });
     }
@@ -128,16 +137,19 @@ class BusinessService {
                 services: true,
                 staff: true,
                 hours: true,
+                branches: true,
             },
         });
     }
     /**
-     * Update business
+     * Update business. While the business has a single branch, the Main
+     * branch is kept in sync with the business profile.
      */
     async updateBusiness(id, data) {
-        return prisma_1.default.business.update({
-            where: { id },
-            data,
+        return prisma_1.default.$transaction(async (tx) => {
+            const updated = await tx.business.update({ where: { id }, data });
+            await (0, branch_1.syncMainBranchIfSingle)(tx, updated);
+            return updated;
         });
     }
     /**
@@ -188,19 +200,21 @@ class BusinessService {
         return { businesses, total };
     }
     /**
-     * Get business statistics
+     * Get business statistics. Optional branch filter; payments are
+     * business-level (subscription / SMS credits), so they are never filtered.
      */
-    async getBusinessStats(businessId) {
+    async getBusinessStats(businessId, branchId) {
+        const b = branchId ? { branchId } : {};
         const [totalBookings, totalRevenue, completedBookings, averageRating] = await Promise.all([
             prisma_1.default.booking.count({
-                where: { businessId },
+                where: { businessId, ...b },
             }),
             prisma_1.default.payment.aggregate({
                 where: { businessId, status: "COMPLETED" },
                 _sum: { amount: true },
             }),
             prisma_1.default.booking.count({
-                where: { businessId, status: "COMPLETED" },
+                where: { businessId, status: "COMPLETED", ...b },
             }),
             prisma_1.default.business.findUnique({
                 where: { id: businessId },
@@ -296,6 +310,11 @@ class BusinessService {
             throw error;
         }
     }
+    /**
+     * Public profile. Includes active branches so the booking page can show
+     * a branch picker (only when there is more than one).
+     * Hours carry their branchId; clients filter by the chosen branch.
+     */
     async getPublicBusinessById(identifier) {
         return prisma_1.default.business.findFirst({
             where: { OR: [{ slug: identifier.toLowerCase() }, { id: identifier }] },
@@ -308,14 +327,26 @@ class BusinessService {
                     where: { isActive: true },
                     select: { id: true, name: true, description: true, price: true, offerPrice: true, duration: true, capacity: true },
                 },
-                hours: { select: { dayOfWeek: true, openTime: true, closeTime: true, isClosed: true } },
+                branches: {
+                    where: { isActive: true },
+                    orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
+                    select: {
+                        id: true, name: true, address: true, city: true, phone: true,
+                        latitude: true, longitude: true, isMain: true,
+                    },
+                },
+                hours: {
+                    select: { branchId: true, dayOfWeek: true, openTime: true, closeTime: true, isClosed: true },
+                },
             },
         });
     }
     /**
      * Get booking and customer analytics. Subscription payments are intentionally excluded.
+     * Optional branch filter applies to bookings only: customers belong to the business.
      */
-    async getBusinessAnalytics(businessId, days = 30) {
+    async getBusinessAnalytics(businessId, days = 30, branchId) {
+        const b = branchId ? { branchId } : {};
         const safeDays = Math.min(Math.max(days, 1), 365);
         const now = new Date();
         const currentStart = new Date(now);
@@ -324,15 +355,15 @@ class BusinessService {
         previousStart.setDate(currentStart.getDate() - safeDays);
         const [currentBookings, previousBookings, customers, currentCustomers, previousCustomers, statusRows, serviceRows] = await Promise.all([
             prisma_1.default.booking.findMany({
-                where: { businessId, createdAt: { gte: currentStart } },
+                where: { businessId, ...b, createdAt: { gte: currentStart } },
                 select: { id: true, status: true, service: { select: { name: true } }, createdAt: true },
             }),
-            prisma_1.default.booking.count({ where: { businessId, createdAt: { gte: previousStart, lt: currentStart } } }),
+            prisma_1.default.booking.count({ where: { businessId, ...b, createdAt: { gte: previousStart, lt: currentStart } } }),
             prisma_1.default.customer.count({ where: { businessId } }),
             prisma_1.default.customer.count({ where: { businessId, createdAt: { gte: currentStart } } }),
             prisma_1.default.customer.count({ where: { businessId, createdAt: { gte: previousStart, lt: currentStart } } }),
-            prisma_1.default.booking.groupBy({ by: ['status'], where: { businessId, createdAt: { gte: currentStart } }, _count: { _all: true } }),
-            prisma_1.default.booking.groupBy({ by: ['serviceId'], where: { businessId, createdAt: { gte: currentStart } }, _count: { _all: true }, orderBy: { _count: { serviceId: 'desc' } }, take: 5 }),
+            prisma_1.default.booking.groupBy({ by: ['status'], where: { businessId, ...b, createdAt: { gte: currentStart } }, _count: { _all: true } }),
+            prisma_1.default.booking.groupBy({ by: ['serviceId'], where: { businessId, ...b, createdAt: { gte: currentStart } }, _count: { _all: true }, orderBy: { _count: { serviceId: 'desc' } }, take: 5 }),
         ]);
         const serviceIds = serviceRows.map((row) => row.serviceId);
         const services = await prisma_1.default.service.findMany({ where: { id: { in: serviceIds } }, select: { id: true, name: true } });
@@ -352,7 +383,8 @@ class BusinessService {
         };
     }
     /**
-     * Update business settings
+     * Update business settings. While the business has a single branch, the
+     * Main branch is kept in sync (address, phone, map pin).
      */
     async updateBusinessSettings(businessId, settings) {
         try {
@@ -368,27 +400,31 @@ class BusinessService {
             if ((latitude === null) !== (longitude === null) && latitude !== undefined && longitude !== undefined) {
                 throw new Error('Invalid coordinates');
             }
-            const business = await prisma_1.default.business.update({
-                where: { id: businessId },
-                data: {
-                    name: settings.businessName,
-                    email: settings.email,
-                    phone: settings.phone,
-                    address: settings.address,
-                    city: settings.city,
-                    state: settings.state,
-                    zipCode: settings.zipCode,
-                    country: settings.country,
-                    description: settings.description,
-                    website: settings.website,
-                    category: settings.category,
-                    ...(latitude !== undefined && { latitude }),
-                    ...(longitude !== undefined && { longitude }),
-                    ...(settings.logo !== undefined && { logo: settings.logo || null }),
-                    ...(settings.coverImage !== undefined && { coverImage: settings.coverImage || null }),
-                    ...(settings.socialMedia && { socialMedia: settings.socialMedia }),
-                    ...(settings.notificationSettings && { notificationSettings: settings.notificationSettings }),
-                }
+            const business = await prisma_1.default.$transaction(async (tx) => {
+                const updated = await tx.business.update({
+                    where: { id: businessId },
+                    data: {
+                        name: settings.businessName,
+                        email: settings.email,
+                        phone: settings.phone,
+                        address: settings.address,
+                        city: settings.city,
+                        state: settings.state,
+                        zipCode: settings.zipCode,
+                        country: settings.country,
+                        description: settings.description,
+                        website: settings.website,
+                        category: settings.category,
+                        ...(latitude !== undefined && { latitude }),
+                        ...(longitude !== undefined && { longitude }),
+                        ...(settings.logo !== undefined && { logo: settings.logo || null }),
+                        ...(settings.coverImage !== undefined && { coverImage: settings.coverImage || null }),
+                        ...(settings.socialMedia && { socialMedia: settings.socialMedia }),
+                        ...(settings.notificationSettings && { notificationSettings: settings.notificationSettings }),
+                    },
+                });
+                await (0, branch_1.syncMainBranchIfSingle)(tx, updated);
+                return updated;
             });
             return {
                 businessName: business.name,

@@ -1,3 +1,4 @@
+import { string } from "zod"
 import  prisma  from "../lib/prisma"
 import type { Booking, Prisma, BookingStatus } from "@prisma/client"
 
@@ -8,6 +9,8 @@ export class BookingService {
   async createBooking(data: {
     serviceId: string
     businessId: string
+    branchId?: string
+    staffId?: string
     userId: string
     customerId?: string
     startTime: Date
@@ -35,22 +38,24 @@ export class BookingService {
         user: true,
         customer: true,
         staff: true,
+        branch: true,
       },
     })
   }
   async getBusinessBookings(
   businessId: string,
+  
   page = 1,
   limit = 10,
   status?: BookingStatus,
   staffId?: string,
   verified?: boolean,
   startDate?: Date,
-  endDate?: Date
+  endDate?: Date, branchId?: string
 ): Promise<{ bookings: Booking[]; total: number }> {
   const skip = (page - 1) * limit;
 
-  const where: Prisma.BookingWhereInput = { businessId };
+  const where: Prisma.BookingWhereInput = { businessId, ...(branchId && { branchId })  };
   if (status) where.status = status;
   if (staffId) where.staffId = staffId;
   if (verified !== undefined) where.isEmailVerified = verified;
@@ -77,7 +82,7 @@ export class BookingService {
   async getCustomerBookings(userId: string): Promise<Booking[]> {
     return prisma.booking.findMany({
       where: { userId },
-      include: { service: true, business: true, staff: true },
+      include: { service: true, business: true, staff: true,branch: true },
       orderBy: { startTime: "desc" },
     })
   }
@@ -124,7 +129,7 @@ export class BookingService {
    /**
    * Get available slots for a service on a specific date
    */
-  async getAvailableSlots(serviceId: string, businessId: string, date: Date, staffId?: string): Promise<string[]> {
+  async getAvailableSlots(serviceId: string, businessId: string, date: Date,branchId?: string, staffId?: string): Promise<string[]> {
     const service = await prisma.service.findUnique({
       where: { id: serviceId },
     })
@@ -141,13 +146,9 @@ export class BookingService {
     // Get business hours for the day
     const dayOfWeek = date.getDay()
     const businessHours = await prisma.businessHours.findUnique({
-      where: {
-        businessId_dayOfWeek: {
-          businessId,
-          dayOfWeek: dayOfWeek === 0 ? 6 : dayOfWeek - 1, // Convert JS day (0=Sun) to DB day (0=Mon)
-        },
-      },
-    })
+    where:{  branchId_dayOfWeek: { branchId: branchId as string, dayOfWeek: dayOfWeek === 0 ? 6 : dayOfWeek - 1 } }
+       // decide fallback behavior for branchless businesses — see note below
+  })
 
     if (!businessHours || businessHours.isClosed) return []
 
@@ -184,7 +185,12 @@ export class BookingService {
       })
       
       // Filter to only active staff from this business
-      staffStaffServices = allStaffServices.filter((ss: { staff: { businessId: string; isActive: any } }) => ss.staff.businessId === businessId && ss.staff.isActive)
+       staffStaffServices = allStaffServices.filter(ss =>
+    ss.staff.businessId === businessId &&
+    ss.staff.isActive &&
+    (!branchId || ss.staff.branchId === branchId)
+  )
+
       
       if (staffStaffServices.length === 0) {
         console.error('[v0] No staff found for service:', { businessId, serviceId })
@@ -332,8 +338,8 @@ export class BookingService {
 
     return trends
   }
-  async getBusinessAvailableSlots(serviceId: string, businessId: string, date: Date, staffId?: string): Promise<string[]> {
-    return this.getAvailableSlots(serviceId, businessId, date, staffId)
+  async getBusinessAvailableSlots(serviceId: string, businessId: string, date: Date, staffId?: string, branchId?: string): Promise<string[]> {
+    return this.getAvailableSlots(serviceId, businessId, date, staffId, branchId)
   }
 }
 

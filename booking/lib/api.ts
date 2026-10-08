@@ -18,6 +18,20 @@ export type ApiResponse<T> = {
   alreadyVerified?: boolean 
   formData?: Record<string, string>
   packages?: SmsCreditPackage[]
+  limit?: number
+}
+
+export interface Branch {
+  id: string
+  name: string
+  phone?: string | null
+  address: string
+  city: string
+  state?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  isMain: boolean
+  isActive: boolean
 }
 
 export interface Customer {
@@ -355,6 +369,14 @@ export async function apiCall<T>(
   }
 }
 
+export const branchApi = {
+  list: () => apiCall<Branch[]>('/api/branches'),
+  publicList: (businessId: string) => apiCall<Branch[]>(`/api/branches/public/${businessId}`),
+  create: (data: Partial<Branch>) => apiCall<Branch>('/api/branches', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: Partial<Branch>) => apiCall<Branch>(`/api/branches/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id: string) => apiCall<void>(`/api/branches/${id}`, { method: 'DELETE' }),
+}
+
 // Users API - /api/users prefix
 export const usersApi = {
   // Register/Create new user
@@ -681,7 +703,7 @@ export const bookingsApi = {
     }),
 
   // Get all bookings for a specific business
-  getBusinessBookings: (businessId: string, page = 1, limit = 10, status?: string, startDate?: string, endDate?: string, staffId?: string) => {
+  getBusinessBookings: (businessId: string, page = 1, limit = 10, status?: string, startDate?: string, endDate?: string, staffId?: string, branchId?: string) => {
     let url = `/api/booking/businesses/${businessId}/bookings?page=${page}&limit=${limit}`
     if (status) {
       url += `&status=${status}`
@@ -695,6 +717,7 @@ export const bookingsApi = {
     if (staffId) {
       url += `&staffId=${staffId}`
     }
+      if (branchId) {url += `&branchId=${branchId}`}
     return apiCall<Booking[] | { bookings: Booking[] }>(url)
   },
 
@@ -711,14 +734,12 @@ export const bookingsApi = {
     return apiCall<string[]>(url)
   },
 
-  // Get available slots for BUSINESS bookings (checks staff availability and timeoffs)
-  getBusinessAvailableSlots: (businessId: string, serviceId: string, date: string, staffId?: string) => {
-    let url = `/api/booking/business/businesses/${businessId}/services/${serviceId}/available-slots?date=${date}`
-    if (staffId) {
-      url += `&staffId=${staffId}`
-    }
-    return apiCall<string[]>(url)
-  },
+  getBusinessAvailableSlots: (businessId: string, serviceId: string, date: string, staffId?: string, branchId?: string) => {
+  let url = `/api/booking/business/businesses/${businessId}/services/${serviceId}/available-slots?date=${date}`
+  if (staffId) url += `&staffId=${staffId}`
+  if (branchId) url += `&branchId=${branchId}`
+  return apiCall<string[]>(url)
+},
 
   // Get all bookings for a specific user/customer
   getCustomerBookings: (userId: string) =>

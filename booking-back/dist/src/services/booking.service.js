@@ -26,12 +26,13 @@ class BookingService {
                 user: true,
                 customer: true,
                 staff: true,
+                branch: true,
             },
         });
     }
-    async getBusinessBookings(businessId, page = 1, limit = 10, status, staffId, verified, startDate, endDate) {
+    async getBusinessBookings(businessId, page = 1, limit = 10, status, staffId, verified, startDate, endDate, branchId) {
         const skip = (page - 1) * limit;
-        const where = { businessId };
+        const where = { businessId, ...(branchId && { branchId }) };
         if (status)
             where.status = status;
         if (staffId)
@@ -59,7 +60,7 @@ class BookingService {
     async getCustomerBookings(userId) {
         return prisma_1.default.booking.findMany({
             where: { userId },
-            include: { service: true, business: true, staff: true },
+            include: { service: true, business: true, staff: true, branch: true },
             orderBy: { startTime: "desc" },
         });
     }
@@ -101,7 +102,7 @@ class BookingService {
     /**
     * Get available slots for a service on a specific date
     */
-    async getAvailableSlots(serviceId, businessId, date, staffId) {
+    async getAvailableSlots(serviceId, businessId, date, branchId, staffId) {
         const service = await prisma_1.default.service.findUnique({
             where: { id: serviceId },
         });
@@ -115,12 +116,8 @@ class BookingService {
         // Get business hours for the day
         const dayOfWeek = date.getDay();
         const businessHours = await prisma_1.default.businessHours.findUnique({
-            where: {
-                businessId_dayOfWeek: {
-                    businessId,
-                    dayOfWeek: dayOfWeek === 0 ? 6 : dayOfWeek - 1, // Convert JS day (0=Sun) to DB day (0=Mon)
-                },
-            },
+            where: { branchId_dayOfWeek: { branchId: branchId, dayOfWeek: dayOfWeek === 0 ? 6 : dayOfWeek - 1 } }
+            // decide fallback behavior for branchless businesses — see note below
         });
         if (!businessHours || businessHours.isClosed)
             return [];
@@ -156,7 +153,9 @@ class BookingService {
                 }
             });
             // Filter to only active staff from this business
-            staffStaffServices = allStaffServices.filter((ss) => ss.staff.businessId === businessId && ss.staff.isActive);
+            staffStaffServices = allStaffServices.filter(ss => ss.staff.businessId === businessId &&
+                ss.staff.isActive &&
+                (!branchId || ss.staff.branchId === branchId));
             if (staffStaffServices.length === 0) {
                 console.error('[v0] No staff found for service:', { businessId, serviceId });
                 throw new Error(`No staff members are assigned to this service. Please contact the business.`);
@@ -279,8 +278,8 @@ class BookingService {
         });
         return trends;
     }
-    async getBusinessAvailableSlots(serviceId, businessId, date, staffId) {
-        return this.getAvailableSlots(serviceId, businessId, date, staffId);
+    async getBusinessAvailableSlots(serviceId, businessId, date, staffId, branchId) {
+        return this.getAvailableSlots(serviceId, businessId, date, staffId, branchId);
     }
 }
 exports.BookingService = BookingService;

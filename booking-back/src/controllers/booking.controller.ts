@@ -8,6 +8,7 @@ import prisma from "../lib/prisma";
 import type { BookingStatus } from "@prisma/client";
 import { DateTime } from 'luxon'
 import SubscriptionSmsService from "../services/subscription-sms.service";
+import { getBranchDisplay, resolveBranchId } from "../lib/branch";
 
 /** SMS is available whenever the business has at least 1 credit. Plan is irrelevant. */
 async function hasSmsCredits(businessId: string): Promise<boolean> {
@@ -23,6 +24,7 @@ type ConfirmationBusiness = {
 
 type ConfirmationBooking = {
   id: string
+  branchId?: string | null 
   customerName: string
   customerEmail: string
   customerPhone: string
@@ -190,6 +192,8 @@ export async function sendBookingConfirmationByPlan(
   options?: { notifyOwner?: boolean }
 ) {
   const notifyOwner = options?.notifyOwner !== false
+
+  const display = await getBranchDisplay(booking.branchId, business)
 
   const ownerPromise = notifyOwner
     ? notifyOwnerOfConfirmedBooking(businessId, booking, serviceName)
@@ -483,7 +487,7 @@ return res.status(200).json({
       })
     }
 
-    const { businessId, staffId, serviceId, startTime: bodyStartTime, endTime: bodyEndTime, notes } = req.body
+    const { businessId, staffId, serviceId,branchId: bodyBranchId,  startTime: bodyStartTime, endTime: bodyEndTime, notes } = req.body
     const startTime = bodyStartTime ? new Date(bodyStartTime) : null
     const endTime = bodyEndTime ? new Date(bodyEndTime) : null
 
@@ -504,12 +508,19 @@ return res.status(200).json({
       return res.status(404).json({ success: false, message: "Service not found" })
     }
 
-    const finalEndTime = endTime || new Date(startTime.getTime() + (service.duration || 60) * 60000)
+    let branchId: string
+try { branchId = await resolveBranchId(businessId, bodyBranchId) }
+catch (e: any) { return res.status(400).json({ success: false, message: e.message }) }
 
+    const finalEndTime = endTime || new Date(startTime.getTime() + (service.duration || 60) * 60000)
+    if (staffId) {
+  const s = await prisma.staff.findFirst({ where: { id: staffId, businessId, OR: [{ branchId }, { branchId: null }] } })
+  if (!s) return res.status(400).json({ success: false, message: 'Staff member does not work at this branch' })
+}
     let assignedStaffId = staffId
     if (!assignedStaffId) {
       const candidates = await prisma.staff.findMany({
-        where: { businessId, isActive: true, services: { some: { serviceId } } }
+        where: { businessId, branchId, isActive: true, services: { some: { serviceId } } }
       })
       if (candidates.length === 0) {
         return res.status(400).json({
@@ -816,6 +827,7 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
       customerPhone,
       startTime: bodyStartTime,
       notes,
+      branchId: bodyBranchId
     } = req.body
 
     if (!businessId || !serviceId || !customerName || !bodyStartTime) {
@@ -839,13 +851,14 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
     if (!service || service.businessId !== businessId) {
       return res.status(404).json({ success: false, message: "Service not found" })
     }
+    let branchId: string
+try { branchId = await resolveBranchId(businessId, bodyBranchId) }
+catch (e: any) { return res.status(400).json({ success: false, message: e.message }) }
 
     if (staffId) {
-      const staff = await prisma.staff.findUnique({ where: { id: staffId } })
-      if (!staff || staff.businessId !== businessId) {
-        return res.status(404).json({ success: false, message: "Staff member not found" })
-      }
-    }
+  const s = await prisma.staff.findFirst({ where: { id: staffId, businessId, OR: [{ branchId }, { branchId: null }] } })
+  if (!s) return res.status(400).json({ success: false, message: 'Staff member does not work at this branch' })
+}
 
     const startTime = new Date(bodyStartTime)
     if (isNaN(startTime.getTime())) {
@@ -934,7 +947,7 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
         })
       }
 
-      const { businessId, staffId, serviceId, startTime: bodyStartTime, endTime: bodyEndTime, notes } = req.body
+      const { businessId, staffId, serviceId,  branchId: bodyBranchId, startTime: bodyStartTime, endTime: bodyEndTime, notes } = req.body
 
       // Parse dates
       const startTime = bodyStartTime ? new Date(bodyStartTime) : null
@@ -998,19 +1011,14 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
         })
       }
 
-      // Verify staff exists if provided
-      if (staffId) {
-        const staff = await prisma.staff.findUnique({
-          where: { id: staffId },
-        })
+      let branchId: string
+try { branchId = await resolveBranchId(businessId, bodyBranchId) }
+catch (e: any) { return res.status(400).json({ success: false, message: e.message }) }
 
-        if (!staff || staff.businessId !== businessId) {
-          return res.status(404).json({
-            success: false,
-            message: "Staff member not found"
-          })
-        }
-      }
+     if (staffId) {
+  const s = await prisma.staff.findFirst({ where: { id: staffId, businessId, OR: [{ branchId }, { branchId: null }] } })
+  if (!s) return res.status(400).json({ success: false, message: 'Staff member does not work at this branch' })
+}
 
       // Get authenticated user details for booking
       const user = await prisma.user.findUnique({
@@ -1041,7 +1049,9 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
         isEmailVerified: true, // Already verified since user is authenticated
         user: { connect: { id: userId } }, // Link to authenticated user using relation
         service: { connect: { id: serviceId } },
-        business: { connect: { id: businessId } },
+        business: { connect: { id: businessId } },branch: { connect: { id: branchId } },
+
+        
       }
 
       // Add staffId if provided
@@ -1056,6 +1066,7 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
           business: true,
           staff: true,
           user: true,
+          branch: true,
         },
       })
 
@@ -1129,13 +1140,13 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
   */
   async getBusinessAvailableSlots(req: Request, res: Response): Promise<Response | void> {
     try {
-      const { serviceId, businessId } = req.params
+      const { serviceId, businessId} = req.params
       const { date, staffId } = req.query
 
       if (!date) {
         return res.status(400).json({ success: false, error: "Date query parameter is required" })
       }
-
+const branchId = typeof req.query.branchId === 'string' ? req.query.branchId : undefined
       const dateStr = (Array.isArray(date) ? date[0] : date) as string
       const [year, month, day] = dateStr.split('-').map(Number)
       const parsedDate = new Date(year, month - 1, day)
@@ -1146,7 +1157,9 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
         Array.isArray(serviceId) ? serviceId[0] : serviceId,
         Array.isArray(businessId) ? businessId[0] : businessId,
         parsedDate,
-        staffIdStr
+        staffIdStr,
+        branchId
+        
       )
 
       res.status(200).json({ success: true, data: slots })
@@ -1189,6 +1202,7 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
         verified,
         startDate,
         endDate,
+        branchId
       }: {
         page?: string;
         limit?: string;
@@ -1197,6 +1211,7 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
         verified?: string;
         startDate?: string;
         endDate?: string;
+        branchId?: string;
       } = req.query
 
       // Helper to parse date strings into Date objects
@@ -1229,7 +1244,8 @@ async createManualBooking(req: Request, res: Response): Promise<Response | void>
         staffId,
         verifiedValue,
         parsedStartDate,
-        parsedEndDate
+        parsedEndDate,
+        branchId
       )
 
       res.status(200).json(result)
@@ -1498,12 +1514,16 @@ async updateBookingStatus(req: Request, res: Response): Promise<Response | void>
         return res.status(404).json({ success: false, message: "Service not found" })
       }
 
-      if (staffId) {
-        const staff = await prisma.staff.findUnique({ where: { id: staffId } })
-        if (!staff || staff.businessId !== businessId) {
-          return res.status(404).json({ success: false, message: "Staff member not found" })
-        }
-      }
+      let branchId: string
+if (staffId) {
+  const staff = await prisma.staff.findUnique({ where: { id: staffId } })
+  if (!staff || staff.businessId !== businessId) {
+    return res.status(404).json({ success: false, message: "Staff member not found" })
+  }
+  branchId = staff.branchId ?? await resolveBranchId(businessId, req.body.branchId)
+} else {
+  branchId = await resolveBranchId(businessId, req.body.branchId)
+}
 
       let customer
       let isNewCustomer = false
@@ -1567,6 +1587,7 @@ async updateBookingStatus(req: Request, res: Response): Promise<Response | void>
         service: { connect: { id: serviceId } },
         business: { connect: { id: businessId } },
         customer: { connect: { id: customer.id } },
+        branch: { connect: { id: branchId } },
       }
 
       if (staffId) {
@@ -1575,7 +1596,7 @@ async updateBookingStatus(req: Request, res: Response): Promise<Response | void>
 
       const booking = await prisma.booking.create({
         data: bookingData,
-        include: { service: true, business: true, staff: true, customer: true },
+        include: { service: true, business: true, staff: true, customer: true ,branch: true},
       })
 
       const warnings: string[] = []

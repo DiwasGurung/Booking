@@ -27,6 +27,7 @@ import phoneVerificationRouter from "./routes/phone-verification.routes";
 import FeedbackRoutes from "./routes/feedback.routes";
 import router from "./routes/sms.routes";
 import SmsCreditRoutes from "./routes/sms-credit.routes";
+import BranchRoutes from "./routes/branch.routes";
 
 
 dotenv.config();
@@ -108,6 +109,8 @@ app.use("/api/upload", uploadRoutes)
 app.use("/api/sms", router)
 
 app.use("/api/sms-credits", SmsCreditRoutes)
+
+app.use("/api/branches", BranchRoutes)
 
 
 // Catch-all route (should be last)

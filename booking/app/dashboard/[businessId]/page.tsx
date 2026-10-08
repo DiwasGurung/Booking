@@ -462,7 +462,7 @@ const copyToClipboard = () => {
                                 <p>{new Date(booking.startTime).toLocaleDateString()} {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                               </div>
                               <span className="text-sm font-semibold text-slate-900 flex-shrink-0">
-                                Rs.{(booking.service?.price || 0).toFixed(2)}
+                                Rs.{(booking.price|| 0).toFixed(2)}
                               </span>
                             </div>
                           </div>

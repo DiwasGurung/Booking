@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation"
 import React from "react"
+import { BranchProvider } from '@/context/branchContext'
 
 export default function DashboardLayout({
   children,
@@ -26,5 +27,5 @@ export default function DashboardLayout({
     }
   }, [pathname])
 
-  return <>{children}</>
+  return  <BranchProvider>{children}</BranchProvider>
 }

@@ -12,6 +12,7 @@ const sparrow_sms_service_1 = __importDefault(require("../services/sparrow-sms.s
 const prisma_1 = __importDefault(require("../lib/prisma"));
 const luxon_1 = require("luxon");
 const subscription_sms_service_1 = __importDefault(require("../services/subscription-sms.service"));
+const branch_1 = require("../lib/branch");
 /** SMS is available whenever the business has at least 1 credit. Plan is irrelevant. */
 async function hasSmsCredits(businessId) {
     return (await subscription_sms_service_1.default.getBalance(businessId)) >= 1;
@@ -155,6 +156,7 @@ function isStartTimeInFuture(startTime) {
  */
 async function sendBookingConfirmationByPlan(businessId, business, booking, serviceName, verificationToken, options) {
     const notifyOwner = options?.notifyOwner !== false;
+    const display = await (0, branch_1.getBranchDisplay)(booking.branchId, business);
     const ownerPromise = notifyOwner
         ? notifyOwnerOfConfirmedBooking(businessId, booking, serviceName)
         : Promise.resolve();
@@ -408,7 +410,7 @@ class BookingController {
                     message: "User ID is required. Please log in to create a booking."
                 });
             }
-            const { businessId, staffId, serviceId, startTime: bodyStartTime, endTime: bodyEndTime, notes } = req.body;
+            const { businessId, staffId, serviceId, branchId: bodyBranchId, startTime: bodyStartTime, endTime: bodyEndTime, notes } = req.body;
             const startTime = bodyStartTime ? new Date(bodyStartTime) : null;
             const endTime = bodyEndTime ? new Date(bodyEndTime) : null;
             if (!businessId || !serviceId || !startTime) {
@@ -425,11 +427,23 @@ class BookingController {
             if (!service) {
                 return res.status(404).json({ success: false, message: "Service not found" });
             }
+            let branchId;
+            try {
+                branchId = await (0, branch_1.resolveBranchId)(businessId, bodyBranchId);
+            }
+            catch (e) {
+                return res.status(400).json({ success: false, message: e.message });
+            }
             const finalEndTime = endTime || new Date(startTime.getTime() + (service.duration || 60) * 60000);
+            if (staffId) {
+                const s = await prisma_1.default.staff.findFirst({ where: { id: staffId, businessId, OR: [{ branchId }, { branchId: null }] } });
+                if (!s)
+                    return res.status(400).json({ success: false, message: 'Staff member does not work at this branch' });
+            }
             let assignedStaffId = staffId;
             if (!assignedStaffId) {
                 const candidates = await prisma_1.default.staff.findMany({
-                    where: { businessId, isActive: true, services: { some: { serviceId } } }
+                    where: { businessId, branchId, isActive: true, services: { some: { serviceId } } }
                 });
                 if (candidates.length === 0) {
                     return res.status(400).json({
@@ -700,7 +714,7 @@ class BookingController {
             if (!userId) {
                 return res.status(401).json({ success: false, message: "Please log in to create a booking." });
             }
-            const { businessId, serviceId, staffId, customerName, customerEmail, customerPhone, startTime: bodyStartTime, notes, } = req.body;
+            const { businessId, serviceId, staffId, customerName, customerEmail, customerPhone, startTime: bodyStartTime, notes, branchId: bodyBranchId } = req.body;
             if (!businessId || !serviceId || !customerName || !bodyStartTime) {
                 return res.status(400).json({
                     success: false,
@@ -720,11 +734,17 @@ class BookingController {
             if (!service || service.businessId !== businessId) {
                 return res.status(404).json({ success: false, message: "Service not found" });
             }
+            let branchId;
+            try {
+                branchId = await (0, branch_1.resolveBranchId)(businessId, bodyBranchId);
+            }
+            catch (e) {
+                return res.status(400).json({ success: false, message: e.message });
+            }
             if (staffId) {
-                const staff = await prisma_1.default.staff.findUnique({ where: { id: staffId } });
-                if (!staff || staff.businessId !== businessId) {
-                    return res.status(404).json({ success: false, message: "Staff member not found" });
-                }
+                const s = await prisma_1.default.staff.findFirst({ where: { id: staffId, businessId, OR: [{ branchId }, { branchId: null }] } });
+                if (!s)
+                    return res.status(400).json({ success: false, message: 'Staff member does not work at this branch' });
             }
             const startTime = new Date(bodyStartTime);
             if (isNaN(startTime.getTime())) {
@@ -807,7 +827,7 @@ class BookingController {
                     message: "User ID is required. Please log in to create a booking."
                 });
             }
-            const { businessId, staffId, serviceId, startTime: bodyStartTime, endTime: bodyEndTime, notes } = req.body;
+            const { businessId, staffId, serviceId, branchId: bodyBranchId, startTime: bodyStartTime, endTime: bodyEndTime, notes } = req.body;
             // Parse dates
             const startTime = bodyStartTime ? new Date(bodyStartTime) : null;
             const endTime = bodyEndTime ? new Date(bodyEndTime) : null;
@@ -861,17 +881,17 @@ class BookingController {
                     message: "Service not found"
                 });
             }
-            // Verify staff exists if provided
+            let branchId;
+            try {
+                branchId = await (0, branch_1.resolveBranchId)(businessId, bodyBranchId);
+            }
+            catch (e) {
+                return res.status(400).json({ success: false, message: e.message });
+            }
             if (staffId) {
-                const staff = await prisma_1.default.staff.findUnique({
-                    where: { id: staffId },
-                });
-                if (!staff || staff.businessId !== businessId) {
-                    return res.status(404).json({
-                        success: false,
-                        message: "Staff member not found"
-                    });
-                }
+                const s = await prisma_1.default.staff.findFirst({ where: { id: staffId, businessId, OR: [{ branchId }, { branchId: null }] } });
+                if (!s)
+                    return res.status(400).json({ success: false, message: 'Staff member does not work at this branch' });
             }
             // Get authenticated user details for booking
             const user = await prisma_1.default.user.findUnique({
@@ -898,7 +918,7 @@ class BookingController {
                 isEmailVerified: true, // Already verified since user is authenticated
                 user: { connect: { id: userId } }, // Link to authenticated user using relation
                 service: { connect: { id: serviceId } },
-                business: { connect: { id: businessId } },
+                business: { connect: { id: businessId } }, branch: { connect: { id: branchId } },
             };
             // Add staffId if provided
             if (staffId) {
@@ -911,6 +931,7 @@ class BookingController {
                     business: true,
                     staff: true,
                     user: true,
+                    branch: true,
                 },
             });
             const emailWarnings = [];
@@ -985,12 +1006,13 @@ class BookingController {
             if (!date) {
                 return res.status(400).json({ success: false, error: "Date query parameter is required" });
             }
+            const branchId = typeof req.query.branchId === 'string' ? req.query.branchId : undefined;
             const dateStr = (Array.isArray(date) ? date[0] : date);
             const [year, month, day] = dateStr.split('-').map(Number);
             const parsedDate = new Date(year, month - 1, day);
             // Ensure staffIdStr is a string or undefined (req.query can contain ParsedQs)
             const staffIdStr = typeof staffId === 'string' ? staffId : undefined;
-            const slots = await booking_service_1.default.getBusinessAvailableSlots(Array.isArray(serviceId) ? serviceId[0] : serviceId, Array.isArray(businessId) ? businessId[0] : businessId, parsedDate, staffIdStr);
+            const slots = await booking_service_1.default.getBusinessAvailableSlots(Array.isArray(serviceId) ? serviceId[0] : serviceId, Array.isArray(businessId) ? businessId[0] : businessId, parsedDate, staffIdStr, branchId);
             res.status(200).json({ success: true, data: slots });
         }
         catch (error) {
@@ -1023,7 +1045,7 @@ class BookingController {
         try {
             const { businessId } = req.params;
             // Explicitly type req.query
-            const { page, limit, status, staffId, verified, startDate, endDate, } = req.query;
+            const { page, limit, status, staffId, verified, startDate, endDate, branchId } = req.query;
             // Helper to parse date strings into Date objects
             const parseDate = (value) => {
                 if (value && !Number.isNaN(Date.parse(value))) {
@@ -1042,7 +1064,7 @@ class BookingController {
                 validatedStatus = status;
             }
             // Call service with validated and parsed parameters
-            const result = await booking_service_1.default.getBusinessBookings(Array.isArray(businessId) ? businessId[0] : businessId, page ? parseInt(page) : 1, limit ? parseInt(limit) : 10, validatedStatus, staffId, verifiedValue, parsedStartDate, parsedEndDate);
+            const result = await booking_service_1.default.getBusinessBookings(Array.isArray(businessId) ? businessId[0] : businessId, page ? parseInt(page) : 1, limit ? parseInt(limit) : 10, validatedStatus, staffId, verifiedValue, parsedStartDate, parsedEndDate, branchId);
             res.status(200).json(result);
         }
         catch (error) {
@@ -1265,11 +1287,16 @@ class BookingController {
             if (!service || service.businessId !== businessId) {
                 return res.status(404).json({ success: false, message: "Service not found" });
             }
+            let branchId;
             if (staffId) {
                 const staff = await prisma_1.default.staff.findUnique({ where: { id: staffId } });
                 if (!staff || staff.businessId !== businessId) {
                     return res.status(404).json({ success: false, message: "Staff member not found" });
                 }
+                branchId = staff.branchId ?? await (0, branch_1.resolveBranchId)(businessId, req.body.branchId);
+            }
+            else {
+                branchId = await (0, branch_1.resolveBranchId)(businessId, req.body.branchId);
             }
             let customer;
             let isNewCustomer = false;
@@ -1328,13 +1355,14 @@ class BookingController {
                 service: { connect: { id: serviceId } },
                 business: { connect: { id: businessId } },
                 customer: { connect: { id: customer.id } },
+                branch: { connect: { id: branchId } },
             };
             if (staffId) {
                 bookingData.staff = { connect: { id: staffId } };
             }
             const booking = await prisma_1.default.booking.create({
                 data: bookingData,
-                include: { service: true, business: true, staff: true, customer: true },
+                include: { service: true, business: true, staff: true, customer: true, branch: true },
             });
             const warnings = [];
             // Only send the customer-facing confirmation now if the phone is

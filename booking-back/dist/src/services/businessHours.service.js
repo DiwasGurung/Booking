@@ -5,18 +5,29 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BusinessHoursService = void 0;
 const prisma_1 = __importDefault(require("../lib/prisma"));
+const luxon_1 = require("luxon");
+const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || "Asia/Kathmandu";
 class BusinessHoursService {
     /**
-     * Set business hours for a day
+     * Resolve the branch to operate on and verify it belongs to the business.
+     * No branchId given -> the business's main branch.
+     * Throws BRANCH_NOT_FOUND if the branch doesn't exist or belongs to another business.
+     */
+    async resolveBranchId(businessId, branchId) {
+        const branch = branchId
+            ? await prisma_1.default.branch.findFirst({ where: { id: branchId, businessId }, select: { id: true } })
+            : await prisma_1.default.branch.findFirst({ where: { businessId, isMain: true }, select: { id: true } });
+        if (!branch)
+            throw new Error("BRANCH_NOT_FOUND");
+        return branch.id;
+    }
+    /**
+     * Set business hours for a day (per branch)
      */
     async setBusinessHours(data) {
+        const branchId = await this.resolveBranchId(data.businessId, data.branchId);
         return prisma_1.default.businessHours.upsert({
-            where: {
-                businessId_dayOfWeek: {
-                    businessId: data.businessId,
-                    dayOfWeek: data.dayOfWeek,
-                },
-            },
+            where: { branchId_dayOfWeek: { branchId, dayOfWeek: data.dayOfWeek } },
             update: {
                 openTime: data.openTime,
                 closeTime: data.closeTime,
@@ -24,6 +35,7 @@ class BusinessHoursService {
             },
             create: {
                 businessId: data.businessId,
+                branchId,
                 dayOfWeek: data.dayOfWeek,
                 openTime: data.openTime,
                 closeTime: data.closeTime,
@@ -32,97 +44,111 @@ class BusinessHoursService {
         });
     }
     /**
-     * Get business hours
+     * Get a branch's weekly hours
      */
-    async getBusinessHours(businessId) {
+    async getBusinessHours(businessId, branchId) {
+        const resolved = await this.resolveBranchId(businessId, branchId);
         return prisma_1.default.businessHours.findMany({
-            where: { businessId },
+            where: { businessId, branchId: resolved },
             orderBy: { dayOfWeek: "asc" },
         });
     }
-    /**
-     * Get hours for a specific day
-     */
-    async getHoursForDay(businessId, dayOfWeek) {
+    async getHoursForDay(branchId, dayOfWeek) {
         return prisma_1.default.businessHours.findUnique({
-            where: {
-                businessId_dayOfWeek: {
-                    businessId,
-                    dayOfWeek,
-                },
-            },
+            where: { branchId_dayOfWeek: { branchId, dayOfWeek } },
         });
     }
     /**
-     * Update business hours
+     * Update business hours (scoped to the owning business)
      */
-    async updateBusinessHours(id, data) {
-        return prisma_1.default.businessHours.update({
-            where: { id },
-            data,
-        });
+    async updateBusinessHours(businessId, id, data) {
+        const existing = await prisma_1.default.businessHours.findFirst({ where: { id, businessId } });
+        if (!existing)
+            throw new Error("HOURS_NOT_FOUND");
+        return prisma_1.default.businessHours.update({ where: { id }, data });
     }
     /**
-     * Delete business hours
+     * Delete business hours (scoped to the owning business)
      */
-    async deleteBusinessHours(id) {
-        return prisma_1.default.businessHours.delete({
-            where: { id },
-        });
+    async deleteBusinessHours(businessId, id) {
+        const existing = await prisma_1.default.businessHours.findFirst({ where: { id, businessId } });
+        if (!existing)
+            throw new Error("HOURS_NOT_FOUND");
+        return prisma_1.default.businessHours.delete({ where: { id } });
     }
     /**
-     * Check if business is open
+     * Is the branch open right now? Uses the business timezone (not the server's)
+     * and respects closed dates.
      */
-    async isBusinessOpen(businessId, date = new Date()) {
-        const dayOfWeek = date.getDay();
-        const hours = await this.getHoursForDay(businessId, dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+    async isBusinessOpen(branchId, date = new Date()) {
+        const local = luxon_1.DateTime.fromJSDate(date, { zone: BUSINESS_TZ });
+        const dayOfWeek = local.weekday - 1; // luxon: 1 = Monday ... 7 = Sunday -> 0 = Monday ... 6 = Sunday
+        // Closed dates are stored as UTC midnight of the calendar day
+        const closedDay = new Date(`${local.toISODate()}T00:00:00.000Z`);
+        const closed = await prisma_1.default.closedDate.findUnique({
+            where: { branchId_date: { branchId, date: closedDay } },
+            select: { id: true },
+        });
+        if (closed)
+            return false;
+        const hours = await this.getHoursForDay(branchId, dayOfWeek);
         if (!hours || hours.isClosed)
             return false;
         const [openHour, openMin] = hours.openTime.split(":").map(Number);
         const [closeHour, closeMin] = hours.closeTime.split(":").map(Number);
-        const currentHour = date.getHours();
-        const currentMin = date.getMinutes();
-        const currentTime = currentHour * 60 + currentMin;
-        const openTime = openHour * 60 + openMin;
-        const closeTime = closeHour * 60 + closeMin;
-        return currentTime >= openTime && currentTime < closeTime;
+        const currentTime = local.hour * 60 + local.minute;
+        return currentTime >= openHour * 60 + openMin && currentTime < closeHour * 60 + closeMin;
     }
     /**
-     * Add staff time off
+     * Add staff time off. A staff member's time off inherits their branch.
      */
     async addTimeOff(data) {
-        const startDate = new Date(data.startDate);
-        const endDate = new Date(data.endDate);
+        let branchId = null;
+        if (data.staffId) {
+            const staff = await prisma_1.default.staff.findFirst({
+                where: { id: data.staffId, businessId: data.businessId },
+                select: { branchId: true },
+            });
+            if (!staff)
+                throw new Error("STAFF_NOT_FOUND");
+            branchId = staff.branchId;
+        }
+        else if (data.branchId) {
+            branchId = await this.resolveBranchId(data.businessId, data.branchId);
+        }
         return prisma_1.default.timeOff.create({
             data: {
                 businessId: data.businessId,
                 staffId: data.staffId,
-                startDate,
-                endDate,
+                branchId,
+                startDate: new Date(data.startDate),
+                endDate: new Date(data.endDate),
                 reason: data.reason,
                 type: data.type || "BREAK",
             },
         });
     }
     /**
-     * Get time off periods for a business or staff
+     * Get time off periods for a business, optionally narrowed to a staff member or branch
      */
-    async getTimeOffs(businessId, staffId) {
+    async getTimeOffs(businessId, staffId, branchId) {
         return prisma_1.default.timeOff.findMany({
             where: {
                 businessId,
                 ...(staffId && { staffId }),
+                ...(branchId && { branchId }),
             },
             orderBy: { startDate: "asc" },
         });
     }
     /**
-     * Remove time off
+     * Remove time off (scoped to the owning business)
      */
-    async removeTimeOff(timeOffId) {
-        return prisma_1.default.timeOff.delete({
-            where: { id: timeOffId },
-        });
+    async removeTimeOff(businessId, timeOffId) {
+        const existing = await prisma_1.default.timeOff.findFirst({ where: { id: timeOffId, businessId } });
+        if (!existing)
+            throw new Error("TIME_OFF_NOT_FOUND");
+        return prisma_1.default.timeOff.delete({ where: { id: timeOffId } });
     }
     /**
      * Check if staff is on time off on a date
@@ -139,44 +165,34 @@ class BusinessHoursService {
         return !!timeOff;
     }
     /**
-     * Get all closed dates for a business
+     * Get a branch's closed dates
      */
-    async getClosedDates(businessId) {
+    async getClosedDates(businessId, branchId) {
+        const resolved = await this.resolveBranchId(businessId, branchId);
         return prisma_1.default.closedDate.findMany({
-            where: { businessId },
+            where: { businessId, branchId: resolved },
             orderBy: { date: "asc" },
         });
     }
     async addClosedDate(businessId, data) {
-        // Normalize date to YYYY-MM-DD at midnight UTC to prevent timezone shifts
+        const branchId = await this.resolveBranchId(businessId, data.branchId);
+        // Normalize to midnight UTC of the calendar day to prevent timezone shifts
         const pureDateString = data.date.split("T")[0];
         const dateObj = new Date(`${pureDateString}T00:00:00.000Z`);
         return prisma_1.default.closedDate.upsert({
-            where: {
-                businessId_date: {
-                    businessId,
-                    date: dateObj,
-                },
-            },
-            update: {
-                reason: data.reason, // Updates reason if already blocked
-            },
-            create: {
-                businessId,
-                date: dateObj,
-                reason: data.reason,
-            },
+            where: { branchId_date: { branchId, date: dateObj } },
+            update: { reason: data.reason },
+            create: { businessId, branchId, date: dateObj, reason: data.reason },
         });
     }
     /**
-     * Remove a closed date
+     * Remove a closed date (scoped to the owning business)
      */
     async removeClosedDate(businessId, closedDateId) {
-        return prisma_1.default.closedDate.delete({
-            where: {
-                id: closedDateId,
-            },
-        });
+        const existing = await prisma_1.default.closedDate.findFirst({ where: { id: closedDateId, businessId } });
+        if (!existing)
+            throw new Error("CLOSED_DATE_NOT_FOUND");
+        return prisma_1.default.closedDate.delete({ where: { id: closedDateId } });
     }
 }
 exports.BusinessHoursService = BusinessHoursService;

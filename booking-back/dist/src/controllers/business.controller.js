@@ -8,6 +8,7 @@ const user_service_1 = require("../services/user.service");
 const subscription_service_1 = __importDefault(require("../services/subscription.service"));
 const customer_service_1 = __importDefault(require("../services/customer.service"));
 const slug_1 = require("../utils/slug");
+const prisma_1 = __importDefault(require("../lib/prisma"));
 class BusinessController {
     constructor() {
     }
@@ -62,6 +63,20 @@ class BusinessController {
     async create(req, res) {
         try {
             const business = await business_service_1.default.createBusiness(req.body);
+            // inside your create-business flow, after creating the business
+            await prisma_1.default.branch.create({
+                data: {
+                    businessId: business.id,
+                    name: 'Main Branch',
+                    phone: business.phone,
+                    address: business.address,
+                    city: business.city,
+                    state: business.state,
+                    latitude: business.latitude,
+                    longitude: business.longitude,
+                    isMain: true,
+                },
+            });
             res.status(201).json(business);
         }
         catch (error) {
@@ -102,19 +117,6 @@ class BusinessController {
         }
         catch (error) {
             return res.status(500).json({ error: 'Failed to load customer insights' });
-        }
-    }
-    /**
-     * Booking and customer analytics
-     */
-    async analytics(req, res) {
-        try {
-            const days = Number(req.query.days) || 30;
-            const analytics = await business_service_1.default.getBusinessAnalytics(req.params.businessId, days);
-            res.json(analytics);
-        }
-        catch (error) {
-            res.status(500).json({ message: 'Failed to fetch analytics', error });
         }
     }
     /**
@@ -224,17 +226,26 @@ class BusinessController {
             res.status(500).json({ message: "Failed to fetch businesses", error });
         }
     }
-    /**
-     * Business statistics
-     */
     async stats(req, res) {
         try {
             const { businessId } = req.params;
-            const stats = await business_service_1.default.getBusinessStats(businessId);
+            const branchId = typeof req.query.branchId === 'string' ? req.query.branchId : undefined;
+            const stats = await business_service_1.default.getBusinessStats(businessId, branchId);
             res.json(stats);
         }
         catch (error) {
             res.status(500).json({ message: "Failed to fetch statistics", error });
+        }
+    }
+    async analytics(req, res) {
+        try {
+            const days = Number(req.query.days) || 30;
+            const branchId = typeof req.query.branchId === 'string' ? req.query.branchId : undefined;
+            const analytics = await business_service_1.default.getBusinessAnalytics(req.params.businessId, days, branchId);
+            res.json(analytics);
+        }
+        catch (error) {
+            res.status(500).json({ message: 'Failed to fetch analytics', error });
         }
     }
     /**

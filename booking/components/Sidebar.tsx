@@ -7,6 +7,8 @@ import { ChevronDown, Menu, X, LayoutDashboard, Calendar, Settings, BarChart3, C
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/authContext'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { Building2 } from 'lucide-react'
+import { useBranches } from '@/context/branchContext'
 
 interface NavItem {
   label: string
@@ -26,6 +28,7 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
   const [expandedItems, setExpandedItems] = useState<string[]>([])
   const pathname = usePathname()
   const router = useRouter()
+  const { branches, hasMultipleBranches, canAddBranches, selectedBranchId, setSelectedBranchId } = useBranches()
   const [activeAnalyticsTab, setActiveAnalyticsTab] = useState('overview')
   const { logout } = useAuth()
 
@@ -57,6 +60,7 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
       href: '/dashboard/business-hours',
       icon: Clock,
     },
+    ...(canAddBranches ? [{ label: 'Branches', href: '/dashboard/branches', icon: Building2 }] : []),
     {
       label: 'Staff',
       href: '/dashboard/staff',
@@ -141,6 +145,21 @@ export const Sidebar = ({ userRole = 'BUSINESS_OWNER' }: SidebarProps) => {
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
+        {hasMultipleBranches && userRole === 'BUSINESS_OWNER' && (
+  <div className="border-b border-border px-3 py-3">
+    <label className="mb-1 block text-xs font-medium text-muted-foreground">Branch</label>
+    <select
+      value={selectedBranchId}
+      onChange={(e) => setSelectedBranchId(e.target.value)}
+      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+    >
+      <option value="ALL">All branches</option>
+      {branches.filter((b) => b.isActive).map((b) => (
+        <option key={b.id} value={b.id}>{b.name}</option>
+      ))}
+    </select>
+  </div>
+)}
         <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {navItems.map((item) => (
             <div key={item.label}>

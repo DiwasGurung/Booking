@@ -4,6 +4,7 @@ import  {userService}  from "../services/user.service"
 import SubscriptionService from "../services/subscription.service"
 import CustomerService from "../services/customer.service"
 import { generateUniqueSlug, validateSlug } from '../utils/slug'
+import prisma from "../lib/prisma"
 
 
 class BusinessController {
@@ -72,6 +73,21 @@ async create(req: Request, res: Response) {
   try {
     
     const business = await BusinessService.createBusiness(req.body)
+
+    // inside your create-business flow, after creating the business
+await prisma.branch.create({
+  data: {
+    businessId: business.id,
+    name: 'Main Branch',
+    phone: business.phone,
+    address: business.address,
+    city: business.city,
+    state: business.state,
+    latitude: business.latitude,
+    longitude: business.longitude,
+    isMain: true,
+  },
+})
     res.status(201).json(business)
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -116,18 +132,6 @@ async create(req: Request, res: Response) {
   }
 
 
-  /**
-   * Booking and customer analytics
-   */
-  async analytics(req: Request, res: Response) {
-    try {
-      const days = Number(req.query.days) || 30
-      const analytics = await BusinessService.getBusinessAnalytics(req.params.businessId as string, days)
-      res.json(analytics)
-    } catch (error) {
-      res.status(500).json({ message: 'Failed to fetch analytics', error })
-    }
-  }
 
 
     /**
@@ -250,18 +254,27 @@ async create(req: Request, res: Response) {
     }
   }
 
-  /**
-   * Business statistics
-   */
   async stats(req: Request, res: Response) {
-    try {
-      const { businessId } = req.params
-      const stats = await BusinessService.getBusinessStats(businessId as string)
-      res.json(stats)
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch statistics", error })
-    }
+  try {
+    const { businessId } = req.params
+    const branchId = typeof req.query.branchId === 'string' ? req.query.branchId : undefined
+    const stats = await BusinessService.getBusinessStats(businessId as string, branchId)
+    res.json(stats)
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch statistics", error })
   }
+}
+
+async analytics(req: Request, res: Response) {
+  try {
+    const days = Number(req.query.days) || 30
+    const branchId = typeof req.query.branchId === 'string' ? req.query.branchId : undefined
+    const analytics = await BusinessService.getBusinessAnalytics(req.params.businessId as string, days, branchId)
+    res.json(analytics)
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch analytics', error })
+  }
+}
 
 
 
