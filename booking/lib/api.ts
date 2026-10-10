@@ -238,6 +238,7 @@ export interface TimeOff {
 export interface BusinessHours {
   id?: string
   businessId?: string
+  branchId?: string | null 
   dayOfWeek: number
   openTime: string
   closeTime: string
@@ -467,9 +468,17 @@ export const servicesApi = {
 
 // Business Hours API - /api/business-hours prefix
 export const businessHoursApi = {
-  // Get all business hours for a business
-  getBusinessHours: (businessId: string) =>
-    apiCall<BusinessHours[]>(`/api/business-hours/business/${businessId}`),
+getBusinessHours: (businessId: string, branchId?: string) =>
+  apiCall<BusinessHours[]>(`/api/business-hours/business/${businessId}${branchId ? `?branchId=${branchId}` : ''}`),
+
+getClosedDates: (businessId: string, branchId?: string) =>
+  apiCall<ClosedDate[]>(`/api/business-hours/${businessId}/closed-dates${branchId ? `?branchId=${branchId}` : ''}`),
+
+addClosedDate: (businessId: string, data: { date: string; reason?: string; branchId?: string }) =>
+  apiCall<ClosedDate>(`/api/business-hours/${businessId}/closed-dates`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
 
   // Set/Update business hours for a specific day (upsert)
   setBusinessHours: (data: any) =>
@@ -486,16 +495,6 @@ export const businessHoursApi = {
   getHoursForDay: (businessId: string, dayOfWeek: number) =>
     apiCall<BusinessHours>(`/api/business-hours/business/${businessId}/day/${dayOfWeek}`),
 
-  // Get all closed dates for a business
-  getClosedDates: (businessId: string) =>
-    apiCall<ClosedDate[]>(`/api/business-hours/${businessId}/closed-dates`),
-
-  // Add a closed date
-  addClosedDate: (businessId: string, data: { date: string; reason?: string }) =>
-    apiCall<ClosedDate>(`/api/business-hours/${businessId}/closed-dates`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
 
   // Remove a closed date
   removeClosedDate: (businessId: string, dateId: string) =>

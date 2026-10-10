@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
@@ -12,19 +12,10 @@ import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { AuthWrapper } from '@/components/AuthWrapper'
 import { bookingsApi, businessHoursApi } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
+import { useBranches } from '@/context/branchContext'
 import {
-  Loader,
-  Clock,
-  Copy,
-  Save,
-  AlertCircle,
-  CheckCircle,
-  X,
-  Calendar,
-  Pencil,
-  RotateCcw,
-  Plus,
-  MoonStar,
+  Loader, Clock, Copy, Save, AlertCircle, CheckCircle, X, Calendar, Pencil,
+  RotateCcw, Plus, MoonStar, Building2, CopyPlus,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
@@ -42,6 +33,21 @@ interface ClosedDate {
   reason: string
 }
 
+// One editable copy of a branch's schedule
+interface Draft {
+  dayHours: DayHours[]
+  closedDates: ClosedDate[]
+  dirty: boolean      // has unsaved changes
+  hasSaved: boolean   // the server already has hours for this branch
+}
+
+interface ClosureRange {
+  start: string
+  end: string
+  reason: string
+  applyAll: boolean
+}
+
 const DAYS = [
   { id: 0, name: 'Sunday', short: 'Sun' },
   { id: 1, name: 'Monday', short: 'Mon' },
@@ -54,10 +60,8 @@ const DAYS = [
 
 const DEFAULT_OPEN = '09:00'
 const DEFAULT_CLOSE = '18:00'
+const SINGLE = 'single' // draft key for a business with one branch
 
-
-
-// Always start from a full Sunday -> Saturday list at 09:00 - 18:00
 function buildDefaultHours(): DayHours[] {
   return DAYS.map(day => ({
     dayOfWeek: day.id,
@@ -68,13 +72,15 @@ function buildDefaultHours(): DayHours[] {
   }))
 }
 
-// Normalize any time value coming from the API into "HH:mm"
+function newDraft(): Draft {
+  return { dayHours: buildDefaultHours(), closedDates: [], dirty: false, hasSaved: false }
+}
+
 function normalizeTime(value: unknown, fallback: string): string {
   if (typeof value !== 'string' || value.trim() === '') return fallback
   const match = value.match(/(\d{1,2}):(\d{2})/)
   if (!match) return fallback
-  const hours = match[1].padStart(2, '0')
-  return `${hours}:${match[2]}`
+  return `${match[1].padStart(2, '0')}:${match[2]}`
 }
 
 function toMinutes(time: string): number {
@@ -101,32 +107,41 @@ function formatDuration(open: string, close: string): string {
 function formatDateLabel(date: string): string {
   const parsed = new Date(`${date}T00:00:00`)
   if (Number.isNaN(parsed.getTime())) return date
-  return parsed.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function daysBetween(start: string, end: string): number {
-  const diff =
-    new Date(`${end}T00:00:00`).getTime() - new Date(`${start}T00:00:00`).getTime()
+  const diff = new Date(`${end}T00:00:00`).getTime() - new Date(`${start}T00:00:00`).getTime()
   return Math.round(diff / (1000 * 60 * 60 * 24)) + 1
 }
 
 export default function BusinessHoursPage() {
   const router = useRouter()
   const { businessId, loading: businessLoading } = useBusinessId()
+  const { branches, loading: branchesLoading, selectedBranchId } = useBranches()
 
-  // Seeded with all 7 days so the UI is never empty
-  const [dayHours, setDayHours] = useState<DayHours[]>(buildDefaultHours)
-  const [closedDates, setClosedDates] = useState<ClosedDate[]>([])
+  const activeBranches = useMemo(() => branches.filter(b => b.isActive), [branches])
+  const multi = activeBranches.length > 1
+  const branchIdsKey = activeBranches.map(b => b.id).join(',')
+
+  // key -> that branch's draft (SINGLE for one-location businesses)
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({})
+  const [activeKey, setActiveKey] = useState<string>(SINGLE)
+
+  const draft = drafts[activeKey] ?? newDraft()
+  const dayHours = draft.dayHours
+  const closedDates = draft.closedDates
+  const activeBranch = activeBranches.find(b => b.id === activeKey) ?? null
+  const dirtyKeys = Object.keys(drafts).filter(k => drafts[k].dirty)
+
   const [newClosedDate, setNewClosedDate] = useState('')
   const [newClosedDateEnd, setNewClosedDateEnd] = useState('')
   const [newClosedDateReason, setNewClosedDateReason] = useState('')
+  const [applyClosureToAll, setApplyClosureToAll] = useState(false)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('hours')
@@ -135,45 +150,57 @@ export default function BusinessHoursPage() {
   const [editReason, setEditReason] = useState('')
   const [closureModalOpen, setClosureModalOpen] = useState(false)
   const [closureBookings, setClosureBookings] = useState<any[]>([])
-  const [pendingClosureRange, setPendingClosureRange] = useState<{ start: string; end: string; reason: string } | null>(null)
+  const [pendingClosureRange, setPendingClosureRange] = useState<ClosureRange | null>(null)
   const [notifying, setNotifying] = useState(false)
   const [notifiedBookingIds, setNotifiedBookingIds] = useState<Set<string>>(new Set())
 
-  // Bookings that need the customer notified (only confirmed ones)
   const confirmedClosureBookings = closureBookings.filter(b => b.status === 'CONFIRMED')
   const allConfirmedNotified =
     confirmedClosureBookings.length === 0 ||
     confirmedClosureBookings.every(b => notifiedBookingIds.has(b.id))
 
-  useEffect(() => {
-    if (businessId) {
-      loadBusinessHours()
-    }
-  }, [businessId])
+  // The API takes no branchId for single-location businesses (the backend uses the main branch)
+  const requestBranchId = (key: string) => (key === SINGLE ? undefined : key)
 
-  async function loadBusinessHours() {
-    if (!businessId) return
+  // ---------- draft helpers ----------
+  function patchDraft(key: string, fn: (d: Draft) => Draft) {
+    setDrafts(prev => (prev[key] ? { ...prev, [key]: fn(prev[key]) } : prev))
+  }
 
+  function setDayHours(updater: (prev: DayHours[]) => DayHours[]) {
+    patchDraft(activeKey, d => ({ ...d, dayHours: updater(d.dayHours), dirty: true }))
+  }
+
+  // markDirty=false for changes the server has already confirmed
+  function setClosedDatesFor(
+    key: string,
+    updater: (prev: ClosedDate[]) => ClosedDate[],
+    markDirty: boolean
+  ) {
+    patchDraft(key, d => ({
+      ...d,
+      closedDates: updater(d.closedDates),
+      dirty: markDirty ? true : d.dirty,
+    }))
+  }
+
+  // ---------- loading ----------
+  async function fetchBranchData(key: string): Promise<Draft> {
+    const bid = requestBranchId(key)
     try {
-      setLoading(true)
       const [hoursResponse, closedDatesResponse] = await Promise.all([
-        businessHoursApi.getBusinessHours(businessId),
-        businessHoursApi.getClosedDates(businessId) as any,
+        businessHoursApi.getBusinessHours(businessId as string, bid),
+        businessHoursApi.getClosedDates(businessId as string, bid) as any,
       ])
 
-      // Merge saved hours on top of the 9-6 defaults so every day is always rendered
       const merged = buildDefaultHours()
-
       const savedHours = Array.isArray(hoursResponse?.data)
         ? hoursResponse.data
-        : Array.isArray(hoursResponse)
-          ? hoursResponse
-          : []
+        : Array.isArray(hoursResponse) ? (hoursResponse as any) : []
 
       savedHours.forEach((hour: any) => {
         const index = merged.findIndex(d => d.dayOfWeek === Number(hour.dayOfWeek))
         if (index === -1) return
-
         merged[index] = {
           ...merged[index],
           openingTime: normalizeTime(hour.openTime ?? hour.openingTime, DEFAULT_OPEN),
@@ -182,61 +209,61 @@ export default function BusinessHoursPage() {
         }
       })
 
-      setDayHours(merged)
-
-      const savedClosedDates = Array.isArray(closedDatesResponse?.data?.data)
+      const savedClosed = Array.isArray(closedDatesResponse?.data?.data)
         ? closedDatesResponse.data.data
         : Array.isArray(closedDatesResponse?.data)
           ? closedDatesResponse.data
-          : Array.isArray(closedDatesResponse)
-            ? closedDatesResponse
-            : []
+          : Array.isArray(closedDatesResponse) ? closedDatesResponse : []
 
-      setClosedDates(
-        savedClosedDates.map((closedDate: any) => ({
-          id: closedDate.id,
-          date: String(closedDate.date).split('T')[0],
-          reason: closedDate.reason || '',
-        }))
-      )
-    } catch (err) {
-
-      setDayHours(buildDefaultHours())
-    } finally {
-      setLoading(false)
+      return {
+        dayHours: merged,
+        closedDates: savedClosed.map((c: any) => ({
+          id: c.id,
+          date: String(c.date).split('T')[0],
+          reason: c.reason || '',
+        })),
+        dirty: false,
+        hasSaved: savedHours.length > 0,
+      }
+    } catch {
+      return newDraft()
     }
   }
 
+  async function loadAll() {
+    if (!businessId) return
+    setLoading(true)
+    const keys = multi ? activeBranches.map(b => b.id) : [SINGLE]
+    const entries = await Promise.all(keys.map(async k => [k, await fetchBranchData(k)] as const))
+    setDrafts(Object.fromEntries(entries))
+
+    // Preselect the branch chosen in the sidebar switcher, otherwise the first (main) branch
+    const preferred =
+      multi && selectedBranchId !== 'ALL' && keys.includes(selectedBranchId) ? selectedBranchId : keys[0]
+    setActiveKey(prev => (keys.includes(prev) ? prev : preferred))
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    if (businessId && !branchesLoading) loadAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId, branchesLoading, branchIdsKey])
+
+  // ---------- derived ----------
   const groupedClosedDates = (() => {
     if (closedDates.length === 0) return []
-
-    const sorted = [...closedDates].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    )
-
+    const sorted = [...closedDates].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     const grouped: { start: string; end: string; reason: string }[] = []
-    let current = {
-      start: sorted[0].date,
-      end: sorted[0].date,
-      reason: sorted[0].reason,
-    }
-
+    let current = { start: sorted[0].date, end: sorted[0].date, reason: sorted[0].reason }
     for (let i = 1; i < sorted.length; i++) {
-      const currentDate = new Date(sorted[i].date)
-      const prevDate = new Date(sorted[i - 1].date)
       const diffDays = Math.round(
-        (currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)
+        (new Date(sorted[i].date).getTime() - new Date(sorted[i - 1].date).getTime()) / (1000 * 60 * 60 * 24)
       )
-
       if (diffDays === 1 && sorted[i].reason === current.reason) {
         current.end = sorted[i].date
       } else {
         grouped.push(current)
-        current = {
-          start: sorted[i].date,
-          end: sorted[i].date,
-          reason: sorted[i].reason,
-        }
+        current = { start: sorted[i].date, end: sorted[i].date, reason: sorted[i].reason }
       }
     }
     grouped.push(current)
@@ -249,74 +276,80 @@ export default function BusinessHoursPage() {
     return total + (diff > 0 ? diff : 0)
   }, 0)
 
+  // ---------- hours editing ----------
   function updateDayHours(dayOfWeek: number, field: 'openingTime' | 'closingTime', value: string) {
-    setDayHours(prev =>
-      prev.map(day => (day.dayOfWeek === dayOfWeek ? { ...day, [field]: value } : day))
-    )
+    setDayHours(prev => prev.map(day => (day.dayOfWeek === dayOfWeek ? { ...day, [field]: value } : day)))
   }
 
   function copyHoursToAllDays(fromDayOfWeek: number) {
     const sourceDay = dayHours.find(d => d.dayOfWeek === fromDayOfWeek)
     if (!sourceDay) return
-
     setDayHours(prev =>
       prev.map(day =>
         day.dayOfWeek === fromDayOfWeek
           ? day
-          : {
-            ...day,
-            openingTime: sourceDay.openingTime,
-            closingTime: sourceDay.closingTime,
-          }
+          : { ...day, openingTime: sourceDay.openingTime, closingTime: sourceDay.closingTime }
       )
     )
   }
 
   function resetToDefaultHours() {
-    setDayHours(buildDefaultHours())
+    setDayHours(() => buildDefaultHours())
   }
 
   function closeWeekends() {
     setDayHours(prev =>
-      prev.map(day =>
-        day.dayOfWeek === 0 || day.dayOfWeek === 6 ? { ...day, isOff: true } : day
-      )
+      prev.map(day => (day.dayOfWeek === 0 || day.dayOfWeek === 6 ? { ...day, isOff: true } : day))
     )
   }
 
+  function toggleDayOff(dayOfWeek: number) {
+    setDayHours(prev => prev.map(day => (day.dayOfWeek === dayOfWeek ? { ...day, isOff: !day.isOff } : day)))
+  }
+
+  // Multi-branch helpers
+  function copyFromBranch(sourceKey: string) {
+    const source = drafts[sourceKey]
+    if (!source) return
+    setDayHours(() => source.dayHours.map(d => ({ ...d })))
+  }
+
+  function applyHoursToAllBranches() {
+    const source = dayHours.map(d => ({ ...d }))
+    Object.keys(drafts).forEach(k => {
+      if (k === activeKey) return
+      patchDraft(k, d => ({ ...d, dayHours: source.map(x => ({ ...x })), dirty: true }))
+    })
+    setSaveMessage(`Hours copied to ${activeBranches.length - 1} other branch(es). Save to apply.`)
+    setTimeout(() => setSaveMessage(null), 4000)
+  }
+
+  // ---------- closed dates ----------
   async function addClosedDate() {
-    if (!newClosedDate) {
-      setError('Please enter start date')
-      return
-    }
-    if (!newClosedDateEnd) {
-      setError('Please enter end date')
-      return
-    }
+    if (!newClosedDate) { setError('Please enter start date'); return }
+    if (!newClosedDateEnd) { setError('Please enter end date'); return }
     if (new Date(newClosedDate) > new Date(newClosedDateEnd)) {
       setError('End date must be after start date')
       return
     }
     setError(null)
 
-    const range = { start: newClosedDate, end: newClosedDateEnd, reason: newClosedDateReason }
+    const applyAll = multi && applyClosureToAll
+    const range: ClosureRange = {
+      start: newClosedDate, end: newClosedDateEnd, reason: newClosedDateReason, applyAll,
+    }
 
     if (businessId) {
       try {
+        // Bookings at this branch only, or across the business when closing every branch
         const response = await bookingsApi.getBusinessBookings(
-          businessId,
-          1,
-          100,
-          undefined,
-          newClosedDate,
-          newClosedDateEnd
+          businessId, 1, 100, undefined, newClosedDate, newClosedDateEnd, undefined,
+          multi && !applyAll ? activeKey : undefined
         )
 
         const bookings = Array.isArray(response?.data)
           ? response.data
-          : Array.isArray((response?.data as any)?.bookings)
-            ? (response.data as any).bookings
-            : []
+          : Array.isArray((response?.data as any)?.bookings) ? (response.data as any).bookings : []
 
         const activeBookings = bookings.filter((b: any) =>
           ['CONFIRMED', 'PENDING', 'UNVERIFIED'].includes(b.status)
@@ -337,36 +370,33 @@ export default function BusinessHoursPage() {
     stageClosedDateRange(range)
   }
 
-  function stageClosedDateRange(range: { start: string; end: string; reason: string }) {
-    const start = new Date(range.start)
-    const end = new Date(range.end)
+  function stageClosedDateRange(range: ClosureRange) {
     const datesInRange: ClosedDate[] = []
-
-    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    for (const d = new Date(range.start); d <= new Date(range.end); d.setDate(d.getDate() + 1)) {
       datesInRange.push({ date: d.toISOString().split('T')[0], reason: range.reason })
     }
 
-    setClosedDates(prev => {
-      const existing = new Set(prev.map(dt => dt.date))
-      return [...prev, ...datesInRange.filter(dt => !existing.has(dt.date))]
+    const keys = range.applyAll ? Object.keys(drafts) : [activeKey]
+    keys.forEach(k => {
+      setClosedDatesFor(k, prev => {
+        const existing = new Set(prev.map(dt => dt.date))
+        return [...prev, ...datesInRange.filter(dt => !existing.has(dt.date))]
+      }, true)
     })
 
     setNewClosedDate('')
     setNewClosedDateEnd('')
     setNewClosedDateReason('')
+    setApplyClosureToAll(false)
   }
 
   async function notifyClosureBookings() {
     if (!businessId || closureBookings.length === 0) return
-    const confirmedIds = closureBookings
-      .filter(b => b.status === 'CONFIRMED')
-      .map(b => b.id)
-
-    if (confirmedIds.length === 0) return // nothing to notify
+    const confirmedIds = closureBookings.filter(b => b.status === 'CONFIRMED').map(b => b.id)
+    if (confirmedIds.length === 0) return
 
     setNotifying(true)
     setError(null)
-
     try {
       await bookingsApi.notifyClosure(businessId, confirmedIds, pendingClosureRange?.reason)
       setNotifiedBookingIds(new Set(confirmedIds))
@@ -380,7 +410,6 @@ export default function BusinessHoursPage() {
   function confirmClosureAndProceed() {
     const confirmed = closureBookings.filter(b => b.status === 'CONFIRMED')
     const notified = confirmed.every(b => notifiedBookingIds.has(b.id))
-
     if (confirmed.length > 0 && !notified) {
       setError('Notify all confirmed customers before confirming this closure.')
       return
@@ -391,6 +420,7 @@ export default function BusinessHoursPage() {
     setClosureBookings([])
     setNotifiedBookingIds(new Set())
   }
+
   function cancelClosureModal() {
     setClosureModalOpen(false)
     setPendingClosureRange(null)
@@ -407,20 +437,12 @@ export default function BusinessHoursPage() {
     const persisted = toRemove.filter(d => d.id)
 
     try {
-      await Promise.all(
-        persisted.map(d => businessHoursApi.removeClosedDate(businessId, d.id as string))
-      )
-      // Only drop from state once the server confirms the deletes succeeded
-      setClosedDates(prev => prev.filter(d => !(d.date >= start && d.date <= end)))
+      await Promise.all(persisted.map(d => businessHoursApi.removeClosedDate(businessId, d.id as string)))
+      setClosedDatesFor(activeKey, prev => prev.filter(d => !(d.date >= start && d.date <= end)), false)
     } catch (err) {
-
       setError(err instanceof Error ? err.message : 'Failed to remove closed dates')
     } finally {
-      setPendingRangeKeys(prev => {
-        const next = new Set(prev)
-        next.delete(key)
-        return next
-      })
+      setPendingRangeKeys(prev => { const next = new Set(prev); next.delete(key); return next })
     }
   }
 
@@ -442,19 +464,15 @@ export default function BusinessHoursPage() {
 
     const inRange = closedDates.filter(d => d.date >= start && d.date <= end)
     const persisted = inRange.filter(d => d.id)
+    const bid = requestBranchId(activeKey)
 
     try {
-      // Delete the old persisted entries, then re-add every date in the range with the new reason
-      await Promise.all(
-        persisted.map(d => businessHoursApi.removeClosedDate(businessId, d.id as string))
-      )
+      await Promise.all(persisted.map(d => businessHoursApi.removeClosedDate(businessId, d.id as string)))
       const readded = await Promise.all(
-        inRange.map(d =>
-          businessHoursApi.addClosedDate(businessId, { date: d.date, reason: editReason })
-        )
+        inRange.map(d => businessHoursApi.addClosedDate(businessId, { date: d.date, reason: editReason, branchId: bid }))
       )
 
-      setClosedDates(prev => {
+      setClosedDatesFor(activeKey, prev => {
         const withoutRange = prev.filter(d => !(d.date >= start && d.date <= end))
         const newEntries = inRange.map((d, i) => ({
           id: (readded[i]?.data as any)?.id,
@@ -462,62 +480,71 @@ export default function BusinessHoursPage() {
           reason: editReason,
         }))
         return [...withoutRange, ...newEntries]
-      })
+      }, false)
 
       setEditingRangeKey(null)
       setEditReason('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update closed dates')
     } finally {
-      setPendingRangeKeys(prev => {
-        const next = new Set(prev)
-        next.delete(key)
-        return next
-      })
+      setPendingRangeKeys(prev => { const next = new Set(prev); next.delete(key); return next })
     }
   }
 
-  function toggleDayOff(dayOfWeek: number) {
-    setDayHours(prev =>
-      prev.map(day => (day.dayOfWeek === dayOfWeek ? { ...day, isOff: !day.isOff } : day))
-    )
-  }
-
+  // ---------- saving ----------
   async function saveBusinessHours() {
     if (!businessId) return
+
+    // Every branch with changes, plus the one being viewed (so a new branch can save its defaults)
+    const keys = Array.from(new Set([...dirtyKeys, activeKey])).filter(k => drafts[k])
+
+    for (const k of keys) {
+      const bad = drafts[k].dayHours.find(d => !d.isOff && toMinutes(d.closingTime) <= toMinutes(d.openingTime))
+      if (bad) {
+        const label = activeBranches.find(b => b.id === k)?.name
+        setError(`${label ? `${label}: ` : ''}${bad.dayName} closes before it opens.`)
+        return
+      }
+    }
 
     try {
       setSaving(true)
       setError(null)
       setSaveSuccess(false)
 
-      // Save operating hours for all 7 days
-      const hoursPromises = dayHours.map(day =>
-        businessHoursApi.setBusinessHours({
-          businessId,
-          dayOfWeek: day.dayOfWeek,
-          openTime: day.isOff ? '00:00' : day.openingTime,
-          closeTime: day.isOff ? '00:00' : day.closingTime,
-          isClosed: day.isOff,
+      await Promise.all(
+        keys.flatMap(k => {
+          const d = drafts[k]
+          const bid = requestBranchId(k)
+          const hoursPromises = d.dayHours.map(day =>
+            businessHoursApi.setBusinessHours({
+              businessId,
+              branchId: bid,
+              dayOfWeek: day.dayOfWeek,
+              openTime: day.isOff ? '00:00' : day.openingTime,
+              closeTime: day.isOff ? '00:00' : day.closingTime,
+              isClosed: day.isOff,
+            })
+          )
+          const closedPromises = d.closedDates
+            .filter(c => !c.id)
+            .map(c => businessHoursApi.addClosedDate(businessId, { date: c.date, reason: c.reason, branchId: bid }))
+          return [...hoursPromises, ...closedPromises]
         })
       )
 
-      // Only upload closed dates that aren't already persisted
-      const closedDatesPromises = closedDates
-        .filter(closedDate => !closedDate.id)
-        .map(closedDate =>
-          businessHoursApi.addClosedDate(businessId, {
-            date: closedDate.date,
-            reason: closedDate.reason,
-          })
-        )
-
-      await Promise.all([...hoursPromises, ...closedDatesPromises])
-
       setSaveSuccess(true)
-      setTimeout(() => {
-        router.push('/dashboard')
-      }, 1500)
+
+      if (!multi) {
+        setTimeout(() => router.push('/dashboard'), 1500)
+        return
+      }
+
+      // Multi-branch: stay on the page and reload the saved branches so new closures get their ids
+      const fresh = await Promise.all(keys.map(async k => [k, await fetchBranchData(k)] as const))
+      setDrafts(prev => ({ ...prev, ...Object.fromEntries(fresh) }))
+      setSaveMessage(`Saved ${keys.length} branch${keys.length === 1 ? '' : 'es'}`)
+      setTimeout(() => { setSaveSuccess(false); setSaveMessage(null) }, 3000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save business hours')
     } finally {
@@ -525,7 +552,7 @@ export default function BusinessHoursPage() {
     }
   }
 
-  if (businessLoading || loading) {
+  if (businessLoading || branchesLoading || loading) {
     return (
       <AuthWrapper mode="business-only">
         <div className="min-h-screen bg-background">
@@ -541,21 +568,13 @@ export default function BusinessHoursPage() {
     )
   }
 
+  const saveLabel = multi && dirtyKeys.length > 1 ? `Save ${dirtyKeys.length} branches` : 'Save changes'
   const saveButtonContent = saving ? (
-    <>
-      <Loader className="h-4 w-4 animate-spin" />
-      Saving…
-    </>
+    <><Loader className="h-4 w-4 animate-spin" />Saving…</>
   ) : saveSuccess ? (
-    <>
-      <CheckCircle className="h-4 w-4" />
-      Saved
-    </>
+    <><CheckCircle className="h-4 w-4" />Saved</>
   ) : (
-    <>
-      <Save className="h-4 w-4" />
-      Save changes
-    </>
+    <><Save className="h-4 w-4" />{saveLabel}</>
   )
 
   return (
@@ -564,9 +583,7 @@ export default function BusinessHoursPage() {
         <Sidebar />
         <main className="md:ml-64">
           <div className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 md:px-8 md:pb-10 md:pt-8">
-            <Breadcrumbs
-              items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Business Hours' }]}
-            />
+            <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Business Hours' }]} />
 
             {/* Page header */}
             <header className="mt-6 flex flex-col gap-4 border-b border-border pb-6 md:flex-row md:items-end md:justify-between">
@@ -575,8 +592,9 @@ export default function BusinessHoursPage() {
                   Business hours &amp; availability
                 </h1>
                 <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-                  Set when you are open so customers only see bookable slots. Changes upload when you
-                  save.
+                  {multi
+                    ? 'Each branch has its own weekly hours and closed dates. Pick a branch to edit it, or copy hours between branches.'
+                    : 'Set when you are open so customers only see bookable slots. Changes upload when you save.'}
                 </p>
               </div>
 
@@ -584,27 +602,22 @@ export default function BusinessHoursPage() {
                 <div className="hidden items-center gap-4 rounded-lg border border-border bg-card px-4 py-2 sm:flex">
                   <div className="flex flex-col">
                     <span className="text-lg font-semibold leading-tight text-foreground">
-                      {openDays.length}
-                      <span className="text-sm font-normal text-muted-foreground">/7</span>
+                      {openDays.length}<span className="text-sm font-normal text-muted-foreground">/7</span>
                     </span>
-                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      Open days
-                    </span>
+                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Open days</span>
                   </div>
                   <div className="h-8 w-px bg-border" aria-hidden="true" />
                   <div className="flex flex-col">
                     <span className="text-lg font-semibold leading-tight text-foreground">
                       {Math.round(weeklyMinutes / 60)}h
                     </span>
-                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      Per week
-                    </span>
+                    <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Per week</span>
                   </div>
                 </div>
 
                 <Button
                   onClick={saveBusinessHours}
-                  disabled={saving || saveSuccess}
+                  disabled={saving || (saveSuccess && !multi)}
                   className="hidden items-center gap-2 md:inline-flex"
                 >
                   {saveButtonContent}
@@ -612,26 +625,74 @@ export default function BusinessHoursPage() {
               </div>
             </header>
 
+            {/* Branch selector (multi-branch only) */}
+            {multi && (
+              <div className="mt-6">
+                <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Building2 className="h-3.5 w-3.5" />
+                  Branch
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {activeBranches.map(b => {
+                    const d = drafts[b.id]
+                    const selected = b.id === activeKey
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => { setActiveKey(b.id); setEditingRangeKey(null); setError(null) }}
+                        className={`flex flex-shrink-0 flex-col items-start rounded-lg border px-4 py-2.5 text-left transition-colors ${
+                          selected
+                            ? 'border-foreground bg-foreground text-background'
+                            : 'border-border bg-card text-foreground hover:border-foreground/40'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2 text-sm font-medium">
+                          {b.name}
+                          {b.isMain && (
+                            <span className={`rounded px-1.5 text-[10px] ${selected ? 'bg-background/20' : 'bg-muted text-muted-foreground'}`}>
+                              Main
+                            </span>
+                          )}
+                        </span>
+                        <span className={`text-xs ${selected ? 'text-background/70' : 'text-muted-foreground'}`}>
+                          {d?.dirty ? 'Unsaved changes' : d && !d.hasSaved ? 'Hours not set' : `${d?.dayHours.filter(x => !x.isOff).length ?? 0}/7 days open`}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {activeBranch && !draft.hasSaved && (
+                  <div className="mt-3 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+                    <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                    <p className="text-sm text-amber-900">
+                      <span className="font-medium">{activeBranch.name}</span> has no saved hours yet, so customers can&apos;t book it.
+                      Adjust the defaults below, or copy from another branch, then save.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Alerts */}
             {error && (
-              <div
-                role="alert"
-                className="mt-6 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3"
-              >
+              <div role="alert" className="mt-6 flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
                 <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-destructive" />
                 <p className="text-sm text-destructive">{error}</p>
               </div>
             )}
 
-            {saveSuccess && (
-              <div
-                role="status"
-                className="mt-6 flex items-start gap-3 rounded-lg border border-border bg-muted px-4 py-3"
-              >
+            {(saveSuccess || saveMessage) && (
+              <div role="status" className="mt-6 flex items-start gap-3 rounded-lg border border-border bg-muted px-4 py-3">
                 <CheckCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-foreground" />
                 <div className="flex flex-col gap-0.5">
-                  <p className="text-sm font-medium text-foreground">Availability saved</p>
-                  <p className="text-xs text-muted-foreground">Taking you back to the dashboard…</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {saveMessage ?? 'Availability saved'}
+                  </p>
+                  {!multi && saveSuccess && (
+                    <p className="text-xs text-muted-foreground">Taking you back to the dashboard…</p>
+                  )}
                 </div>
               </div>
             )}
@@ -641,17 +702,11 @@ export default function BusinessHoursPage() {
               <section>
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                   <TabsList className="inline-flex h-auto w-full gap-1 rounded-lg bg-muted p-1 sm:w-auto">
-                    <TabsTrigger
-                      value="hours"
-                      className="flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm sm:flex-none"
-                    >
+                    <TabsTrigger value="hours" className="flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm sm:flex-none">
                       <Clock className="h-4 w-4" />
                       Weekly hours
                     </TabsTrigger>
-                    <TabsTrigger
-                      value="closed"
-                      className="flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm sm:flex-none"
-                    >
+                    <TabsTrigger value="closed" className="flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm sm:flex-none">
                       <Calendar className="h-4 w-4" />
                       Closed dates
                       {closedDates.length > 0 && (
@@ -664,26 +719,35 @@ export default function BusinessHoursPage() {
 
                   {/* Weekly hours */}
                   <TabsContent value="hours" className="mt-6 space-y-4">
-                    <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
                       <p className="text-sm text-muted-foreground">
-                        Defaults to 09:00 – 18:00 every day.
+                        {multi && activeBranch ? `Editing ${activeBranch.name}. ` : ''}Defaults to 09:00 – 18:00 every day.
                       </p>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={closeWeekends}
-                          className="h-8 gap-1.5 text-xs"
-                        >
+                      <div className="flex flex-wrap items-center gap-2">
+                        {multi && (
+                          <>
+                            <select
+                              value=""
+                              onChange={e => e.target.value && copyFromBranch(e.target.value)}
+                              className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                              aria-label="Copy hours from another branch"
+                            >
+                              <option value="">Copy hours from…</option>
+                              {activeBranches.filter(b => b.id !== activeKey).map(b => (
+                                <option key={b.id} value={b.id}>{b.name}</option>
+                              ))}
+                            </select>
+                            <Button variant="outline" size="sm" onClick={applyHoursToAllBranches} className="h-8 gap-1.5 text-xs">
+                              <CopyPlus className="h-3.5 w-3.5" />
+                              Apply to all branches
+                            </Button>
+                          </>
+                        )}
+                        <Button variant="outline" size="sm" onClick={closeWeekends} className="h-8 gap-1.5 text-xs">
                           <MoonStar className="h-3.5 w-3.5" />
                           Close weekends
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={resetToDefaultHours}
-                          className="h-8 gap-1.5 text-xs"
-                        >
+                        <Button variant="outline" size="sm" onClick={resetToDefaultHours} className="h-8 gap-1.5 text-xs">
                           <RotateCcw className="h-3.5 w-3.5" />
                           Reset to 9–6
                         </Button>
@@ -693,52 +757,38 @@ export default function BusinessHoursPage() {
                     <div className="overflow-hidden rounded-xl border border-border bg-card">
                       {dayHours.map((day, index) => {
                         const short = DAYS.find(d => d.id === day.dayOfWeek)?.short ?? ''
-                        const invalid =
-                          !day.isOff && toMinutes(day.closingTime) <= toMinutes(day.openingTime)
+                        const invalid = !day.isOff && toMinutes(day.closingTime) <= toMinutes(day.openingTime)
 
                         return (
                           <div
                             key={day.dayOfWeek}
-                            className={`flex flex-col gap-3 px-4 py-4 transition-colors lg:flex-row lg:items-center lg:gap-6 ${index !== 0 ? 'border-t border-border' : ''
-                              } ${day.isOff ? 'bg-muted/40' : 'bg-card'}`}
+                            className={`flex flex-col gap-3 px-4 py-4 transition-colors lg:flex-row lg:items-center lg:gap-6 ${
+                              index !== 0 ? 'border-t border-border' : ''
+                            } ${day.isOff ? 'bg-muted/40' : 'bg-card'}`}
                           >
-                            {/* Day identity */}
                             <div className="flex items-center justify-between gap-3 lg:w-52 lg:justify-start">
                               <div className="flex items-center gap-3">
                                 <span
                                   aria-hidden="true"
-                                  className={`flex h-9 w-9 items-center justify-center rounded-md text-[11px] font-semibold uppercase tracking-wide ${day.isOff
-                                    ? 'bg-muted text-muted-foreground'
-                                    : 'bg-foreground text-background'
-                                    }`}
+                                  className={`flex h-9 w-9 items-center justify-center rounded-md text-[11px] font-semibold uppercase tracking-wide ${
+                                    day.isOff ? 'bg-muted text-muted-foreground' : 'bg-foreground text-background'
+                                  }`}
                                 >
                                   {short}
                                 </span>
                                 <div className="flex flex-col">
-                                  <Label className="text-sm font-medium text-foreground">
-                                    {day.dayName}
-                                  </Label>
+                                  <Label className="text-sm font-medium text-foreground">{day.dayName}</Label>
                                   <span className="text-xs text-muted-foreground">
-                                    {day.isOff
-                                      ? 'Closed all day'
-                                      : formatDuration(day.openingTime, day.closingTime)}
+                                    {day.isOff ? 'Closed all day' : formatDuration(day.openingTime, day.closingTime)}
                                   </span>
                                 </div>
                               </div>
 
-                              {/* Mobile-only actions */}
                               <div className="flex items-center gap-1 lg:hidden">
                                 {!day.isOff && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => copyHoursToAllDays(day.dayOfWeek)}
-                                    className="h-8 w-8 p-0"
-                                  >
+                                  <Button variant="ghost" size="sm" onClick={() => copyHoursToAllDays(day.dayOfWeek)} className="h-8 w-8 p-0">
                                     <Copy className="h-4 w-4" />
-                                    <span className="sr-only">
-                                      Copy {day.dayName} hours to all days
-                                    </span>
+                                    <span className="sr-only">Copy {day.dayName} hours to all days</span>
                                   </Button>
                                 )}
                                 <Button
@@ -747,22 +797,11 @@ export default function BusinessHoursPage() {
                                   onClick={() => toggleDayOff(day.dayOfWeek)}
                                   className="h-8 gap-1.5 px-2 text-xs"
                                 >
-                                  {day.isOff ? (
-                                    <>
-                                      <CheckCircle className="h-3.5 w-3.5" />
-                                      Open
-                                    </>
-                                  ) : (
-                                    <>
-                                      <X className="h-3.5 w-3.5" />
-                                      Close
-                                    </>
-                                  )}
+                                  {day.isOff ? (<><CheckCircle className="h-3.5 w-3.5" />Open</>) : (<><X className="h-3.5 w-3.5" />Close</>)}
                                 </Button>
                               </div>
                             </div>
 
-                            {/* Times */}
                             {day.isOff ? (
                               <p className="flex-1 text-sm text-muted-foreground">
                                 Customers cannot book on {day.dayName}s.
@@ -770,51 +809,30 @@ export default function BusinessHoursPage() {
                             ) : (
                               <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-end">
                                 <div className="flex-1">
-                                  <Label
-                                    htmlFor={`open-${day.dayOfWeek}`}
-                                    className="mb-1 block text-xs text-muted-foreground"
-                                  >
-                                    Opens
-                                  </Label>
+                                  <Label htmlFor={`open-${day.dayOfWeek}`} className="mb-1 block text-xs text-muted-foreground">Opens</Label>
                                   <Input
                                     id={`open-${day.dayOfWeek}`}
                                     type="time"
                                     value={day.openingTime}
-                                    onChange={e =>
-                                      updateDayHours(day.dayOfWeek, 'openingTime', e.target.value)
-                                    }
+                                    onChange={e => updateDayHours(day.dayOfWeek, 'openingTime', e.target.value)}
                                     className="h-10 w-full"
                                   />
                                 </div>
-                                <span
-                                  aria-hidden="true"
-                                  className="hidden pb-3 text-muted-foreground sm:block"
-                                >
-                                  –
-                                </span>
+                                <span aria-hidden="true" className="hidden pb-3 text-muted-foreground sm:block">–</span>
                                 <div className="flex-1">
-                                  <Label
-                                    htmlFor={`close-${day.dayOfWeek}`}
-                                    className="mb-1 block text-xs text-muted-foreground"
-                                  >
-                                    Closes
-                                  </Label>
+                                  <Label htmlFor={`close-${day.dayOfWeek}`} className="mb-1 block text-xs text-muted-foreground">Closes</Label>
                                   <Input
                                     id={`close-${day.dayOfWeek}`}
                                     type="time"
                                     value={day.closingTime}
-                                    onChange={e =>
-                                      updateDayHours(day.dayOfWeek, 'closingTime', e.target.value)
-                                    }
+                                    onChange={e => updateDayHours(day.dayOfWeek, 'closingTime', e.target.value)}
                                     aria-invalid={invalid}
-                                    className={`h-10 w-full ${invalid ? 'border-destructive text-destructive' : ''
-                                      }`}
+                                    className={`h-10 w-full ${invalid ? 'border-destructive text-destructive' : ''}`}
                                   />
                                 </div>
                               </div>
                             )}
 
-                            {/* Desktop-only actions */}
                             <div className="hidden items-center gap-1 lg:flex">
                               {!day.isOff && (
                                 <Button
@@ -834,17 +852,7 @@ export default function BusinessHoursPage() {
                                 onClick={() => toggleDayOff(day.dayOfWeek)}
                                 className="h-9 w-24 gap-1.5 text-xs"
                               >
-                                {day.isOff ? (
-                                  <>
-                                    <CheckCircle className="h-3.5 w-3.5" />
-                                    Reopen
-                                  </>
-                                ) : (
-                                  <>
-                                    <X className="h-3.5 w-3.5" />
-                                    Close day
-                                  </>
-                                )}
+                                {day.isOff ? (<><CheckCircle className="h-3.5 w-3.5" />Reopen</>) : (<><X className="h-3.5 w-3.5" />Close day</>)}
                               </Button>
                             </div>
                           </div>
@@ -858,7 +866,9 @@ export default function BusinessHoursPage() {
                     <Card>
                       <CardContent className="flex flex-col gap-4 p-4 md:p-5">
                         <div className="flex flex-col gap-1">
-                          <h2 className="text-sm font-medium text-foreground">Add a closure</h2>
+                          <h2 className="text-sm font-medium text-foreground">
+                            Add a closure{multi && activeBranch ? ` for ${activeBranch.name}` : ''}
+                          </h2>
                           <p className="text-xs text-muted-foreground">
                             Block a single day or a full range, such as a holiday shutdown.
                           </p>
@@ -866,9 +876,7 @@ export default function BusinessHoursPage() {
 
                         <div className="grid gap-3 sm:grid-cols-3">
                           <div>
-                            <Label htmlFor="closed-start-date" className="mb-1 block text-xs">
-                              Start date
-                            </Label>
+                            <Label htmlFor="closed-start-date" className="mb-1 block text-xs">Start date</Label>
                             <Input
                               id="closed-start-date"
                               type="date"
@@ -879,9 +887,7 @@ export default function BusinessHoursPage() {
                             />
                           </div>
                           <div>
-                            <Label htmlFor="closed-end-date" className="mb-1 block text-xs">
-                              End date
-                            </Label>
+                            <Label htmlFor="closed-end-date" className="mb-1 block text-xs">End date</Label>
                             <Input
                               id="closed-end-date"
                               type="date"
@@ -892,9 +898,7 @@ export default function BusinessHoursPage() {
                             />
                           </div>
                           <div>
-                            <Label htmlFor="closed-reason" className="mb-1 block text-xs">
-                              Reason (optional)
-                            </Label>
+                            <Label htmlFor="closed-reason" className="mb-1 block text-xs">Reason (optional)</Label>
                             <Input
                               id="closed-reason"
                               placeholder="Holiday, maintenance…"
@@ -905,11 +909,19 @@ export default function BusinessHoursPage() {
                           </div>
                         </div>
 
-                        <Button
-                          onClick={addClosedDate}
-                          variant="outline"
-                          className="w-full gap-2 sm:w-auto sm:self-start"
-                        >
+                        {multi && (
+                          <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                            <input
+                              type="checkbox"
+                              checked={applyClosureToAll}
+                              onChange={e => setApplyClosureToAll(e.target.checked)}
+                              className="h-4 w-4 rounded border-border"
+                            />
+                            Apply to all branches (e.g. a public holiday)
+                          </label>
+                        )}
+
+                        <Button onClick={addClosedDate} variant="outline" className="w-full gap-2 sm:w-auto sm:self-start">
                           <Plus className="h-4 w-4" />
                           Add closure
                         </Button>
@@ -927,14 +939,10 @@ export default function BusinessHoursPage() {
                           return (
                             <div
                               key={key}
-                              className={`flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${idx !== 0 ? 'border-t border-border' : ''
-                                }`}
+                              className={`flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${idx !== 0 ? 'border-t border-border' : ''}`}
                             >
                               <div className="flex min-w-0 flex-1 items-start gap-3">
-                                <span
-                                  aria-hidden="true"
-                                  className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
-                                >
+                                <span aria-hidden="true" className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                                   <Calendar className="h-4 w-4" />
                                 </span>
                                 <div className="min-w-0 flex-1">
@@ -959,25 +967,10 @@ export default function BusinessHoursPage() {
                                         disabled={isPending}
                                       />
                                       <div className="flex gap-2">
-                                        <Button
-                                          size="sm"
-                                          className="h-9"
-                                          disabled={isPending}
-                                          onClick={() => saveEditReason(range.start, range.end)}
-                                        >
-                                          {isPending ? (
-                                            <Loader className="h-3.5 w-3.5 animate-spin" />
-                                          ) : (
-                                            'Save'
-                                          )}
+                                        <Button size="sm" className="h-9" disabled={isPending} onClick={() => saveEditReason(range.start, range.end)}>
+                                          {isPending ? <Loader className="h-3.5 w-3.5 animate-spin" /> : 'Save'}
                                         </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          className="h-9"
-                                          disabled={isPending}
-                                          onClick={cancelEditReason}
-                                        >
+                                        <Button size="sm" variant="ghost" className="h-9" disabled={isPending} onClick={cancelEditReason}>
                                           Cancel
                                         </Button>
                                       </div>
@@ -996,9 +989,7 @@ export default function BusinessHoursPage() {
                                     variant="ghost"
                                     size="sm"
                                     disabled={isPending}
-                                    onClick={() =>
-                                      startEditReason(range.start, range.end, range.reason)
-                                    }
+                                    onClick={() => startEditReason(range.start, range.end, range.reason)}
                                     className="h-9 w-9 p-0"
                                   >
                                     <Pencil className="h-4 w-4" />
@@ -1011,11 +1002,7 @@ export default function BusinessHoursPage() {
                                     onClick={() => removeClosedDateRange(range.start, range.end)}
                                     className="h-9 w-9 p-0"
                                   >
-                                    {isPending ? (
-                                      <Loader className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <X className="h-4 w-4" />
-                                    )}
+                                    {isPending ? <Loader className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
                                     <span className="sr-only">Remove closure</span>
                                   </Button>
                                 </div>
@@ -1029,7 +1016,9 @@ export default function BusinessHoursPage() {
                         <Calendar className="h-5 w-5 text-muted-foreground" />
                         <p className="text-sm font-medium text-foreground">No closures yet</p>
                         <p className="max-w-xs text-xs text-muted-foreground">
-                          Your weekly hours apply every week until you add a closed date.
+                          {multi && activeBranch
+                            ? `${activeBranch.name} follows its weekly hours until you add a closed date.`
+                            : 'Your weekly hours apply every week until you add a closed date.'}
                         </p>
                       </div>
                     )}
@@ -1040,24 +1029,50 @@ export default function BusinessHoursPage() {
               {/* Summary rail (desktop) */}
               <aside className="hidden lg:block">
                 <div className="sticky top-8 flex flex-col gap-4">
+                  {multi && (
+                    <Card>
+                      <CardContent className="p-4">
+                        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          All branches
+                        </h2>
+                        <ul className="flex flex-col gap-1">
+                          {activeBranches.map(b => {
+                            const d = drafts[b.id]
+                            return (
+                              <li key={b.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveKey(b.id)}
+                                  className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted ${
+                                    b.id === activeKey ? 'bg-muted font-medium' : ''
+                                  }`}
+                                >
+                                  <span className="truncate text-foreground">{b.name}</span>
+                                  <span className="flex-shrink-0 text-xs text-muted-foreground">
+                                    {d?.dirty ? 'Unsaved' : !d?.hasSaved ? 'Not set' : `${d.dayHours.filter(x => !x.isOff).length}/7`}
+                                  </span>
+                                </button>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
+
                   <Card>
                     <CardContent className="p-4">
                       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Week at a glance
+                        {multi && activeBranch ? activeBranch.name : 'Week at a glance'}
                       </h2>
                       <ul className="flex flex-col gap-2">
                         {dayHours.map(day => (
-                          <li
-                            key={day.dayOfWeek}
-                            className="flex items-center justify-between gap-2 text-sm"
-                          >
+                          <li key={day.dayOfWeek} className="flex items-center justify-between gap-2 text-sm">
                             <span className="text-muted-foreground">
                               {DAYS.find(d => d.id === day.dayOfWeek)?.short}
                             </span>
                             {day.isOff ? (
-                              <span className="text-xs font-medium text-muted-foreground">
-                                Closed
-                              </span>
+                              <span className="text-xs font-medium text-muted-foreground">Closed</span>
                             ) : (
                               <span className="font-mono text-xs text-foreground">
                                 {formatTime12(day.openingTime)} – {formatTime12(day.closingTime)}
@@ -1077,9 +1092,7 @@ export default function BusinessHoursPage() {
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Weekly hours</span>
-                        <span className="font-medium text-foreground">
-                          {Math.round(weeklyMinutes / 60)}h
-                        </span>
+                        <span className="font-medium text-foreground">{Math.round(weeklyMinutes / 60)}h</span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Closed dates</span>
@@ -1097,15 +1110,15 @@ export default function BusinessHoursPage() {
             <div className="flex items-center gap-3">
               <div className="flex flex-col">
                 <span className="text-sm font-medium text-foreground">
-                  {openDays.length}/7 days open
+                  {multi && activeBranch ? activeBranch.name : `${openDays.length}/7 days open`}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {Math.round(weeklyMinutes / 60)}h per week
+                  {multi ? `${openDays.length}/7 days · ` : ''}{Math.round(weeklyMinutes / 60)}h per week
                 </span>
               </div>
               <Button
                 onClick={saveBusinessHours}
-                disabled={saving || saveSuccess}
+                disabled={saving || (saveSuccess && !multi)}
                 className="ml-auto flex-1 items-center gap-2"
               >
                 {saveButtonContent}
@@ -1126,6 +1139,7 @@ export default function BusinessHoursPage() {
                 (pendingClosureRange.start === pendingClosureRange.end
                   ? formatDateLabel(pendingClosureRange.start)
                   : `${formatDateLabel(pendingClosureRange.start)} – ${formatDateLabel(pendingClosureRange.end)}`)}
+              {multi && (pendingClosureRange?.applyAll ? ' across all branches' : activeBranch ? ` at ${activeBranch.name}` : '')}
               . Notify affected customers before confirming this closure.
             </p>
 
@@ -1139,6 +1153,7 @@ export default function BusinessHoursPage() {
                         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                       })}
                       {b.service?.name ? ` · ${b.service.name}` : ''}
+                      {multi && b.branch?.name ? ` · ${b.branch.name}` : ''}
                       {' · '}{b.status}
                     </span>
                   </div>
@@ -1158,20 +1173,12 @@ export default function BusinessHoursPage() {
             </div>
 
             <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-              <Button variant="outline" onClick={cancelClosureModal}>
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={cancelClosureModal}>Cancel</Button>
               <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={notifyClosureBookings}
-                  disabled={notifying || allConfirmedNotified}
-                >
+                <Button variant="secondary" onClick={notifyClosureBookings} disabled={notifying || allConfirmedNotified}>
                   {notifying ? <Loader className="h-4 w-4 animate-spin" /> : 'Notify customers'}
                 </Button>
-                <Button onClick={confirmClosureAndProceed} disabled={!allConfirmedNotified}>
-                  Continue
-                </Button>
+                <Button onClick={confirmClosureAndProceed} disabled={!allConfirmedNotified}>Continue</Button>
               </div>
             </DialogFooter>
           </DialogContent>
