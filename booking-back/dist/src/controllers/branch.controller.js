@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const prisma_1 = __importDefault(require("../lib/prisma"));
+const branch_1 = require("../lib/branch");
 async function getOwnedBusiness(req) {
     const userId = req.userId;
     if (!userId)
@@ -54,8 +55,9 @@ class BranchController {
             if (!name || !address || !city) {
                 return res.status(400).json({ success: false, message: 'name, address and city are required' });
             }
+            const slug = await (0, branch_1.generateBranchSlug)(prisma_1.default, business.id, name);
             const branch = await prisma_1.default.branch.create({
-                data: { businessId: business.id, name, phone, address, city, state, latitude, longitude },
+                data: { businessId: business.id, name, slug, phone, address, city, state, latitude, longitude },
             });
             res.status(201).json({ success: true, data: branch });
         }

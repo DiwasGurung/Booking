@@ -7,6 +7,7 @@ exports.createMainBranch = createMainBranch;
 exports.syncMainBranchIfSingle = syncMainBranchIfSingle;
 exports.resolveBranchId = resolveBranchId;
 exports.getBranchDisplay = getBranchDisplay;
+exports.generateBranchSlug = generateBranchSlug;
 /**
  * Creates the business's Main branch from its profile details.
  * Accepts a transaction client so it can run inside the same transaction
@@ -84,4 +85,13 @@ async function getBranchDisplay(branchId, business) {
         phone: branch.phone ?? business.phone ?? null,
         address: [branch.address, branch.city].filter(Boolean).join(', ') || business.address || null,
     };
+}
+const toSlug = (s) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'branch';
+async function generateBranchSlug(db, businessId, name) {
+    const base = toSlug(name);
+    let slug = base;
+    for (let i = 2; await db.branch.findFirst({ where: { businessId, slug }, select: { id: true } }); i++) {
+        slug = `${base}-${i}`;
+    }
+    return slug;
 }

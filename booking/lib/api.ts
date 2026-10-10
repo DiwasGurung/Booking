@@ -24,6 +24,7 @@ export type ApiResponse<T> = {
 export interface Branch {
   id: string
   name: string
+  slug?: string
   phone?: string | null
   address: string
   city: string
@@ -106,6 +107,7 @@ export interface Business {
   isVerified: boolean
   location?: string
   createdAt: string
+  branches?: Branch[]
 }
 
 
@@ -205,6 +207,7 @@ export interface Staff {
   _count?: { bookings: number }
   createdAt: string
   updatedAt: string
+  branchId?: string | null
 
 }
 

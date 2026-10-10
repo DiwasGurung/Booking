@@ -96,4 +96,18 @@ export async function getBranchDisplay(
     phone: branch.phone ?? business.phone ?? null,
     address: [branch.address, branch.city].filter(Boolean).join(', ') || business.address || null,
   }
+
+  
+}
+
+const toSlug = (s: string) =>
+  s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'branch'
+
+export async function generateBranchSlug(db: Prisma.TransactionClient | typeof prisma, businessId: string, name: string) {
+  const base = toSlug(name)
+  let slug = base
+  for (let i = 2; await db.branch.findFirst({ where: { businessId, slug }, select: { id: true } }); i++) {
+    slug = `${base}-${i}`
+  }
+  return slug
 }

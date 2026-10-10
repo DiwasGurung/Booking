@@ -1,6 +1,7 @@
 // branch.controller.ts
 import { Request, Response } from 'express'
 import prisma from '../lib/prisma'
+import { generateBranchSlug } from '../lib/branch'
 
 async function getOwnedBusiness(req: Request) {
   const userId = (req as any).userId
@@ -55,8 +56,10 @@ class BranchController {
         return res.status(400).json({ success: false, message: 'name, address and city are required' })
       }
 
+      const slug = await generateBranchSlug(prisma, business.id, name)
+
       const branch = await prisma.branch.create({
-        data: { businessId: business.id, name, phone, address, city, state, latitude, longitude },
+        data: { businessId: business.id, name, slug, phone, address, city, state, latitude, longitude },
       })
       res.status(201).json({ success: true, data: branch })
     } catch (e: any) {

@@ -1,14 +1,17 @@
 'use client'
 
-import { useRouter, useParams } from 'next/navigation'
-import { Suspense, useEffect, useState, useRef, JSX } from 'react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useMemo, useState, useRef, JSX } from 'react'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/card'
-import { Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, MessageCircle, User, Mail, Loader2, X, ChevronLeft, ChevronRight, Calendar as CalendarIcon, MapPin, Phone } from 'lucide-react'
-import { servicesApi, bookingsApi, businessApi, staffApi, type Service, type Business, type Staff } from '@/lib/api'
+import {
+  Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, User, Mail, X,
+  ChevronLeft, ChevronRight, Calendar as CalendarIcon, MapPin, Phone, Building2,
+} from 'lucide-react'
+import { servicesApi, bookingsApi, businessApi, staffApi, type Service, type Business, type Staff, type Branch } from '@/lib/api'
 import { useAuth } from '@/context/authContext'
-import { DateTime } from 'luxon';
+import { DateTime } from 'luxon'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
@@ -19,22 +22,26 @@ function getInitials(name: string) {
   return (words[0][0] + words[1][0]).toUpperCase()
 }
 
-// Seconds the verification notice counts down before telling the user to check their inbox.
 const VERIFICATION_COUNTDOWN = 10
 
-function BusinessHeaderContent({ business }: { business: Business | null }) {
+function BusinessHeaderContent({ business, branch }: { business: Business | null; branch: Branch | null }) {
+  // When a branch is chosen, show ITS address and phone instead of the business's
+  const phone = branch?.phone || business?.phone
+  const location = branch
+    ? [branch.address, branch.city].filter(Boolean).join(', ')
+    : [business?.address, business?.city].filter(Boolean).join(', ')
+
   return (
     <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-      {/* Logo */}
       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl shadow-sm ring-1 ring-border">
-                        {typeof business?.logo === 'string' && business.logo ? (
-                          <img src={business.logo} alt={business.name} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-primary/10">
-                            <span className="text-lg font-semibold text-primary">{getInitials(business?.name || '')}</span>
-                          </div>
-                        )}
-                      </div>
+        {typeof business?.logo === 'string' && business.logo ? (
+          <img src={business.logo} alt={business.name} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-primary/10">
+            <span className="text-lg font-semibold text-primary">{getInitials(business?.name || '')}</span>
+          </div>
+        )}
+      </div>
 
       <div className="flex-1 pt-2 sm:pt-0">
         <div className="flex flex-wrap items-center gap-2">
@@ -56,16 +63,22 @@ function BusinessHeaderContent({ business }: { business: Business | null }) {
               {business.category}
             </span>
           )}
-          {business?.phone && (
-            <span className="inline-flex items-center gap-1">
-              <Phone className="w-3.5 h-3.5" />
-              {business.phone}
+          {branch && (
+            <span className="inline-flex items-center gap-1 font-medium text-foreground">
+              <Building2 className="w-3.5 h-3.5" />
+              {branch.name}
             </span>
           )}
-          {(business?.address || business?.city) && (
+          {phone && (
+            <span className="inline-flex items-center gap-1">
+              <Phone className="w-3.5 h-3.5" />
+              {phone}
+            </span>
+          )}
+          {location && (
             <span className="inline-flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5" />
-              {[business?.address, business?.city].filter(Boolean).join(', ')}
+              {location}
             </span>
           )}
         </div>
@@ -79,19 +92,31 @@ function BusinessHeaderContent({ business }: { business: Business | null }) {
 }
 
 function BookingPageContent() {
- const params = useParams()
-const router = useRouter()
-const { user } = useAuth()
+  const params = useParams()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user } = useAuth()
 
-const slug = params.slug as string          // from the URL
-const [businessId, setBusinessId] = useState('')  // real DB id, resolved from slug
-const [resolving, setResolving] = useState(true)
-const [notFound, setNotFound] = useState(false)
+  const slug = params.slug as string
+  const branchQuery = searchParams.get('branch')
+  const [businessId, setBusinessId] = useState('')
+  const [resolving, setResolving] = useState(true)
+  const [notFound, setNotFound] = useState(false)
 
   const [services, setServices] = useState<Service[]>([])
   const [selectedService, setSelectedService] = useState<Service | null>(null)
   const [servicesLoading, setServicesLoading] = useState(false)
   const [business, setBusiness] = useState<Business | null>(null)
+
+  // Branch state
+  const [branchId, setBranchId] = useState('')
+  const branches: Branch[] = business?.branches ?? []
+  const multi = branches.length > 1
+  const selectedBranch = branches.find((b) => b.id === branchId) ?? null
+  // A single-location business has nothing to choose, so it is always "ready"
+  const branchReady = !multi || !!branchId
+  // Step numbering shifts by one when the location step is shown
+  const n = (i: number) => i + (multi ? 1 : 0)
 
   // Staff state
   const [staffMembers, setStaffMembers] = useState<Staff[]>([])
@@ -106,35 +131,42 @@ const [notFound, setNotFound] = useState(false)
   const [customerEmail, setCustomerEmail] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [notes, setNotes] = useState('')
-  const [businessHours, setBusinessHours] = useState<any[]>([])
-  const [closedDates, setClosedDates] = useState<Map<string, string>>(new Map())
+  const [allHours, setAllHours] = useState<any[]>([])
+  const [closedDateRows, setClosedDateRows] = useState<any[]>([])
   const [closedReason, setClosedReason] = useState<string | null>(null)
+
+  // Hours and closed dates are per branch. Rows without a branchId (older
+  // data) apply everywhere.
+  const businessHours = useMemo(() => {
+    if (!branchId) return allHours
+    const own = allHours.filter((h) => h.branchId === branchId)
+    return own.length ? own : allHours.filter((h) => !h.branchId)
+  }, [allHours, branchId])
+
+  const closedDates = useMemo(() => {
+    const map = new Map<string, string>()
+    closedDateRows.forEach((cd: any) => {
+      if (cd.branchId && branchId && cd.branchId !== branchId) return
+      const dateStr = new Date(cd.date).toISOString().split('T')[0]
+      map.set(dateStr, cd.reason || 'Business is closed')
+    })
+    return map
+  }, [closedDateRows, branchId])
 
   // Verification modal state
   const [showVerificationModal, setShowVerificationModal] = useState(false)
   const [countdown, setCountdown] = useState(VERIFICATION_COUNTDOWN)
-  // Redirect unauthenticated users to public booking page
-useEffect(() => {
-  if (!slug) return
-  if (!user && !loading) {
-    router.push(`/book/${slug}`)
-  }
-}, [slug, user, loading, router])
 
-useEffect(() => {
-  if (!slug) return
-  loadBusinessData()
-}, [slug])
+  useEffect(() => {
+    if (!slug) return
+    loadBusinessData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug])
 
-
-  // Returns true if this slot's start time (for the given date) is still in
-  // the future. Mirrors the past-time filtering already done in the staff
-  // booking page — applied here so an already-passed slot for today renders
-  // disabled instead of being clickable.
   const isSlotInFuture = (dateStr: string, timeString: string): boolean => {
     const now = new Date()
     const todayStr = now.toISOString().split('T')[0]
-    if (dateStr !== todayStr) return true // any future date is fine as-is
+    if (dateStr !== todayStr) return true
 
     let hours: number, minutes: number
     if (timeString.includes('T')) {
@@ -162,9 +194,9 @@ useEffect(() => {
       setClosedReason(null)
       setError(reason || 'Please choose a different date for this staff member')
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStaff])
 
-  // Pre-fill customer info from logged-in user
   useEffect(() => {
     if (user) {
       const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim()
@@ -173,6 +205,7 @@ useEffect(() => {
       setCustomerPhone(user.phone || '')
     }
   }, [user])
+
   const [bookingSuccess, setBookingSuccess] = useState(false)
   const [bookingId, setBookingId] = useState('')
   const [error, setError] = useState('')
@@ -189,10 +222,7 @@ useEffect(() => {
     return () => clearInterval(timer)
   }, [resendCooldown])
 
-
-  
-
-  // Load staff when service is selected
+  // Load staff when the service OR branch changes (staff are filtered per branch)
   useEffect(() => {
     if (selectedService) {
       loadStaffForService(selectedService.id)
@@ -200,24 +230,17 @@ useEffect(() => {
       setStaffMembers([])
       setSelectedStaff(null)
     }
-  }, [selectedService])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedService, branchId])
 
-  // Load available slots when date and service are selected (staff is optional)
+  // Load slots whenever service, date, staff or branch changes
   useEffect(() => {
     if (date && selectedService) {
       loadAvailableSlots()
     }
-  }, [date, selectedService])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, selectedService, selectedStaff, branchId])
 
-  // Reload slots when staff selection changes
-  useEffect(() => {
-    if (date && selectedService) {
-      loadAvailableSlots()
-    }
-  }, [selectedStaff])
-
-  // Countdown that only runs while the verification modal is open.
-  // It resets to the full duration each time the modal opens and stops cleanly at 0.
   useEffect(() => {
     if (!showVerificationModal) return
 
@@ -235,7 +258,6 @@ useEffect(() => {
     return () => clearInterval(interval)
   }, [showVerificationModal])
 
-  // Lock body scroll while the modal is open.
   useEffect(() => {
     if (showVerificationModal) {
       const original = document.body.style.overflow
@@ -246,6 +268,32 @@ useEffect(() => {
     }
   }, [showVerificationModal])
 
+  // Path for this page, keeping the chosen branch in the URL so it can be shared
+  const bookPath = (businessSlug: string, branch?: Branch | null) =>
+    branch ? `/book/${businessSlug}?branch=${branch.slug ?? branch.id}` : `/book/${businessSlug}`
+
+  const resetSelections = () => {
+    setSelectedService(null)
+    setSelectedStaff(null)
+    setDate('')
+    setSelectedTime(null)
+    setAvailableSlots([])
+    setClosedReason(null)
+    setError('')
+  }
+
+  const chooseBranch = (b: Branch) => {
+    if (b.id === branchId) return
+    setBranchId(b.id)
+    resetSelections()
+    router.replace(bookPath(business?.slug ?? slug, b), { scroll: false })
+  }
+
+  const clearBranch = () => {
+    setBranchId('')
+    resetSelections()
+    router.replace(`/book/${business?.slug ?? slug}`, { scroll: false })
+  }
 
   const sendPhoneVerificationCode = async (id: string) => {
     setSendingCode(true)
@@ -258,9 +306,6 @@ useEffect(() => {
       })
       const data = await res.json()
 
-      // If the backend tells us this phone is already verified, there's
-      // nothing to send and nothing for the customer to enter — skip the
-      // code-entry step entirely and treat the booking as confirmed.
       if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
         setShowVerificationModal(false)
         setBookingSuccess(true)
@@ -303,8 +348,6 @@ useEffect(() => {
       })
       const data = await res.json()
 
-      // Same case here — "already verified" from this endpoint means the
-      // booking is effectively confirmed, not that the code was wrong.
       if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
         setShowVerificationModal(false)
         setBookingSuccess(true)
@@ -328,84 +371,86 @@ useEffect(() => {
     }
   }
 
+  const loadBusinessData = async () => {
+    try {
+      setResolving(true)
+      setServicesLoading(true)
+      setError('')
+      setNotFound(false)
 
-  
-const loadBusinessData = async () => {
-  try {
-    setResolving(true)
-    setServicesLoading(true)
-    setError('')
-    setNotFound(false)
+      const businessRes = await businessApi.getPublic(slug)
+      const biz = businessRes.data as Business | undefined
 
-    // 1. Resolve slug (or id) -> business. Public endpoint, no auth.
-    const businessRes = await businessApi.getPublic(slug)
-    const biz = businessRes.data as Business | undefined
-
-    if (!businessRes.success || !biz?.id) {
-      setNotFound(true)
-      return
-    }
-
-    setBusiness(biz)
-    setBusinessId(biz.id)   // everything else keeps using `businessId`
-
-    if (biz.slug && slug !== biz.slug) {
-  router.replace(`/book/${biz.slug}`)
-}
-
-    // 2. Use the real id for all other endpoints
-    const [servicesRes, hoursRes, closedDatesRes] = await Promise.all([
-      servicesApi.getBusinessServices(biz.id),
-      fetch(`${API_URL}/api/business-hours/business/${biz.id}`),
-      fetch(`${API_URL}/api/business-hours/${biz.id}/closed-dates`),
-    ])
-
-    if (servicesRes.data) {
-      let list: Service[] = []
-      if (Array.isArray(servicesRes.data)) {
-        list = servicesRes.data
-      } else if (typeof servicesRes.data === 'object' && servicesRes.data !== null) {
-        const data = servicesRes.data as Record<string, any>
-        list = data.services || data.data || []
+      if (!businessRes.success || !biz?.id) {
+        setNotFound(true)
+        return
       }
-      setServices(list)
-    }
 
-    if (hoursRes.ok) {
-      setBusinessHours(await hoursRes.json())
-    }
+      setBusiness(biz)
+      setBusinessId(biz.id)
 
-    if (closedDatesRes.ok) {
-      const closedDatesData = await closedDatesRes.json()
-      const closedDatesMap = new Map<string, string>()
-      if (closedDatesData.success && closedDatesData.data) {
-        closedDatesData.data.forEach((cd: any) => {
-          const dateStr = new Date(cd.date).toISOString().split('T')[0]
-          closedDatesMap.set(dateStr, cd.reason || 'Business is closed')
-        })
+      // Pick the branch: a single branch is chosen silently; with several, a
+      // valid ?branch= deep link preselects it, otherwise the picker is shown.
+      const list: Branch[] = biz.branches ?? []
+      if (list.length === 1) {
+        setBranchId(list[0].id)
+      } else if (list.length > 1 && branchQuery) {
+        const match = list.find((b) => b.slug === branchQuery || b.id === branchQuery)
+        if (match) setBranchId(match.id)
       }
-      setClosedDates(closedDatesMap)
+
+      // Canonical slug redirect, keeping any ?branch= parameter
+      if (biz.slug && slug !== biz.slug) {
+        const qs = searchParams.toString()
+        router.replace(`/book/${biz.slug}${qs ? `?${qs}` : ''}`)
+      }
+
+      const [servicesRes, hoursRes, closedDatesRes] = await Promise.all([
+        servicesApi.getBusinessServices(biz.id),
+        fetch(`${API_URL}/api/business-hours/business/${biz.id}`),
+        fetch(`${API_URL}/api/business-hours/${biz.id}/closed-dates`),
+      ])
+
+      if (servicesRes.data) {
+        let svc: Service[] = []
+        if (Array.isArray(servicesRes.data)) {
+          svc = servicesRes.data
+        } else if (typeof servicesRes.data === 'object' && servicesRes.data !== null) {
+          const data = servicesRes.data as Record<string, any>
+          svc = data.services || data.data || []
+        }
+        setServices(svc)
+      }
+
+      if (hoursRes.ok) {
+        setAllHours(await hoursRes.json())
+      }
+
+      if (closedDatesRes.ok) {
+        const closedDatesData = await closedDatesRes.json()
+        if (closedDatesData.success && closedDatesData.data) {
+          setClosedDateRows(closedDatesData.data)
+        }
+      }
+    } catch (err) {
+      setError('Failed to load business information. Please try again.')
+    } finally {
+      setServicesLoading(false)
+      setResolving(false)
     }
-  } catch (err) {
-    setError('Failed to load business information. Please try again.')
-  } finally {
-    setServicesLoading(false)
-    setResolving(false)
   }
-}
 
   const loadStaffForService = async (serviceId: string) => {
     try {
       setStaffLoading(true)
       const response = await staffApi.getStaffForService(serviceId)
       if (response.data?.staff) {
-        setStaffMembers(response.data.staff)
-        // Auto-select when there's exactly one staff member — there's no real
-        // choice to make, so treat them as selected immediately. This also
-        // means their weekly schedule correctly drives slot generation and
-        // the day-off check below, instead of quietly ignoring it because
-        // selectedStaff was null.
-        setSelectedStaff(response.data.staff.length === 1 ? response.data.staff[0] : null)
+        // Only staff who work at the chosen branch (staff with no branch work anywhere)
+        const list = (response.data.staff as Staff[]).filter(
+          (s) => !branchId || !s.branchId || s.branchId === branchId
+        )
+        setStaffMembers(list)
+        setSelectedStaff(list.length === 1 ? list[0] : null)
       } else {
         setStaffMembers([])
         setSelectedStaff(null)
@@ -417,6 +462,7 @@ const loadBusinessData = async () => {
       setStaffLoading(false)
     }
   }
+
   const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
   const DAY_LABELS: Record<string, string> = {
     sunday: 'Sunday', monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday',
@@ -463,12 +509,6 @@ const loadBusinessData = async () => {
     return normalized
   }
 
-  // Single source of truth for whether a calendar day is pickable. Checks, in
-  // order: past dates, explicit business closed-dates, the business's own
-  // weekly hours, and — only if a specific staff member is selected — that
-  // staff member's recurring day off. When no staff is selected ("any
-  // available staff"), we deliberately don't block on any one staff's
-  // schedule, since the backend can auto-assign someone who IS working.
   const getDateDisabledInfo = (d: Date): { disabled: boolean; reason?: string } => {
     const dateStr = formatDateStr(d)
 
@@ -488,7 +528,6 @@ const loadBusinessData = async () => {
       return { disabled: true, reason: 'Business is closed on this day' }
     }
 
-    // If today, and the business's closing time has already passed, disable.
     const startOfCellDay = new Date(d)
     startOfCellDay.setHours(0, 0, 0, 0)
     const isCellToday = startOfCellDay.getTime() === startOfToday.getTime()
@@ -501,7 +540,6 @@ const loadBusinessData = async () => {
       }
     }
 
-    // Only enforce a specific staff member's day off if one is selected.
     if (selectedStaff) {
       const dayName = DAY_KEYS[d.getDay()]
       const staffWorkingHours = getNormalizedWorkingHours(selectedStaff)
@@ -514,9 +552,6 @@ const loadBusinessData = async () => {
     return { disabled: false }
   }
 
-  // Applies a validated date pick: sets date, clears any previously chosen
-  // time, closes the picker, and recomputes the closed-reason banner exactly
-  // like the old input's onChange did.
   const selectDate = (dateStr: string) => {
     setDate(dateStr)
     setSelectedTime(null)
@@ -525,8 +560,7 @@ const loadBusinessData = async () => {
     if (closedDates.has(dateStr)) {
       setClosedReason(closedDates.get(dateStr) || 'Business is closed')
     } else {
-      const todayReason = getTodayClosedReason(dateStr)
-      setClosedReason(todayReason)
+      setClosedReason(getTodayClosedReason(dateStr))
     }
   }
 
@@ -549,14 +583,12 @@ const loadBusinessData = async () => {
     })
   }
 
-  // Keep the visible month in sync if `date` is ever set from elsewhere
   useEffect(() => {
     if (date) {
       const [y, m] = date.split('-').map(Number)
       setCalendarMonth(new Date(y, m - 1, 1))
     }
   }, [date])
-
 
   const loadAvailableSlots = async () => {
     if (!selectedService || !date || !businessId) return
@@ -570,9 +602,6 @@ const loadBusinessData = async () => {
       }
     }
 
-    // NEW: check the selected staff member's own weekly schedule before hitting the API.
-    // Only applies when a specific staff member is chosen — "any available staff" (selectedStaff === null)
-    // should still fall through to the backend, which can pick someone who IS working that day.
     if (selectedStaff) {
       const dayName = DAY_KEYS[new Date(date).getDay()]
       const daySchedule = (selectedStaff as any)?.workingHours?.[dayName]
@@ -586,9 +615,15 @@ const loadBusinessData = async () => {
 
     try {
       setLoading(true)
-      setClosedReason(null) // clear any previous staff-day-off message
+      setClosedReason(null)
 
-      const response = await bookingsApi.getBusinessAvailableSlots(businessId, selectedService.id, date, selectedStaff?.id)
+      const response = await (bookingsApi.getBusinessAvailableSlots as any)(
+        businessId,
+        selectedService.id,
+        date,
+        selectedStaff?.id,
+        branchId || undefined
+      )
 
       if (response.success) {
         let slots: string[] = []
@@ -619,22 +654,18 @@ const loadBusinessData = async () => {
 
   const formatTimeSlot = (timeString: string): string => {
     try {
-      // Handle both "HH:MM" format and ISO date strings
       let hours: number, minutes: number
 
-      if (timeString.includes('T') || timeString.includes(':') && timeString.length > 5) {
-        // ISO date string like "2026-08-06T11:00:00"
-        const date = new Date(timeString)
-        hours = date.getHours()
-        minutes = date.getMinutes()
+      if (timeString.includes('T') || (timeString.includes(':') && timeString.length > 5)) {
+        const d = new Date(timeString)
+        hours = d.getHours()
+        minutes = d.getMinutes()
       } else {
-        // Simple time string like "11:00"
         const parts = timeString.split(':')
         hours = parseInt(parts[0], 10)
         minutes = parseInt(parts[1], 10)
       }
 
-      // Format as 12-hour time
       const period = hours >= 12 ? 'PM' : 'AM'
       const displayHours = hours % 12 || 12
       return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`
@@ -643,15 +674,10 @@ const loadBusinessData = async () => {
     }
   }
 
-  // Given today's date, finds the day's business hours and checks whether
-  // the current time is already past closing. Mirrors the equivalent check
-  // in the staff booking page. Day-of-week mapping: JS Date.getDay() is
-  // 0-6 (Sun-Sat), but business hours store 0-6 as Mon-Sun, so Sunday (0)
-  // maps to 6, and every other day shifts down by 1.
   const getTodayClosedReason = (dateStr: string): string | null => {
     const now = new Date()
     const todayStr = now.toISOString().split('T')[0]
-    if (dateStr !== todayStr) return null // only relevant for today
+    if (dateStr !== todayStr) return null
 
     const dayOfWeek = now.getDay()
     const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1
@@ -675,7 +701,6 @@ const loadBusinessData = async () => {
   const getDisplayTime = (timeString: string): string => {
     if (!timeString) return 'N/A'
     try {
-      // Handle "HH:MM" format
       const parts = timeString.split(':')
       if (parts.length === 2) {
         const hours = parseInt(parts[0], 10)
@@ -693,6 +718,11 @@ const loadBusinessData = async () => {
   const handleConfirmBooking = async () => {
     if (!selectedService || !date || !selectedTime) {
       setError('Please select service, date, and time')
+      return
+    }
+
+    if (multi && !branchId) {
+      setError('Please choose a location')
       return
     }
 
@@ -717,11 +747,11 @@ const loadBusinessData = async () => {
     try {
       setLoading(true)
 
-      const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
-      const startDateTime = DateTime.fromISO(`${date}T${selectedTime}`, { zone: BUSINESS_TZ });
-      const startTimeISO = startDateTime.toISO();
-      const endDateTime = startDateTime.plus({ minutes: selectedService.duration });
-      const endTimeISO = endDateTime.toISO();
+      const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
+      const startDateTime = DateTime.fromISO(`${date}T${selectedTime}`, { zone: BUSINESS_TZ })
+      const startTimeISO = startDateTime.toISO()
+      const endDateTime = startDateTime.plus({ minutes: selectedService.duration })
+      const endTimeISO = endDateTime.toISO()
 
       const basePayload: any = {
         serviceId: selectedService.id,
@@ -731,9 +761,8 @@ const loadBusinessData = async () => {
         notes,
       }
 
-      if (selectedStaff?.id) {
-        basePayload.staffId = selectedStaff.id
-      }
+      if (branchId) basePayload.branchId = branchId
+      if (selectedStaff?.id) basePayload.staffId = selectedStaff.id
 
       let response
       if (user) {
@@ -746,7 +775,6 @@ const loadBusinessData = async () => {
           customerPhone,
         })
       }
-
 
       const payload = (response as any)?.data ?? response
       const createdBooking = payload?.booking
@@ -778,31 +806,30 @@ const loadBusinessData = async () => {
       setLoading(false)
     }
   }
-// Still resolving the slug (or the effect hasn't run yet on first render)
-if (loading || resolving || (!businessId && !notFound)) {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-      <div className="mx-auto max-w-2xl text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent mx-auto mb-4" />
-        <p className="text-lg text-muted-foreground">Loading...</p>
-      </div>
-    </div>
-  )
-}
 
-// Only show this after the lookup actually finished and failed
-if (!slug || notFound) {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-      <div className="mx-auto max-w-2xl text-center">
-        <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-        <h1 className="text-3xl font-bold text-foreground mb-2">Business not found</h1>
-        <p className="text-muted-foreground mb-6">This booking link is invalid or the business is inactive</p>
-        <Button onClick={() => router.push('/search')}>Browse Businesses</Button>
+  if (loading || resolving || (!businessId && !notFound)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent mx-auto mb-4" />
+          <p className="text-lg text-muted-foreground">Loading...</p>
+        </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
+
+  if (!slug || notFound) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h1 className="text-3xl font-bold text-foreground mb-2">Business not found</h1>
+          <p className="text-muted-foreground mb-6">This booking link is invalid or the business is inactive</p>
+          <Button onClick={() => router.push('/search')}>Browse Businesses</Button>
+        </div>
+      </div>
+    )
+  }
 
   if (bookingSuccess) {
     return (
@@ -810,7 +837,6 @@ if (!slug || notFound) {
         <div className="mx-auto w-full max-w-2xl">
           <Card className="border border-border shadow-2xl">
             <div className="p-8 md:p-12 text-center">
-              {/* Success Icon */}
               <div className="mb-8">
                 <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
                   <CheckCircle2 className="w-12 h-12 text-primary" />
@@ -819,13 +845,23 @@ if (!slug || notFound) {
                 <p className="text-lg text-muted-foreground">Your appointment has been successfully booked</p>
               </div>
 
-              {/* Details Card */}
               <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-xl p-8 mb-10 text-left">
                 <div className="space-y-5">
                   <div className="flex items-start gap-3">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Business:</div>
                     <div className="text-sm text-foreground">{business?.name || 'N/A'}</div>
                   </div>
+                  {selectedBranch && multi && (
+                    <div className="flex items-start gap-3">
+                      <div className="text-sm font-semibold text-foreground min-w-fit">Location:</div>
+                      <div className="text-sm text-foreground">
+                        {selectedBranch.name}
+                        <span className="block text-xs text-muted-foreground">
+                          {[selectedBranch.address, selectedBranch.city].filter(Boolean).join(', ')}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex items-start gap-3">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Service:</div>
                     <div className="text-sm text-foreground">{selectedService?.name || 'N/A'}</div>
@@ -839,14 +875,12 @@ if (!slug || notFound) {
                   <div className="h-px bg-border my-1"></div>
                   <div className="flex items-start gap-3">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Date:</div>
-
-
                     <div className="text-sm text-foreground">
                       {DateTime.fromISO(date + 'T00:00:00', { zone: 'Asia/Kathmandu' }).setLocale('en').toLocaleString({
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
-                        day: 'numeric'
+                        day: 'numeric',
                       })}
                     </div>
                   </div>
@@ -858,20 +892,18 @@ if (!slug || notFound) {
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="space-y-3 mb-8">
                 <Button
-                  onClick={() => window.location.href = `/book/${business?.slug}`}
+                  onClick={() => (window.location.href = bookPath(business?.slug ?? slug, selectedBranch))}
                   className="w-full h-12 bg-primary hover:bg-primary/90 font-semibold"
                 >
                   Book Another Service
                 </Button>
               </div>
 
-              {/* Confirmation Email */}
               <div className="pt-6 border-t border-border">
                 <p className="text-sm text-muted-foreground">
-                  A confirmation email has been sent to <span className="font-semibold text-foreground">{customerEmail}</span>
+                  A confirmation has been sent to <span className="font-semibold text-foreground">{customerEmail}</span>
                 </p>
               </div>
             </div>
@@ -888,26 +920,25 @@ if (!slug || notFound) {
           <Card className="overflow-hidden border border-border shadow-lg">
             {business?.coverImage ? (
               <>
-                {/* Cover image banner — only rendered when a real cover image exists */}
                 <div
                   className="h-32 md:h-40 w-full bg-cover bg-center"
                   style={{ backgroundImage: `url(${business.coverImage})` }}
                 />
                 <div className="px-6 md:px-8 pb-6 -mt-12">
-                  <BusinessHeaderContent business={business} />
+                  <BusinessHeaderContent business={business} branch={selectedBranch} />
                 </div>
               </>
             ) : (
-              // No cover image: skip the banner entirely, no gradient placeholder,
-              // logo sits directly in normal flow instead of overlapping a banner.
               <div className="px-6 md:px-8 py-6">
-                <BusinessHeaderContent business={business} />
+                <BusinessHeaderContent business={business} branch={selectedBranch} />
               </div>
             )}
           </Card>
 
           <p className="text-center text-sm text-muted-foreground mt-4">
-            Select a service, date, staff (optional) and time
+            {multi
+              ? 'Select a location, service, date, staff (optional) and time'
+              : 'Select a service, date, staff (optional) and time'}
           </p>
         </div>
 
@@ -922,62 +953,116 @@ if (!slug || notFound) {
 
         <Card className="border border-border shadow-lg">
           <div className="p-8 md:p-10">
-            {/* Step 1: Services */}
-            <div className="mb-8">
-              <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-primary" />
-                1. Select Service
-              </label>
+            {/* Step 1 (multi-branch only): Location */}
+            {multi && (
+              <div className="mb-8">
+                <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-primary" />
+                  1. Choose Location
+                </label>
 
-              {servicesLoading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-                </div>
-              ) : services.length === 0 ? (
-                <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                  No services available
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {services.map(service => (
-                    <button
-                      key={service.id}
-                      onClick={() => {
-                        setSelectedService(service)
-                        setSelectedStaff(null)
-                        setDate('')
-                        setSelectedTime(null)
-                      }}
-                      className={`p-4 rounded-lg border-2 text-left transition-all ${selectedService?.id === service.id
-                        ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                        : 'bg-card text-foreground border-border hover:border-primary'
-                        }`}
-                    >
-                      <div className="font-semibold">{service.name}</div>
-                      {service.description && <div className="text-sm opacity-75 mt-1">{service.description}</div>}
-                      <div className="flex justify-between items-center mt-2 text-xs opacity-75">
-                        <span>{service.duration} mins</span>
-                        <span className="font-semibold">
-                          {service.offerPrice ? (
-                            <><span className="line-through">Rs.{service.price.toFixed(2)}</span> Rs.{service.offerPrice.toFixed(2)}</>
-                          ) : (
-                            `Rs.${service.price.toFixed(2)}`
-                          )}
-                        </span>
+                {selectedBranch ? (
+                  <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm">{selectedBranch.name}</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {[selectedBranch.address, selectedBranch.city].filter(Boolean).join(', ')}
                       </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearBranch}
+                      className="text-xs font-medium text-primary hover:underline flex-shrink-0"
+                    >
+                      Change location
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {branches.map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => chooseBranch(b)}
+                        className="p-4 rounded-lg border-2 text-left transition-all bg-card text-foreground border-border hover:border-primary"
+                      >
+                        <div className="font-semibold">{b.name}</div>
+                        <div className="mt-1 flex items-center gap-1 text-xs opacity-75">
+                          <MapPin className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate">{[b.address, b.city].filter(Boolean).join(', ')}</span>
+                        </div>
+                        {b.phone && (
+                          <div className="mt-0.5 flex items-center gap-1 text-xs opacity-75">
+                            <Phone className="w-3 h-3 flex-shrink-0" />
+                            {b.phone}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-            {/* Step 2: Select Date */}
-            {selectedService && (
+            {/* Services (after a location is known) */}
+            {branchReady && (
+              <div className="mb-8">
+                <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-primary" />
+                  {n(1)}. Select Service
+                </label>
+
+                {servicesLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+                  </div>
+                ) : services.length === 0 ? (
+                  <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
+                    No services available
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {services.map((service) => (
+                      <button
+                        key={service.id}
+                        onClick={() => {
+                          setSelectedService(service)
+                          setSelectedStaff(null)
+                          setDate('')
+                          setSelectedTime(null)
+                        }}
+                        className={`p-4 rounded-lg border-2 text-left transition-all ${
+                          selectedService?.id === service.id
+                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                            : 'bg-card text-foreground border-border hover:border-primary'
+                        }`}
+                      >
+                        <div className="font-semibold">{service.name}</div>
+                        {service.description && <div className="text-sm opacity-75 mt-1">{service.description}</div>}
+                        <div className="flex justify-between items-center mt-2 text-xs opacity-75">
+                          <span>{service.duration} mins</span>
+                          <span className="font-semibold">
+                            {service.offerPrice ? (
+                              <><span className="line-through">Rs.{service.price.toFixed(2)}</span> Rs.{service.offerPrice.toFixed(2)}</>
+                            ) : (
+                              `Rs.${service.price.toFixed(2)}`
+                            )}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Select Date */}
+            {branchReady && selectedService && (
               <div className="mb-8">
                 <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-primary" />
-                  2. Select Date
+                  {n(2)}. Select Date
                 </label>
                 <div className="relative" ref={dateCalendarRef}>
                   <button
@@ -988,8 +1073,8 @@ if (!slug || notFound) {
                     <span className={date ? '' : 'text-muted-foreground'}>
                       {date
                         ? new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
-                          weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
-                        })
+                            weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+                          })
                         : 'Select a date'}
                     </span>
                     <CalendarIcon className="w-4 h-4 text-muted-foreground" />
@@ -1041,12 +1126,13 @@ if (!slug || notFound) {
                                 disabled={disabled}
                                 title={disabled ? reason : undefined}
                                 onClick={() => !disabled && selectDate(dateStr)}
-                                className={`h-8 w-8 mx-auto flex items-center justify-center rounded-md text-sm transition-colors ${disabled
-                                  ? 'text-muted-foreground/40 cursor-not-allowed line-through'
-                                  : isSelected
+                                className={`h-8 w-8 mx-auto flex items-center justify-center rounded-md text-sm transition-colors ${
+                                  disabled
+                                    ? 'text-muted-foreground/40 cursor-not-allowed line-through'
+                                    : isSelected
                                     ? 'bg-primary text-primary-foreground font-semibold'
                                     : 'hover:bg-primary/10 text-foreground'
-                                  }`}
+                                }`}
                               >
                                 {day}
                               </button>
@@ -1058,13 +1144,12 @@ if (!slug || notFound) {
                       </div>
 
                       <p className="mt-3 text-xs text-muted-foreground border-t pt-2">
-                        Greyed-out days are unavailable — closed dates, business hours, or the selected staff member's day off.
+                        Greyed-out days are unavailable: closed dates, business hours, or the selected staff member&apos;s day off.
                       </p>
                     </div>
                   )}
                 </div>
 
-                {/* Show closed message if applicable */}
                 {closedReason && (
                   <div className="flex items-center justify-center py-6 border border-input rounded-md bg-amber-50 border-amber-200 mt-4">
                     <AlertCircle className="w-4 h-4 mr-2 text-amber-600" />
@@ -1074,33 +1159,32 @@ if (!slug || notFound) {
               </div>
             )}
 
-
-
-            {/* Step 3: Staff Selection (Optional) - Show after date is selected */}
-            {selectedService && date && staffMembers.length > 1 && !closedReason && (
+            {/* Staff Selection (optional) */}
+            {branchReady && selectedService && date && staffMembers.length > 1 && !closedReason && (
               <div className="mb-8">
                 <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
                   <User className="w-4 h-4 text-primary" />
-                  3. Select Staff <span className="text-xs opacity-60">(Optional)</span>
+                  {n(3)}. Select Staff <span className="text-xs opacity-60">(Optional)</span>
                 </label>
 
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {staffMembers.map(staff => (
+                    {staffMembers.map((staff) => (
                       <button
                         key={staff.id}
                         onClick={() => {
                           setSelectedStaff(staff)
                           setSelectedTime(null)
                         }}
-                        className={`p-4 rounded-lg border-2 text-center transition-all ${selectedStaff?.id === staff.id
-                          ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                          : 'bg-card text-foreground border-border hover:border-primary'
-                          }`}
+                        className={`p-4 rounded-lg border-2 text-center transition-all ${
+                          selectedStaff?.id === staff.id
+                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                            : 'bg-card text-foreground border-border hover:border-primary'
+                        }`}
                       >
                         <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-2">
                           {staff.avatar ? (
-                            <img src={staff.avatar || "/placeholder.svg"} alt={staff.firstName} className="w-12 h-12 rounded-full object-cover" />
+                            <img src={staff.avatar || '/placeholder.svg'} alt={staff.firstName} className="w-12 h-12 rounded-full object-cover" />
                           ) : (
                             <User className="w-6 h-6" />
                           )}
@@ -1126,7 +1210,7 @@ if (!slug || notFound) {
               </div>
             )}
 
-            {selectedService && date && staffMembers.length === 1 && !closedReason && (
+            {branchReady && selectedService && date && staffMembers.length === 1 && !closedReason && (
               <div className="mb-8">
                 <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                   <User className="w-4 h-4 text-primary" />
@@ -1147,22 +1231,18 @@ if (!slug || notFound) {
                 </div>
               </div>
             )}
-            {/* Step 4: Time */}
-            {selectedService && date && !closedReason && (
+
+            {/* Time */}
+            {branchReady && selectedService && date && !closedReason && (
               <div className="mb-8">
                 <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
                   <Clock className="w-4 h-4 text-primary" />
-                  4. Select Time
+                  {n(4)}. Select Time
                 </label>
 
                 {loading ? (
                   <div className="flex justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
-                  </div>
-                ) : closedReason ? (
-                  <div className="flex items-center justify-center py-6 border border-input rounded-md bg-amber-50 border-amber-200">
-                    <AlertCircle className="w-4 h-4 mr-2 text-amber-600" />
-                    <span className="text-sm text-amber-600">{closedReason}</span>
                   </div>
                 ) : availableSlots.length === 0 ? (
                   <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
@@ -1179,12 +1259,13 @@ if (!slug || notFound) {
                           onClick={() => !isPast && setSelectedTime(slot)}
                           disabled={isPast}
                           title={isPast ? 'This time has already passed' : undefined}
-                          className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${isPast
-                            ? 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
-                            : selectedTime === slot
+                          className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${
+                            isPast
+                              ? 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
+                              : selectedTime === slot
                               ? 'bg-primary text-primary-foreground border-primary'
                               : 'bg-card text-foreground border-border hover:border-primary'
-                            }`}
+                          }`}
                         >
                           {formatTimeSlot(slot)}
                         </button>
@@ -1195,11 +1276,11 @@ if (!slug || notFound) {
               </div>
             )}
 
-            {/* Step 5: Customer Info */}
-            {selectedService && date && selectedTime && (
+            {/* Customer Info */}
+            {branchReady && selectedService && date && selectedTime && (
               <div className="mb-8 p-6 bg-secondary/20 rounded-lg border border-border">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-foreground">5. Your Information</h3>
+                  <h3 className="font-semibold text-foreground">{n(5)}. Your Information</h3>
                   {user && <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Verified</span>}
                 </div>
                 <div className="space-y-3">
@@ -1212,7 +1293,7 @@ if (!slug || notFound) {
                       type="text"
                       placeholder="Full Name *"
                       value={customerName}
-                      onChange={user ? undefined : (e => setCustomerName(e.target.value))}
+                      onChange={user ? undefined : (e) => setCustomerName(e.target.value)}
                       disabled={!!user}
                       className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
                     />
@@ -1226,7 +1307,7 @@ if (!slug || notFound) {
                       type="email"
                       placeholder="Email Address *"
                       value={customerEmail}
-                      onChange={user ? undefined : (e => setCustomerEmail(e.target.value))}
+                      onChange={user ? undefined : (e) => setCustomerEmail(e.target.value)}
                       disabled={!!user}
                       className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
                     />
@@ -1250,7 +1331,7 @@ if (!slug || notFound) {
                   <textarea
                     placeholder="Notes (optional)"
                     value={notes}
-                    onChange={e => setNotes(e.target.value)}
+                    onChange={(e) => setNotes(e.target.value)}
                     className="w-full p-3 border-2 border-border rounded-lg text-sm focus:border-primary focus:outline-none bg-background"
                     rows={3}
                   />
@@ -1259,13 +1340,19 @@ if (!slug || notFound) {
             )}
 
             {/* Summary */}
-            {selectedService && date && selectedTime && (
+            {branchReady && selectedService && date && selectedTime && (
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 mb-8">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="font-semibold text-foreground mb-3">Booking Summary</p>
                     <div className="space-y-2 text-sm">
+                      {multi && selectedBranch && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Location:</span>
+                          <span className="font-medium">{selectedBranch.name}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Service:</span>
                         <span className="font-medium">{selectedService.name}</span>
@@ -1299,7 +1386,7 @@ if (!slug || notFound) {
             )}
 
             {/* Actions */}
-            {selectedService && date && selectedTime && (
+            {branchReady && selectedService && date && selectedTime && (
               <div className="flex gap-3">
                 <Button
                   onClick={handleConfirmBooking}
@@ -1308,11 +1395,7 @@ if (!slug || notFound) {
                 >
                   {loading ? 'Confirming...' : 'Confirm Booking'}
                 </Button>
-                <Button
-                  onClick={() => setSelectedTime(null)}
-                  variant="outline"
-                  className="px-6 h-12"
-                >
+                <Button onClick={() => setSelectedTime(null)} variant="outline" className="px-6 h-12">
                   Clear
                 </Button>
               </div>
@@ -1321,7 +1404,7 @@ if (!slug || notFound) {
         </Card>
       </div>
 
-      {/* Unverified customer verification notice */}
+      {/* Phone verification modal */}
       {showVerificationModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm p-4"
@@ -1332,11 +1415,10 @@ if (!slug || notFound) {
         >
           <Card className="relative w-full max-w-md border border-border shadow-2xl">
             <div className="p-8 text-center">
-              {/* Close */}
               <button
                 onClick={() => {
                   setShowVerificationModal(false)
-                  router.replace(`/book/${slug}`)
+                  router.replace(bookPath(business?.slug ?? slug, selectedBranch))
                 }}
                 className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
                 aria-label="Close"
@@ -1344,7 +1426,6 @@ if (!slug || notFound) {
                 <X className="w-5 h-5" />
               </button>
 
-              {/* Icon */}
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
                 <Mail className="w-8 h-8 text-primary" />
               </div>
@@ -1355,15 +1436,9 @@ if (!slug || notFound) {
               <p id="verification-desc" className="text-sm text-muted-foreground mb-1">
                 Your appointment is <span className="font-semibold text-foreground">pending confirmation</span>. We&apos;ve sent a verification code to
               </p>
-              <p className="text-sm font-semibold text-foreground mb-6 break-all">
-                {customerPhone}
-              </p>
+              <p className="text-sm font-semibold text-foreground mb-6 break-all">{customerPhone}</p>
 
-              {/* Countdown / status */}
-              <div
-                className="rounded-lg border border-border bg-secondary/30 p-4 mb-6"
-                aria-live="polite"
-              >
+              <div className="rounded-lg border border-border bg-secondary/30 p-4 mb-6" aria-live="polite">
                 <div className="mt-2 space-y-3">
                   <Input
                     type="text"
@@ -1380,8 +1455,7 @@ if (!slug || notFound) {
 
               {bookingId && (
                 <p className="text-xs text-muted-foreground mb-6">
-                  Booking reference:{' '}
-                  <code className="font-mono text-foreground">{bookingId}</code>
+                  Booking reference: <code className="font-mono text-foreground">{bookingId}</code>
                 </p>
               )}
 
