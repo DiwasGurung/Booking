@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
 import { staffApi, servicesApi, Staff, Service } from '@/lib/api'
+import { BranchSelector } from '@/components/BranchSelector'
 import {
   Loader,
   AlertCircle,
@@ -594,24 +595,22 @@ export default function StaffPage() {
           ]}
         />
 
-        <div className="mb-8">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Staff Management</h1>
-              <p className="text-muted-foreground">Manage your team members and their schedules</p>
-              {hasMultipleBranches && (
-                <Badge variant="outline" className="mt-2 gap-1">
-                  <Building2 className="w-3 h-3" />
-                  {currentBranch ? currentBranch.name : 'All branches'}
-                </Badge>
-              )}
-            </div>
-            <Button onClick={openAddModal} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Staff
-            </Button>
-          </div>
-        </div>
+        
+          <div className="mb-8">
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 className="text-3xl font-bold text-foreground">Staff Management</h1>
+      <p className="text-muted-foreground">Manage your team members and their schedules</p>
+    </div>
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <BranchSelector />
+      <Button onClick={openAddModal} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+        <Plus className="w-4 h-4 mr-2" />
+        Add Staff
+      </Button>
+    </div>
+  </div>
+</div>
 
         {/* Usage Stats */}
         {subscriptionUsage && (

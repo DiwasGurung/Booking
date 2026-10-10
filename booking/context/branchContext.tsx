@@ -51,9 +51,16 @@ export function BranchProvider({ children }: { children: ReactNode }) {
   // A stale or removed selection falls back to "all"
   const effective = hasMultipleBranches && branches.some((b) => b.id === selected) ? selected : 'ALL'
 
-  const setSelectedBranchId = useCallback((id: string) => {
+const setSelectedBranchId = useCallback((id: string) => {
   setSelected(id)
   try { localStorage.setItem(KEY, id) } catch {}
+}, [])
+
+useEffect(() => {
+  try {
+    const saved = localStorage.getItem(KEY)
+    if (saved) setSelected(saved)
+  } catch {}
 }, [])
 
   const value = useMemo<BranchCtx>(() => ({

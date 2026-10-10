@@ -18,7 +18,8 @@ import {
 } from 'lucide-react'
 import { staffApi, type Staff, type StaffPerformance } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
-import { useBranches } from '@/context/branchContext' // adjust path
+import { useBranches } from '@/context/branchContext' 
+import { BranchSelector } from '@/components/BranchSelector'
 
 const formatDateRange = (startISO: string, endISO: string) => {
   const startDate = new Date(startISO)
@@ -143,17 +144,12 @@ export default function StaffPerformancePage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {hasMultipleBranches && (
-              <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
-                <Building2 className="h-5 w-5 text-blue-600" />
-                {currentBranch ? currentBranch.name : 'All branches'}
-              </div>
-            )}
-            <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
-              <BarChart3 className="h-5 w-5 text-blue-600" />
-              Enterprise analytics
-            </div>
-          </div>
+  <BranchSelector />
+  <div className="flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm text-slate-600 shadow-sm">
+    <BarChart3 className="h-5 w-5 text-blue-600" />
+    Enterprise analytics
+  </div>
+</div>
         </div>
 
         {!businessLoading && needsUpgrade ? (
