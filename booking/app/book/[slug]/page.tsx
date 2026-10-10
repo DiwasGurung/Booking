@@ -153,9 +153,18 @@ function BookingPageContent() {
     return map
   }, [closedDateRows, branchId])
 
+  
+
   // Verification modal state
   const [showVerificationModal, setShowVerificationModal] = useState(false)
   const [countdown, setCountdown] = useState(VERIFICATION_COUNTDOWN)
+
+
+  const findBranch = (list: Branch[], q: string | null) => {
+  if (!q) return undefined
+  const v = q.toLowerCase()
+  return list.find((b) => b.slug?.toLowerCase() === v || b.id === q)
+}
 
   useEffect(() => {
     if (!slug) return
@@ -184,6 +193,18 @@ function BookingPageContent() {
     return slotDateTime > now
   }
 
+
+  useEffect(() => {
+  if (!business) return
+  const list = business.branches ?? []
+  if (list.length < 2) return
+  const match = findBranch(list, branchQuery)
+  if (match && match.id !== branchId) {
+    setBranchId(match.id)
+    resetSelections()
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [branchQuery, business])
   useEffect(() => {
     if (!date || !selectedStaff) return
     const [y, m, d] = date.split('-').map(Number)
@@ -411,9 +432,9 @@ function BookingPageContent() {
       if (list.length === 1) {
         setBranchId(list[0].id)
       } else if (list.length > 1 && branchQuery) {
-        const match = list.find((b) => b.slug === branchQuery || b.id === branchQuery)
-        if (match) setBranchId(match.id)
-      }
+  const match = findBranch(list, branchQuery)
+  if (match) setBranchId(match.id)
+}
 
       // Canonical slug redirect, keeping any ?branch= parameter
       if (biz.slug && slug !== biz.slug) {

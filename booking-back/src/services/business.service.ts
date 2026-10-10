@@ -371,7 +371,7 @@ export class BusinessService {
           where: { isActive: true },
           orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
           select: {
-            id: true, name: true, address: true, city: true, phone: true,
+            id: true, name: true,slug: true, address: true, city: true, phone: true,
             latitude: true, longitude: true, isMain: true,
           },
         },
