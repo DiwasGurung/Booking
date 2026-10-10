@@ -137,28 +137,20 @@ const getStaffPerformance = async (req, res) => {
     }
 };
 exports.getStaffPerformance = getStaffPerformance;
-/**
- * Update staff member
- */
 const updateStaff = async (req, res) => {
     try {
         const id = req.params.id;
-        const { firstName, lastName, email, phone, avatar, role, isActive, workingHours, breakTimes, serviceIds } = req.body;
-        const staff = await staff_service_1.default.updateStaff(id, {
-            firstName,
-            lastName,
-            email,
-            phone,
-            avatar,
-            role,
-            isActive,
-            workingHours,
-            breakTimes,
-            serviceIds,
-        });
+        const validation = (0, index_1.parseAndValidate)(index_1.UpdateStaffSchema, req.body);
+        if (!validation.success) {
+            return res.status(400).json({ error: validation.error });
+        }
+        const staff = await staff_service_1.default.updateStaff(id, validation.data);
         res.json({ success: true, staff });
     }
     catch (error) {
+        if (error?.code === "INVALID_BRANCH") {
+            return res.status(400).json({ error: "INVALID_BRANCH", message: error.message });
+        }
         console.error("[Staff Controller] Update error:", error.message);
         res.status(500).json({ error: "Failed to update staff member" });
     }

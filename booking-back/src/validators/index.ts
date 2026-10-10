@@ -98,21 +98,50 @@ export const StaffParamsSchema = z.object({
   staffId: z.string().regex(UUID_REGEX, 'Invalid staff ID format'),
 })
 
+const TIME_REGEX = /^([01][0-9]|2[0-3]):[0-5][0-9]$/
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+
+const DayHoursSchema = z
+  .object({
+    start: z.string().regex(TIME_REGEX, 'Invalid time format'),
+    end: z.string().regex(TIME_REGEX, 'Invalid time format'),
+    isWorking: z.boolean(),
+  })
+  .refine((d) => !d.isWorking || d.start < d.end, { message: 'End time must be after start time' })
+
+const WorkingHoursSchema = z
+  .record(z.string(), DayHoursSchema)
+  .refine((h) => Object.keys(h).every((k) => DAYS.includes(k)), { message: 'Invalid day name' })
+
+const BreakTimeSchema = z
+  .object({
+    start: z.string().regex(TIME_REGEX, 'Invalid time format'),
+    end: z.string().regex(TIME_REGEX, 'Invalid time format'),
+  })
+  .refine((b) => b.start < b.end, { message: 'Break end must be after start' })
 export const CreateStaffSchema = z.object({
   businessId: z.string().regex(UUID_REGEX, 'Invalid business ID format'),
-  firstName: z.string().min(2, 'First name is required').max(50),
-  lastName: z.string().min(2, 'Last name is required').max(50),
+  firstName: z.string().min(1, 'First name is required').max(50),
+  lastName: z.string().min(1, 'Last name is required').max(50),
   email: z.string().email('Invalid email format'),
-  phone: z.string().regex(PHONE_REGEX, 'Invalid phone number').optional(),
+  phone: z.string().regex(PHONE_REGEX, 'Invalid phone number').optional().or(z.literal('')),
   avatar: z.string().url('Invalid avatar URL').optional().or(z.literal('')),
   role: z.string().max(50).optional(),
   serviceIds: z.array(z.string().regex(UUID_REGEX, 'Invalid service ID format')).optional(),
+  branchId: z.string().regex(UUID_REGEX, 'Invalid branch ID format').optional(),
+  workingHours: WorkingHoursSchema.optional(),
+  breakTimes: z.array(BreakTimeSchema).optional(),
 })
 
-export const UpdateStaffSchema = CreateStaffSchema.partial().extend({
-  serviceIds: z.array(z.string().regex(UUID_REGEX, 'Invalid service ID format')).optional(),
-})
+// businessId must not be changeable on update; isActive is
+export const UpdateStaffSchema = CreateStaffSchema.omit({ businessId: true })
+  .partial()
+  .extend({ isActive: z.boolean().optional() })
 
+// For ?branchId= query params
+export const BranchQuerySchema = z.object({
+  branchId: z.string().regex(UUID_REGEX, 'Invalid branch ID format').optional(),
+})
 // ============= USER SCHEMAS =============
 export const UserParamsSchema = z.object({
   userId: z.string().regex(UUID_REGEX, 'Invalid user ID format'),
@@ -204,6 +233,8 @@ export const parseAndValidate = <T,>(
     return { success: false, error: 'Validation failed' }
   }
 }
+
+
 
 // Type-safe discriminated union check
 export const isValidationError = (

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isValidationError = exports.parseAndValidate = exports.CreatePaymentSchema = exports.PaymentParamsSchema = exports.RenewSubscriptionSchema = exports.DowngradeSubscriptionSchema = exports.UpgradeSubscriptionSchema = exports.ActivateSubscriptionSchema = exports.CreateSubscriptionTrialSchema = exports.SubscriptionBusinessParamsSchema = exports.SubscriptionParamsSchema = exports.UpdateUserSchema = exports.RegisterSchema = exports.LoginSchema = exports.UserParamsSchema = exports.UpdateStaffSchema = exports.CreateStaffSchema = exports.StaffParamsSchema = exports.UpdateServiceSchema = exports.CreateServiceSchema = exports.ServiceParamsSchema = exports.BookingQuerySchema = exports.UpdateBookingSchema = exports.CreateBookingSchema = exports.BookingParamsSchema = exports.BusinessQuerySchema = exports.UpdateBusinessSchema = exports.CreateBusinessSchema = exports.BusinessIdParamsSchema = exports.BusinessUserParamsSchema = exports.BusinessParamsSchema = void 0;
+exports.isValidationError = exports.parseAndValidate = exports.CreatePaymentSchema = exports.PaymentParamsSchema = exports.RenewSubscriptionSchema = exports.DowngradeSubscriptionSchema = exports.UpgradeSubscriptionSchema = exports.ActivateSubscriptionSchema = exports.CreateSubscriptionTrialSchema = exports.SubscriptionBusinessParamsSchema = exports.SubscriptionParamsSchema = exports.UpdateUserSchema = exports.RegisterSchema = exports.LoginSchema = exports.UserParamsSchema = exports.BranchQuerySchema = exports.UpdateStaffSchema = exports.CreateStaffSchema = exports.StaffParamsSchema = exports.UpdateServiceSchema = exports.CreateServiceSchema = exports.ServiceParamsSchema = exports.BookingQuerySchema = exports.UpdateBookingSchema = exports.CreateBookingSchema = exports.BookingParamsSchema = exports.BusinessQuerySchema = exports.UpdateBusinessSchema = exports.CreateBusinessSchema = exports.BusinessIdParamsSchema = exports.BusinessUserParamsSchema = exports.BusinessParamsSchema = void 0;
 const zod_1 = require("zod");
 // Common patterns
 // Accepts both UUID format (550e8400-e29b-41d4-a716-446655440000) and Prisma CUID format (cmr3bpoto0001s7p5vjcs71b3)
@@ -85,18 +85,44 @@ exports.UpdateServiceSchema = exports.CreateServiceSchema.partial();
 exports.StaffParamsSchema = zod_1.z.object({
     staffId: zod_1.z.string().regex(UUID_REGEX, 'Invalid staff ID format'),
 });
+const TIME_REGEX = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const DayHoursSchema = zod_1.z
+    .object({
+    start: zod_1.z.string().regex(TIME_REGEX, 'Invalid time format'),
+    end: zod_1.z.string().regex(TIME_REGEX, 'Invalid time format'),
+    isWorking: zod_1.z.boolean(),
+})
+    .refine((d) => !d.isWorking || d.start < d.end, { message: 'End time must be after start time' });
+const WorkingHoursSchema = zod_1.z
+    .record(zod_1.z.string(), DayHoursSchema)
+    .refine((h) => Object.keys(h).every((k) => DAYS.includes(k)), { message: 'Invalid day name' });
+const BreakTimeSchema = zod_1.z
+    .object({
+    start: zod_1.z.string().regex(TIME_REGEX, 'Invalid time format'),
+    end: zod_1.z.string().regex(TIME_REGEX, 'Invalid time format'),
+})
+    .refine((b) => b.start < b.end, { message: 'Break end must be after start' });
 exports.CreateStaffSchema = zod_1.z.object({
     businessId: zod_1.z.string().regex(UUID_REGEX, 'Invalid business ID format'),
-    firstName: zod_1.z.string().min(2, 'First name is required').max(50),
-    lastName: zod_1.z.string().min(2, 'Last name is required').max(50),
+    firstName: zod_1.z.string().min(1, 'First name is required').max(50),
+    lastName: zod_1.z.string().min(1, 'Last name is required').max(50),
     email: zod_1.z.string().email('Invalid email format'),
-    phone: zod_1.z.string().regex(PHONE_REGEX, 'Invalid phone number').optional(),
+    phone: zod_1.z.string().regex(PHONE_REGEX, 'Invalid phone number').optional().or(zod_1.z.literal('')),
     avatar: zod_1.z.string().url('Invalid avatar URL').optional().or(zod_1.z.literal('')),
     role: zod_1.z.string().max(50).optional(),
     serviceIds: zod_1.z.array(zod_1.z.string().regex(UUID_REGEX, 'Invalid service ID format')).optional(),
+    branchId: zod_1.z.string().regex(UUID_REGEX, 'Invalid branch ID format').optional(),
+    workingHours: WorkingHoursSchema.optional(),
+    breakTimes: zod_1.z.array(BreakTimeSchema).optional(),
 });
-exports.UpdateStaffSchema = exports.CreateStaffSchema.partial().extend({
-    serviceIds: zod_1.z.array(zod_1.z.string().regex(UUID_REGEX, 'Invalid service ID format')).optional(),
+// businessId must not be changeable on update; isActive is
+exports.UpdateStaffSchema = exports.CreateStaffSchema.omit({ businessId: true })
+    .partial()
+    .extend({ isActive: zod_1.z.boolean().optional() });
+// For ?branchId= query params
+exports.BranchQuerySchema = zod_1.z.object({
+    branchId: zod_1.z.string().regex(UUID_REGEX, 'Invalid branch ID format').optional(),
 });
 // ============= USER SCHEMAS =============
 exports.UserParamsSchema = zod_1.z.object({

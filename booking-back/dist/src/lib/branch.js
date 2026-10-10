@@ -3,11 +3,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.BranchError = void 0;
 exports.createMainBranch = createMainBranch;
 exports.syncMainBranchIfSingle = syncMainBranchIfSingle;
 exports.resolveBranchId = resolveBranchId;
 exports.getBranchDisplay = getBranchDisplay;
 exports.generateBranchSlug = generateBranchSlug;
+class BranchError extends Error {
+    code = 'INVALID_BRANCH';
+}
+exports.BranchError = BranchError;
 /**
  * Creates the business's Main branch from its profile details.
  * Accepts a transaction client so it can run inside the same transaction

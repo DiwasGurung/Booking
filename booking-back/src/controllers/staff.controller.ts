@@ -1,6 +1,6 @@
 import { Request, Response } from "express"
 import staffService from "../services/staff.service"
-import { CreateStaffSchema, StaffParamsSchema, BusinessIdParamsSchema, parseAndValidate } from "../validators/index"
+import { CreateStaffSchema, StaffParamsSchema, BusinessIdParamsSchema, parseAndValidate, UpdateStaffSchema } from "../validators/index"
 import SubscriptionService from "../services/subscription.service"
 import  prisma  from "../lib/prisma"
 
@@ -143,34 +143,24 @@ export const getStaffPerformance = async (req: Request, res: Response) => {
 }
 
 
-/**
- * Update staff member
- */
 export const updateStaff = async (req: AuthRequest, res: Response) => {
   try {
     const id = req.params.id as string
-    const { firstName, lastName, email, phone, avatar, role, isActive, workingHours, breakTimes, serviceIds } = req.body
+    const validation = parseAndValidate(UpdateStaffSchema, req.body)
+    if (!validation.success) {
+      return res.status(400).json({ error: validation.error })
+    }
 
-    const staff = await staffService.updateStaff(id, {
-      firstName,
-      lastName,
-      email,
-      phone,
-      avatar,
-      role,
-      isActive,
-      workingHours,
-      breakTimes,
-      serviceIds,
-    })
-
+    const staff = await staffService.updateStaff(id, validation.data)
     res.json({ success: true, staff })
   } catch (error: any) {
+    if (error?.code === "INVALID_BRANCH") {
+      return res.status(400).json({ error: "INVALID_BRANCH", message: error.message })
+    }
     console.error("[Staff Controller] Update error:", error.message)
     res.status(500).json({ error: "Failed to update staff member" })
   }
 }
-
 /**
  * Delete staff member
  */

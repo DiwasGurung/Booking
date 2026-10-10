@@ -27,13 +27,18 @@ export function BranchProvider({ children }: { children: ReactNode }) {
   const [selected, setSelected] = useState('ALL')
 
   const refresh = useCallback(async () => {
-    if (!businessId) return
+  if (!businessId) return
+  try {
     const res = await branchApi.list()
-    const list = res.data ?? []
-    setBranches(list)
+    setBranches(Array.isArray(res.data) ? res.data : [])
     setLimit(res.limit ?? 1)
+  } catch {
+    setBranches([])
+  } finally {
     setLoading(false)
-  }, [businessId])
+  }
+}, [businessId])
+
 
   useEffect(() => { refresh() }, [refresh])
 
@@ -46,10 +51,10 @@ export function BranchProvider({ children }: { children: ReactNode }) {
   // A stale or removed selection falls back to "all"
   const effective = hasMultipleBranches && branches.some((b) => b.id === selected) ? selected : 'ALL'
 
-  const setSelectedBranchId = (id: string) => {
-    setSelected(id)
-    localStorage.setItem(KEY, id)
-  }
+  const setSelectedBranchId = useCallback((id: string) => {
+  setSelected(id)
+  try { localStorage.setItem(KEY, id) } catch {}
+}, [])
 
   const value = useMemo<BranchCtx>(() => ({
     branches, limit, loading, hasMultipleBranches,

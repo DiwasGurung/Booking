@@ -10,6 +10,10 @@ type BusinessLike = {
   longitude?: number | null
 }
 
+export class BranchError extends Error {
+  code = 'INVALID_BRANCH' as const
+}
+
 /**
  * Creates the business's Main branch from its profile details.
  * Accepts a transaction client so it can run inside the same transaction

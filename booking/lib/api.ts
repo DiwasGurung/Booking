@@ -208,6 +208,7 @@ export interface Staff {
   createdAt: string
   updatedAt: string
   branchId?: string | null
+  branch?: Pick<Branch, 'id' | 'name'> & Partial<Pick<Branch, 'slug' | 'isMain' | 'address' | 'city'>> | null
 
 }
 
@@ -993,6 +994,7 @@ export interface CreateStaffData {
   workingHours?: Record<string, { start: string; end: string; isWorking: boolean }>
   breakTimes?: { start: string; end: string }[]
   serviceIds?: string[]
+  branchId?: string
 }
 
 export interface UpdateStaffData {
@@ -1006,6 +1008,7 @@ export interface UpdateStaffData {
   workingHours?: Record<string, { start: string; end: string; isWorking: boolean }>
   breakTimes?: { start: string; end: string }[]
   serviceIds?: string[]
+  branchId?: string
 }
 
 export const subscriptionApi = {
@@ -1030,8 +1033,10 @@ export const staffApi = {
     apiCall<StaffPerformance>(`/api/staff/${staffId}/performance?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`),
 
   // Get all staff for a business
-  getBusinessStaff: (businessId: string, includeInactive = false) =>
-    apiCall<{ staff: Staff[] }>(`/api/staff/business/${businessId}?includeInactive=${includeInactive}`),
+getBusinessStaff: (businessId: string, includeInactive = false, branchId?: string) =>
+  apiCall<{ staff: Staff[] }>(
+    `/api/staff/business/${businessId}?includeInactive=${includeInactive}${branchId ? `&branchId=${branchId}` : ''}`
+  ),
 
   // Get staff who can perform a specific service
   getStaffForService: (serviceId: string) =>

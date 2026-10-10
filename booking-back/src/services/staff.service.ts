@@ -1,6 +1,7 @@
 import  prisma  from "../lib/prisma"
 import { staffVerificationService } from "./staff-verification.service"
 import  SubscriptionService  from "./subscription.service"
+import { resolveBranchId, getBranchDisplay } from "../lib/branch" 
 
 export interface WorkingHours {
   [day: string]: {
@@ -26,6 +27,7 @@ export interface CreateStaffData {
   workingHours?: WorkingHours
   breakTimes?: BreakTime[]
   serviceIds?: string[]
+  branchId?: string 
 }
 
 export interface UpdateStaffData {
@@ -39,6 +41,7 @@ export interface UpdateStaffData {
   workingHours?: WorkingHours
   breakTimes?: BreakTime[]
   serviceIds?: string[]
+  branchId?: string 
 }
 
 export class StaffService {
@@ -46,22 +49,18 @@ export class StaffService {
    * Create a new staff member
    */
   async createStaff(data: CreateStaffData) {
-    const { serviceIds, ...staffData } = data
+   const { serviceIds, ...staffData } = data
+const branchId = await resolveBranchId(data.businessId, data.branchId)
 
-    const staff = await prisma.staff.create({
-      data: {
-        ...(staffData as any),
-        workingHours: staffData.workingHours as any,
-        breakTimes: staffData.breakTimes as any,
-      },
-      include: {
-        services: {
-          include: {
-            service: true,
-          },
-        },
-      },
-    })
+const staff = await prisma.staff.create({
+  data: {
+    ...(staffData as any),
+    branchId,
+    workingHours: staffData.workingHours as any,
+    breakTimes: staffData.breakTimes as any,
+  },
+  include: { branch: true, services: { include: { service: true } } },
+})
 
     // Connect services if provided
     if (serviceIds && serviceIds.length > 0) {
@@ -186,17 +185,24 @@ export class StaffService {
    * Update staff member
    */
   async updateStaff(id: string, data: UpdateStaffData) {
-    const { serviceIds, ...staffData } = data
+    const { serviceIds, branchId, ...staffData } = data
 
-    // Update staff basic info
-    await prisma.staff.update({
-      where: { id },
-      data: {
-        ...staffData,
-        workingHours: staffData.workingHours as any,
-        breakTimes: staffData.breakTimes as any,
-      },
-    })
+let resolvedBranchId: string | undefined
+if (branchId) {
+  const existing = await prisma.staff.findUnique({ where: { id }, select: { businessId: true } })
+  if (!existing) throw new Error("Staff not found")
+  resolvedBranchId = await resolveBranchId(existing.businessId, branchId)
+}
+
+await prisma.staff.update({
+  where: { id },
+  data: {
+    ...staffData,
+    ...(resolvedBranchId && { branchId: resolvedBranchId }),
+    workingHours: staffData.workingHours as any,
+    breakTimes: staffData.breakTimes as any,
+  },
+})
 
     // Update services if provided
     if (serviceIds !== undefined) {
@@ -252,9 +258,14 @@ export class StaffService {
     })
   }
 
-  /**
+   /**
    * Get available time slots for a staff member on a specific date
    */
+  private toMinutes(t: string) {
+    const [h, m] = t.split(":").map(Number)
+    return h * 60 + m
+  }
+
   async getStaffAvailability(staffId: string, date: Date, serviceDuration: number) {
     const staff = await prisma.staff.findUnique({
       where: { id: staffId },
@@ -262,6 +273,7 @@ export class StaffService {
     })
 
     if (!staff) throw new Error("Staff not found")
+    if (!staff.isActive) return []
 
     // Get day of week (0 = Sunday, 1 = Monday, etc.)
     const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
@@ -272,73 +284,90 @@ export class StaffService {
     if (!workingHours || !workingHours[dayName]?.isWorking) {
       return [] // Staff not working this day
     }
-
     const dayHours = workingHours[dayName]
-    const [startHour, startMin] = (dayHours.start as string).split(":").map(Number)
-    const [endHour, endMin] = (dayHours.end as string).split(":").map(Number)
 
-    // Get existing bookings for this staff on this date
     const startOfDay = new Date(date)
     startOfDay.setHours(0, 0, 0, 0)
     const endOfDay = new Date(date)
     endOfDay.setHours(23, 59, 59, 999)
 
-    const existingBookings = await prisma.booking.findMany({
-      where: {
-        staffId,
-        startTime: { gte: startOfDay, lte: endOfDay },
-        status: { in: ["PENDING", "CONFIRMED"] },
-      },
-      orderBy: { startTime: "asc" },
-    })
+    // Branch hours, business-wide fallback, closures, time off and bookings
+    const [branchHours, businessHours, closedDate, timeOff, existingBookings] = await Promise.all([
+      staff.branchId
+        ? prisma.businessHours.findFirst({
+            where: { branchId: staff.branchId, dayOfWeek: date.getDay() },
+          })
+        : null,
+      prisma.businessHours.findFirst({
+        where: { businessId: staff.businessId, branchId: null, dayOfWeek: date.getDay() },
+      }),
+      prisma.closedDate.findFirst({
+        where: {
+          businessId: staff.businessId,
+          date: { gte: startOfDay, lte: endOfDay },
+          OR: [{ branchId: null }, ...(staff.branchId ? [{ branchId: staff.branchId }] : [])],
+        },
+      }),
+      prisma.timeOff.findFirst({
+        where: { staffId, startDate: { lte: endOfDay }, endDate: { gte: startOfDay } },
+      }),
+      prisma.booking.findMany({
+        where: {
+          staffId,
+          startTime: { gte: startOfDay, lte: endOfDay },
+          status: { in: ["PENDING", "CONFIRMED"] },
+        },
+        orderBy: { startTime: "asc" },
+      }),
+    ])
+
+    // Branch hours win; fall back to business-wide hours
+    const openingHours = branchHours ?? businessHours
+    if (openingHours?.isClosed || closedDate || timeOff) return []
+
+    // Working window = staff hours ∩ branch opening hours
+    const windowStart = Math.max(
+      this.toMinutes(dayHours.start),
+      openingHours ? this.toMinutes(openingHours.openTime) : 0
+    )
+    const windowEnd = Math.min(
+      this.toMinutes(dayHours.end),
+      openingHours ? this.toMinutes(openingHours.closeTime) : 24 * 60
+    )
 
     // Parse break times
     const breakTimes = (staff.breakTimes as BreakTime[] | null) || []
 
-    // Generate available slots
     const slots: { start: Date; end: Date }[] = []
-    const slotDuration = serviceDuration // in minutes
+    const now = new Date()
 
-    for (let hour = startHour; hour < endHour || (hour === endHour && 0 < endMin); hour++) {
-      for (let min = hour === startHour ? startMin : 0; min < 60; min += slotDuration) {
-        if (hour === endHour && min >= endMin) break
+    for (let m = windowStart; m + serviceDuration <= windowEnd; m += serviceDuration) {
+      const slotStart = new Date(date)
+      slotStart.setHours(Math.floor(m / 60), m % 60, 0, 0)
+      const slotEnd = new Date(slotStart.getTime() + serviceDuration * 60000)
 
-        const slotStart = new Date(date)
-        slotStart.setHours(hour, min, 0, 0)
+      // Past slot
+      if (slotStart < now) continue
 
-        const slotEnd = new Date(slotStart)
-        slotEnd.setMinutes(slotEnd.getMinutes() + slotDuration)
+      // Overlaps a break
+      const isBreak = breakTimes.some((bt) => {
+        const [bStartH, bStartM] = bt.start.split(":").map(Number)
+        const [bEndH, bEndM] = bt.end.split(":").map(Number)
+        const breakStart = new Date(date)
+        breakStart.setHours(bStartH, bStartM, 0, 0)
+        const breakEnd = new Date(date)
+        breakEnd.setHours(bEndH, bEndM, 0, 0)
+        return slotStart < breakEnd && slotEnd > breakStart
+      })
+      if (isBreak) continue
 
-        // Check if slot exceeds working hours
-        if (slotEnd.getHours() > endHour || (slotEnd.getHours() === endHour && slotEnd.getMinutes() > endMin)) {
-          continue
-        }
+      // Overlaps an existing booking
+      const isBooked = existingBookings.some(
+        (booking) => slotStart < booking.endTime && slotEnd > booking.startTime
+      )
+      if (isBooked) continue
 
-        // Check if slot overlaps with break time
-        const isBreak = breakTimes.some((bt) => {
-          const [bStartH, bStartM] = (bt.start as string).split(":").map(Number)
-          const [bEndH, bEndM] = (bt.end as string).split(":").map(Number)
-          const breakStart = new Date(date)
-          breakStart.setHours(bStartH, bStartM, 0, 0)
-          const breakEnd = new Date(date)
-          breakEnd.setHours(bEndH, bEndM, 0, 0)
-          return slotStart < breakEnd && slotEnd > breakStart
-        })
-
-        if (isBreak) continue
-
-        // Check if slot overlaps with existing booking
-        const isBooked = existingBookings.some((booking) => {
-          return slotStart < booking.endTime && slotEnd > booking.startTime
-        })
-
-        if (isBooked) continue
-
-        // Check if slot is in the past
-        if (slotStart < new Date()) continue
-
-        slots.push({ start: slotStart, end: slotEnd })
-      }
+      slots.push({ start: slotStart, end: slotEnd })
     }
 
     return slots
@@ -393,7 +422,11 @@ export class StaffService {
       },
     })
 
+    
+
     if (!staff) return null
+
+    const branchDisplay = await getBranchDisplay(staff.branchId, staff.business)
 
     // Return only public information
     return {
@@ -409,7 +442,10 @@ export class StaffService {
       role: staff.role,
       isActive: staff.isActive,
       businessId: staff.business.id,
-      businessName: staff.business.name,
+   
+      branchId: staff.branchId,
+  branch: branchDisplay, // { name, phone, address }
+  businessName: branchDisplay.name, 
       services: staff.services.map(ss => ({
        id: ss.id,
         staffId: ss.staffId,
