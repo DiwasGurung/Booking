@@ -1226,7 +1226,8 @@ class BookingController {
             const parsedDate = new Date(year, month - 1, day);
             // Optional staffId - if provided, filter slots for that specific staff
             const staffIdStr = typeof staffId === 'string' ? staffId : undefined;
-            const slots = await booking_service_1.default.getAvailableSlots(Array.isArray(serviceId) ? serviceId[0] : serviceId, Array.isArray(businessId) ? businessId[0] : businessId, parsedDate, staffIdStr);
+            const branchId = typeof req.query.branchId === 'string' ? req.query.branchId : undefined;
+            const slots = await booking_service_1.default.getAvailableSlots(serviceId, businessId, parsedDate, staffIdStr, branchId);
             res.status(200).json({
                 success: true,
                 data: slots

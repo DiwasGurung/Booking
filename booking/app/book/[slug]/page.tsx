@@ -371,6 +371,22 @@ function BookingPageContent() {
     }
   }
 
+  useEffect(() => {
+  if (!businessId || !branchReady) return
+  const q = branchId ? `?branchId=${branchId}` : ''
+  ;(async () => {
+    const [hoursRes, closedRes] = await Promise.all([
+      fetch(`${API_URL}/api/business-hours/business/${businessId}${q}`),
+      fetch(`${API_URL}/api/business-hours/${businessId}/closed-dates${q}`),
+    ])
+    if (hoursRes.ok) setAllHours(await hoursRes.json())
+    if (closedRes.ok) {
+      const d = await closedRes.json()
+      setClosedDateRows(d.success && d.data ? d.data : [])
+    }
+  })()
+}, [businessId, branchId, branchReady])
+
   const loadBusinessData = async () => {
     try {
       setResolving(true)
@@ -405,10 +421,8 @@ function BookingPageContent() {
         router.replace(`/book/${biz.slug}${qs ? `?${qs}` : ''}`)
       }
 
-      const [servicesRes, hoursRes, closedDatesRes] = await Promise.all([
+      const [servicesRes] = await Promise.all([
         servicesApi.getBusinessServices(biz.id),
-        fetch(`${API_URL}/api/business-hours/business/${biz.id}`),
-        fetch(`${API_URL}/api/business-hours/${biz.id}/closed-dates`),
       ])
 
       if (servicesRes.data) {
@@ -422,16 +436,7 @@ function BookingPageContent() {
         setServices(svc)
       }
 
-      if (hoursRes.ok) {
-        setAllHours(await hoursRes.json())
-      }
-
-      if (closedDatesRes.ok) {
-        const closedDatesData = await closedDatesRes.json()
-        if (closedDatesData.success && closedDatesData.data) {
-          setClosedDateRows(closedDatesData.data)
-        }
-      }
+     
     } catch (err) {
       setError('Failed to load business information. Please try again.')
     } finally {

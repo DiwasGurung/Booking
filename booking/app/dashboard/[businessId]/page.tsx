@@ -11,11 +11,12 @@ import { AuthWrapper } from '@/components/AuthWrapper'
 import Link from 'next/link'
 import {
   Loader, Calendar, CheckCircle, TrendingUp, AlertCircle,
-  Eye, ArrowRight, BarChart3, Clock, Copy, Check
+  Eye, ArrowRight, Clock, Copy, Check, Building2
 } from 'lucide-react'
 import { businessApi, bookingsApi, paymentApi, businessHoursApi } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
+import { useBranches } from '@/context/branchContext'
 import { Input } from '@/components/ui/Input'
 
 interface BusinessStats {
@@ -37,20 +38,14 @@ interface Booking {
   status: string
   isEmailVerified: boolean
   notes?: string
-  service?: {
-    name: string
-    price: number
-    duration?: number
-  }
-  staff?: {
-    firstName: string
-    lastName: string
-  }
+  service?: { name: string; price: number; duration?: number }
+  staff?: { firstName: string; lastName: string }
+  branch?: { name: string } | null
 }
 
 interface Payment {
   id: string
-  amount: number
+  amount: number // stored in paisa
   currency: string
   gateway: string
   status: string
@@ -61,54 +56,49 @@ export default function BusinessDashboardPage() {
   const router = useRouter()
   const { businessId, loading: businessLoading } = useBusinessId()
   const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus()
+  const { branches, hasMultipleBranches, branchParam, selectedBranchId } = useBranches()
+
   const [stats, setStats] = useState<BusinessStats | null>(null)
   const [recentBookings, setRecentBookings] = useState<Booking[]>([])
   const [recentPayments, setRecentPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  // null = still loading; true/false once hours are known
   const [hoursConfigured, setHoursConfigured] = useState<boolean | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [slug, setSlug] = useState<string | null>(null)
 
-
-  // Check subscription status and redirect if no subscription
   useEffect(() => {
     if (!subscriptionLoading && subscriptionStatus) {
-      
-      // Redirect only if no subscription, or if CANCELLED and already expired
       if (subscriptionStatus.hasSubscription === false) {
         router.push('/subscription')
       }
     }
   }, [subscriptionStatus, subscriptionLoading, router])
 
+  // Reload whenever the branch switcher changes
   useEffect(() => {
-    if (businessId) {
-      loadDashboardData()
-    }
-  }, [businessId])
+    if (businessId) loadDashboardData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId, branchParam])
 
   async function loadDashboardData() {
     if (!businessId) return
-    
+
     try {
       setLoading(true)
       setError(null)
 
       const [statsResponse, bookingsResponse, paymentsResponse, hoursResponse, businessResponse] = await Promise.all([
-  businessApi.getStats(businessId),
-  bookingsApi.getBusinessBookings(businessId, 1, 5),
-  paymentApi.getBusinessPayments(businessId, 1, 5),
-  businessHoursApi.getBusinessHours(businessId).catch(() => null),
-  businessApi.getBusinessById(businessId).catch(() => null),   // use your actual method name
-])
+        // branchParam is undefined for "All branches", so no filter is sent
+        (businessApi.getStats as any)(businessId, branchParam),
+        bookingsApi.getBusinessBookings(businessId, 1, 5, undefined, undefined, undefined, undefined, branchParam),
+        paymentApi.getBusinessPayments(businessId, 1, 5),
+        businessHoursApi.getBusinessHours(businessId).catch(() => null),
+        businessApi.getBusinessById(businessId).catch(() => null),
+      ])
 
-setSlug(businessResponse?.data?.slug ?? null)
+      setSlug(businessResponse?.data?.slug ?? null)
 
-      
-
-      // Hours are "configured" only if there is at least one open day.
       const hours = hoursResponse?.data
       setHoursConfigured(Array.isArray(hours) && hours.some((h: any) => !h.isClosed))
 
@@ -126,7 +116,7 @@ setSlug(businessResponse?.data?.slug ?? null)
       if (paymentsResponse.data) {
         const payments = Array.isArray(paymentsResponse.data)
           ? paymentsResponse.data
-          : (paymentsResponse.data as any).payments || []
+          : (paymentsResponse.data as any).payments || (paymentsResponse.data as any).data || []
         setRecentPayments(payments)
       }
     } catch (error) {
@@ -135,9 +125,10 @@ setSlug(businessResponse?.data?.slug ?? null)
       setLoading(false)
     }
   }
+
   const totalRevenue = recentBookings
-  .filter((b) => b.status === 'COMPLETED')
-  .reduce((sum, b) => sum + (b.price || 0), 0)
+    .filter((b) => b.status === 'COMPLETED')
+    .reduce((sum, b) => sum + (b.price || 0), 0)
 
   const statCards = [
     {
@@ -146,7 +137,7 @@ setSlug(businessResponse?.data?.slug ?? null)
       icon: Calendar,
       color: 'text-blue-600',
       bg: 'bg-blue-50',
-      href: '/dashboard/bookings'
+      href: '/dashboard/bookings',
     },
     {
       title: 'Completed',
@@ -154,74 +145,104 @@ setSlug(businessResponse?.data?.slug ?? null)
       icon: CheckCircle,
       color: 'text-emerald-600',
       bg: 'bg-emerald-50',
-      href: '/dashboard/bookings'
+      href: '/dashboard/bookings',
     },
-     {
-    title: 'Total Revenue',
-    value: `Rs.${totalRevenue.toFixed(2)}`,
-    icon: TrendingUp,
-    color: 'text-purple-600',
-    bg: 'bg-purple-50',
-    href: '/dashboard'
-  },
+    {
+      title: 'Total Revenue',
+      value: `Rs.${totalRevenue.toFixed(2)}`,
+      icon: TrendingUp,
+      color: 'text-purple-600',
+      bg: 'bg-purple-50',
+      href: '/dashboard',
+    },
   ]
-const bookingUrl = businessId
-  ? `${typeof window !== 'undefined' ? window.location.origin : ''}/book/${slug ?? businessId}`
-  : ''
 
-const copyToClipboard = () => {
-  navigator.clipboard.writeText(bookingUrl)
-  setCopied(true)
-  setTimeout(() => setCopied(false), 2000)
-}
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const bookingUrl = businessId ? `${origin}/book/${slug ?? businessId}` : ''
+
+  // One deep link per active branch (only shown for multi-branch businesses)
+  const branchLinks = hasMultipleBranches
+    ? branches
+        .filter((b) => b.isActive)
+        .map((b) => ({ id: b.id, name: b.name, url: `${bookingUrl}?branch=${b.slug ?? b.id}` }))
+    : []
+
+  const copy = (key: string, text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(null), 2000)
+  }
+
+  const selectedBranchName =
+    selectedBranchId !== 'ALL' ? branches.find((b) => b.id === selectedBranchId)?.name : null
+
+  const CopyButton = ({ id, text }: { id: string; text: string }) => (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={() => copy(id, text)}
+      className="flex items-center justify-center gap-2 w-full sm:w-auto flex-shrink-0"
+    >
+      {copiedKey === id ? (
+        <><Check className="w-4 h-4" />Copied</>
+      ) : (
+        <><Copy className="w-4 h-4" />Copy</>
+      )}
+    </Button>
+  )
+
   return (
     <AuthWrapper mode="business-only">
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
         <Sidebar userRole="BUSINESS_OWNER" />
 
-        {/* Main Content */}
         <main className="md:ml-64 pt-20 md:pt-20 px-3 sm:px-4 md:px-8 py-6 md:py-8 overflow-x-hidden">
-          {/* Breadcrumbs */}
-          <div className="mb-4 md:mb-6">
+          <div className="mb-4 md:mb-6 flex flex-wrap items-center justify-between gap-2">
             <Breadcrumbs
               items={[
                 { label: 'Dashboard', href: '/dashboard' },
                 { label: 'Overview' },
               ]}
             />
+            {hasMultipleBranches && (
+              <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+                <Building2 className="w-3 h-3 mr-1" />
+                {selectedBranchName ?? 'All branches'}
+              </Badge>
+            )}
           </div>
-             {/* Booking URL Section */}
-          {businessId  && !loading && (
+
+          {/* Booking URL Section */}
+          {businessId && !loading && (
             <Card className="mb-4 md:mb-6 border border-slate-200 shadow-sm p-4 md:p-6 bg-white">
               <div className="mb-3">
                 <h3 className="text-base md:text-lg font-semibold text-slate-900">Booking Page URL</h3>
-                <p className="text-xs md:text-sm text-slate-500">Share this link with customers to book appointments</p>
+                <p className="text-xs md:text-sm text-slate-500">
+                  {hasMultipleBranches
+                    ? 'Customers choose a location on this page, or share a branch link below'
+                    : 'Share this link with customers to book appointments'}
+                </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <Input value={bookingUrl} readOnly className="flex-1 min-w-0" />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={copyToClipboard}
-                  className="flex items-center justify-center gap-2 w-full sm:w-auto flex-shrink-0"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4" />
-                      Copy
-                    </>
-                  )}
-                </Button>
+                <CopyButton id="main" text={bookingUrl} />
               </div>
+
+              {branchLinks.length > 0 && (
+                <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Branch links</p>
+                  {branchLinks.map((b) => (
+                    <div key={b.id} className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <span className="text-sm font-medium text-slate-700 sm:w-40 truncate">{b.name}</span>
+                      <Input value={b.url} readOnly className="flex-1 min-w-0" />
+                      <CopyButton id={b.id} text={b.url} />
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           )}
 
-          {/* Error Alert */}
           {error && (
             <div className="mb-4 md:mb-6 p-3 md:p-4 bg-red-50 border border-red-200 rounded-lg flex flex-col sm:flex-row items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -229,12 +250,7 @@ const copyToClipboard = () => {
                 <p className="font-medium text-red-900 text-sm md:text-base break-words">{error}</p>
                 <p className="text-xs md:text-sm text-red-700">Please refresh the page or contact support</p>
               </div>
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={loadDashboardData}
-                className="w-full sm:w-auto flex-shrink-0"
-              >
+              <Button size="sm" variant="outline" onClick={loadDashboardData} className="w-full sm:w-auto flex-shrink-0">
                 Retry
               </Button>
             </div>
@@ -243,15 +259,15 @@ const copyToClipboard = () => {
           {/* Subscription Status Banner */}
           {subscriptionStatus && !subscriptionLoading && (
             <div className={`mb-4 md:mb-6 p-3 md:p-4 rounded-lg border flex flex-col sm:flex-row items-start sm:items-center gap-3 ${
-              subscriptionStatus.status === 'TRIAL' 
-                ? 'bg-blue-50 border-blue-200' 
+              subscriptionStatus.status === 'TRIAL'
+                ? 'bg-blue-50 border-blue-200'
                 : subscriptionStatus.status === 'CANCELLED'
                 ? 'bg-amber-50 border-amber-200'
                 : 'bg-green-50 border-green-200'
             }`}>
               <AlertCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                subscriptionStatus.status === 'TRIAL' 
-                  ? 'text-blue-600' 
+                subscriptionStatus.status === 'TRIAL'
+                  ? 'text-blue-600'
                   : subscriptionStatus.status === 'CANCELLED'
                   ? 'text-amber-600'
                   : 'text-green-600'
@@ -260,13 +276,13 @@ const copyToClipboard = () => {
                 <p className="font-medium text-sm md:text-base break-words">
                   {subscriptionStatus.status === 'CANCELLED'
                     ? `Your subscription will end on ${subscriptionStatus.expiresAt && !Number.isNaN(new Date(subscriptionStatus.expiresAt).getTime()) ? new Date(subscriptionStatus.expiresAt).toLocaleDateString() : 'soon'}`
-                    : subscriptionStatus.status === 'TRIAL' 
-                    ? `Free Trial Active - ${subscriptionStatus.daysRemaining} days remaining` 
+                    : subscriptionStatus.status === 'TRIAL'
+                    ? `Free Trial Active - ${subscriptionStatus.daysRemaining} days remaining`
                     : `${subscriptionStatus.planName} - Active`}
                 </p>
                 <p className="text-xs md:text-sm text-muted-foreground">
-                  {subscriptionStatus.status === 'TRIAL' 
-                    ? 'You are on a free trial. Please set up payment to continue using after trial ends.' 
+                  {subscriptionStatus.status === 'TRIAL'
+                    ? 'You are on a free trial. Please set up payment to continue using after trial ends.'
                     : subscriptionStatus.expiresAt && !Number.isNaN(new Date(subscriptionStatus.expiresAt).getTime())
                     ? `Expires on ${new Date(subscriptionStatus.expiresAt).toLocaleDateString()}`
                     : 'Subscription expiry date unavailable'}
@@ -274,15 +290,13 @@ const copyToClipboard = () => {
               </div>
               {subscriptionStatus.status === 'TRIAL' && (
                 <Link href="/subscription" className="w-full sm:w-auto flex-shrink-0">
-                  <Button size="sm" variant="outline" className="w-full sm:w-auto">
-                    Upgrade Now
-                  </Button>
+                  <Button size="sm" variant="outline" className="w-full sm:w-auto">Upgrade Now</Button>
                 </Link>
               )}
             </div>
           )}
 
-          {/* Business Hours Setup Banner - blocks bookings until configured */}
+          {/* Business Hours Setup Banner */}
           {!loading && hoursConfigured === false && (
             <div className="mb-4 md:mb-6 p-4 md:p-5 rounded-lg border border-amber-300 bg-amber-50 flex flex-col sm:flex-row items-start sm:items-center gap-3">
               <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -303,7 +317,6 @@ const copyToClipboard = () => {
             </div>
           )}
 
-          {/* Loading State */}
           {loading ? (
             <div className="flex items-center justify-center py-12 md:py-16">
               <div className="text-center">
@@ -335,9 +348,8 @@ const copyToClipboard = () => {
                 })}
               </div>
 
-              {/* Analytics Grid: Conversion Rate & Payments */}
+              {/* Conversion Rate & Payments */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-8 mb-6 md:mb-8">
-                {/* Conversion Rate Analytics */}
                 {stats && (
                   <Card className="border border-slate-200 shadow-sm p-4 md:p-6 bg-white">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-4">
@@ -361,32 +373,34 @@ const copyToClipboard = () => {
                   </Card>
                 )}
 
-                {/* Payment Summary */}
                 {recentPayments.length > 0 && (
                   <Card className="border border-slate-200 shadow-sm p-6 bg-white">
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <h3 className="text-lg font-semibold text-slate-900">Recent Payments</h3>
-                        <p className="text-sm text-slate-500">Latest subscription payments</p>
+                        <p className="text-sm text-slate-500">Subscription and SMS credit payments</p>
                       </div>
                       <Badge className="bg-green-600 text-white text-lg px-3 py-1">
-                        {recentPayments.filter(p => p.status === 'COMPLETED').length} Completed
+                        {recentPayments.filter((p) => p.status?.toUpperCase() === 'COMPLETED').length} Completed
                       </Badge>
                     </div>
                     <div className="space-y-2">
-                      {recentPayments.slice(0, 3).map((payment) => (
-                        <div key={payment.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-2 h-2 rounded-full {
-                              payment.status === 'COMPLETED' ? 'bg-green-500' :
-                              payment.status === 'PENDING' ? 'bg-yellow-500' :
-                              'bg-red-500'
-                            }`} />
-                            <span className="text-sm text-slate-600">{payment.gateway}</span>
+                      {recentPayments.slice(0, 3).map((payment) => {
+                        const st = payment.status?.toUpperCase()
+                        return (
+                          <div key={payment.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-2 h-2 rounded-full ${
+                                st === 'COMPLETED' ? 'bg-green-500' : st === 'PENDING' ? 'bg-yellow-500' : 'bg-red-500'
+                              }`} />
+                              <span className="text-sm text-slate-600">{payment.gateway}</span>
+                            </div>
+                            <span className="font-semibold text-slate-900">
+                              Rs.{((payment.amount || 0) / 100).toFixed(2)}
+                            </span>
                           </div>
-                          <span className="font-semibold text-slate-900">Rs.{payment.amount.toFixed(2)}</span>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                     <Link href="/dashboard/payments">
                       <Button variant="ghost" size="sm" className="w-full mt-4 text-blue-600">
@@ -397,80 +411,86 @@ const copyToClipboard = () => {
                 )}
               </div>
 
-              {/* Recent Bookings & Analytics Overview */}
+              {/* Recent Bookings */}
               <div className="grid grid-cols-1 gap-3 md:gap-8">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                      <Calendar className="w-5 h-5 text-blue-600" />
-                      Recent Bookings
-                    </h2>
-                    <Link href="/dashboard/bookings">
-                      <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
-                        View All <ArrowRight className="w-3 h-3 ml-1" />
-                      </Button>
-                    </Link>
-                  </div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-blue-600" />
+                    Recent Bookings
+                  </h2>
+                  <Link href="/dashboard/bookings">
+                    <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
+                      View All <ArrowRight className="w-3 h-3 ml-1" />
+                    </Button>
+                  </Link>
+                </div>
 
-                  {recentBookings.length === 0 ? (
-                    <Card className="border border-slate-200 shadow-sm p-8 text-center bg-white">
-                      <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                      <p className="text-lg text-slate-600 font-medium">No Recent Bookings</p>
-                      <p className="text-sm text-slate-500 mt-1">Your bookings will appear here</p>
-                    </Card>
-                  ) : (
-                    <Card className="border border-slate-200 shadow-sm overflow-hidden bg-white">
-                      <div className="divide-y divide-slate-200">
-                        {recentBookings.map((booking) => (
-                          <div key={booking.id} className="p-4 hover:bg-slate-50 transition-colors">
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-slate-900 truncate">{booking.customerName}</p>
-                                <p className="text-xs text-slate-500 truncate">{booking.customerEmail}</p>
-                                {booking.customerPhone && (
-                                  <p className="text-xs text-slate-500 truncate">{booking.customerPhone}</p>
-                                )}
-                              </div>
-                              <div className="flex gap-1 flex-shrink-0">
-                                <Badge
-                                  className={
-                                    booking.status === 'COMPLETED'
-                                      ? 'bg-green-100 text-green-800 text-xs'
-                                      : booking.status === 'UNVERIFIED'
-                                        ? 'bg-orange-100 text-orange-800 text-xs'
-                                      : booking.status === 'PENDING'
-                                        ? 'bg-yellow-100 text-yellow-800 text-xs'
-                                        : booking.status === 'CONFIRMED'
-                                          ? 'bg-blue-100 text-blue-800 text-xs'
-                                          : 'bg-slate-100 text-slate-800 text-xs'
-                                  }
-                                >
-                                  {booking.status}
-                                </Badge>
-                                {!booking.isEmailVerified && booking.status === 'UNVERIFIED' && (
-                                  <Badge className="bg-orange-100 text-orange-800 text-xs">
-                                    Verify Email
-                                  </Badge>
-                                )}
-                              </div>
+                {recentBookings.length === 0 ? (
+                  <Card className="border border-slate-200 shadow-sm p-8 text-center bg-white">
+                    <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                    <p className="text-lg text-slate-600 font-medium">No Recent Bookings</p>
+                    <p className="text-sm text-slate-500 mt-1">
+                      {selectedBranchName ? `No bookings at ${selectedBranchName} yet` : 'Your bookings will appear here'}
+                    </p>
+                  </Card>
+                ) : (
+                  <Card className="border border-slate-200 shadow-sm overflow-hidden bg-white">
+                    <div className="divide-y divide-slate-200">
+                      {recentBookings.map((booking) => (
+                        <div key={booking.id} className="p-4 hover:bg-slate-50 transition-colors">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-slate-900 truncate">{booking.customerName}</p>
+                              <p className="text-xs text-slate-500 truncate">{booking.customerEmail}</p>
+                              {booking.customerPhone && (
+                                <p className="text-xs text-slate-500 truncate">{booking.customerPhone}</p>
+                              )}
                             </div>
-                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
-                              <div className="space-y-0.5">
-                                <p><span className="font-medium">Service:</span> {booking.service?.name || 'N/A'}</p>
-                                {booking.staff && (
-                                  <p><span className="font-medium">Staff:</span> {booking.staff.firstName} {booking.staff.lastName}</p>
-                                )}
-                                <p>{new Date(booking.startTime).toLocaleDateString()} {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                              </div>
-                              <span className="text-sm font-semibold text-slate-900 flex-shrink-0">
-                                Rs.{(booking.price|| 0).toFixed(2)}
-                              </span>
+                            <div className="flex gap-1 flex-shrink-0">
+                              <Badge
+                                className={
+                                  booking.status === 'COMPLETED'
+                                    ? 'bg-green-100 text-green-800 text-xs'
+                                    : booking.status === 'UNVERIFIED'
+                                    ? 'bg-orange-100 text-orange-800 text-xs'
+                                    : booking.status === 'PENDING'
+                                    ? 'bg-yellow-100 text-yellow-800 text-xs'
+                                    : booking.status === 'CONFIRMED'
+                                    ? 'bg-blue-100 text-blue-800 text-xs'
+                                    : 'bg-slate-100 text-slate-800 text-xs'
+                                }
+                              >
+                                {booking.status}
+                              </Badge>
+                              {!booking.isEmailVerified && booking.status === 'UNVERIFIED' && (
+                                <Badge className="bg-orange-100 text-orange-800 text-xs">Verify Email</Badge>
+                              )}
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </Card>
-                  )}
-                </div>
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-xs text-slate-600">
+                            <div className="space-y-0.5">
+                              <p><span className="font-medium">Service:</span> {booking.service?.name || 'N/A'}</p>
+                              {hasMultipleBranches && booking.branch?.name && (
+                                <p><span className="font-medium">Branch:</span> {booking.branch.name}</p>
+                              )}
+                              {booking.staff && (
+                                <p><span className="font-medium">Staff:</span> {booking.staff.firstName} {booking.staff.lastName}</p>
+                              )}
+                              <p>
+                                {new Date(booking.startTime).toLocaleDateString()}{' '}
+                                {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                            <span className="text-sm font-semibold text-slate-900 flex-shrink-0">
+                              Rs.{(booking.price || 0).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+              </div>
             </>
           )}
         </main>

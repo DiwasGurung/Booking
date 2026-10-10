@@ -1,8 +1,16 @@
 import { string } from "zod"
 import  prisma  from "../lib/prisma"
 import type { Booking, Prisma, BookingStatus } from "@prisma/client"
+import { resolveBranchId } from "../lib/branch"
 
 export class BookingService {
+
+  async getHoursForDay(businessId: string, dayOfWeek: number, branchId?: string) {
+  const resolved = await resolveBranchId(businessId, branchId)
+  return prisma.businessHours.findUnique({
+    where: { branchId_dayOfWeek: { branchId: resolved, dayOfWeek } },
+  })
+}
   /**
    * Create a new booking
    */
@@ -129,25 +137,34 @@ export class BookingService {
    /**
    * Get available slots for a service on a specific date
    */
-  async getAvailableSlots(serviceId: string, businessId: string, date: Date,branchId?: string, staffId?: string): Promise<string[]> {
-    const service = await prisma.service.findUnique({
-      where: { id: serviceId },
-    })
+  async getAvailableSlots(
+  serviceId: string,
+  businessId: string,
+  date: Date,
+  staffId?: string,
+  branchId?: string
+): Promise<string[]> {
+  const branch = await resolveBranchId(businessId, branchId)   // falls back to the main branch
 
-    if (!service) throw new Error("Service not found")
+  const service = await prisma.service.findUnique({ where: { id: serviceId } })
+  if (!service) throw new Error("Service not found")
 
-    // Create proper date range without mutating the original date
-    const startOfDay = new Date(date)
-    startOfDay.setHours(0, 0, 0, 0)
-    
-    const endOfDay = new Date(date)
-    endOfDay.setHours(23, 59, 59, 999)
+  const startOfDay = new Date(date); startOfDay.setHours(0, 0, 0, 0)
+  const endOfDay = new Date(date);   endOfDay.setHours(23, 59, 59, 999)
 
-    // Get business hours for the day
-    const dayOfWeek = date.getDay()
-    const businessHours = await prisma.businessHours.findUnique({
-    where:{  branchId_dayOfWeek: { branchId: branchId as string, dayOfWeek: dayOfWeek === 0 ? 6 : dayOfWeek - 1 } }
-       // decide fallback behavior for branchless businesses — see note below
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const requestedDateStr = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+
+  // Branch closed date (was never checked in slot generation)
+  const closed = await prisma.closedDate.findUnique({
+    where: { branchId_date: { branchId: branch, date: new Date(`${requestedDateStr}T00:00:00.000Z`) } },
+    select: { id: true },
+  })
+  if (closed) return []
+
+  const dayOfWeek = date.getDay()
+  const businessHours = await prisma.businessHours.findUnique({
+    where: { branchId_dayOfWeek: { branchId: branch, dayOfWeek: dayOfWeek === 0 ? 6 : dayOfWeek - 1 } },
   })
 
     if (!businessHours || businessHours.isClosed) return []
@@ -156,47 +173,27 @@ export class BookingService {
     const [openHour, openMin] = businessHours.openTime.split(":").map(Number)
     const [closeHour, closeMin] = businessHours.closeTime.split(":").map(Number)
 
-    // Get staff for this service through StaffService join table
-    let staffStaffServices
-    if (staffId) {
-      // If specific staff is selected, verify they're assigned to this service
-      staffStaffServices = await prisma.staffService.findMany({
-        where: {
-          staffId: staffId,
-          serviceId: serviceId
-        },
-        include: {
-          staff: true
-        }
-      })
-      if (staffStaffServices.length === 0) {
-        throw new Error("Staff not found or not assigned to this service")
-      }
-    } else {
-      // If no staff selected, get all staff for this service and business
-      // First get all StaffService records for this service
-      const allStaffServices = await prisma.staffService.findMany({
-        where: {
-          serviceId: serviceId
-        },
-        include: {
-          staff: true
-        }
-      })
-      
-      // Filter to only active staff from this business
-       staffStaffServices = allStaffServices.filter(ss =>
-    ss.staff.businessId === businessId &&
-    ss.staff.isActive &&
-    (!branchId || ss.staff.branchId === branchId)
-  )
+   const worksHere = (s: { businessId: string; isActive: boolean; branchId: string | null }) =>
+  s.businessId === businessId && s.isActive && (!s.branchId || s.branchId === branch)
 
+let staffStaffServices
+if (staffId) {
+  staffStaffServices = (await prisma.staffService.findMany({
+    where: { staffId, serviceId },
+    include: { staff: true },
+  })).filter((ss) => worksHere(ss.staff))
+  if (staffStaffServices.length === 0) {
+    throw new Error("Staff not found, not at this branch, or not assigned to this service")
+  }
+} else {
+  const all = await prisma.staffService.findMany({ where: { serviceId }, include: { staff: true } })
+  staffStaffServices = all.filter((ss) => worksHere(ss.staff))
+  if (staffStaffServices.length === 0) {
+    throw new Error("No staff members are assigned to this service at this branch.")
+  }
+}
       
-      if (staffStaffServices.length === 0) {
-        console.error('[v0] No staff found for service:', { businessId, serviceId })
-        throw new Error(`No staff members are assigned to this service. Please contact the business.`)
-      }
-    }
+      
 
     // Extract staff list
     const staffList = staffStaffServices.map((ss: { staff: any }) => ss.staff)
@@ -224,10 +221,7 @@ export class BookingService {
       }
     }
 
-    // The requested calendar date, reconstructed from the server-local Date the
-    // controller built from the "YYYY-MM-DD" query string.
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const requestedDateStr = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+
 
     // Widen the query window by a day on each side so no booking is dropped by
     // the timezone offset, then filter precisely by business-zone wall clock.
@@ -254,14 +248,16 @@ export class BookingService {
       })
       .filter(b => b.dateStr === requestedDateStr)
 
-    // Get timeoffs for all staff on this date
     const timeOffs = await prisma.timeOff.findMany({
-      where: {
-        staffId: { in: staffList.map(s => s.id) },
-        startDate: { lte: endOfDay },
-        endDate: { gte: startOfDay },
-      },
-    })
+  where: {
+    startDate: { lte: endOfDay },
+    endDate: { gte: startOfDay },
+    OR: [
+      { staffId: { in: staffList.map((s) => s.id) } },
+      { staffId: null, branchId: branch },
+    ],
+  },
+})
 
     const slots: string[] = []
     const slotDuration = service.duration
@@ -338,9 +334,9 @@ export class BookingService {
 
     return trends
   }
-  async getBusinessAvailableSlots(serviceId: string, businessId: string, date: Date, staffId?: string, branchId?: string): Promise<string[]> {
-    return this.getAvailableSlots(serviceId, businessId, date, staffId, branchId)
-  }
+  async getBusinessAvailableSlots(serviceId: string, businessId: string, date: Date, staffId?: string, branchId?: string) {
+  return this.getAvailableSlots(serviceId, businessId, date, staffId, branchId)
+}
 }
 
 export default new BookingService()
