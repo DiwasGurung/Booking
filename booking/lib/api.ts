@@ -182,6 +182,7 @@ export interface PaymentHistory {
 }
 
 export interface Staff {
+  businessName: any
   staffCode: import("react/jsx-runtime").JSX.Element
   id: string
   businessId: string

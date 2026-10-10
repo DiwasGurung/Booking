@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertCircle, Loader, MailIcon, Phone, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react'
+import { AlertCircle, Loader, MailIcon, Phone, ChevronLeft, ChevronRight, Calendar as CalendarIcon, MapPin } from 'lucide-react'
 import { useEffect, useState, useRef, JSX } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
@@ -145,6 +145,7 @@ export default function StaffBookPage() {
         const user = await getCurrentUser()
         setCurrentUser(user)
 
+
         const response = await fetch(`${API_URL}/api/staff/code/${staffCode}`)
 
         if (!response.ok) {
@@ -168,6 +169,8 @@ export default function StaffBookPage() {
         if (data.services && data.services.length > 0) {
           setFormData((prev) => ({ ...prev, serviceId: data.services[0].serviceId }))
         }
+        const branchQuery = data.branchId ? `?branchId=${data.branchId}` : ''
+
 
         // Pre-fill customer info if user is authenticated
         if (user) {
@@ -182,14 +185,15 @@ export default function StaffBookPage() {
         // Fetch business hours and closed dates for the business
         try {
           // Fetch business hours
-          const hoursRes = await fetch(`${API_URL}/api/business-hours/business/${data.businessId}`)
+const hoursRes = await fetch(`${API_URL}/api/business-hours/business/${data.businessId}${branchQuery}`)
+
           if (hoursRes.ok) {
             const hoursData = await hoursRes.json()
             setBusinessHours(hoursData)
           }
 
           // Fetch closed dates
-          const closedDatesRes = await fetch(`${API_URL}/api/business-hours/${data.businessId}/closed-dates`)
+const closedDatesRes = await fetch(`${API_URL}/api/business-hours/${data.businessId}/closed-dates${branchQuery}`)
           if (closedDatesRes.ok) {
             const closedDatesData = await closedDatesRes.json()
             const closedDatesMap = new Map<string, string>()
@@ -718,14 +722,16 @@ export default function StaffBookPage() {
 
       // Use public booking endpoint for guests, authenticated booking for logged-in users
       const endpoint = currentUser ? '/api/booking' : '/api/booking/public'
-      const bookingPayload: any = {
-        businessId: staff?.businessId,
-        staffId: staff?.id,
-        serviceId: formData.serviceId,
-        startTime: startTimeISO,
-        endTime: endTimeISO,
-        notes: formData.notes,
-      }
+      // handleSubmit: bookingPayload
+const bookingPayload: any = {
+  businessId: staff?.businessId,
+  branchId: staff?.branchId ?? undefined,
+  staffId: staff?.id,
+  serviceId: formData.serviceId,
+  startTime: startTimeISO,
+  endTime: endTimeISO,
+  notes: formData.notes,
+}
 
       // Add business ID and customer details only for public bookings
       if (!currentUser) {
@@ -905,6 +911,15 @@ export default function StaffBookPage() {
                   <span className="text-sm">{staff.phone}</span>
                 </div>
               )}
+              {(staff as any).branch?.address && (
+  <div className="flex items-center gap-2">
+    <MapPin className="w-4 h-4 text-muted-foreground" />
+    <span className="text-sm">
+      {(staff as any).branch.name !== staff.businessName ? `${(staff as any).branch.name} · ` : ''}
+      {(staff as any).branch.address}
+    </span>
+  </div>
+)}
             </div>
           </CardContent>
         </Card>
