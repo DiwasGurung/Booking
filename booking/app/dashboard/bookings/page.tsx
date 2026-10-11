@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
+import { BranchSelector } from '@/components/BranchSelector'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +12,7 @@ import { Calendar, Loader, AlertCircle, Search, X, Download, Bell, Plus } from '
 import Link from 'next/link'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
+import { useBranches } from '@/context/branchContext'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
@@ -27,30 +29,26 @@ interface Booking {
   status: string
   notes?: string
   staff?: { firstName: string; lastName: string }
+  branch?: { id?: string; name: string } | null
 }
 
 type StatusFilter = 'ALL' | 'UNVERIFIED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
 type RangeFilter = 'ALL' | 'today' | 'tomorrow' | 'week' | 'nextWeek' | 'month'
 
 const STATUS_FILTERS: StatusFilter[] = ['ALL', 'UNVERIFIED', 'CONFIRMED', 'COMPLETED', 'CANCELLED']
-
-// Statuses the backend endpoint actually validates/accepts as a `status` query param.
-// Anything else must be filtered on the client (the server ignores unknown values
-// and returns everything, which is what made the filters look broken).
-const SERVER_SUPPORTED: StatusFilter[] = ['UNVERIFIED', 'COMPLETED','CONFIRMED', 'CANCELLED']
-
+const SERVER_SUPPORTED: StatusFilter[] = ['UNVERIFIED', 'COMPLETED', 'CONFIRMED', 'CANCELLED']
 const PAGE_SIZE = 10
 
 export default function BookingsPage() {
-  const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
+  const { businessId } = useBusinessId()
+  const { hasMultipleBranches, branchParam, selectedBranchId, branches } = useBranches()
+
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const { subscriptionStatus, hasValidSubscription } = useSubscriptionStatus()
   const planName = (subscriptionStatus?.planName || '').toUpperCase()
 
-  const canExportBookings =
-  hasValidSubscription && ['PROFESSIONAL', 'ENTERPRISE'].includes(planName)
-  // Reminder eligibility: Enterprise sends via SMS (bulk), Pro/Professional via email.
+  const canExportBookings = hasValidSubscription && ['PROFESSIONAL', 'ENTERPRISE'].includes(planName)
   const isEnterprisePlan = planName === 'ENTERPRISE'
   const isProPlan = planName === 'PRO' || planName === 'PROFESSIONAL'
   const canSendReminders = hasValidSubscription && (isEnterprisePlan || isProPlan)
@@ -70,12 +68,12 @@ export default function BookingsPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [updateError, setUpdateError] = useState('')
   const [hasMore, setHasMore] = useState(false)
-  // Independent of the table's display filters (status/staff/date-range/search) —
-  // this tracks specifically whether there's any CONFIRMED booking later today,
-  // which is the exact condition the backend uses to decide whether reminders
-  // have anything to send.
-  const [hasRemindableBookings, setHasRemindableBookings] = useState(true) // optimistic until first check resolves
+  const [hasRemindableBookings, setHasRemindableBookings] = useState(true)
 
+  const selectedBranchName =
+    selectedBranchId !== 'ALL' ? branches.find((b) => b.id === selectedBranchId)?.name : null
+
+  // Reminders are sent business-wide by the backend, so this probe is intentionally NOT branch-filtered.
   const checkRemindableBookings = async () => {
     if (!businessId) return
     try {
@@ -86,18 +84,11 @@ export default function BookingsPage() {
       endOfDay.setHours(23, 59, 59, 999)
 
       const response = await bookingsApi.getBusinessBookings(
-        businessId,
-        1,
-        100, // covers a normal day's volume; bump this or switch to a count endpoint if a business can exceed 100 bookings/day
-        'CONFIRMED',
-        startOfDay.toISOString(),
-        endOfDay.toISOString(),
-        undefined
+        businessId, 1, 100, 'CONFIRMED',
+        startOfDay.toISOString(), endOfDay.toISOString(), undefined
       )
 
       if (!response.success) {
-        // Fail open — don't block the button on our own probe failing.
-        // The real send endpoint still validates and will 200 with count:0 if it turns out there's nothing to send.
         setHasRemindableBookings(true)
         return
       }
@@ -106,18 +97,15 @@ export default function BookingsPage() {
         ? (response.data as Booking[])
         : ((response.data as any)?.bookings ?? [])
 
-      const remaining = fetched.filter((b) => new Date(b.startTime) > now)
-      setHasRemindableBookings(remaining.length > 0)
+      setHasRemindableBookings(fetched.filter((b) => new Date(b.startTime) > now).length > 0)
     } catch {
-      setHasRemindableBookings(true) // fail open, same reasoning
+      setHasRemindableBookings(true)
     }
   }
 
   useEffect(() => {
     if (!businessId || !canSendReminders) return
     checkRemindableBookings()
-    // Bookings that were "later today" can become "in the past" as the day
-    // goes on, so re-check periodically rather than only on mount.
     const interval = setInterval(checkRemindableBookings, 60 * 1000)
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,27 +115,39 @@ export default function BookingsPage() {
     if (!canExportBookings || visibleBookings.length === 0) return
 
     const doc = new jsPDF()
-
     doc.setFontSize(16)
     doc.text('Bookings', 14, 18)
     doc.setFontSize(10)
     doc.setTextColor(100)
-    doc.text(`Filtered bookings · ${new Date().toLocaleDateString()}`, 14, 24)
+    doc.text(
+      `${selectedBranchName ? `${selectedBranchName} · ` : ''}Filtered bookings · ${new Date().toLocaleDateString()}`,
+      14, 24
+    )
+
+    const head = ['Customer', 'Email', 'Phone', 'Service']
+    if (hasMultipleBranches) head.push('Branch')
+    head.push('Date & Time', 'Status', 'Amount')
 
     autoTable(doc, {
       startY: 30,
-      head: [['Customer', 'Email', 'Phone', 'Service', 'Date & Time', 'Status', 'Amount']],
-      body: visibleBookings.map((booking) => [
-        booking.customerName || 'N/A',
-        booking.customerEmail || 'N/A',
-        booking.customerPhone || 'N/A',
-        booking.service?.name || 'N/A',
-        new Date(booking.startTime).toLocaleString(),
-        booking.status,
-        `Rs. ${(booking.service?.offerPrice ?? booking.service?.price ?? 0).toFixed(2)}`,
-      ]),
+      head: [head],
+      body: visibleBookings.map((booking) => {
+        const row = [
+          booking.customerName || 'N/A',
+          booking.customerEmail || 'N/A',
+          booking.customerPhone || 'N/A',
+          booking.service?.name || 'N/A',
+        ]
+        if (hasMultipleBranches) row.push(booking.branch?.name || 'N/A')
+        row.push(
+          new Date(booking.startTime).toLocaleString(),
+          booking.status,
+          `Rs. ${(booking.service?.offerPrice ?? booking.service?.price ?? 0).toFixed(2)}`
+        )
+        return row
+      }),
       headStyles: { fillColor: [241, 245, 249], textColor: 20, fontStyle: 'bold' },
-      styles: { fontSize: 9, cellPadding: 4 },
+      styles: { fontSize: 8, cellPadding: 3 },
       theme: 'grid',
     })
 
@@ -155,9 +155,7 @@ export default function BookingsPage() {
   }
 
   const getDateRange = () => {
-    if (filterRange === 'ALL') {
-      return { startDate: null, endDate: null }
-    }
+    if (filterRange === 'ALL') return { startDate: null, endDate: null }
     const end = new Date()
     const start = new Date(end)
     if (filterRange === 'today') {
@@ -178,12 +176,16 @@ export default function BookingsPage() {
     return { startDate: start.toISOString(), endDate: end.toISOString() }
   }
 
+  // A different branch means a different result set: go back to page 1 and clear the staff filter
   useEffect(() => {
-    if (businessId) {
-      loadBookings()
-    }
+    setPage(1)
+    setFilterStaffId('ALL')
+  }, [branchParam])
+
+  useEffect(() => {
+    if (businessId) loadBookings()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, filterStatus, filterStaffId, filterRange, businessId])
+  }, [page, filterStatus, filterStaffId, filterRange, businessId, branchParam])
 
   useEffect(() => {
     if (businessId) {
@@ -193,6 +195,12 @@ export default function BookingsPage() {
         .catch(() => setStaff([]))
     }
   }, [businessId])
+
+  // Staff dropdown only lists people who work at the selected branch (staff with no branch work anywhere)
+  const staffOptions = useMemo(
+    () => staff.filter((s) => !branchParam || !s.branchId || s.branchId === branchParam),
+    [staff, branchParam]
+  )
 
   const [remindersSentToday, setRemindersSentToday] = useState(false)
 
@@ -233,9 +241,6 @@ export default function BookingsPage() {
       setError(null)
       const { startDate, endDate } = getDateRange()
       const staffParam = filterStaffId !== 'ALL' ? filterStaffId : undefined
-
-      // Only send `status` when the backend actually supports it. For UNVERIFIED /
-      // COMPLETED / ALL we fetch broadly and narrow on the client below.
       const statusParam = SERVER_SUPPORTED.includes(filterStatus) ? filterStatus : undefined
 
       const response = await bookingsApi.getBusinessBookings(
@@ -245,7 +250,8 @@ export default function BookingsPage() {
         statusParam,
         startDate || undefined,
         endDate || undefined,
-        staffParam
+        staffParam,
+        branchParam // undefined = all branches
       )
 
       if (!response.success) {
@@ -260,7 +266,6 @@ export default function BookingsPage() {
         : ((response.data as any)?.bookings ?? [])
 
       setBookings(fetched)
-      // Fix: derive hasMore from the data we JUST fetched, not stale state.
       setHasMore(fetched.length === PAGE_SIZE)
     } catch (err) {
       setError('Error loading bookings')
@@ -271,14 +276,10 @@ export default function BookingsPage() {
     }
   }
 
-  // Final client-side guard so the displayed rows ALWAYS match the selected filter,
-  // even for statuses the server can't filter (UNVERIFIED, COMPLETED) or when it
-  // ignores an unknown value and returns everything.
   const visibleBookings = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     return bookings.filter((b) => {
-      const statusMatch =
-        filterStatus === 'ALL' || (b.status || '').toUpperCase() === filterStatus
+      const statusMatch = filterStatus === 'ALL' || (b.status || '').toUpperCase() === filterStatus
       const nameMatch = query === '' || (b.customerName || '').toLowerCase().includes(query)
       return statusMatch && nameMatch
     })
@@ -291,9 +292,7 @@ export default function BookingsPage() {
       setUpdateError('')
       const response = await bookingsApi.updateBookingStatus(selectedBookingId, newStatus)
       if (response.success) {
-        setBookings((prev) =>
-          prev.map((b) => (b.id === selectedBookingId ? { ...b, status: newStatus } : b))
-        )
+        setBookings((prev) => prev.map((b) => (b.id === selectedBookingId ? { ...b, status: newStatus } : b)))
       } else {
         setUpdateError(response.error || 'Failed to update booking status')
       }
@@ -317,8 +316,6 @@ export default function BookingsPage() {
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
-  // Shared action buttons for a booking — used by both the desktop table row
-  // and the mobile card, so the logic only lives in one place.
   const BookingActions = ({ booking }: { booking: Booking }) => {
     if (booking.status === 'UNVERIFIED') {
       return (
@@ -326,10 +323,7 @@ export default function BookingsPage() {
           <Button
             size="sm"
             className="bg-blue-600 hover:bg-blue-700 text-white"
-            onClick={() => {
-              setSelectedBookingId(booking.id)
-              setNewStatus('CONFIRMED')
-            }}
+            onClick={() => { setSelectedBookingId(booking.id); setNewStatus('CONFIRMED') }}
             title="Confirm booking"
           >
             Confirm
@@ -337,10 +331,7 @@ export default function BookingsPage() {
           <Button
             size="sm"
             variant="destructive"
-            onClick={() => {
-              setSelectedBookingId(booking.id)
-              setNewStatus('CANCELLED')
-            }}
+            onClick={() => { setSelectedBookingId(booking.id); setNewStatus('CANCELLED') }}
             title="Cancel booking"
           >
             Cancel
@@ -348,9 +339,7 @@ export default function BookingsPage() {
         </>
       )
     }
-    if (booking.status === 'CANCELLED' || booking.status === 'COMPLETED') {
-      return null
-    }
+    if (booking.status === 'CANCELLED' || booking.status === 'COMPLETED') return null
     return (
       <>
         <Button
@@ -359,11 +348,7 @@ export default function BookingsPage() {
           onClick={() => {
             setSelectedBookingId(booking.id)
             setNewStatus(
-              booking.status === 'PENDING'
-                ? 'CONFIRMED'
-                : booking.status === 'CONFIRMED'
-                  ? 'COMPLETED'
-                  : null
+              booking.status === 'PENDING' ? 'CONFIRMED' : booking.status === 'CONFIRMED' ? 'COMPLETED' : null
             )
           }}
           title={booking.status === 'PENDING' ? 'Confirm booking' : 'Mark as completed'}
@@ -373,10 +358,7 @@ export default function BookingsPage() {
         <Button
           size="sm"
           variant="destructive"
-          onClick={() => {
-            setSelectedBookingId(booking.id)
-            setNewStatus('CANCELLED')
-          }}
+          onClick={() => { setSelectedBookingId(booking.id); setNewStatus('CANCELLED') }}
           title="Cancel booking"
         >
           Cancel
@@ -385,30 +367,22 @@ export default function BookingsPage() {
     )
   }
 
-  const BookingAmount = ({ booking }: { booking: Booking }) =>
-    booking.price === 0 ? (
-      <span>Rs.{booking.price.toFixed(2)}</span>
-    ) : (
-      <span>Rs.{booking.price.toFixed(2)}</span>
-    )
+  const BookingAmount = ({ booking }: { booking: Booking }) => <span>Rs.{booking.price.toFixed(2)}</span>
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       <Sidebar userRole="BUSINESS_OWNER" />
 
       <main className="min-h-screen px-4 pb-8 pt-20 sm:px-6 md:ml-64 md:px-8 md:pt-8">
-        <Breadcrumbs
-          items={[
-            { label: 'Dashboard', href: '/dashboard' },
-            { label: 'Bookings' },
-          ]}
-        />
+        <Breadcrumbs items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Bookings' }]} />
 
         {/* Header */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">Bookings</h1>
-            <p className="text-slate-500">Manage all customer bookings</p>
+            <p className="text-slate-500">
+              {selectedBranchName ? `Bookings at ${selectedBranchName}` : 'Manage all customer bookings'}
+            </p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -425,7 +399,13 @@ export default function BookingsPage() {
                 disabled={sendingReminders || remindersSentToday || !hasRemindableBookings}
                 variant="outline"
                 className="w-full sm:w-auto"
-                title={!hasRemindableBookings ? 'No confirmed bookings remaining today' : undefined}
+                title={
+                  !hasRemindableBookings
+                    ? 'No confirmed bookings remaining today'
+                    : hasMultipleBranches
+                      ? 'Sends reminders for all branches'
+                      : undefined
+                }
               >
                 <Bell className="mr-2 h-4 w-4" />
                 {sendingReminders
@@ -452,7 +432,18 @@ export default function BookingsPage() {
           </div>
         </div>
 
-        {/* Status Filters — horizontally scrollable on narrow screens instead of wrapping into a tall block */}
+        {reminderMessage && (
+          <div
+            className={`mb-6 rounded-lg border p-3 text-sm ${
+              reminderError ? 'border-red-200 bg-red-50 text-red-900' : 'border-green-200 bg-green-50 text-green-900'
+            }`}
+          >
+            {reminderMessage}
+            {!reminderError && hasMultipleBranches && ' (all branches)'}
+          </div>
+        )}
+
+        {/* Status Filters */}
         <div className="mb-6 -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
           {STATUS_FILTERS.map((status) => (
             <Button
@@ -460,10 +451,7 @@ export default function BookingsPage() {
               variant={filterStatus === status ? 'default' : 'outline'}
               size="sm"
               className="shrink-0"
-              onClick={() => {
-                setFilterStatus(status)
-                setPage(1)
-              }}
+              onClick={() => { setFilterStatus(status); setPage(1) }}
             >
               {status}
             </Button>
@@ -471,8 +459,8 @@ export default function BookingsPage() {
         </div>
 
         <Card className="mb-6 border-slate-200 bg-white/80 p-4 shadow-sm">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="sm:col-span-2">
+          <div className={`grid gap-3 sm:grid-cols-2 ${hasMultipleBranches ? 'lg:grid-cols-3' : ''}`}>
+            <div className={hasMultipleBranches ? 'sm:col-span-2 lg:col-span-3' : 'sm:col-span-2'}>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Search customer
               </label>
@@ -497,20 +485,27 @@ export default function BookingsPage() {
                 )}
               </div>
             </div>
+
+            {hasMultipleBranches && (
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Branch
+                </label>
+                <BranchSelector />
+              </div>
+            )}
+
             <div>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Staff member
               </label>
               <select
                 value={filterStaffId}
-                onChange={(event) => {
-                  setFilterStaffId(event.target.value)
-                  setPage(1)
-                }}
+                onChange={(event) => { setFilterStaffId(event.target.value); setPage(1) }}
                 className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
               >
                 <option value="ALL">All staff</option>
-                {staff.map((member) => (
+                {staffOptions.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.firstName} {member.lastName}
                   </option>
@@ -523,10 +518,7 @@ export default function BookingsPage() {
               </label>
               <select
                 value={filterRange}
-                onChange={(event) => {
-                  setFilterRange(event.target.value as RangeFilter)
-                  setPage(1)
-                }}
+                onChange={(event) => { setFilterRange(event.target.value as RangeFilter); setPage(1) }}
                 className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
               >
                 <option value="ALL">All Time</option>
@@ -537,18 +529,14 @@ export default function BookingsPage() {
                 <option value="month">Last 30 days</option>
               </select>
             </div>
-            <div className="flex items-end sm:col-span-2">
-              <Link
-                href="/dashboard/staff/performance"
-                className="text-sm font-semibold text-blue-700 hover:underline"
-              >
+            <div className={`flex items-end ${hasMultipleBranches ? 'sm:col-span-2 lg:col-span-3' : 'sm:col-span-2'}`}>
+              <Link href="/dashboard/staff/performance" className="text-sm font-semibold text-blue-700 hover:underline">
                 View staff performance
               </Link>
             </div>
           </div>
         </Card>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
             <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
@@ -556,7 +544,6 @@ export default function BookingsPage() {
           </div>
         )}
 
-        {/* Loading */}
         {loading ? (
           <div className="flex h-64 items-center justify-center">
             <Loader className="h-8 w-8 animate-spin text-blue-600" />
@@ -567,13 +554,15 @@ export default function BookingsPage() {
             <p className="text-lg font-medium text-slate-600">No bookings found</p>
             <p className="text-sm text-slate-500">
               {filterStatus === 'ALL'
-                ? 'Try a different date range'
+                ? selectedBranchName
+                  ? `No bookings at ${selectedBranchName} for this range`
+                  : 'Try a different date range'
                 : `No ${filterStatus.toLowerCase()} bookings in this range`}
             </p>
           </Card>
         ) : (
           <>
-            {/* Mobile: stacked cards (below md) */}
+            {/* Mobile cards */}
             <div className="space-y-3 md:hidden">
               {visibleBookings.map((booking) => (
                 <Card key={booking.id} className="p-4">
@@ -609,6 +598,12 @@ export default function BookingsPage() {
                         {booking.staff ? `${booking.staff.firstName} ${booking.staff.lastName}` : 'N/A'}
                       </p>
                     </div>
+                    {hasMultipleBranches && (
+                      <div className="col-span-2">
+                        <p className="text-xs uppercase tracking-wide text-slate-400">Branch</p>
+                        <p className="text-slate-900">{booking.branch?.name || 'N/A'}</p>
+                      </div>
+                    )}
                     <div className="col-span-2">
                       <p className="text-xs uppercase tracking-wide text-slate-400">Phone</p>
                       <p className="text-slate-900">{booking.customerPhone || 'N/A'}</p>
@@ -622,7 +617,7 @@ export default function BookingsPage() {
               ))}
             </div>
 
-            {/* Desktop / tablet: table (md and up) */}
+            {/* Desktop table */}
             <Card className="hidden overflow-hidden md:block">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -631,6 +626,9 @@ export default function BookingsPage() {
                       <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Customer</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Phone</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Service</th>
+                      {hasMultipleBranches && (
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Branch</th>
+                      )}
                       <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Date & Time</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Staff</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Status</th>
@@ -649,14 +647,14 @@ export default function BookingsPage() {
                         </td>
                         <td className="px-6 py-4 text-sm">{booking.customerPhone || 'N/A'}</td>
                         <td className="px-6 py-4 text-slate-900">{booking.service?.name || 'N/A'}</td>
+                        {hasMultipleBranches && (
+                          <td className="px-6 py-4 text-sm text-slate-700">{booking.branch?.name || 'N/A'}</td>
+                        )}
                         <td className="px-6 py-4 text-slate-900">
                           {new Date(booking.startTime).toLocaleDateString()}
                           <br />
                           <span className="text-sm text-slate-500">
-                            {new Date(booking.startTime).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
+                            {new Date(booking.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -716,20 +714,12 @@ export default function BookingsPage() {
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setSelectedBookingId(null)
-                    setNewStatus(null)
-                    setUpdateError('')
-                  }}
+                  onClick={() => { setSelectedBookingId(null); setNewStatus(null); setUpdateError('') }}
                   disabled={updatingStatus}
                 >
                   Cancel
                 </Button>
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700"
-                  onClick={handleUpdateStatus}
-                  disabled={updatingStatus}
-                >
+                <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleUpdateStatus} disabled={updatingStatus}>
                   {updatingStatus ? 'Updating...' : 'Confirm'}
                 </Button>
               </div>

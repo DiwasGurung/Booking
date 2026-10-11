@@ -10,8 +10,9 @@ import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle, Loader, CalendarPlus, Clock, User, Sparkles } from 'lucide-react'
+import { AlertCircle, Loader, CalendarPlus, Clock, User, Sparkles, Building2 } from 'lucide-react'
 import { useBusinessId } from '@/hooks/useBusinessId'
+import { useBranches } from '@/context/branchContext'
 import { servicesApi, staffApi, bookingsApi, type Service, type Staff } from '@/lib/api'
 
 const extractHHMM = (slot: string): string => {
@@ -33,22 +34,23 @@ const formatTimeDisplay = (hhmm: string): string => {
 const formatDateDisplay = (dateStr: string): string => {
   if (!dateStr) return ''
   return new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
   })
 }
 
 export default function NewManualBookingPage() {
   const router = useRouter()
   const { businessId, loading: fetchingBusinessId } = useBusinessId()
+  const { branches, hasMultipleBranches, selectedBranchId, loading: branchesLoading } = useBranches()
+
+  const activeBranches = useMemo(() => branches.filter((b) => b.isActive), [branches])
 
   const [services, setServices] = useState<Service[]>([])
   const [staffMembers, setStaffMembers] = useState<Staff[]>([])
   const [loadingOptions, setLoadingOptions] = useState(true)
   const [loadError, setLoadError] = useState('')
 
+  const [branchId, setBranchId] = useState('')
   const [serviceId, setServiceId] = useState('')
   const [staffId, setStaffId] = useState('')
   const [customerName, setCustomerName] = useState('')
@@ -67,7 +69,25 @@ export default function NewManualBookingPage() {
   const [slotsError, setSlotsError] = useState('')
 
   const selectedService = useMemo(() => services.find((s) => s.id === serviceId), [services, serviceId])
-  const selectedStaff = useMemo(() => staffMembers.find((s) => s.id === staffId), [staffMembers, staffId])
+  const selectedBranch = useMemo(() => activeBranches.find((b) => b.id === branchId), [activeBranches, branchId])
+
+  // Staff who work at the chosen branch (staff with no branch work anywhere)
+  const branchStaff = useMemo(
+    () => staffMembers.filter((s) => !branchId || !s.branchId || s.branchId === branchId),
+    [staffMembers, branchId]
+  )
+  const selectedStaff = useMemo(() => branchStaff.find((s) => s.id === staffId), [branchStaff, staffId])
+
+  // Default branch: the one chosen in the sidebar, otherwise the main branch.
+  // Single-location businesses leave it empty and the backend uses the main branch.
+  useEffect(() => {
+    if (branchesLoading || !hasMultipleBranches || branchId) return
+    const preferred =
+      selectedBranchId !== 'ALL' && activeBranches.some((b) => b.id === selectedBranchId)
+        ? selectedBranchId
+        : (activeBranches.find((b) => b.isMain) ?? activeBranches[0])?.id
+    if (preferred) setBranchId(preferred)
+  }, [branchesLoading, hasMultipleBranches, selectedBranchId, activeBranches, branchId])
 
   useEffect(() => {
     if (!businessId) return
@@ -95,8 +115,16 @@ export default function NewManualBookingPage() {
     })()
   }, [businessId])
 
+  const chooseBranch = (id: string) => {
+    setBranchId(id)
+    // Staff, slots and time depend on the branch
+    setStaffId('')
+    setTime('')
+  }
+
   useEffect(() => {
-    if (!businessId || !serviceId || !date) {
+    // Wait until the branch is known for multi-branch businesses
+    if (!businessId || !serviceId || !date || (hasMultipleBranches && !branchId)) {
       setAvailableSlots([])
       setSlotsError('')
       return
@@ -107,11 +135,12 @@ export default function NewManualBookingPage() {
       try {
         setLoadingSlots(true)
         setSlotsError('')
-        const response = await bookingsApi.getBusinessAvailableSlots(
+        const response = await (bookingsApi.getBusinessAvailableSlots as any)(
           businessId,
           serviceId,
           date,
-          staffId || undefined
+          staffId || undefined,
+          branchId || undefined
         )
         if (cancelled) return
 
@@ -134,16 +163,17 @@ export default function NewManualBookingPage() {
     return () => {
       cancelled = true
     }
-  }, [businessId, serviceId, staffId, date])
+  }, [businessId, serviceId, staffId, date, branchId, hasMultipleBranches])
 
   const missingFields = useMemo(() => {
     const missing: string[] = []
+    if (hasMultipleBranches && !branchId) missing.push('branch')
     if (!serviceId) missing.push('service')
     if (!customerName.trim()) missing.push('customer name')
     if (!date) missing.push('date')
     if (!time) missing.push('time')
     return missing
-  }, [serviceId, customerName, date, time])
+  }, [hasMultipleBranches, branchId, serviceId, customerName, date, time])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -161,6 +191,7 @@ export default function NewManualBookingPage() {
 
       const response = await bookingsApi.createManualBooking({
         businessId,
+        branchId: branchId || undefined,
         serviceId,
         staffId: staffId || undefined,
         customerName: customerName.trim(),
@@ -168,7 +199,7 @@ export default function NewManualBookingPage() {
         customerPhone: customerPhone.trim() || undefined,
         startTime,
         notes: notes.trim() || undefined,
-      })
+      } as any)
 
       if (!response.success) {
         setError(response.error || 'Failed to create booking')
@@ -183,7 +214,7 @@ export default function NewManualBookingPage() {
     }
   }
 
-  if (fetchingBusinessId || loadingOptions) {
+  if (fetchingBusinessId || loadingOptions || branchesLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
         <Sidebar userRole="BUSINESS_OWNER" />
@@ -236,6 +267,34 @@ export default function NewManualBookingPage() {
         <form onSubmit={handleSubmit}>
           <div className="grid max-w-5xl grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
             <div className="space-y-6">
+              {/* Branch (multi-branch only) */}
+              {hasMultipleBranches && (
+                <Card className="border-slate-200 bg-white/80 p-6 shadow-sm">
+                  <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <Building2 className="h-4 w-4 text-blue-600" />
+                    Branch
+                  </h2>
+                  <select
+                    id="branchId"
+                    value={branchId}
+                    onChange={(e) => chooseBranch(e.target.value)}
+                    className={`h-10 w-full rounded-lg border bg-white px-3 text-sm text-slate-900 ${
+                      touchedSubmit && !branchId ? 'border-red-400' : 'border-slate-200'
+                    }`}
+                  >
+                    <option value="">Select a branch</option>
+                    {activeBranches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}{b.isMain ? ' (Main)' : ''} — {b.city}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1.5 text-xs text-slate-400">
+                    Open times and staff below are for this branch.
+                  </p>
+                </Card>
+              )}
+
               {/* Appointment details */}
               <Card className="border-slate-200 bg-white/80 p-6 shadow-sm">
                 <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-900">
@@ -254,10 +313,7 @@ export default function NewManualBookingPage() {
                       <select
                         id="serviceId"
                         value={serviceId}
-                        onChange={(e) => {
-                          setServiceId(e.target.value)
-                          setTime('')
-                        }}
+                        onChange={(e) => { setServiceId(e.target.value); setTime('') }}
                         className={`h-10 w-full rounded-lg border bg-white px-3 text-sm text-slate-900 ${
                           touchedSubmit && !serviceId ? 'border-red-400' : 'border-slate-200'
                         }`}
@@ -276,20 +332,20 @@ export default function NewManualBookingPage() {
                       <select
                         id="staffId"
                         value={staffId}
-                        onChange={(e) => {
-                          setStaffId(e.target.value)
-                          setTime('')
-                        }}
+                        onChange={(e) => { setStaffId(e.target.value); setTime('') }}
                         className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
                       >
                         <option value="">Any / unassigned</option>
-                        {staffMembers.map((s) => (
+                        {branchStaff.map((s) => (
                           <option key={s.id} value={s.id}>
                             {s.firstName} {s.lastName}
                           </option>
                         ))}
                       </select>
                       <p className="mt-1.5 text-xs text-slate-400">
+                        {hasMultipleBranches && selectedBranch
+                          ? `Showing staff who work at ${selectedBranch.name}. `
+                          : ''}
                         Leave as "Any" to see combined open time across all staff for this service.
                       </p>
                     </div>
@@ -301,10 +357,7 @@ export default function NewManualBookingPage() {
                           id="date"
                           type="date"
                           value={date}
-                          onChange={(e) => {
-                            setDate(e.target.value)
-                            setTime('')
-                          }}
+                          onChange={(e) => { setDate(e.target.value); setTime('') }}
                           className={touchedSubmit && !date ? 'border-red-400' : ''}
                         />
                       </div>
@@ -383,11 +436,7 @@ export default function NewManualBookingPage() {
                 <Button type="button" variant="outline" onClick={() => router.push('/dashboard/bookings')}>
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={submitting || services.length === 0}
-                  className="w-full sm:w-auto"
-                >
+                <Button type="submit" disabled={submitting || services.length === 0} className="w-full sm:w-auto">
                   {submitting ? 'Creating...' : 'Create Booking'}
                 </Button>
               </div>
@@ -395,13 +444,18 @@ export default function NewManualBookingPage() {
 
             {/* Right rail */}
             <div className="space-y-6">
-              {/* Live summary — builds as fields are filled */}
               {(selectedService || date || time || customerName) && (
                 <Card className="border-blue-100 bg-blue-50/50 p-5">
                   <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-blue-700">
                     Booking summary
                   </h3>
                   <div className="space-y-2 text-sm">
+                    {hasMultipleBranches && selectedBranch && (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-slate-500">Branch</span>
+                        <span className="text-right font-medium text-slate-900">{selectedBranch.name}</span>
+                      </div>
+                    )}
                     {selectedService && (
                       <div className="flex justify-between gap-2">
                         <span className="text-slate-500">Service</span>
@@ -456,18 +510,22 @@ export default function NewManualBookingPage() {
                   )}
                 </div>
                 <p className="mb-4 text-xs text-slate-500">
-                  {!serviceId
-                    ? 'Select a service to see free time.'
-                    : !date
-                      ? 'Pick a date to see free time.'
-                      : staffId
-                        ? "Based on this staff member's schedule and existing bookings."
-                        : 'Combined across all staff who can perform this service.'}
+                  {hasMultipleBranches && !branchId
+                    ? 'Choose a branch to see free time.'
+                    : !serviceId
+                      ? 'Select a service to see free time.'
+                      : !date
+                        ? 'Pick a date to see free time.'
+                        : staffId
+                          ? "Based on this staff member's schedule and existing bookings."
+                          : `Combined across all staff who can perform this service${
+                              selectedBranch && hasMultipleBranches ? ` at ${selectedBranch.name}` : ''
+                            }.`}
                 </p>
 
-                {!serviceId || !date ? (
+                {(hasMultipleBranches && !branchId) || !serviceId || !date ? (
                   <div className="flex h-28 items-center justify-center text-sm text-slate-400">
-                    No date selected
+                    {hasMultipleBranches && !branchId ? 'No branch selected' : 'No date selected'}
                   </div>
                 ) : loadingSlots ? (
                   <div className="flex h-28 items-center justify-center gap-2 text-sm text-slate-500">
