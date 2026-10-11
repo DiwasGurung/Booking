@@ -76,7 +76,7 @@ export class BookingService {
       where,
       skip,
       take: limit,
-      include: { service: true, customer: true, staff: true },
+      include: { service: true, customer: true, staff: true, branch: true },
       orderBy: { startTime: "desc" },
     }),
     prisma.booking.count({ where }),
