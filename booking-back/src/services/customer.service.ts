@@ -20,26 +20,34 @@ export class CustomerService {
   /**
    * Enterprise customer observations and visit-frequency loyalty insights.
    */
- async getBusinessInsights(businessId: string, branchId?: string) {
-  const completed = { status: 'COMPLETED' as const, ...(branchId && { branchId }) }
+  async getBusinessInsights(businessId: string, branchId?: string) {
+  const branchFilter = branchId ? { branchId } : {}
 
   const customers = await prisma.customer.findMany({
-    where: { businessId, bookings: { some: completed } },
+    where: {
+      businessId,
+      ...(branchId && { bookings: { some: { status: 'COMPLETED', branchId } } }),
+    },
     select: {
       id: true, name: true, email: true, notes: true,
-      bookings: { where: completed, select: { startTime: true }, orderBy: { startTime: 'desc' } },
+      bookings: {
+        where: { status: 'COMPLETED', ...branchFilter },
+        select: { startTime: true },
+        orderBy: { startTime: 'desc' },
+      },
     },
   })
 
-  return customers
-    .map(c => {
-      const visits = c.bookings.length
-      const loyalty = visits >= 10 ? 'VIP' : visits >= 5 ? 'Loyal' : visits >= 2 ? 'Returning' : 'New'
-      return { id: c.id, name: c.name, email: c.email, notes: c.notes,
-               visitCount: visits, lastVisit: c.bookings[0]?.startTime ?? null, loyalty }
-    })
-    .sort((a, b) => b.visitCount - a.visitCount)
+  return customers.map(c => {
+    const visits = c.bookings.length
+    const loyalty = visits >= 10 ? 'VIP' : visits >= 5 ? 'Loyal' : visits >= 2 ? 'Returning' : 'New'
+    return {
+      id: c.id, name: c.name, email: c.email, notes: c.notes,
+      visitCount: visits, lastVisit: c.bookings[0]?.startTime ?? null, loyalty,
+    }
+  }).sort((a, b) => b.visitCount - a.visitCount)
 }
+
 
 async getCustomerHistory(businessId: string, customerId: string) {
   const customer = await prisma.customer.findFirst({
