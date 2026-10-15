@@ -18,29 +18,22 @@ class CustomerService {
      * Enterprise customer observations and visit-frequency loyalty insights.
      */
     async getBusinessInsights(businessId, branchId) {
-        const branchFilter = branchId ? { branchId } : {};
+        const completed = { status: 'COMPLETED', ...(branchId && { branchId }) };
         const customers = await prisma_1.default.customer.findMany({
-            where: {
-                businessId,
-                ...(branchId && { bookings: { some: { status: 'COMPLETED', branchId } } }),
-            },
+            where: { businessId, bookings: { some: completed } },
             select: {
                 id: true, name: true, email: true, notes: true,
-                bookings: {
-                    where: { status: 'COMPLETED', ...branchFilter },
-                    select: { startTime: true },
-                    orderBy: { startTime: 'desc' },
-                },
+                bookings: { where: completed, select: { startTime: true }, orderBy: { startTime: 'desc' } },
             },
         });
-        return customers.map(c => {
+        return customers
+            .map(c => {
             const visits = c.bookings.length;
             const loyalty = visits >= 10 ? 'VIP' : visits >= 5 ? 'Loyal' : visits >= 2 ? 'Returning' : 'New';
-            return {
-                id: c.id, name: c.name, email: c.email, notes: c.notes,
-                visitCount: visits, lastVisit: c.bookings[0]?.startTime ?? null, loyalty,
-            };
-        }).sort((a, b) => b.visitCount - a.visitCount);
+            return { id: c.id, name: c.name, email: c.email, notes: c.notes,
+                visitCount: visits, lastVisit: c.bookings[0]?.startTime ?? null, loyalty };
+        })
+            .sort((a, b) => b.visitCount - a.visitCount);
     }
     async getCustomerHistory(businessId, customerId) {
         const customer = await prisma_1.default.customer.findFirst({
