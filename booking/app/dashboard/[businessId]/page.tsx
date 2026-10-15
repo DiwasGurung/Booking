@@ -126,9 +126,9 @@ export default function BusinessDashboardPage() {
     }
   }
 
-  const totalRevenue = recentBookings
-    .filter((b) => b.status === 'COMPLETED')
-    .reduce((sum, b) => sum + (b.price || 0), 0)
+const totalRevenue = recentBookings
+  .filter((b) => b.status?.toUpperCase() === 'COMPLETED')
+  .reduce((sum, b) => sum + Number(b.price ?? 0), 0)
 
   const statCards = [
     {
