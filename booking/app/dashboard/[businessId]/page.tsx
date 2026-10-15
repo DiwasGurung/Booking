@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/Input'
 
 interface BusinessStats {
   totalBookings: number
+  totalRevenue: number
   completedBookings: number
   averageRating: number
   conversionRate: number
@@ -126,9 +127,6 @@ export default function BusinessDashboardPage() {
     }
   }
 
-const totalRevenue = recentBookings
-  .filter((b) => b.status?.toUpperCase() === 'COMPLETED')
-  .reduce((sum, b) => sum + Number(b.price ?? 0), 0)
 
   const statCards = [
     {
@@ -148,13 +146,13 @@ const totalRevenue = recentBookings
       href: '/dashboard/bookings',
     },
     {
-      title: 'Total Revenue',
-      value: `Rs.${totalRevenue.toFixed(2)}`,
-      icon: TrendingUp,
-      color: 'text-purple-600',
-      bg: 'bg-purple-50',
-      href: '/dashboard',
-    },
+  title: 'Total Revenue',
+  value: `Rs.${Number(stats?.totalRevenue ?? 0).toFixed(2)}`,
+  icon: TrendingUp,
+  color: 'text-purple-600',
+  bg: 'bg-purple-50',
+  href: '/dashboard',
+},
   ]
 
   const origin = typeof window !== 'undefined' ? window.location.origin : ''

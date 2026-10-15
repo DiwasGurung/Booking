@@ -199,22 +199,19 @@ class BusinessService {
         ]);
         return { businesses, total };
     }
-    /**
-     * Get business statistics. Optional branch filter; payments are
-     * business-level (subscription / SMS credits), so they are never filtered.
-     */
     async getBusinessStats(businessId, branchId) {
         const b = branchId ? { branchId } : {};
-        const [totalBookings, totalRevenue, completedBookings, averageRating] = await Promise.all([
+        const completedWhere = { businessId, status: "COMPLETED", ...b };
+        const [totalBookings, completedBookings, revenueAgg, business] = await Promise.all([
             prisma_1.default.booking.count({
                 where: { businessId, ...b },
             }),
-            prisma_1.default.payment.aggregate({
-                where: { businessId, status: "COMPLETED" },
-                _sum: { amount: true },
-            }),
             prisma_1.default.booking.count({
-                where: { businessId, status: "COMPLETED", ...b },
+                where: completedWhere,
+            }),
+            prisma_1.default.booking.aggregate({
+                where: completedWhere,
+                _sum: { price: true },
             }),
             prisma_1.default.business.findUnique({
                 where: { id: businessId },
@@ -223,9 +220,9 @@ class BusinessService {
         ]);
         return {
             totalBookings,
-            totalRevenue: totalRevenue._sum.amount || 0,
+            totalRevenue: Number(revenueAgg._sum.price ?? 0),
             completedBookings,
-            averageRating: averageRating?.rating || 0,
+            averageRating: business?.rating || 0,
             conversionRate: totalBookings > 0 ? (completedBookings / totalBookings) * 100 : 0,
         };
     }

@@ -233,38 +233,35 @@ export class BusinessService {
     return { businesses, total }
   }
 
-  /**
-   * Get business statistics. Optional branch filter; payments are
-   * business-level (subscription / SMS credits), so they are never filtered.
-   */
-  async getBusinessStats(businessId: string, branchId?: string) {
-    const b = branchId ? { branchId } : {}
+ async getBusinessStats(businessId: string, branchId?: string) {
+  const b = branchId ? { branchId } : {}
+  const completedWhere = { businessId, status: "COMPLETED" as const, ...b }
 
-    const [totalBookings, totalRevenue, completedBookings, averageRating] = await Promise.all([
-      prisma.booking.count({
-        where: { businessId, ...b },
-      }),
-      prisma.payment.aggregate({
-        where: { businessId, status: "COMPLETED" },
-        _sum: { amount: true },
-      }),
-      prisma.booking.count({
-        where: { businessId, status: "COMPLETED", ...b },
-      }),
-      prisma.business.findUnique({
-        where: { id: businessId },
-        select: { rating: true },
-      }),
-    ])
+  const [totalBookings, completedBookings, revenueAgg, business] = await Promise.all([
+    prisma.booking.count({
+      where: { businessId, ...b },
+    }),
+    prisma.booking.count({
+      where: completedWhere,
+    }),
+    prisma.booking.aggregate({
+      where: completedWhere,
+      _sum: { price: true },
+    }),
+    prisma.business.findUnique({
+      where: { id: businessId },
+      select: { rating: true },
+    }),
+  ])
 
-    return {
-      totalBookings,
-      totalRevenue: totalRevenue._sum.amount || 0,
-      completedBookings,
-      averageRating: averageRating?.rating || 0,
-      conversionRate: totalBookings > 0 ? (completedBookings / totalBookings) * 100 : 0,
-    }
+  return {
+    totalBookings,
+    totalRevenue: Number(revenueAgg._sum.price ?? 0),
+    completedBookings,
+    averageRating: business?.rating || 0,
+    conversionRate: totalBookings > 0 ? (completedBookings / totalBookings) * 100 : 0,
   }
+}
 
   /**
    * Search businesses
