@@ -4,20 +4,24 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/Sidebar'
 import { Breadcrumbs } from '@/components/Breadcrumbs'
+import { BranchSelector } from '@/components/BranchSelector'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
-import { Loader, AlertCircle, TrendingUp, TrendingDown, BarChart3, Users, Calendar, ChevronRight } from 'lucide-react'
+import {
+  Loader, AlertCircle, TrendingUp, TrendingDown, BarChart3, Users, Calendar,
+  ChevronRight, RefreshCw,
+} from 'lucide-react'
 import { businessApi, customerInsightsApi, type CustomerInsight } from '@/lib/api'
 import { useBusinessId } from '@/hooks/useBusinessId'
+import { useBranches } from '@/context/branchContext'
 
 const loyaltyColorMap: Record<string, string> = {
   VIP: 'bg-purple-100 text-purple-800',
   Loyal: 'bg-teal-100 text-teal-800',
-  Regular: 'bg-blue-100 text-blue-800',
+  Returning: 'bg-blue-100 text-blue-800',
   New: 'bg-slate-100 text-slate-700',
-  'At Risk': 'bg-red-100 text-red-700',
 }
 
 interface AnalyticsData {
@@ -31,56 +35,16 @@ interface AnalyticsData {
   topServices: Array<{ name: string; bookings: number }>
 }
 
-export default function AnalyticsPage() {
-  const router = useRouter()
-  const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [dateRange, setDateRange] = useState('30')
-  const [customerInsights, setCustomerInsights] = useState<CustomerInsight[]>([])
-  const [insightsLoading, setInsightsLoading] = useState(false)
-  const [insightsError, setInsightsError] = useState<string | null>(null)
+interface StatCardProps {
+  icon: any
+  title: string
+  value: string | number
+  change?: number
+  trend?: 'up' | 'down'
+}
 
-  useEffect(() => {
-    if (businessId) {
-      loadAnalytics()
-      loadCustomerInsights()
-    }
-  }, [dateRange, businessId])
-
-  const loadCustomerInsights = async () => {
-    if (!businessId) return
-    setInsightsLoading(true)
-    setInsightsError(null)
-    const response = await customerInsightsApi.get(businessId)
-    if (response.data?.insights) setCustomerInsights(response.data.insights)
-    else setInsightsError(response.error || 'Enterprise customer insights are unavailable.')
-    setInsightsLoading(false)
-  }
-
-  // Redirect to login if business ID error or not found
-  useEffect(() => {
-    if (!fetchingBusinessId && (businessIdError || !businessId)) {
-      router.push('/login')
-    }
-  }, [fetchingBusinessId, businessIdError, businessId, router])
-
-  const loadAnalytics = async () => {
-    if (!businessId) return
-    try {
-      setLoading(true)
-      const response = await businessApi.getAnalytics(businessId, { days: parseInt(dateRange) })
-      setAnalytics(response.data as AnalyticsData)
-      setError(null)
-    } catch (err) {
-      setError('Failed to load analytics')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const StatCard = ({ icon: Icon, title, value, change, trend }: any) => (
+function StatCard({ icon: Icon, title, value, change, trend }: StatCardProps) {
+  return (
     <Card className="p-4 sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -99,46 +63,131 @@ export default function AnalyticsPage() {
             <TrendingDown className="w-4 h-4 text-red-600 shrink-0" />
           )}
           <span className={trend === 'up' ? 'text-green-600' : 'text-red-600'}>
-            {Math.abs(change)}%
+            {Math.abs(Math.round(change))}%
           </span>
           <span className="text-slate-500 text-xs">vs last period</span>
         </div>
       )}
     </Card>
   )
+}
+
+export default function AnalyticsPage() {
+  const router = useRouter()
+  const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
+  const { hasMultipleBranches, branchParam, selectedBranchId, branches } = useBranches()
+
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [dateRange, setDateRange] = useState('30')
+  const [customerInsights, setCustomerInsights] = useState<CustomerInsight[]>([])
+  const [insightsLoading, setInsightsLoading] = useState(false)
+  const [insightsError, setInsightsError] = useState<string | null>(null)
+
+  const selectedBranchName =
+    selectedBranchId !== 'ALL' ? branches.find((b) => b.id === selectedBranchId)?.name : null
+
+  // Reload when the date range or the branch changes
+  useEffect(() => {
+    if (businessId) {
+      loadAnalytics()
+      loadCustomerInsights()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange, businessId, branchParam])
+
+  useEffect(() => {
+    if (!fetchingBusinessId && (businessIdError || !businessId)) {
+      router.push('/login')
+    }
+  }, [fetchingBusinessId, businessIdError, businessId, router])
+
+  const loadCustomerInsights = async () => {
+    if (!businessId) return
+    setInsightsLoading(true)
+    setInsightsError(null)
+    const response = await customerInsightsApi.get(businessId, branchParam)
+    if (response.data?.insights) {
+      setCustomerInsights(response.data.insights)
+    } else {
+      setCustomerInsights([])
+      setInsightsError(response.error || 'Enterprise customer insights are unavailable.')
+    }
+    setInsightsLoading(false)
+  }
+
+  const loadAnalytics = async () => {
+    if (!businessId) return
+    try {
+      setLoading(true)
+      const response = await businessApi.getAnalytics(businessId, {
+        days: parseInt(dateRange),
+        branchId: branchParam,
+      })
+      setAnalytics(response.data as AnalyticsData)
+      setError(null)
+    } catch (err) {
+      setError('Failed to load analytics')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const refresh = () => {
+    loadAnalytics()
+    loadCustomerInsights()
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       <Sidebar userRole="BUSINESS_OWNER" />
 
       <main className="md:ml-64 pt-6 px-4 md:px-8 py-8">
-        <Breadcrumbs items={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Analytics' },
-        ]} />
+        <Breadcrumbs
+          items={[
+            { label: 'Dashboard', href: '/dashboard' },
+            { label: 'Analytics' },
+          ]}
+        />
 
         {/* Header */}
-        <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-6 sm:mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Analytics</h1>
-            <p className="text-sm sm:text-base text-slate-500">Business performance and insights</p>
+            <p className="text-sm sm:text-base text-slate-500">
+              {selectedBranchName ? `Performance at ${selectedBranchName}` : 'Business performance and insights'}
+            </p>
           </div>
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
-            {['7', '30', '90'].map((range) => (
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {hasMultipleBranches && <BranchSelector />}
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
+              {['7', '30', '90'].map((range) => (
+                <Button
+                  key={range}
+                  variant={dateRange === range ? 'default' : 'outline'}
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => setDateRange(range)}
+                >
+                  Last {range} days
+                </Button>
+              ))}
               <Button
-                key={range}
-                variant={dateRange === range ? 'default' : 'outline'}
+                variant="outline"
                 size="sm"
                 className="shrink-0"
-                onClick={() => setDateRange(range)}
+                onClick={refresh}
+                disabled={loading || insightsLoading}
+                aria-label="Refresh analytics"
               >
-                Last {range} days
+                <RefreshCw className={`w-4 h-4 ${loading || insightsLoading ? 'animate-spin' : ''}`} />
               </Button>
-            ))}
+            </div>
           </div>
         </div>
 
-        {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -146,7 +195,6 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* Loading */}
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <Loader className="w-8 h-8 animate-spin text-blue-600" />
@@ -186,7 +234,11 @@ export default function AnalyticsPage() {
               <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div>
                   <h2 className="text-lg sm:text-xl font-semibold text-slate-900">Customer loyalty</h2>
-                  <p className="mt-1 text-sm text-slate-500">Enterprise insights from completed visits and customer observations.</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {selectedBranchName
+                      ? `Completed visits at ${selectedBranchName} only.`
+                      : 'Enterprise insights from completed visits and customer observations.'}
+                  </p>
                 </div>
                 <Badge className="bg-amber-100 text-amber-900 w-fit">Enterprise</Badge>
               </div>
@@ -196,15 +248,19 @@ export default function AnalyticsPage() {
               ) : insightsError ? (
                 <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">{insightsError}</div>
               ) : customerInsights.length === 0 ? (
-                <div className="py-8 text-center text-sm text-slate-500">No completed customer visits yet.</div>
+                <div className="py-8 text-center text-sm text-slate-500">
+                  {selectedBranchName
+                    ? `No completed customer visits at ${selectedBranchName} yet.`
+                    : 'No completed customer visits yet.'}
+                </div>
               ) : (
                 <>
                   {/* Mobile: profile-style cards */}
                   <div className="grid grid-cols-1 gap-3 sm:hidden">
-                    {customerInsights.map(customer => {
+                    {customerInsights.map((customer) => {
                       const initials = customer.name
                         .split(' ')
-                        .map(part => part[0])
+                        .map((part) => part[0])
                         .filter(Boolean)
                         .slice(0, 2)
                         .join('')
@@ -225,7 +281,7 @@ export default function AnalyticsPage() {
 
                           {customer.notes && (
                             <p className="mx-4 mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm italic text-slate-600">
-                              "{customer.notes}"
+                              &quot;{customer.notes}&quot;
                             </p>
                           )}
 
@@ -259,15 +315,21 @@ export default function AnalyticsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
-                        {customerInsights.map(customer => (
+                        {customerInsights.map((customer) => (
                           <tr key={customer.id}>
                             <td className="px-3 py-4">
                               <p className="font-medium text-slate-900">{customer.name}</p>
                               <p className="text-sm text-slate-500">{customer.email}</p>
                             </td>
-                            <td className="max-w-xs px-3 py-4 text-sm text-slate-600">{customer.notes || 'No observation added'}</td>
+                            <td className="max-w-xs px-3 py-4 text-sm text-slate-600">
+                              {customer.notes || 'No observation added'}
+                            </td>
                             <td className="px-3 py-4 font-semibold text-slate-900">{customer.visitCount}</td>
-                            <td className="px-3 py-4"><Badge className="bg-teal-100 text-teal-800">{customer.loyalty}</Badge></td>
+                            <td className="px-3 py-4">
+                              <Badge className={loyaltyColorMap[customer.loyalty] || 'bg-teal-100 text-teal-800'}>
+                                {customer.loyalty}
+                              </Badge>
+                            </td>
                             <td className="px-3 py-4 text-right">
                               <Link
                                 href={`/dashboard/customers/${customer.id}`}

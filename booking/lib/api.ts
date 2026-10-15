@@ -542,6 +542,7 @@ addClosedDate: (businessId: string, data: { date: string; reason?: string; branc
 export interface CustomerInsight {
   id: string
   name: string
+  branchId: string | null
   email: string
   notes?: string | null
   visitCount: number
@@ -550,7 +551,10 @@ export interface CustomerInsight {
 }
 
 export const customerInsightsApi = {
-  get: (businessId: string) => apiCall<{ insights: CustomerInsight[] }>(`/api/businesses/${businessId}/customer-insights`),
+  get: (businessId: string, branchId?: string) =>
+    apiCall<{ insights: CustomerInsight[] }>(
+      `/api/businesses/${businessId}/customer-insights${branchId ? `?branchId=${encodeURIComponent(branchId)}` : ''}`
+    ),
 }
 
 export type VerifyEntityType = 'USER' | 'STAFF' | 'BUSINESS' | 'BOOKING'
@@ -857,9 +861,13 @@ export const businessApi = {
     apiCall<Record<string, number>>(`/api/businesses/${businessId}/revenue?months=${months}`),
 
   // Get business analytics
-  getAnalytics: (businessId: string, params?: { days?: number }) =>
-    apiCall<any>(`/api/businesses/${businessId}/analytics${params?.days ? `?days=${params.days}` : ''}`),
-
+getAnalytics: (businessId: string, params?: { days?: number; branchId?: string }) => {
+  const query = new URLSearchParams()
+  if (params?.days) query.set('days', String(params.days))
+  if (params?.branchId) query.set('branchId', params.branchId)
+  const qs = query.toString()
+  return apiCall<any>(`/api/businesses/${businessId}/analytics${qs ? `?${qs}` : ''}`)
+},
   // Get business settings
   getSettings: (businessId: string) =>
     apiCall<any>(`/api/businesses/${businessId}/settings`),

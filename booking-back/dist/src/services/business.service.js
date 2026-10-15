@@ -341,10 +341,6 @@ class BusinessService {
             },
         });
     }
-    /**
-     * Get booking and customer analytics. Subscription payments are intentionally excluded.
-     * Optional branch filter applies to bookings only: customers belong to the business.
-     */
     async getBusinessAnalytics(businessId, days = 30, branchId) {
         const b = branchId ? { branchId } : {};
         const safeDays = Math.min(Math.max(days, 1), 365);
@@ -353,33 +349,56 @@ class BusinessService {
         currentStart.setDate(now.getDate() - safeDays);
         const previousStart = new Date(currentStart);
         previousStart.setDate(currentStart.getDate() - safeDays);
-        const [currentBookings, previousBookings, customers, currentCustomers, previousCustomers, statusRows, serviceRows] = await Promise.all([
+        // Customers who have at least one booking at this branch (or any booking, when no branch is selected)
+        const customerScope = {
+            businessId,
+            bookings: { some: { ...b } },
+        };
+        // "New" = first booking (at this branch) falls inside [from, to)
+        const newCustomersWhere = (from, to) => ({
+            businessId,
+            bookings: {
+                some: { ...b, createdAt: { gte: from, ...(to && { lt: to }) } },
+                none: { ...b, createdAt: { lt: from } },
+            },
+        });
+        const [currentBookings, previousBookings, customers, currentCustomers, previousCustomers, statusRows, serviceRows,] = await Promise.all([
             prisma_1.default.booking.findMany({
                 where: { businessId, ...b, createdAt: { gte: currentStart } },
-                select: { id: true, status: true, service: { select: { name: true } }, createdAt: true },
+                select: { id: true, status: true, createdAt: true },
             }),
             prisma_1.default.booking.count({ where: { businessId, ...b, createdAt: { gte: previousStart, lt: currentStart } } }),
-            prisma_1.default.customer.count({ where: { businessId } }),
-            prisma_1.default.customer.count({ where: { businessId, createdAt: { gte: currentStart } } }),
-            prisma_1.default.customer.count({ where: { businessId, createdAt: { gte: previousStart, lt: currentStart } } }),
+            prisma_1.default.customer.count({ where: customerScope }),
+            prisma_1.default.customer.count({ where: newCustomersWhere(currentStart) }),
+            prisma_1.default.customer.count({ where: newCustomersWhere(previousStart, currentStart) }),
             prisma_1.default.booking.groupBy({ by: ['status'], where: { businessId, ...b, createdAt: { gte: currentStart } }, _count: { _all: true } }),
-            prisma_1.default.booking.groupBy({ by: ['serviceId'], where: { businessId, ...b, createdAt: { gte: currentStart } }, _count: { _all: true }, orderBy: { _count: { serviceId: 'desc' } }, take: 5 }),
+            prisma_1.default.booking.groupBy({
+                by: ['serviceId'],
+                where: { businessId, ...b, createdAt: { gte: currentStart } },
+                _count: { _all: true },
+                orderBy: { _count: { serviceId: 'desc' } },
+                take: 5,
+            }),
         ]);
-        const serviceIds = serviceRows.map((row) => row.serviceId);
-        const services = await prisma_1.default.service.findMany({ where: { id: { in: serviceIds } }, select: { id: true, name: true } });
-        const serviceNames = new Map(services.map((service) => [service.id, service.name]));
-        const bookingsByStatus = Object.fromEntries(statusRows.map((row) => [row.status, row._count._all]));
-        const bookingGrowth = previousBookings === 0 ? (currentBookings.length ? 100 : 0) : ((currentBookings.length - previousBookings) / previousBookings) * 100;
-        const customerGrowth = previousCustomers === 0 ? (currentCustomers ? 100 : 0) : ((currentCustomers - previousCustomers) / previousCustomers) * 100;
+        const services = await prisma_1.default.service.findMany({
+            where: { id: { in: serviceRows.map((r) => r.serviceId) } },
+            select: { id: true, name: true },
+        });
+        const serviceNames = new Map(services.map((s) => [s.id, s.name]));
+        const bookingsByStatus = Object.fromEntries(statusRows.map((r) => [r.status, r._count._all]));
+        const growth = (cur, prev) => prev === 0 ? (cur ? 100 : 0) : ((cur - prev) / prev) * 100;
         return {
             totalBookings: currentBookings.length,
-            bookingGrowth,
+            bookingGrowth: growth(currentBookings.length, previousBookings),
             totalCustomers: customers,
             newCustomers: currentCustomers,
-            customersGrowth: customerGrowth,
+            customersGrowth: growth(currentCustomers, previousCustomers),
             conversionRate: currentBookings.length ? ((bookingsByStatus.COMPLETED || 0) / currentBookings.length) * 100 : 0,
             bookingsByStatus,
-            topServices: serviceRows.map((row) => ({ name: serviceNames.get(row.serviceId) || 'Unknown service', bookings: row._count._all })),
+            topServices: serviceRows.map((r) => ({
+                name: serviceNames.get(r.serviceId) || 'Unknown service',
+                bookings: r._count._all,
+            })),
         };
     }
     /**

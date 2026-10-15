@@ -1,142 +1,93 @@
 import { Request, Response } from "express"
 import BusinessService from "../services/business.service"
-import  {userService}  from "../services/user.service"
 import SubscriptionService from "../services/subscription.service"
 import CustomerService from "../services/customer.service"
-import { generateUniqueSlug, validateSlug } from '../utils/slug'
-import prisma from "../lib/prisma"
+import { validateSlug } from '../utils/slug'
 
+const branchIdFrom = (req: Request) =>
+  typeof req.query.branchId === 'string' && req.query.branchId ? req.query.branchId : undefined
+
+// Only these fields may be changed through the generic PUT /:id route
+const UPDATABLE_FIELDS = [
+  'name', 'description', 'email', 'phone', 'website', 'category',
+  'address', 'city', 'state', 'zipCode', 'country', 'latitude', 'longitude',
+] as const
 
 class BusinessController {
-
-  constructor() {
-  }
-
-  /**
-   * Setup basic business info (for registration flow)
-   */
+  /** Setup basic business info (registration flow). Role change happens inside createBusiness. */
   async setupBasic(req: any, res: Response) {
     try {
       const userId = req.userId
-      
-      if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' })
-      }
+      if (!userId) return res.status(401).json({ error: 'Not authenticated' })
 
-      
-      const business = await BusinessService.createBusiness({
-        ...req.body,
-        userId
-      })
-      await userService.updateUserRole(userId, 'BUSINESS_OWNER')
-      
-      
+      const business = await BusinessService.createBusiness({ ...req.body, userId })
       res.status(201).json(business)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      if (errorMessage === "This user already has a business") {
-        return res.status(409).json({ error: errorMessage })
-      }
-      if (errorMessage === "userId is required to create a business") {
-        return res.status(400).json({ error: errorMessage })
-      }
-      console.error('[Business Setup] Error:', errorMessage)
+      const message = error instanceof Error ? error.message : String(error)
+      if (message === "This user already has a business") return res.status(409).json({ error: message })
+      if (message === "userId is required to create a business") return res.status(400).json({ error: message })
+      console.error('[Business Setup] Error:', message)
       res.status(500).json({ error: "Failed to create business" })
     }
   }
+
   async getCurrentBusiness(req: any, res: Response) {
     try {
       const userId = req.userId
-
-      if (!userId) {
-        return res.status(401).json({ message: "Not authenticated" })
-      }
-
+      if (!userId) return res.status(401).json({ message: "Not authenticated" })
 
       const business = await BusinessService.getBusinessByUserId(userId)
-
-      if (!business) {
-        return res.status(404).json({ message: "No business found for this user" })
-      }
-
+      if (!business) return res.status(404).json({ message: "No business found for this user" })
       res.json(business)
     } catch (error) {
-      console.error('[v0] Error getting current business:', error)
-      res.status(500).json({ message: "Failed to fetch current business", error })
+      console.error('[Business] getCurrentBusiness error:', error)
+      res.status(500).json({ message: "Failed to fetch current business" })
     }
   }
 
-  /**
-   * Create business
-   */
-async create(req: Request, res: Response) {
-  try {
-    
-    const business = await BusinessService.createBusiness(req.body)
+  /** Create business for the logged-in user (userId comes from the session, never the body). */
+  async create(req: any, res: Response) {
+    try {
+      const userId = req.userId
+      if (!userId) return res.status(401).json({ message: "Not authenticated" })
 
-    // inside your create-business flow, after creating the business
-await prisma.branch.create({
-  data: {
-    businessId: business.id,
-    name: 'Main Branch',
-    phone: business.phone,
-    address: business.address,
-    city: business.city,
-    state: business.state,
-    latitude: business.latitude,
-    longitude: business.longitude,
-    isMain: true,
-  },
-})
-    res.status(201).json(business)
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    if (errorMessage === "This user already has a business") {
-      return res.status(409).json({ message: errorMessage })
+      // createBusiness already creates the Main branch in the same transaction
+      const business = await BusinessService.createBusiness({ ...req.body, userId })
+      res.status(201).json(business)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (message === "This user already has a business") return res.status(409).json({ message })
+      if (message === "userId is required to create a business") return res.status(400).json({ message })
+      console.error('[Business] create error:', message)
+      res.status(500).json({ message: "Failed to create business" })
     }
-    if (errorMessage === "userId is required to create a business") {
-      return res.status(400).json({ message: errorMessage })
-    }
-    res.status(500).json({ message: "Failed to create business", error })
   }
-}
 
-  /**
-   * Get business by ID
-   */
   async getById(req: Request, res: Response) {
     try {
-      const { id } = req.params
-      const business = await BusinessService.getBusinessById(id as string)
-
-      if (!business) {
-        return res.status(404).json({ message: "Business not found" })
-      }
-
+      const business = await BusinessService.getBusinessById(req.params.id as string)
+      if (!business) return res.status(404).json({ message: "Business not found" })
       res.json(business)
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch business", error })
+      res.status(500).json({ message: "Failed to fetch business" })
     }
   }
-   async customerInsights(req: Request, res: Response) {
+
+  async customerInsights(req: Request, res: Response) {
     try {
       const businessId = req.params.businessId as string
       const subscription = await SubscriptionService.getSubscriptionStatus(businessId)
       if (!subscription.hasSubscription || !subscription.planName?.toLowerCase().includes('enterprise')) {
         return res.status(403).json({ error: 'Customer loyalty insights require an Enterprise subscription' })
       }
-      return res.json({ insights: await CustomerService.getBusinessInsights(businessId) })
+      const insights = await CustomerService.getBusinessInsights(businessId, branchIdFrom(req))
+      return res.json({ insights })
     } catch (error) {
+      console.error('[Business] customerInsights error:', error)
       return res.status(500).json({ error: 'Failed to load customer insights' })
     }
   }
 
-
-
-
-    /**
-   * Check if a slug is available (owner only)
-   */
   async checkSlug(req: any, res: Response) {
     try {
       const { businessId } = req.params
@@ -144,11 +95,6 @@ await prisma.branch.create({
 
       const invalid = validateSlug(slug)
       if (invalid) return res.json({ available: false, reason: invalid })
-
-      const owned = await BusinessService.getBusinessByUserId(req.userId)
-      if (!owned || owned.id !== businessId) {
-        return res.status(403).json({ message: 'Forbidden' })
-      }
 
       const available = await BusinessService.isSlugAvailable(slug, businessId)
       res.json({ available, reason: available ? null : 'Already taken' })
@@ -158,9 +104,6 @@ await prisma.branch.create({
     }
   }
 
-  /**
-   * Update booking slug (owner only)
-   */
   async updateSlug(req: any, res: Response) {
     try {
       const { businessId } = req.params
@@ -169,164 +112,114 @@ await prisma.branch.create({
       const invalid = validateSlug(slug)
       if (invalid) return res.status(400).json({ message: invalid })
 
-      const owned = await BusinessService.getBusinessByUserId(req.userId)
-      if (!owned || owned.id !== businessId) {
-        return res.status(403).json({ message: 'Forbidden' })
-      }
-
       const updated = await BusinessService.updateSlug(businessId, slug)
       res.json(updated)
     } catch (error: any) {
-      if (error?.code === 'P2002') {
-        return res.status(409).json({ message: 'This slug is already taken' })
-      }
+      if (error?.code === 'P2002') return res.status(409).json({ message: 'This slug is already taken' })
       console.error('[Business] updateSlug error:', error)
       res.status(500).json({ message: 'Failed to update slug' })
     }
   }
-  /**
-   * Get business by user ID
-   */
-  async getByUserId(req: Request, res: Response) {
+
+  async getByUserId(req: any, res: Response) {
     try {
-      const { userId } = req.params
-      const business = await BusinessService.getBusinessByUserId(userId as string)
+      // A user may only look up their own business
+      if (req.params.userId !== req.userId) return res.status(403).json({ message: "Forbidden" })
 
-      if (!business) {
-        return res.status(404).json({ message: "Business not found" })
-      }
-
+      const business = await BusinessService.getBusinessByUserId(req.params.userId as string)
+      if (!business) return res.status(404).json({ message: "Business not found" })
       res.json(business)
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch business", error })
+      res.status(500).json({ message: "Failed to fetch business" })
     }
   }
 
-  /**
-   * Update business
-   */
   async update(req: Request, res: Response) {
     try {
-      const { id } = req.params
-      const business = await BusinessService.updateBusiness(id as string, req.body)
+      // Whitelist: never pass req.body straight to Prisma (it could set smsCredits, userId, isVerified...)
+      const data: Record<string, unknown> = {}
+      for (const key of UPDATABLE_FIELDS) {
+        if (req.body[key] !== undefined) data[key] = req.body[key]
+      }
+      const business = await BusinessService.updateBusiness(req.params.id as string, data)
       res.json(business)
     } catch (error) {
-      res.status(500).json({ message: "Failed to update business", error })
+      console.error('[Business] update error:', error)
+      res.status(500).json({ message: "Failed to update business" })
     }
   }
 
-  /**
-   * Delete business
-   */
   async delete(req: Request, res: Response) {
     try {
-      const { id } = req.params
-      const business = await BusinessService.deleteBusiness(id as string)
+      const business = await BusinessService.deleteBusiness(req.params.id as string)
       res.json(business)
     } catch (error) {
-      res.status(500).json({ message: "Failed to delete business", error })
+      res.status(500).json({ message: "Failed to delete business" })
     }
   }
 
-  /**
-   * Get all businesses (pagination + filters)
-   */
   async getAll(req: Request, res: Response) {
     try {
       const page = Number(req.query.page) || 1
-      const limit = Number(req.query.limit) || 10
+      const limit = Math.min(Number(req.query.limit) || 10, 100)
       const category = req.query.category as string | undefined
-      const isActive =
-        req.query.isActive !== undefined
-          ? req.query.isActive === "true"
-          : undefined
+      const isActive = req.query.isActive !== undefined ? req.query.isActive === "true" : undefined
 
-      const result = await BusinessService.getAllBusinesses(
-        page,
-        limit,
-        category,
-        isActive,
-      )
-
-      res.json(result)
+      res.json(await BusinessService.getAllBusinesses(page, limit, category, isActive))
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch businesses", error })
+      res.status(500).json({ message: "Failed to fetch businesses" })
     }
   }
 
   async stats(req: Request, res: Response) {
-  try {
-    const { businessId } = req.params
-    const branchId = typeof req.query.branchId === 'string' ? req.query.branchId : undefined
-    const stats = await BusinessService.getBusinessStats(businessId as string, branchId)
-    res.json(stats)
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch statistics", error })
+    try {
+      const stats = await BusinessService.getBusinessStats(req.params.businessId as string, branchIdFrom(req))
+      res.json(stats)
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch statistics" })
+    }
   }
-}
 
-async analytics(req: Request, res: Response) {
-  try {
-    const days = Number(req.query.days) || 30
-    const branchId = typeof req.query.branchId === 'string' ? req.query.branchId : undefined
-    const analytics = await BusinessService.getBusinessAnalytics(req.params.businessId as string, days, branchId)
-    res.json(analytics)
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch analytics', error })
+  async analytics(req: Request, res: Response) {
+    try {
+      const days = Number(req.query.days) || 30
+      const analytics = await BusinessService.getBusinessAnalytics(
+        req.params.businessId as string, days, branchIdFrom(req)
+      )
+      res.json(analytics)
+    } catch (error) {
+      console.error('[Business] analytics error:', error)
+      res.status(500).json({ message: 'Failed to fetch analytics' })
+    }
   }
-}
 
-
-
-  /**
-   * Search businesses
-   */
   async search(req: Request, res: Response) {
     try {
       const query = req.query.q as string
-      const limit = Number(req.query.limit) || 10
+      const limit = Math.min(Number(req.query.limit) || 10, 50)
+      if (!query) return res.status(400).json({ message: "Search query is required" })
 
-      if (!query) {
-        return res.status(400).json({ message: "Search query is required" })
-      }
-
-      const businesses = await BusinessService.searchBusinesses(query, limit)
-      res.json(businesses)
+      res.json(await BusinessService.searchBusinesses(query, limit))
     } catch (error) {
-      res.status(500).json({ message: "Search failed", error })
+      res.status(500).json({ message: "Search failed" })
     }
   }
-  /**
-   * Get business settings
-   */
+
   async getSettings(req: Request, res: Response) {
     try {
-      const { businessId } = req.params
-      const settings = await BusinessService.getBusinessSettings(businessId as string)
-      
-      if (!settings) {
-        return res.status(404).json({ message: "Business settings not found" })
-      }
-      
+      const settings = await BusinessService.getBusinessSettings(req.params.businessId as string)
+      if (!settings) return res.status(404).json({ message: "Business settings not found" })
       res.json(settings)
     } catch (error) {
-      console.error('[v0] getSettings error:', error)
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      res.status(500).json({ message: "Failed to fetch settings", error: errorMessage })
+      console.error('[Business] getSettings error:', error)
+      res.status(500).json({ message: "Failed to fetch settings" })
     }
   }
-    /**
-   * Get public business profile (safe fields only, no auth required)
-   */
+
   async getPublicById(req: Request, res: Response) {
     try {
-      const { id } = req.params
-      const business = await BusinessService.getPublicBusinessById(id as string)
-
-      if (!business || !business.isActive) {
-        return res.status(404).json({ message: "Business not found" })
-      }
-
+      const business = await BusinessService.getPublicBusinessById(req.params.id as string)
+      if (!business || !business.isActive) return res.status(404).json({ message: "Business not found" })
       res.json(business)
     } catch (error) {
       console.error('[Business] getPublicById error:', error)
@@ -334,22 +227,14 @@ async analytics(req: Request, res: Response) {
     }
   }
 
-  /**
-   * Update business settings
-   */
   async updateSettings(req: Request, res: Response) {
     try {
-      const { businessId } = req.params
-      const settings = await BusinessService.updateBusinessSettings(
-        businessId as string,
-        req.body
-      )
+      const settings = await BusinessService.updateBusinessSettings(req.params.businessId as string, req.body)
       res.json(settings)
     } catch (error) {
-      
-      console.error('[v0] updateSettings error:', error)
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      res.status(500).json({ message: "Failed to update settings", error: errorMessage })
+      console.error('[Business] updateSettings error:', error)
+      const message = error instanceof Error ? error.message : String(error)
+      res.status(500).json({ message: "Failed to update settings", error: message })
     }
   }
 }
