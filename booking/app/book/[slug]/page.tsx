@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useMemo, useState, useRef, JSX } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/card'
@@ -15,6 +15,26 @@ import { DateTime } from 'luxon'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 
+// NEXT_PUBLIC_ prefix is required for env vars to exist in client components
+const BUSINESS_TZ = process.env.NEXT_PUBLIC_BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
+
+const VERIFICATION_COUNTDOWN = 10
+const SLOTS_CACHE_TTL_MS = 60_000
+
+const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+const DAY_LABELS: Record<string, string> = {
+  sunday: 'Sunday', monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday',
+  thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday',
+}
+
+interface DaySchedule {
+  start: string
+  end: string
+  isWorking: boolean
+}
+
+/* ----------------------------- pure helpers ----------------------------- */
+
 function getInitials(name: string) {
   const words = name.trim().split(/\s+/).filter(Boolean)
   if (words.length === 0) return '?'
@@ -22,7 +42,74 @@ function getInitials(name: string) {
   return (words[0][0] + words[1][0]).toUpperCase()
 }
 
-const VERIFICATION_COUNTDOWN = 10
+// "Now" in the business time zone (NOT the device zone, NOT UTC)
+const nowInTz = () => DateTime.now().setZone(BUSINESS_TZ)
+const todayInTz = () => nowInTz().toISODate() as string
+
+const formatDateStr = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+// A slot is either a full ISO string or a "HH:mm" / "HH:mm:ss" time on `dateStr`
+const slotToDateTime = (dateStr: string, slot: string): DateTime =>
+  slot.includes('T')
+    ? DateTime.fromISO(slot).setZone(BUSINESS_TZ)
+    : DateTime.fromISO(`${dateStr}T${slot}`, { zone: BUSINESS_TZ })
+
+const isSlotInFuture = (dateStr: string, slot: string): boolean => {
+  if (dateStr !== todayInTz()) return true
+  const dt = slotToDateTime(dateStr, slot)
+  if (!dt.isValid) return true
+  return dt > nowInTz()
+}
+
+const formatHM = (hours: number, minutes: number) => {
+  const period = hours >= 12 ? 'PM' : 'AM'
+  const displayHours = hours % 12 || 12
+  return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`
+}
+
+const formatTimeSlot = (slot: string): string => {
+  try {
+    if (slot.includes('T')) {
+      const dt = DateTime.fromISO(slot).setZone(BUSINESS_TZ)
+      if (!dt.isValid) return slot
+      return formatHM(dt.hour, dt.minute)
+    }
+    const parts = slot.split(':')
+    const h = parseInt(parts[0], 10)
+    const m = parseInt(parts[1], 10)
+    if (Number.isNaN(h) || Number.isNaN(m)) return slot
+    return formatHM(h, m)
+  } catch {
+    return slot
+  }
+}
+
+const getDisplayTime = (slot: string): string => (slot ? formatTimeSlot(slot) : 'N/A')
+
+const getNormalizedWorkingHours = (staffData: any): Record<string, DaySchedule> | null => {
+  let raw = staffData?.workingHours
+  if (!raw) return null
+  if (typeof raw === 'string') {
+    try { raw = JSON.parse(raw) } catch { return null }
+  }
+  if (typeof raw !== 'object') return null
+  const normalized: Record<string, DaySchedule> = {}
+  Object.keys(raw).forEach((key) => { normalized[key.toLowerCase()] = raw[key] })
+  return normalized
+}
+
+/* ------------------------------ components ------------------------------ */
+
+function Spinner({ size = 8 }: { size?: 8 | 12 }) {
+  return (
+    <div
+      className={`animate-spin rounded-full border-2 border-primary border-t-transparent ${
+        size === 12 ? 'h-12 w-12' : 'h-8 w-8'
+      }`}
+    />
+  )
+}
 
 function BusinessHeaderContent({ business, branch }: { business: Business | null; branch: Branch | null }) {
   // When a branch is chosen, show ITS address and phone instead of the business's
@@ -99,6 +186,9 @@ function BookingPageContent() {
 
   const slug = params.slug as string
   const branchQuery = searchParams.get('branch')
+
+  /* ------------------------------- state ------------------------------- */
+
   const [businessId, setBusinessId] = useState('')
   const [resolving, setResolving] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -126,14 +216,54 @@ function BookingPageContent() {
   const [date, setDate] = useState('')
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [availableSlots, setAvailableSlots] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
+  // The key the currently shown slots belong to. While it differs from the
+  // wanted key we show the small spinner instead of stale/empty slots.
+  const [slotsFor, setSlotsFor] = useState('')
+  // Booking submit is separate from slot loading so the page never unmounts
+  const [submitting, setSubmitting] = useState(false)
+
   const [customerName, setCustomerName] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [notes, setNotes] = useState('')
+
   const [allHours, setAllHours] = useState<any[]>([])
   const [closedDateRows, setClosedDateRows] = useState<any[]>([])
+  const [hoursLoading, setHoursLoading] = useState(true)
   const [closedReason, setClosedReason] = useState<string | null>(null)
+
+  const [bookingSuccess, setBookingSuccess] = useState(false)
+  const [bookingId, setBookingId] = useState('')
+  const [error, setError] = useState('')
+
+  // Verification modal state
+  const [showVerificationModal, setShowVerificationModal] = useState(false)
+  const [, setCountdown] = useState(VERIFICATION_COUNTDOWN)
+  const [verificationCode, setVerificationCode] = useState('')
+  const [sendingCode, setSendingCode] = useState(false)
+  const [verifyingCode, setVerifyingCode] = useState(false)
+  const [codeError, setCodeError] = useState<string | null>(null)
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  // Calendar state
+  const [dateCalendarOpen, setDateCalendarOpen] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const d = new Date()
+    d.setDate(1)
+    return d
+  })
+  const dateCalendarRef = useRef<HTMLDivElement>(null)
+
+  /* ------------------------ refs: guards and caches ----------------------- */
+
+  const slotsRequestId = useRef(0)
+  const lastSlotsKey = useRef('')
+  const slotsCache = useRef(new Map<string, { slots: string[]; ts: number }>())
+
+  const staffRequestId = useRef(0)
+  const staffCache = useRef(new Map<string, Staff[]>())
+
+  /* ------------------------------ derived data ---------------------------- */
 
   // Hours and closed dates are per branch. Rows without a branchId (older
   // data) apply everywhere.
@@ -142,6 +272,12 @@ function BookingPageContent() {
     const own = allHours.filter((h) => h.branchId === branchId)
     return own.length ? own : allHours.filter((h) => !h.branchId)
   }, [allHours, branchId])
+
+  const hoursByDay = useMemo(() => {
+    const map = new Map<number, any>()
+    businessHours.forEach((bh: any) => map.set(bh.dayOfWeek, bh))
+    return map
+  }, [businessHours])
 
   const closedDates = useMemo(() => {
     const map = new Map<string, string>()
@@ -153,18 +289,265 @@ function BookingPageContent() {
     return map
   }, [closedDateRows, branchId])
 
-  
+  // Parsed once per staff member instead of once per calendar cell
+  const staffSchedule = useMemo(() => getNormalizedWorkingHours(selectedStaff), [selectedStaff])
 
-  // Verification modal state
-  const [showVerificationModal, setShowVerificationModal] = useState(false)
-  const [countdown, setCountdown] = useState(VERIFICATION_COUNTDOWN)
+  const slotsKey =
+    selectedService && date ? `${branchId}|${selectedService.id}|${date}|${selectedStaff?.id ?? ''}` : ''
+  const slotsLoading = !!slotsKey && (staffLoading || slotsFor !== slotsKey)
 
+  /* ------------------------- date availability logic ---------------------- */
+
+  const getDateDisabledInfo = useCallback(
+    (d: Date): { disabled: boolean; reason?: string } => {
+      if (hoursLoading) return { disabled: true, reason: 'Loading business hours' }
+
+      const dateStr = formatDateStr(d)
+      const todayStr = todayInTz()
+
+      if (dateStr < todayStr) return { disabled: true, reason: 'Past date' }
+
+      if (closedDates.has(dateStr)) {
+        return { disabled: true, reason: closedDates.get(dateStr) || 'Business is closed' }
+      }
+
+      const adjustedDayOfWeek = d.getDay() === 0 ? 6 : d.getDay() - 1
+      const dayHours = hoursByDay.get(adjustedDayOfWeek)
+      if (!dayHours || dayHours.isClosed) {
+        return { disabled: true, reason: 'Business is closed on this day' }
+      }
+
+      if (dateStr === todayStr && dayHours.closeTime) {
+        const closing = DateTime.fromISO(`${dateStr}T${dayHours.closeTime}`, { zone: BUSINESS_TZ })
+        if (closing.isValid && nowInTz() > closing) {
+          return { disabled: true, reason: 'Business is closed for today' }
+        }
+      }
+
+      if (selectedStaff && staffSchedule) {
+        const dayName = DAY_KEYS[d.getDay()]
+        const daySchedule = staffSchedule[dayName]
+        if (daySchedule && daySchedule.isWorking === false) {
+          return { disabled: true, reason: `${selectedStaff.firstName} does not work on ${DAY_LABELS[dayName]}s` }
+        }
+      }
+
+      return { disabled: false }
+    },
+    [hoursLoading, closedDates, hoursByDay, selectedStaff, staffSchedule]
+  )
+
+  // Calendar grid is computed once per relevant change, not on every render
+  const calendarDays = useMemo(() => {
+    if (!dateCalendarOpen) return []
+    const year = calendarMonth.getFullYear()
+    const month = calendarMonth.getMonth()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const list: { day: number; dateStr: string; disabled: boolean; reason?: string }[] = []
+    for (let day = 1; day <= daysInMonth; day++) {
+      const cellDate = new Date(year, month, day)
+      const { disabled, reason } = getDateDisabledInfo(cellDate)
+      list.push({ day, dateStr: formatDateStr(cellDate), disabled, reason })
+    }
+    return list
+  }, [dateCalendarOpen, calendarMonth, getDateDisabledInfo])
+
+  const calendarStartOffset = useMemo(
+    () => new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1).getDay(),
+    [calendarMonth]
+  )
+
+  const getTodayClosedReason = (dateStr: string): string | null => {
+    if (dateStr !== todayInTz()) return null
+    const adjustedDayOfWeek = DateTime.fromISO(dateStr).weekday - 1
+    const dayHours = hoursByDay.get(adjustedDayOfWeek)
+    if (!dayHours) return null
+    if (dayHours.isClosed) return 'Business is closed on this day'
+    if (dayHours.closeTime) {
+      const closing = DateTime.fromISO(`${dateStr}T${dayHours.closeTime}`, { zone: BUSINESS_TZ })
+      if (closing.isValid && nowInTz() > closing) return 'Business is closed for today'
+    }
+    return null
+  }
 
   const findBranch = (list: Branch[], q: string | null) => {
-  if (!q) return undefined
-  const v = q.toLowerCase()
-  return list.find((b) => b.slug?.toLowerCase() === v || b.id === q)
-}
+    if (!q) return undefined
+    const v = q.toLowerCase()
+    return list.find((b) => b.slug?.toLowerCase() === v || b.id === q)
+  }
+
+  /* -------------------------------- loaders ------------------------------- */
+
+  const loadBusinessData = async () => {
+    try {
+      setResolving(true)
+      setServicesLoading(true)
+      setError('')
+      setNotFound(false)
+
+      const businessRes = await businessApi.getPublic(slug)
+      const biz = businessRes.data as Business | undefined
+
+      if (!businessRes.success || !biz?.id) {
+        setNotFound(true)
+        return
+      }
+
+      setBusiness(biz)
+      setBusinessId(biz.id)
+
+      // Pick the branch: a single branch is chosen silently; with several, a
+      // valid ?branch= deep link preselects it, otherwise the picker is shown.
+      const list: Branch[] = biz.branches ?? []
+      if (list.length === 1) {
+        setBranchId(list[0].id)
+      } else if (list.length > 1 && branchQuery) {
+        const match = findBranch(list, branchQuery)
+        if (match) setBranchId(match.id)
+      }
+
+      // Canonical slug redirect, keeping any ?branch= parameter
+      if (biz.slug && slug !== biz.slug) {
+        const qs = searchParams.toString()
+        router.replace(`/book/${biz.slug}${qs ? `?${qs}` : ''}`)
+      }
+
+      const servicesRes = await servicesApi.getBusinessServices(biz.id)
+
+      if (servicesRes.data) {
+        let svc: Service[] = []
+        if (Array.isArray(servicesRes.data)) {
+          svc = servicesRes.data
+        } else if (typeof servicesRes.data === 'object' && servicesRes.data !== null) {
+          const data = servicesRes.data as Record<string, any>
+          svc = data.services || data.data || []
+        }
+        setServices(svc)
+      }
+    } catch (err) {
+      setError('Failed to load business information. Please try again.')
+    } finally {
+      setServicesLoading(false)
+      setResolving(false)
+    }
+  }
+
+  const loadStaffForService = async (serviceId: string) => {
+    const reqId = ++staffRequestId.current
+
+    // Staff only at the chosen branch (staff with no branch work anywhere)
+    const applyStaff = (all: Staff[]) => {
+      const list = all.filter((s) => !branchId || !s.branchId || s.branchId === branchId)
+      setStaffMembers(list)
+      setSelectedStaff(list.length === 1 ? list[0] : null)
+    }
+
+    const cached = staffCache.current.get(serviceId)
+    if (cached) {
+      applyStaff(cached)
+      setStaffLoading(false)
+      return
+    }
+
+    try {
+      setStaffLoading(true)
+      const response = await staffApi.getStaffForService(serviceId)
+      if (reqId !== staffRequestId.current) return // a newer request owns the state
+      if (response.data?.staff) {
+        const all = response.data.staff as Staff[]
+        staffCache.current.set(serviceId, all)
+        applyStaff(all)
+      } else {
+        setStaffMembers([])
+        setSelectedStaff(null)
+      }
+    } catch (err) {
+      if (reqId !== staffRequestId.current) return
+      setStaffMembers([])
+      setSelectedStaff(null)
+    } finally {
+      if (reqId === staffRequestId.current) setStaffLoading(false)
+    }
+  }
+
+  const loadAvailableSlots = async (key: string) => {
+    if (!selectedService || !date || !businessId) return
+
+    lastSlotsKey.current = key
+    const reqId = ++slotsRequestId.current
+    const isStale = () => reqId !== slotsRequestId.current
+    const finish = (slots: string[]) => {
+      if (isStale()) return
+      setAvailableSlots(slots)
+      setSlotsFor(key)
+    }
+
+    // Cheap local checks first: no network needed
+    if (!closedDates.has(date)) {
+      const todayReason = getTodayClosedReason(date)
+      if (todayReason) {
+        setClosedReason(todayReason)
+        finish([])
+        return
+      }
+    }
+
+    if (selectedStaff && staffSchedule) {
+      const dayName = DAY_KEYS[DateTime.fromISO(date).weekday % 7]
+      const daySchedule = staffSchedule[dayName]
+      if (daySchedule && daySchedule.isWorking === false) {
+        setClosedReason(`${selectedStaff.firstName} does not work on ${DAY_LABELS[dayName]}s`)
+        setError('')
+        finish([])
+        return
+      }
+    }
+
+    // Recently fetched for the same service/date/staff/branch: reuse it
+    const cached = slotsCache.current.get(key)
+    if (cached && Date.now() - cached.ts < SLOTS_CACHE_TTL_MS) {
+      setClosedReason(null)
+      setError('')
+      finish(cached.slots)
+      return
+    }
+
+    try {
+      setClosedReason(null)
+
+      const response = await (bookingsApi.getBusinessAvailableSlots as any)(
+        businessId,
+        selectedService.id,
+        date,
+        selectedStaff?.id,
+        branchId || undefined
+      )
+      if (isStale()) return
+
+      if (response.success) {
+        let slots: string[] = []
+        if (Array.isArray(response.data)) {
+          slots = response.data
+        } else if (response.data && typeof response.data === 'object' && 'data' in response.data && Array.isArray((response.data as any).data)) {
+          slots = (response.data as any).data
+        }
+        slotsCache.current.set(key, { slots, ts: Date.now() })
+        setError('')
+        finish(slots)
+      } else {
+        lastSlotsKey.current = ''
+        setError(response.error || 'Unable to load available slots')
+        finish([])
+      }
+    } catch (err) {
+      if (isStale()) return
+      lastSlotsKey.current = ''
+      setError('Failed to load available slots')
+      finish([])
+    }
+  }
+
+  /* -------------------------------- effects ------------------------------- */
 
   useEffect(() => {
     if (!slug) return
@@ -172,39 +555,46 @@ function BookingPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug])
 
-  const isSlotInFuture = (dateStr: string, timeString: string): boolean => {
-    const now = new Date()
-    const todayStr = now.toISOString().split('T')[0]
-    if (dateStr !== todayStr) return true
-
-    let hours: number, minutes: number
-    if (timeString.includes('T')) {
-      const d = new Date(timeString)
-      hours = d.getHours()
-      minutes = d.getMinutes()
-    } else {
-      const parts = timeString.split(':')
-      hours = parseInt(parts[0], 10)
-      minutes = parseInt(parts[1], 10)
-    }
-
-    const slotDateTime = new Date(dateStr)
-    slotDateTime.setHours(hours, minutes, 0, 0)
-    return slotDateTime > now
-  }
-
-
+  // Hours + closed dates, fetched in parallel, cancelled if the branch changes
   useEffect(() => {
-  if (!business) return
-  const list = business.branches ?? []
-  if (list.length < 2) return
-  const match = findBranch(list, branchQuery)
-  if (match && match.id !== branchId) {
-    setBranchId(match.id)
-    resetSelections()
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [branchQuery, business])
+    if (!businessId || !branchReady) return
+    let cancelled = false
+    const q = branchId ? `?branchId=${branchId}` : ''
+    setHoursLoading(true)
+    ;(async () => {
+      try {
+        const [hours, closed] = await Promise.all([
+          fetch(`${API_URL}/api/business-hours/business/${businessId}${q}`).then((r) => (r.ok ? r.json() : null)),
+          fetch(`${API_URL}/api/business-hours/${businessId}/closed-dates${q}`).then((r) => (r.ok ? r.json() : null)),
+        ])
+        if (cancelled) return
+        if (hours) setAllHours(Array.isArray(hours) ? hours : hours.data ?? [])
+        setClosedDateRows(closed && closed.success && closed.data ? closed.data : [])
+      } catch {
+        // keep whatever we had; calendar will show unavailable days
+      } finally {
+        if (!cancelled) setHoursLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [businessId, branchId, branchReady])
+
+  // Deep link ?branch= after the business is known
+  useEffect(() => {
+    if (!business) return
+    const list = business.branches ?? []
+    if (list.length < 2) return
+    const match = findBranch(list, branchQuery)
+    if (match && match.id !== branchId) {
+      setBranchId(match.id)
+      resetSelections()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchQuery, business])
+
+  // Drop the chosen date if the newly chosen staff member can't work it
   useEffect(() => {
     if (!date || !selectedStaff) return
     const [y, m, d] = date.split('-').map(Number)
@@ -227,16 +617,6 @@ function BookingPageContent() {
     }
   }, [user])
 
-  const [bookingSuccess, setBookingSuccess] = useState(false)
-  const [bookingId, setBookingId] = useState('')
-  const [error, setError] = useState('')
-
-  const [verificationCode, setVerificationCode] = useState('')
-  const [sendingCode, setSendingCode] = useState(false)
-  const [verifyingCode, setVerifyingCode] = useState(false)
-  const [codeError, setCodeError] = useState<string | null>(null)
-  const [resendCooldown, setResendCooldown] = useState(0)
-
   useEffect(() => {
     if (resendCooldown <= 0) return
     const timer = setInterval(() => setResendCooldown((v) => (v <= 1 ? 0 : v - 1)), 1000)
@@ -248,19 +628,23 @@ function BookingPageContent() {
     if (selectedService) {
       loadStaffForService(selectedService.id)
     } else {
+      staffRequestId.current++
+      setStaffLoading(false)
       setStaffMembers([])
       setSelectedStaff(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedService, branchId])
 
-  // Load slots whenever service, date, staff or branch changes
+  // Load slots when the combination changes. Waits for staff to settle so an
+  // auto-selected single staff member doesn't cause a second request, and
+  // skips keys that were already requested.
   useEffect(() => {
-    if (date && selectedService) {
-      loadAvailableSlots()
-    }
+    if (!slotsKey || staffLoading) return
+    if (lastSlotsKey.current === slotsKey) return
+    loadAvailableSlots(slotsKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date, selectedService, selectedStaff, branchId])
+  }, [slotsKey, staffLoading])
 
   useEffect(() => {
     if (!showVerificationModal) return
@@ -289,6 +673,26 @@ function BookingPageContent() {
     }
   }, [showVerificationModal])
 
+  useEffect(() => {
+    if (!dateCalendarOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dateCalendarRef.current && !dateCalendarRef.current.contains(e.target as Node)) {
+        setDateCalendarOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [dateCalendarOpen])
+
+  useEffect(() => {
+    if (date) {
+      const [y, m] = date.split('-').map(Number)
+      setCalendarMonth(new Date(y, m - 1, 1))
+    }
+  }, [date])
+
+  /* ------------------------------- handlers ------------------------------- */
+
   // Path for this page, keeping the chosen branch in the URL so it can be shared
   const bookPath = (businessSlug: string, branch?: Branch | null) =>
     branch ? `/book/${businessSlug}?branch=${branch.slug ?? branch.id}` : `/book/${businessSlug}`
@@ -299,6 +703,8 @@ function BookingPageContent() {
     setDate('')
     setSelectedTime(null)
     setAvailableSlots([])
+    setSlotsFor('')
+    lastSlotsKey.current = ''
     setClosedReason(null)
     setError('')
   }
@@ -314,6 +720,48 @@ function BookingPageContent() {
     setBranchId('')
     resetSelections()
     router.replace(`/book/${business?.slug ?? slug}`, { scroll: false })
+  }
+
+  const chooseService = (service: Service) => {
+    if (selectedService?.id === service.id) return
+    setSelectedService(service)
+    setSelectedStaff(null)
+    setDate('')
+    setSelectedTime(null)
+    setClosedReason(null)
+    setError('')
+  }
+
+  const selectDate = (dateStr: string) => {
+    setDate(dateStr)
+    setSelectedTime(null)
+    setDateCalendarOpen(false)
+    setError('')
+
+    if (closedDates.has(dateStr)) {
+      setClosedReason(closedDates.get(dateStr) || 'Business is closed')
+    } else {
+      setClosedReason(getTodayClosedReason(dateStr))
+    }
+  }
+
+  const goToPrevMonth = () => {
+    setCalendarMonth((prev) => {
+      const next = new Date(prev)
+      next.setMonth(next.getMonth() - 1)
+      const startOfThisMonth = new Date()
+      startOfThisMonth.setDate(1)
+      startOfThisMonth.setHours(0, 0, 0, 0)
+      return next < startOfThisMonth ? prev : next
+    })
+  }
+
+  const goToNextMonth = () => {
+    setCalendarMonth((prev) => {
+      const next = new Date(prev)
+      next.setMonth(next.getMonth() + 1)
+      return next
+    })
   }
 
   const sendPhoneVerificationCode = async (id: string) => {
@@ -392,355 +840,6 @@ function BookingPageContent() {
     }
   }
 
-  useEffect(() => {
-  if (!businessId || !branchReady) return
-  const q = branchId ? `?branchId=${branchId}` : ''
-  ;(async () => {
-    const [hoursRes, closedRes] = await Promise.all([
-      fetch(`${API_URL}/api/business-hours/business/${businessId}${q}`),
-      fetch(`${API_URL}/api/business-hours/${businessId}/closed-dates${q}`),
-    ])
-    if (hoursRes.ok) setAllHours(await hoursRes.json())
-    if (closedRes.ok) {
-      const d = await closedRes.json()
-      setClosedDateRows(d.success && d.data ? d.data : [])
-    }
-  })()
-}, [businessId, branchId, branchReady])
-
-  const loadBusinessData = async () => {
-    try {
-      setResolving(true)
-      setServicesLoading(true)
-      setError('')
-      setNotFound(false)
-
-      const businessRes = await businessApi.getPublic(slug)
-      const biz = businessRes.data as Business | undefined
-
-      if (!businessRes.success || !biz?.id) {
-        setNotFound(true)
-        return
-      }
-
-      setBusiness(biz)
-      setBusinessId(biz.id)
-
-      // Pick the branch: a single branch is chosen silently; with several, a
-      // valid ?branch= deep link preselects it, otherwise the picker is shown.
-      const list: Branch[] = biz.branches ?? []
-      if (list.length === 1) {
-        setBranchId(list[0].id)
-      } else if (list.length > 1 && branchQuery) {
-  const match = findBranch(list, branchQuery)
-  if (match) setBranchId(match.id)
-}
-
-      // Canonical slug redirect, keeping any ?branch= parameter
-      if (biz.slug && slug !== biz.slug) {
-        const qs = searchParams.toString()
-        router.replace(`/book/${biz.slug}${qs ? `?${qs}` : ''}`)
-      }
-
-      const [servicesRes] = await Promise.all([
-        servicesApi.getBusinessServices(biz.id),
-      ])
-
-      if (servicesRes.data) {
-        let svc: Service[] = []
-        if (Array.isArray(servicesRes.data)) {
-          svc = servicesRes.data
-        } else if (typeof servicesRes.data === 'object' && servicesRes.data !== null) {
-          const data = servicesRes.data as Record<string, any>
-          svc = data.services || data.data || []
-        }
-        setServices(svc)
-      }
-
-     
-    } catch (err) {
-      setError('Failed to load business information. Please try again.')
-    } finally {
-      setServicesLoading(false)
-      setResolving(false)
-    }
-  }
-
-  const loadStaffForService = async (serviceId: string) => {
-    try {
-      setStaffLoading(true)
-      const response = await staffApi.getStaffForService(serviceId)
-      if (response.data?.staff) {
-        // Only staff who work at the chosen branch (staff with no branch work anywhere)
-        const list = (response.data.staff as Staff[]).filter(
-          (s) => !branchId || !s.branchId || s.branchId === branchId
-        )
-        setStaffMembers(list)
-        setSelectedStaff(list.length === 1 ? list[0] : null)
-      } else {
-        setStaffMembers([])
-        setSelectedStaff(null)
-      }
-    } catch (err) {
-      setStaffMembers([])
-      setSelectedStaff(null)
-    } finally {
-      setStaffLoading(false)
-    }
-  }
-
-  const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-  const DAY_LABELS: Record<string, string> = {
-    sunday: 'Sunday', monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday',
-    thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday',
-  }
-
-  const [dateCalendarOpen, setDateCalendarOpen] = useState(false)
-  const [calendarMonth, setCalendarMonth] = useState(() => {
-    const d = new Date()
-    d.setDate(1)
-    return d
-  })
-  const dateCalendarRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!dateCalendarOpen) return
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dateCalendarRef.current && !dateCalendarRef.current.contains(e.target as Node)) {
-        setDateCalendarOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [dateCalendarOpen])
-
-  const formatDateStr = (d: Date): string =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
-  interface DaySchedule {
-    start: string
-    end: string
-    isWorking: boolean
-  }
-
-  const getNormalizedWorkingHours = (staffData: any): Record<string, DaySchedule> | null => {
-    let raw = staffData?.workingHours
-    if (!raw) return null
-    if (typeof raw === 'string') {
-      try { raw = JSON.parse(raw) } catch { return null }
-    }
-    if (typeof raw !== 'object') return null
-    const normalized: Record<string, DaySchedule> = {}
-    Object.keys(raw).forEach((key) => { normalized[key.toLowerCase()] = raw[key] })
-    return normalized
-  }
-
-  const getDateDisabledInfo = (d: Date): { disabled: boolean; reason?: string } => {
-    const dateStr = formatDateStr(d)
-
-    const startOfToday = new Date()
-    startOfToday.setHours(0, 0, 0, 0)
-    if (d < startOfToday) {
-      return { disabled: true, reason: 'Past date' }
-    }
-
-    if (closedDates.has(dateStr)) {
-      return { disabled: true, reason: closedDates.get(dateStr) || 'Business is closed' }
-    }
-
-    const adjustedDayOfWeek = d.getDay() === 0 ? 6 : d.getDay() - 1
-    const dayHours = businessHours.find((bh: any) => bh.dayOfWeek === adjustedDayOfWeek)
-    if (!dayHours || dayHours.isClosed) {
-      return { disabled: true, reason: 'Business is closed on this day' }
-    }
-
-    const startOfCellDay = new Date(d)
-    startOfCellDay.setHours(0, 0, 0, 0)
-    const isCellToday = startOfCellDay.getTime() === startOfToday.getTime()
-    if (isCellToday && dayHours.closeTime) {
-      const [closeHour, closeMin] = dayHours.closeTime.split(':').map(Number)
-      const closingDateTime = new Date(d)
-      closingDateTime.setHours(closeHour, closeMin, 0, 0)
-      if (new Date() > closingDateTime) {
-        return { disabled: true, reason: 'Business is closed for today' }
-      }
-    }
-
-    if (selectedStaff) {
-      const dayName = DAY_KEYS[d.getDay()]
-      const staffWorkingHours = getNormalizedWorkingHours(selectedStaff)
-      const daySchedule = staffWorkingHours?.[dayName]
-      if (daySchedule && daySchedule.isWorking === false) {
-        return { disabled: true, reason: `${selectedStaff.firstName} does not work on ${DAY_LABELS[dayName]}s` }
-      }
-    }
-
-    return { disabled: false }
-  }
-
-  const selectDate = (dateStr: string) => {
-    setDate(dateStr)
-    setSelectedTime(null)
-    setDateCalendarOpen(false)
-
-    if (closedDates.has(dateStr)) {
-      setClosedReason(closedDates.get(dateStr) || 'Business is closed')
-    } else {
-      setClosedReason(getTodayClosedReason(dateStr))
-    }
-  }
-
-  const goToPrevMonth = () => {
-    setCalendarMonth((prev) => {
-      const next = new Date(prev)
-      next.setMonth(next.getMonth() - 1)
-      const startOfThisMonth = new Date()
-      startOfThisMonth.setDate(1)
-      startOfThisMonth.setHours(0, 0, 0, 0)
-      return next < startOfThisMonth ? prev : next
-    })
-  }
-
-  const goToNextMonth = () => {
-    setCalendarMonth((prev) => {
-      const next = new Date(prev)
-      next.setMonth(next.getMonth() + 1)
-      return next
-    })
-  }
-
-  useEffect(() => {
-    if (date) {
-      const [y, m] = date.split('-').map(Number)
-      setCalendarMonth(new Date(y, m - 1, 1))
-    }
-  }, [date])
-
-  const loadAvailableSlots = async () => {
-    if (!selectedService || !date || !businessId) return
-
-    if (!closedDates.has(date)) {
-      const todayReason = getTodayClosedReason(date)
-      if (todayReason) {
-        setAvailableSlots([])
-        setClosedReason(todayReason)
-        return
-      }
-    }
-
-    if (selectedStaff) {
-      const dayName = DAY_KEYS[new Date(date).getDay()]
-      const daySchedule = (selectedStaff as any)?.workingHours?.[dayName]
-      if (daySchedule && daySchedule.isWorking === false) {
-        setAvailableSlots([])
-        setClosedReason(`${selectedStaff.firstName} does not work on ${dayName.charAt(0).toUpperCase() + dayName.slice(1)}s`)
-        setError('')
-        return
-      }
-    }
-
-    try {
-      setLoading(true)
-      setClosedReason(null)
-
-      const response = await (bookingsApi.getBusinessAvailableSlots as any)(
-        businessId,
-        selectedService.id,
-        date,
-        selectedStaff?.id,
-        branchId || undefined
-      )
-
-      if (response.success) {
-        let slots: string[] = []
-        if (Array.isArray(response.data)) {
-          slots = response.data
-        } else if (response.data && typeof response.data === 'object' && 'data' in response.data && Array.isArray((response.data as any).data)) {
-          slots = (response.data as any).data
-        }
-
-        if (slots.length > 0) {
-          setAvailableSlots(slots as any)
-          setError('')
-        } else {
-          setAvailableSlots([])
-          setError('No available slots for the selected date')
-        }
-      } else {
-        setAvailableSlots([])
-        setError(response.error || 'Unable to load available slots')
-      }
-    } catch (err) {
-      setAvailableSlots([])
-      setError('Failed to load available slots')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const formatTimeSlot = (timeString: string): string => {
-    try {
-      let hours: number, minutes: number
-
-      if (timeString.includes('T') || (timeString.includes(':') && timeString.length > 5)) {
-        const d = new Date(timeString)
-        hours = d.getHours()
-        minutes = d.getMinutes()
-      } else {
-        const parts = timeString.split(':')
-        hours = parseInt(parts[0], 10)
-        minutes = parseInt(parts[1], 10)
-      }
-
-      const period = hours >= 12 ? 'PM' : 'AM'
-      const displayHours = hours % 12 || 12
-      return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`
-    } catch {
-      return timeString
-    }
-  }
-
-  const getTodayClosedReason = (dateStr: string): string | null => {
-    const now = new Date()
-    const todayStr = now.toISOString().split('T')[0]
-    if (dateStr !== todayStr) return null
-
-    const dayOfWeek = now.getDay()
-    const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-    const dayHours = businessHours.find((bh: any) => bh.dayOfWeek === adjustedDayOfWeek)
-
-    if (!dayHours || dayHours.isClosed) {
-      return dayHours ? 'Business is closed on this day' : null
-    }
-
-    const [closingHour, closingMin] = dayHours.closeTime.split(':').map(Number)
-    const closingDateTime = new Date(dateStr)
-    closingDateTime.setHours(closingHour, closingMin, 0, 0)
-
-    if (now > closingDateTime) {
-      return 'Business is closed for today'
-    }
-
-    return null
-  }
-
-  const getDisplayTime = (timeString: string): string => {
-    if (!timeString) return 'N/A'
-    try {
-      const parts = timeString.split(':')
-      if (parts.length === 2) {
-        const hours = parseInt(parts[0], 10)
-        const minutes = parseInt(parts[1], 10)
-        const period = hours >= 12 ? 'PM' : 'AM'
-        const displayHours = hours % 12 || 12
-        return `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`
-      }
-      return timeString
-    } catch {
-      return timeString
-    }
-  }
-
   const handleConfirmBooking = async () => {
     if (!selectedService || !date || !selectedTime) {
       setError('Please select service, date, and time')
@@ -771,13 +870,11 @@ function BookingPageContent() {
     }
 
     try {
-      setLoading(true)
+      setSubmitting(true)
 
-      const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
-      const startDateTime = DateTime.fromISO(`${date}T${selectedTime}`, { zone: BUSINESS_TZ })
+      const startDateTime = slotToDateTime(date, selectedTime)
       const startTimeISO = startDateTime.toISO()
-      const endDateTime = startDateTime.plus({ minutes: selectedService.duration })
-      const endTimeISO = endDateTime.toISO()
+      const endTimeISO = startDateTime.plus({ minutes: selectedService.duration }).toISO()
 
       const basePayload: any = {
         serviceId: selectedService.id,
@@ -809,6 +906,10 @@ function BookingPageContent() {
         const newBookingId = createdBooking.id
         setBookingId(newBookingId)
 
+        // The slot just got taken, so cached availability is no longer valid
+        slotsCache.current.clear()
+        lastSlotsKey.current = ''
+
         const requiresVerification =
           createdBooking.isPhoneVerified === false ||
           createdBooking.status === 'UNVERIFIED'
@@ -829,11 +930,14 @@ function BookingPageContent() {
     } catch (err: any) {
       setError('Failed to book appointment. Please try again.')
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
 
-  if (loading || resolving || (!businessId && !notFound)) {
+  /* ------------------------------- rendering ------------------------------ */
+
+  // Full-page spinner ONLY while the business itself is being resolved
+  if (resolving || (!businessId && !notFound)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
         <div className="mx-auto max-w-2xl text-center">
@@ -902,7 +1006,7 @@ function BookingPageContent() {
                   <div className="flex items-start gap-3">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Date:</div>
                     <div className="text-sm text-foreground">
-                      {DateTime.fromISO(date + 'T00:00:00', { zone: 'Asia/Kathmandu' }).setLocale('en').toLocaleString({
+                      {DateTime.fromISO(date + 'T00:00:00', { zone: BUSINESS_TZ }).setLocale('en').toLocaleString({
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
@@ -1040,7 +1144,7 @@ function BookingPageContent() {
 
                 {servicesLoading ? (
                   <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+                    <Spinner />
                   </div>
                 ) : services.length === 0 ? (
                   <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
@@ -1052,12 +1156,7 @@ function BookingPageContent() {
                     {services.map((service) => (
                       <button
                         key={service.id}
-                        onClick={() => {
-                          setSelectedService(service)
-                          setSelectedStaff(null)
-                          setDate('')
-                          setSelectedTime(null)
-                        }}
+                        onClick={() => chooseService(service)}
                         className={`p-4 rounded-lg border-2 text-left transition-all ${
                           selectedService?.id === service.id
                             ? 'bg-primary text-primary-foreground border-primary shadow-md'
@@ -1126,48 +1225,35 @@ function BookingPageContent() {
                         ))}
                       </div>
 
-                      <div className="grid grid-cols-7 gap-1">
-                        {(() => {
-                          const year = calendarMonth.getFullYear()
-                          const month = calendarMonth.getMonth()
-                          const firstDayOfMonth = new Date(year, month, 1)
-                          const startOffset = firstDayOfMonth.getDay()
-                          const daysInMonth = new Date(year, month + 1, 0).getDate()
-                          const cells: JSX.Element[] = []
-
-                          for (let i = 0; i < startOffset; i++) {
-                            cells.push(<div key={`blank-${i}`} />)
-                          }
-
-                          for (let day = 1; day <= daysInMonth; day++) {
-                            const cellDate = new Date(year, month, day)
-                            const dateStr = formatDateStr(cellDate)
-                            const { disabled, reason } = getDateDisabledInfo(cellDate)
-                            const isSelected = date === dateStr
-
-                            cells.push(
-                              <button
-                                key={dateStr}
-                                type="button"
-                                disabled={disabled}
-                                title={disabled ? reason : undefined}
-                                onClick={() => !disabled && selectDate(dateStr)}
-                                className={`h-8 w-8 mx-auto flex items-center justify-center rounded-md text-sm transition-colors ${
-                                  disabled
-                                    ? 'text-muted-foreground/40 cursor-not-allowed line-through'
-                                    : isSelected
-                                    ? 'bg-primary text-primary-foreground font-semibold'
-                                    : 'hover:bg-primary/10 text-foreground'
-                                }`}
-                              >
-                                {day}
-                              </button>
-                            )
-                          }
-
-                          return cells
-                        })()}
-                      </div>
+                      {hoursLoading ? (
+                        <div className="flex justify-center py-10">
+                          <Spinner />
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-7 gap-1">
+                          {Array.from({ length: calendarStartOffset }).map((_, i) => (
+                            <div key={`blank-${i}`} />
+                          ))}
+                          {calendarDays.map(({ day, dateStr, disabled, reason }) => (
+                            <button
+                              key={dateStr}
+                              type="button"
+                              disabled={disabled}
+                              title={disabled ? reason : undefined}
+                              onClick={() => !disabled && selectDate(dateStr)}
+                              className={`h-8 w-8 mx-auto flex items-center justify-center rounded-md text-sm transition-colors ${
+                                disabled
+                                  ? 'text-muted-foreground/40 cursor-not-allowed line-through'
+                                  : date === dateStr
+                                  ? 'bg-primary text-primary-foreground font-semibold'
+                                  : 'hover:bg-primary/10 text-foreground'
+                              }`}
+                            >
+                              {day}
+                            </button>
+                          ))}
+                        </div>
+                      )}
 
                       <p className="mt-3 text-xs text-muted-foreground border-t pt-2">
                         Greyed-out days are unavailable: closed dates, business hours, or the selected staff member&apos;s day off.
@@ -1199,6 +1285,7 @@ function BookingPageContent() {
                       <button
                         key={staff.id}
                         onClick={() => {
+                          if (selectedStaff?.id === staff.id) return
                           setSelectedStaff(staff)
                           setSelectedTime(null)
                         }}
@@ -1258,7 +1345,7 @@ function BookingPageContent() {
               </div>
             )}
 
-            {/* Time */}
+            {/* Time: only this section shows a spinner while slots load */}
             {branchReady && selectedService && date && !closedReason && (
               <div className="mb-8">
                 <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -1266,9 +1353,9 @@ function BookingPageContent() {
                   {n(4)}. Select Time
                 </label>
 
-                {loading ? (
+                {slotsLoading ? (
                   <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+                    <Spinner />
                   </div>
                 ) : availableSlots.length === 0 ? (
                   <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
@@ -1391,7 +1478,7 @@ function BookingPageContent() {
                       )}
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Date:</span>
-                        <span className="font-medium">{new Date(date).toLocaleDateString()}</span>
+                        <span className="font-medium">{new Date(date + 'T00:00:00').toLocaleDateString()}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Time:</span>
@@ -1416,12 +1503,12 @@ function BookingPageContent() {
               <div className="flex gap-3">
                 <Button
                   onClick={handleConfirmBooking}
-                  disabled={loading || !customerName || !customerEmail || !customerPhone}
+                  disabled={submitting || !customerName || !customerEmail || !customerPhone}
                   className="flex-1 h-12 bg-primary text-primary-foreground hover:bg-primary/90"
                 >
-                  {loading ? 'Confirming...' : 'Confirm Booking'}
+                  {submitting ? 'Confirming...' : 'Confirm Booking'}
                 </Button>
-                <Button onClick={() => setSelectedTime(null)} variant="outline" className="px-6 h-12">
+                <Button onClick={() => setSelectedTime(null)} variant="outline" className="px-6 h-12" disabled={submitting}>
                   Clear
                 </Button>
               </div>
