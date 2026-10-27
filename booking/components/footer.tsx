@@ -3,11 +3,15 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Heart, MessageSquarePlus } from 'lucide-react'
+import { useAuth } from '@/context/authContext'
 import { FeedbackModal } from './FeedbackModal'
 
 export function Footer() {
   const currentYear = new Date().getFullYear()
   const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const { user } = useAuth()
+
+  const getStartedHref = user ? '/setup-business' : '/signup-business'
 
   return (
     <footer className="bg-slate-900 text-slate-200 mt-auto">
@@ -41,7 +45,7 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold text-white mb-4">For Businesses</h4>
             <div className="space-y-2">
-              <Link href="/setup-business" className="text-sm hover:text-white transition block">
+              <Link href={getStartedHref} className="text-sm hover:text-white transition block">
                 Get Started
               </Link>
               <Link href="/pricing" className="text-sm hover:text-white transition block">
