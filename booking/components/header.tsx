@@ -123,7 +123,7 @@ export const Header = () => {
               <a href="/#features" className="opacity-90 hover:opacity-100 transition text-sm font-medium">
                 Features
               </a>
-              <a href="/#pricing" className="opacity-90 hover:opacity-100 transition text-sm font-medium">
+              <a href="/pricing" className="opacity-90 hover:opacity-100 transition text-sm font-medium">
                 Pricing
               </a>
             </>
