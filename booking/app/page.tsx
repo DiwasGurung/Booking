@@ -232,7 +232,7 @@ export default function HomePage() {
           </div>
 
           <Link
-            href="/register-business"
+            href="/signup-business"
             className="inline-block bg-primary-foreground text-primary px-8 py-3 rounded-lg font-semibold hover:opacity-90 transition"
           >
             Register Your Business 

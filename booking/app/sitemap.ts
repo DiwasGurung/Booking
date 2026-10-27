@@ -6,7 +6,7 @@ const siteUrl = 'https://appoint-nepal.com'
 const staticPages = [
   { path: '/', priority: 1.0, changeFrequency: 'daily' as const },
   { path: '/search', priority: 0.8, changeFrequency: 'daily' as const },
-  { path: '/register-business', priority: 0.6, changeFrequency: 'monthly' as const },
+  { path: '/signup-business', priority: 0.6, changeFrequency: 'monthly' as const },
   { path: '/help', priority: 0.3, changeFrequency: 'monthly' as const },
   { path: '/terms', priority: 0.2, changeFrequency: 'yearly' as const },
   { path: '/privacy', priority: 0.2, changeFrequency: 'yearly' as const },
