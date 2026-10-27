@@ -294,7 +294,7 @@ export const Header = () => {
                   />
                   <Tab
                     href="/setup-business"
-                    label="My Business"
+                    label="Setup Business"
                     icon={<Building2 className="w-5 h-5" />}
                     active={isActive("/setup-business")}
                   />
