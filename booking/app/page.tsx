@@ -94,7 +94,7 @@ export default function HomePage() {
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
             </Link>
             <Link
-              href="/register-business"
+              href="/signup-business"
               className="border border-border bg-card hover:bg-muted/50 text-foreground px-8 py-3 rounded-lg font-semibold transition w-fit"
             >
               For Business Owners
