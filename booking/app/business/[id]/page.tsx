@@ -223,9 +223,9 @@ export default async function PublicBusinessPage({ params }: PageProps) {
     const tabs = [
         description ? { id: 'overview', label: 'Overview' } : null,
         { id: 'services', label: 'Services' },
-        hours.length > 0 ? { id: 'hours', label: 'Hours' } : null,
+        !showBranches && hours.length > 0 ? { id: 'hours', label: 'Hours' } : null,
         showBranches ? { id: 'branches', label: 'Branches' } : null,
-        mapsHref ? { id: 'location', label: 'Location' } : null,
+        !showBranches && mapsHref ? { id: 'location', label: 'Location' } : null,
     ].filter(Boolean) as { id: string; label: string }[]
 
     return (
@@ -467,7 +467,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                             )}
                         </section>
 
-                        {hours.length > 0 && (
+                        {!showBranches && hours.length > 0 && (
                             <section id="hours" className="scroll-mt-24">
                                 <h2 className={`${fraunces.className} flex items-center gap-2 text-xl font-medium text-foreground mb-5`}>
                                     <Clock className="h-4 w-4" />
@@ -500,7 +500,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                             </section>
                         )}
 
-                        {mapsHref && (
+                        {!showBranches && mapsHref && (
                             <section id="location" className="scroll-mt-24">
                                 <h2 className={`${fraunces.className} text-xl font-medium text-foreground mb-5`}>Location</h2>
                                 <div className="space-y-3">
