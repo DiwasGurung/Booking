@@ -111,70 +111,109 @@ function Spinner({ size = 8 }: { size?: 8 | 12 }) {
   )
 }
 
-function BusinessHeaderContent({ business, branch }: { business: Business | null; branch: Branch | null }) {
+function BusinessHeader({ business, branch }: { business: Business | null; branch: Branch | null }) {
+  const [expanded, setExpanded] = useState(false)
+
   // When a branch is chosen, show ITS address and phone instead of the business's
   const phone = branch?.phone || business?.phone
   const location = branch
     ? [branch.address, branch.city].filter(Boolean).join(', ')
     : [business?.address, business?.city].filter(Boolean).join(', ')
 
+  const chip =
+    'inline-flex max-w-full items-center gap-1.5 rounded-full bg-secondary/60 px-3 py-1.5 text-xs sm:text-sm text-muted-foreground'
+
   return (
-    <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl shadow-sm ring-1 ring-border">
-        {typeof business?.logo === 'string' && business.logo ? (
-          <img src={business.logo} alt={business.name} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-primary/10">
-            <span className="text-lg font-semibold text-primary">{getInitials(business?.name || '')}</span>
-          </div>
+    <>
+      {/* Cover: its own block, nothing is positioned over it except the logo */}
+      <div className="relative h-32 w-full overflow-hidden bg-gradient-to-br from-primary/20 to-secondary sm:h-44 md:h-56">
+        {typeof business?.coverImage === 'string' && business.coverImage && (
+          <img
+            src={business.coverImage}
+            alt=""
+            className="h-full w-full object-cover object-center"
+          />
         )}
       </div>
 
-      <div className="flex-1 pt-2 sm:pt-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-            {business?.name || 'Book Your Appointment'}
-          </h1>
-          {business?.isVerified && (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold bg-primary/10 text-primary px-2 py-1 rounded-full">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Verified
-            </span>
-          )}
+      <div className="px-5 pb-6 sm:px-8">
+        {/* Logo overlaps the cover; name sits beside it (sm+) or below it (mobile) */}
+        <div className="-mt-10 flex flex-col gap-3 sm:-mt-12 sm:flex-row sm:items-end sm:gap-5">
+          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-card shadow-md ring-4 ring-card sm:h-24 sm:w-24">
+            {typeof business?.logo === 'string' && business.logo ? (
+              <img src={business.logo} alt={business.name} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-primary/10">
+                <span className="text-xl font-semibold text-primary">{getInitials(business?.name || '')}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="min-w-0 sm:pb-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="break-words text-xl font-bold leading-tight text-foreground sm:text-2xl md:text-3xl">
+                {business?.name || 'Book Your Appointment'}
+              </h1>
+              {business?.isVerified && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Verified
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
+        {/* Info chips wrap cleanly on any width */}
+        <div className="mt-4 flex flex-wrap gap-2">
           {business?.category && (
-            <span className="inline-flex items-center gap-1">
-              <Briefcase className="w-3.5 h-3.5" />
+            <span className={chip}>
+              <Briefcase className="h-3.5 w-3.5 shrink-0" />
               {business.category}
             </span>
           )}
           {branch && (
-            <span className="inline-flex items-center gap-1 font-medium text-foreground">
-              <Building2 className="w-3.5 h-3.5" />
+            <span className={`${chip} font-medium text-foreground`}>
+              <Building2 className="h-3.5 w-3.5 shrink-0" />
               {branch.name}
             </span>
           )}
           {phone && (
-            <span className="inline-flex items-center gap-1">
-              <Phone className="w-3.5 h-3.5" />
+            <a href={`tel:${phone}`} className={`${chip} hover:text-foreground`}>
+              <Phone className="h-3.5 w-3.5 shrink-0" />
               {phone}
-            </span>
+            </a>
           )}
           {location && (
-            <span className="inline-flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5" />
-              {location}
+            <span className={chip}>
+              <MapPin className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{location}</span>
             </span>
           )}
         </div>
 
         {business?.description && (
-          <p className="mt-3 text-sm text-muted-foreground max-w-2xl">{business.description}</p>
+          <div className="mt-4 max-w-2xl">
+            <p
+              className={`whitespace-pre-line break-words text-sm leading-relaxed text-muted-foreground ${
+                expanded ? '' : 'line-clamp-3 sm:line-clamp-4'
+              }`}
+            >
+              {business.description}
+            </p>
+            {business.description.length > 160 && (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-1 text-xs font-medium text-primary hover:underline"
+              >
+                {expanded ? 'Show less' : 'Read more'}
+              </button>
+            )}
+          </div>
         )}
       </div>
-    </div>
+    </>
   )
 }
 
@@ -187,7 +226,7 @@ function BookingPageContent() {
   const slug = params.slug as string
   const branchQuery = searchParams.get('branch')
 
-  /* ------------------------------- state ------------------------------- */
+
 
   const [businessId, setBusinessId] = useState('')
   const [resolving, setResolving] = useState(true)
@@ -953,7 +992,7 @@ function BookingPageContent() {
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
         <div className="mx-auto max-w-2xl text-center">
           <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-foreground mb-2">Business not found</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Business not found</h1>
           <p className="text-muted-foreground mb-6">This booking link is invalid or the business is inactive</p>
           <Button onClick={() => router.push('/search')}>Browse Businesses</Button>
         </div>
@@ -966,25 +1005,25 @@ function BookingPageContent() {
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8 flex items-center justify-center">
         <div className="mx-auto w-full max-w-2xl">
           <Card className="border border-border shadow-2xl">
-            <div className="p-8 md:p-12 text-center">
-              <div className="mb-8">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle2 className="w-12 h-12 text-primary" />
+            <div className="p-5 sm:p-8 md:p-12 text-center">
+              <div className="mb-6 sm:mb-8">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5 sm:mb-6">
+                  <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
                 </div>
-                <h1 className="text-4xl font-bold text-foreground mb-3">Booking Confirmed!</h1>
-                <p className="text-lg text-muted-foreground">Your appointment has been successfully booked</p>
+                <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">Booking Confirmed!</h1>
+                <p className="text-base sm:text-lg text-muted-foreground">Your appointment has been successfully booked</p>
               </div>
 
-              <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-xl p-8 mb-10 text-left">
-                <div className="space-y-5">
-                  <div className="flex items-start gap-3">
+              <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-xl p-5 sm:p-8 mb-8 sm:mb-10 text-left">
+                <div className="space-y-4 sm:space-y-5">
+                  <div className="flex items-start justify-between gap-3 sm:justify-start">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Business:</div>
-                    <div className="text-sm text-foreground">{business?.name || 'N/A'}</div>
+                    <div className="text-sm text-foreground text-right sm:text-left">{business?.name || 'N/A'}</div>
                   </div>
                   {selectedBranch && multi && (
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start justify-between gap-3 sm:justify-start">
                       <div className="text-sm font-semibold text-foreground min-w-fit">Location:</div>
-                      <div className="text-sm text-foreground">
+                      <div className="text-sm text-foreground text-right sm:text-left">
                         {selectedBranch.name}
                         <span className="block text-xs text-muted-foreground">
                           {[selectedBranch.address, selectedBranch.city].filter(Boolean).join(', ')}
@@ -992,20 +1031,20 @@ function BookingPageContent() {
                       </div>
                     </div>
                   )}
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start justify-between gap-3 sm:justify-start">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Service:</div>
-                    <div className="text-sm text-foreground">{selectedService?.name || 'N/A'}</div>
+                    <div className="text-sm text-foreground text-right sm:text-left">{selectedService?.name || 'N/A'}</div>
                   </div>
                   {selectedStaff && (
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start justify-between gap-3 sm:justify-start">
                       <div className="text-sm font-semibold text-foreground min-w-fit">Staff:</div>
-                      <div className="text-sm text-foreground">{selectedStaff.firstName} {selectedStaff.lastName}</div>
+                      <div className="text-sm text-foreground text-right sm:text-left">{selectedStaff.firstName} {selectedStaff.lastName}</div>
                     </div>
                   )}
                   <div className="h-px bg-border my-1"></div>
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start justify-between gap-3 sm:justify-start">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Date:</div>
-                    <div className="text-sm text-foreground">
+                    <div className="text-sm text-foreground text-right sm:text-left">
                       {DateTime.fromISO(date + 'T00:00:00', { zone: BUSINESS_TZ }).setLocale('en').toLocaleString({
                         weekday: 'long',
                         year: 'numeric',
@@ -1014,7 +1053,7 @@ function BookingPageContent() {
                       })}
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start justify-between gap-3 sm:justify-start">
                     <div className="text-sm font-semibold text-foreground min-w-fit">Time:</div>
                     <div className="text-sm text-foreground font-medium">{getDisplayTime(selectedTime || '')}</div>
                   </div>
@@ -1032,7 +1071,7 @@ function BookingPageContent() {
               </div>
 
               <div className="pt-6 border-t border-border">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground break-words">
                   A confirmation has been sent to <span className="font-semibold text-foreground">{customerEmail}</span>
                 </p>
               </div>
@@ -1044,28 +1083,14 @@ function BookingPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 px-3 py-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-3xl">
-        <div className="mb-10">
+        <div className="mb-6 sm:mb-10">
           <Card className="overflow-hidden border border-border shadow-lg">
-            {business?.coverImage ? (
-              <>
-                <div
-                  className="h-32 md:h-40 w-full bg-cover bg-center"
-                  style={{ backgroundImage: `url(${business.coverImage})` }}
-                />
-                <div className="px-6 md:px-8 pb-6 -mt-12">
-                  <BusinessHeaderContent business={business} branch={selectedBranch} />
-                </div>
-              </>
-            ) : (
-              <div className="px-6 md:px-8 py-6">
-                <BusinessHeaderContent business={business} branch={selectedBranch} />
-              </div>
-            )}
+            <BusinessHeader business={business} branch={selectedBranch} />
           </Card>
 
-          <p className="text-center text-sm text-muted-foreground mt-4">
+          <p className="mt-4 px-2 text-center text-sm text-muted-foreground">
             {multi
               ? 'Select a location, service, date, staff (optional) and time'
               : 'Select a service, date, staff (optional) and time'}
@@ -1074,15 +1099,15 @@ function BookingPageContent() {
 
         {error && (
           <Card className="border border-destructive/50 bg-destructive/5 mb-6">
-            <div className="p-4 flex items-center gap-3">
-              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-              <p className="text-foreground">{error}</p>
+            <div className="p-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+              <p className="text-sm sm:text-base text-foreground break-words">{error}</p>
             </div>
           </Card>
         )}
 
         <Card className="border border-border shadow-lg">
-          <div className="p-8 md:p-10">
+          <div className="p-4 sm:p-6 md:p-10">
             {/* Step 1 (multi-branch only): Location */}
             {multi && (
               <div className="mb-8">
@@ -1092,7 +1117,7 @@ function BookingPageContent() {
                 </label>
 
                 {selectedBranch ? (
-                  <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 flex items-center justify-between gap-3">
+                  <div className="p-4 rounded-xl border-2 border-primary bg-primary/5 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <div className="font-semibold text-sm">{selectedBranch.name}</div>
                       <div className="text-xs text-muted-foreground truncate">
@@ -1108,13 +1133,13 @@ function BookingPageContent() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {branches.map((b) => (
                       <button
                         key={b.id}
                         type="button"
                         onClick={() => chooseBranch(b)}
-                        className="p-4 rounded-lg border-2 text-left transition-all bg-card text-foreground border-border hover:border-primary"
+                        className="p-4 rounded-xl border-2 text-left transition-all bg-card text-foreground border-border hover:border-primary"
                       >
                         <div className="font-semibold">{b.name}</div>
                         <div className="mt-1 flex items-center gap-1 text-xs opacity-75">
@@ -1152,31 +1177,48 @@ function BookingPageContent() {
                     No services available
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {services.map((service) => (
-                      <button
-                        key={service.id}
-                        onClick={() => chooseService(service)}
-                        className={`p-4 rounded-lg border-2 text-left transition-all ${
-                          selectedService?.id === service.id
-                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                            : 'bg-card text-foreground border-border hover:border-primary'
-                        }`}
-                      >
-                        <div className="font-semibold">{service.name}</div>
-                        {service.description && <div className="text-sm opacity-75 mt-1">{service.description}</div>}
-                        <div className="flex justify-between items-center mt-2 text-xs opacity-75">
-                          <span>{service.duration} mins</span>
-                          <span className="font-semibold">
-                            {service.offerPrice ? (
-                              <><span className="line-through">Rs.{service.price.toFixed(2)}</span> Rs.{service.offerPrice.toFixed(2)}</>
-                            ) : (
-                              `Rs.${service.price.toFixed(2)}`
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {services.map((service) => {
+                      const selected = selectedService?.id === service.id
+                      return (
+                        <button
+                          key={service.id}
+                          type="button"
+                          onClick={() => chooseService(service)}
+                          className={`flex h-full flex-col items-stretch justify-between gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                            selected
+                              ? 'border-primary bg-primary text-primary-foreground shadow-md'
+                              : 'border-border bg-card text-foreground hover:border-primary'
+                          }`}
+                        >
+                          <div>
+                            <div className="font-semibold leading-snug">{service.name}</div>
+                            {service.description && (
+                              <div className="mt-1 line-clamp-2 text-sm opacity-75">{service.description}</div>
                             )}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+                          </div>
+
+                          <div className="flex items-end justify-between gap-3 text-xs">
+                            <span className="inline-flex items-center gap-1 opacity-75">
+                              <Clock className="h-3.5 w-3.5" />
+                              {service.duration} mins
+                            </span>
+                            <span className="whitespace-nowrap text-right text-sm font-semibold">
+                              {service.offerPrice ? (
+                                <>
+                                  <span className="mr-1.5 text-xs font-normal line-through opacity-60">
+                                    Rs.{service.price.toFixed(2)}
+                                  </span>
+                                  Rs.{service.offerPrice.toFixed(2)}
+                                </>
+                              ) : (
+                                `Rs.${service.price.toFixed(2)}`
+                              )}
+                            </span>
+                          </div>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -1206,15 +1248,15 @@ function BookingPageContent() {
                   </button>
 
                   {dateCalendarOpen && (
-                    <div className="absolute z-20 mt-2 w-72 rounded-lg border border-border bg-card shadow-lg p-3">
+                    <div className="absolute left-0 z-20 mt-2 w-full max-w-sm rounded-xl border border-border bg-card shadow-lg p-3 sm:w-80">
                       <div className="flex items-center justify-between mb-2">
-                        <button type="button" onClick={goToPrevMonth} className="p-1 rounded hover:bg-muted">
+                        <button type="button" onClick={goToPrevMonth} className="p-2 rounded hover:bg-muted" aria-label="Previous month">
                           <ChevronLeft className="w-4 h-4" />
                         </button>
                         <span className="text-sm font-semibold">
                           {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                         </span>
-                        <button type="button" onClick={goToNextMonth} className="p-1 rounded hover:bg-muted">
+                        <button type="button" onClick={goToNextMonth} className="p-2 rounded hover:bg-muted" aria-label="Next month">
                           <ChevronRight className="w-4 h-4" />
                         </button>
                       </div>
@@ -1241,7 +1283,7 @@ function BookingPageContent() {
                               disabled={disabled}
                               title={disabled ? reason : undefined}
                               onClick={() => !disabled && selectDate(dateStr)}
-                              className={`h-8 w-8 mx-auto flex items-center justify-center rounded-md text-sm transition-colors ${
+                              className={`mx-auto flex aspect-square w-full max-w-10 items-center justify-center rounded-md text-sm transition-colors ${
                                 disabled
                                   ? 'text-muted-foreground/40 cursor-not-allowed line-through'
                                   : date === dateStr
@@ -1263,8 +1305,8 @@ function BookingPageContent() {
                 </div>
 
                 {closedReason && (
-                  <div className="flex items-center justify-center py-6 border border-input rounded-md bg-amber-50 border-amber-200 mt-4">
-                    <AlertCircle className="w-4 h-4 mr-2 text-amber-600" />
+                  <div className="flex items-center justify-center px-4 py-5 border rounded-md bg-amber-50 border-amber-200 mt-4 text-center">
+                    <AlertCircle className="w-4 h-4 mr-2 text-amber-600 flex-shrink-0" />
                     <span className="text-sm text-amber-600">{closedReason || 'Business is closed'}</span>
                   </div>
                 )}
@@ -1280,29 +1322,30 @@ function BookingPageContent() {
                 </label>
 
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                     {staffMembers.map((staff) => (
                       <button
                         key={staff.id}
+                        type="button"
                         onClick={() => {
                           if (selectedStaff?.id === staff.id) return
                           setSelectedStaff(staff)
                           setSelectedTime(null)
                         }}
-                        className={`p-4 rounded-lg border-2 text-center transition-all ${
+                        className={`rounded-xl border-2 p-3 text-center transition-all sm:p-4 ${
                           selectedStaff?.id === staff.id
                             ? 'bg-primary text-primary-foreground border-primary shadow-md'
                             : 'bg-card text-foreground border-border hover:border-primary'
                         }`}
                       >
-                        <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-2">
+                        <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-2 overflow-hidden">
                           {staff.avatar ? (
                             <img src={staff.avatar || '/placeholder.svg'} alt={staff.firstName} className="w-12 h-12 rounded-full object-cover" />
                           ) : (
                             <User className="w-6 h-6" />
                           )}
                         </div>
-                        <div className="font-semibold text-sm">{staff.firstName} {staff.lastName}</div>
+                        <div className="font-semibold text-sm break-words">{staff.firstName} {staff.lastName}</div>
                         <div className="text-xs opacity-75 mt-1">{staff.role}</div>
                       </button>
                     ))}
@@ -1310,11 +1353,12 @@ function BookingPageContent() {
 
                   {selectedStaff && (
                     <button
+                      type="button"
                       onClick={() => {
                         setSelectedStaff(null)
                         setSelectedTime(null)
                       }}
-                      className="w-full py-2 px-4 rounded-lg border-2 border-border hover:border-primary text-sm font-medium transition-all text-muted-foreground hover:text-foreground"
+                      className="w-full rounded-lg border-2 border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:border-primary hover:text-foreground"
                     >
                       Clear selection (system will auto-assign any available staff)
                     </button>
@@ -1329,15 +1373,15 @@ function BookingPageContent() {
                   <User className="w-4 h-4 text-primary" />
                   Staff
                 </label>
-                <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-secondary/50 flex items-center justify-center flex-shrink-0">
+                <div className="p-4 rounded-xl border-2 border-primary bg-primary/5 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-secondary/50 flex items-center justify-center flex-shrink-0 overflow-hidden">
                     {staffMembers[0].avatar ? (
                       <img src={staffMembers[0].avatar} alt={staffMembers[0].firstName} className="w-10 h-10 rounded-full object-cover" />
                     ) : (
                       <User className="w-5 h-5" />
                     )}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="font-semibold text-sm">{staffMembers[0].firstName} {staffMembers[0].lastName}</div>
                     <div className="text-xs text-muted-foreground">{staffMembers[0].role} · only staff for this service</div>
                   </div>
@@ -1358,21 +1402,22 @@ function BookingPageContent() {
                     <Spinner />
                   </div>
                 ) : availableSlots.length === 0 ? (
-                  <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
+                  <div className="bg-secondary/40 border border-border rounded-lg p-4 sm:p-6 flex items-start gap-2 text-sm">
                     <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                    No available slots for this date{selectedStaff ? ` with ${selectedStaff.firstName}` : ''}
+                    <span>No available slots for this date{selectedStaff ? ` with ${selectedStaff.firstName}` : ''}</span>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {availableSlots.map((slot, idx) => {
                       const isPast = !isSlotInFuture(date, slot)
                       return (
                         <button
                           key={idx}
+                          type="button"
                           onClick={() => !isPast && setSelectedTime(slot)}
                           disabled={isPast}
                           title={isPast ? 'This time has already passed' : undefined}
-                          className={`p-3 rounded-lg border-2 text-sm font-medium transition-all ${
+                          className={`rounded-lg border-2 px-1 py-2.5 text-xs font-medium transition-all sm:p-3 sm:text-sm ${
                             isPast
                               ? 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
                               : selectedTime === slot
@@ -1391,7 +1436,7 @@ function BookingPageContent() {
 
             {/* Customer Info */}
             {branchReady && selectedService && date && selectedTime && (
-              <div className="mb-8 p-6 bg-secondary/20 rounded-lg border border-border">
+              <div className="mb-8 p-4 sm:p-6 bg-secondary/20 rounded-xl border border-border">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-foreground">{n(5)}. Your Information</h3>
                   {user && <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Verified</span>}
@@ -1426,7 +1471,7 @@ function BookingPageContent() {
                     />
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-foreground mb-1">Phone Number *</label>
+                    <label className="text-sm font-medium text-foreground mb-1 block">Phone Number *</label>
                     <Input
                       type="tel"
                       inputMode="numeric"
@@ -1434,7 +1479,7 @@ function BookingPageContent() {
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                       maxLength={10}
-                      className="bg-background border-border text-foreground"
+                      className="h-11 bg-background border-border text-foreground"
                       required
                     />
                     {customerPhone.length > 0 && customerPhone.length !== 10 && (
@@ -1454,41 +1499,41 @@ function BookingPageContent() {
 
             {/* Summary */}
             {branchReady && selectedService && date && selectedTime && (
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 mb-8">
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 sm:p-6 mb-8">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="font-semibold text-foreground mb-3">Booking Summary</p>
                     <div className="space-y-2 text-sm">
                       {multi && selectedBranch && (
-                        <div className="flex justify-between">
+                        <div className="flex justify-between gap-4">
                           <span className="text-muted-foreground">Location:</span>
-                          <span className="font-medium">{selectedBranch.name}</span>
+                          <span className="font-medium text-right">{selectedBranch.name}</span>
                         </div>
                       )}
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">Service:</span>
-                        <span className="font-medium">{selectedService.name}</span>
+                        <span className="font-medium text-right">{selectedService.name}</span>
                       </div>
                       {selectedStaff && (
-                        <div className="flex justify-between">
+                        <div className="flex justify-between gap-4">
                           <span className="text-muted-foreground">Staff:</span>
-                          <span className="font-medium">{selectedStaff.firstName} {selectedStaff.lastName}</span>
+                          <span className="font-medium text-right">{selectedStaff.firstName} {selectedStaff.lastName}</span>
                         </div>
                       )}
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">Date:</span>
-                        <span className="font-medium">{new Date(date + 'T00:00:00').toLocaleDateString()}</span>
+                        <span className="font-medium text-right">{new Date(date + 'T00:00:00').toLocaleDateString()}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">Time:</span>
-                        <span className="font-medium">{formatTimeSlot(selectedTime)}</span>
+                        <span className="font-medium text-right">{formatTimeSlot(selectedTime)}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">Duration:</span>
-                        <span className="font-medium">{selectedService.duration} min</span>
+                        <span className="font-medium text-right">{selectedService.duration} min</span>
                       </div>
-                      <div className="flex justify-between pt-2 border-t border-primary/20">
+                      <div className="flex justify-between gap-4 pt-2 border-t border-primary/20">
                         <span className="text-muted-foreground">Price:</span>
                         <span className="font-bold text-primary">Rs.{(selectedService.offerPrice || selectedService.price).toFixed(2)}</span>
                       </div>
@@ -1500,16 +1545,16 @@ function BookingPageContent() {
 
             {/* Actions */}
             {branchReady && selectedService && date && selectedTime && (
-              <div className="flex gap-3">
+              <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                <Button onClick={() => setSelectedTime(null)} variant="outline" className="h-12 px-6" disabled={submitting}>
+                  Clear
+                </Button>
                 <Button
                   onClick={handleConfirmBooking}
                   disabled={submitting || !customerName || !customerEmail || !customerPhone}
-                  className="flex-1 h-12 bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="h-12 flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   {submitting ? 'Confirming...' : 'Confirm Booking'}
-                </Button>
-                <Button onClick={() => setSelectedTime(null)} variant="outline" className="px-6 h-12" disabled={submitting}>
-                  Clear
                 </Button>
               </div>
             )}
@@ -1520,15 +1565,16 @@ function BookingPageContent() {
       {/* Phone verification modal */}
       {showVerificationModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="verification-title"
           aria-describedby="verification-desc"
         >
-          <Card className="relative w-full max-w-md border border-border shadow-2xl">
-            <div className="p-8 text-center">
+          <Card className="relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-b-none border border-border shadow-2xl sm:rounded-b-xl">
+            <div className="p-5 text-center sm:p-8">
               <button
+                type="button"
                 onClick={() => {
                   setShowVerificationModal(false)
                   router.replace(bookPath(business?.slug ?? slug, selectedBranch))
@@ -1539,20 +1585,20 @@ function BookingPageContent() {
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
-                <Mail className="w-8 h-8 text-primary" />
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 sm:mb-5">
+                <Mail className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
               </div>
 
-              <h2 id="verification-title" className="text-2xl font-bold text-foreground mb-2">
+              <h2 id="verification-title" className="text-xl sm:text-2xl font-bold text-foreground mb-2">
                 Verify your Phone Number
               </h2>
               <p id="verification-desc" className="text-sm text-muted-foreground mb-1">
                 Your appointment is <span className="font-semibold text-foreground">pending confirmation</span>. We&apos;ve sent a verification code to
               </p>
-              <p className="text-sm font-semibold text-foreground mb-6 break-all">{customerPhone}</p>
+              <p className="text-sm font-semibold text-foreground mb-5 sm:mb-6 break-all">{customerPhone}</p>
 
-              <div className="rounded-lg border border-border bg-secondary/30 p-4 mb-6" aria-live="polite">
-                <div className="mt-2 space-y-3">
+              <div className="rounded-lg border border-border bg-secondary/30 p-3 sm:p-4 mb-5 sm:mb-6" aria-live="polite">
+                <div className="space-y-3">
                   <Input
                     type="text"
                     inputMode="numeric"
@@ -1567,7 +1613,7 @@ function BookingPageContent() {
               </div>
 
               {bookingId && (
-                <p className="text-xs text-muted-foreground mb-6">
+                <p className="text-xs text-muted-foreground mb-5 sm:mb-6 break-all">
                   Booking reference: <code className="font-mono text-foreground">{bookingId}</code>
                 </p>
               )}
