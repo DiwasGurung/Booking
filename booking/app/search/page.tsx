@@ -17,15 +17,17 @@ function getInitials(name: string) {
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
   return (words[0][0] + words[1][0]).toUpperCase()
 }
-
+type BusinessWithBranches = Business & {
+  branches?: { id: string; name: string; address: string; city: string }[]
+}
 function SearchPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { refreshUser } = useAuth()
   const { loading: authLoading } = useRoleProtection({ requiredRole: 'CUSTOMER' })
   const [query, setQuery] = useState('')
-  const [businesses, setBusinesses] = useState<Business[]>([])
-  const [filteredBusinesses, setFilteredBusinesses] = useState<Business[]>([])
+  const [businesses, setBusinesses] = useState<BusinessWithBranches[]>([])
+const [filteredBusinesses, setFilteredBusinesses] = useState<BusinessWithBranches[]>([])
   const [loading, setLoading] = useState(true)
   const [searched, setSearched] = useState(false)
   // Filter state
@@ -84,12 +86,17 @@ function SearchPageContent() {
       const lowerQuery = query.trim().toLowerCase()
       const text = (value: unknown) => String(value ?? '').toLowerCase()
       filtered = filtered.filter(b =>
-        text(b.name).includes(lowerQuery) ||
-        text(b.category).includes(lowerQuery) ||
-        text(b.description).includes(lowerQuery) ||
-        text(b.city).includes(lowerQuery) ||
-        text(b.address).includes(lowerQuery)
-      )
+  text(b.name).includes(lowerQuery) ||
+  text(b.category).includes(lowerQuery) ||
+  text(b.description).includes(lowerQuery) ||
+  text(b.city).includes(lowerQuery) ||
+  text(b.address).includes(lowerQuery) ||
+  (b.branches ?? []).some(br =>
+    text(br.name).includes(lowerQuery) ||
+    text(br.city).includes(lowerQuery) ||
+    text(br.address).includes(lowerQuery)
+  )
+)
     }
 
     // Apply category filter
@@ -231,6 +238,16 @@ function SearchPageContent() {
                           <span className="line-clamp-2">{[business.address, business.city].filter(Boolean).join(', ')}</span>
                         </div>
                       ) : null}
+                      {(business.branches?.length ?? 0) > 1 && (
+  <div className="flex items-start gap-3">
+    <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+    <span className="line-clamp-2">
+      {business.branches!.length} branches
+      {' · '}
+      {Array.from(new Set(business.branches!.map(br => br.city).filter(Boolean))).join(', ')}
+    </span>
+  </div>
+)}
                       {business.phone ? (
                         <div className="flex items-center gap-3">
                           <Phone className="h-4 w-4 shrink-0 text-primary" />

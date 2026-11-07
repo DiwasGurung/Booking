@@ -14,6 +14,18 @@ async function getOwnedBusiness(req) {
         include: { subscription: { include: { plan: true } }, _count: { select: { branches: true } } },
     });
 }
+function parseCoords(lat, lng) {
+    const has = (v) => v !== undefined && v !== null && v !== '';
+    if (has(lat) !== has(lng))
+        return { error: 'Pick a location on the map or remove the pin' };
+    if (!has(lat))
+        return { latitude: null, longitude: null };
+    const la = Number(lat), lo = Number(lng);
+    if (!Number.isFinite(la) || !Number.isFinite(lo) || la < -90 || la > 90 || lo < -180 || lo > 180) {
+        return { error: 'Invalid map location' };
+    }
+    return { latitude: la, longitude: lo };
+}
 class BranchController {
     async publicList(req, res) {
         const businessId = req.params.businessId;
@@ -35,7 +47,14 @@ class BranchController {
         res.json({
             success: true,
             data: branches,
-            limit: business.subscription?.plan?.maxBranches ?? 1,
+            limit: business.subscription?.plan?.maxBranches ?? 1, select: {
+                id: true, name: true, address: true, city: true, state: true, phone: true,
+                latitude: true, longitude: true, isMain: true,
+                hours: {
+                    select: { dayOfWeek: true, openTime: true, closeTime: true, isClosed: true },
+                    orderBy: { dayOfWeek: 'asc' },
+                },
+            },
         });
     }
     async create(req, res) {
@@ -55,9 +74,12 @@ class BranchController {
             if (!name || !address || !city) {
                 return res.status(400).json({ success: false, message: 'name, address and city are required' });
             }
+            const coords = parseCoords(latitude, longitude);
+            if ('error' in coords)
+                return res.status(400).json({ success: false, message: coords.error });
             const slug = await (0, branch_1.generateBranchSlug)(prisma_1.default, business.id, name);
             const branch = await prisma_1.default.branch.create({
-                data: { businessId: business.id, name, slug, phone, address, city, state, latitude, longitude },
+                data: { businessId: business.id, name, slug, phone, address, city, state, ...coords },
             });
             res.status(201).json({ success: true, data: branch });
         }
@@ -74,9 +96,16 @@ class BranchController {
         if (!existing)
             return res.status(404).json({ success: false, message: 'Branch not found' });
         const { name, phone, address, city, state, latitude, longitude, isActive } = req.body;
+        let coords = {};
+        if ('latitude' in req.body || 'longitude' in req.body) {
+            const parsed = parseCoords(latitude, longitude);
+            if ('error' in parsed)
+                return res.status(400).json({ success: false, message: parsed.error });
+            coords = parsed;
+        }
         const branch = await prisma_1.default.branch.update({
             where: { id },
-            data: { name, phone, address, city, state, latitude, longitude, isActive },
+            data: { name, phone, address, city, state, isActive, ...coords },
         });
         res.json({ success: true, data: branch });
     }

@@ -192,6 +192,11 @@ class BusinessService {
                     longitude: true,
                     createdAt: true,
                     slug: true,
+                    branches: {
+                        where: { isActive: true },
+                        orderBy: [{ isMain: 'desc' }, { createdAt: 'asc' }],
+                        select: { id: true, name: true, address: true, city: true },
+                    },
                 },
                 orderBy: { createdAt: "desc" },
             }),
