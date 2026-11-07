@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import { Suspense, useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState, useRef, JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal } from 'react'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/card'
@@ -123,22 +123,26 @@ function BusinessHeader({ business, branch }: { business: Business | null; branc
   const chip =
     'inline-flex max-w-full items-center gap-1.5 rounded-full bg-secondary/60 px-3 py-1.5 text-xs sm:text-sm text-muted-foreground'
 
+  // Paragraphs for the expanded view; one flowing line of text for the collapsed preview
+  const paragraphs = (business?.description ?? '').split(/\n+/).map((p: string) => p.trim()).filter(Boolean)
+  const isLong = (business?.description?.length ?? 0) > 160 || paragraphs.length > 2
+
   return (
     <>
-      {/* Cover: its own block, nothing is positioned over it except the logo */}
-      <div className="relative h-32 w-full overflow-hidden bg-gradient-to-br from-primary/20 to-secondary sm:h-44 md:h-56">
+      {/* Cover: fixed 3:1 ratio so the whole banner is always visible, never cropped by a fixed height */}
+      <div className="relative w-full overflow-hidden bg-gradient-to-br from-primary/20 to-secondary aspect-[2.2/1] sm:aspect-[3/1]">
         {typeof business?.coverImage === 'string' && business.coverImage && (
           <img
             src={business.coverImage}
             alt=""
-            className="h-full w-full object-cover object-center"
+            className="absolute inset-0 h-full w-full object-cover object-center"
           />
         )}
       </div>
 
       <div className="px-5 pb-6 sm:px-8">
-        {/* Logo overlaps the cover; name sits beside it (sm+) or below it (mobile) */}
-        <div className="-mt-10 flex flex-col gap-3 sm:-mt-12 sm:flex-row sm:items-end sm:gap-5">
+        {/* z-10 + relative keeps the logo ABOVE the cover; without it the cover paints over the logo */}
+        <div className="relative z-10 -mt-10 flex flex-col gap-3 sm:-mt-12 sm:flex-row sm:items-end sm:gap-5">
           <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-card shadow-md ring-4 ring-card sm:h-24 sm:w-24">
             {typeof business?.logo === 'string' && business.logo ? (
               <img src={business.logo} alt={business.name} className="h-full w-full object-cover" />
@@ -149,7 +153,7 @@ function BusinessHeader({ business, branch }: { business: Business | null; branc
             )}
           </div>
 
-          <div className="min-w-0 sm:pb-1">
+          <div className="min-w-0 sm:pb-2">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="break-words text-xl font-bold leading-tight text-foreground sm:text-2xl md:text-3xl">
                 {business?.name || 'Book Your Appointment'}
@@ -192,16 +196,20 @@ function BusinessHeader({ business, branch }: { business: Business | null; branc
           )}
         </div>
 
-        {business?.description && (
+        {paragraphs.length > 0 && (
           <div className="mt-4 max-w-2xl">
-            <p
-              className={`whitespace-pre-line break-words text-sm leading-relaxed text-muted-foreground ${
-                expanded ? '' : 'line-clamp-3 sm:line-clamp-4'
-              }`}
-            >
-              {business.description}
-            </p>
-            {business.description.length > 160 && (
+            {expanded ? (
+              <div className="space-y-2 break-words text-sm leading-relaxed text-muted-foreground">
+                {paragraphs.map((p: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined, i: Key | null | undefined) => (
+                  <p key={i}>{p}</p>
+                ))}
+              </div>
+            ) : (
+              <p className="line-clamp-3 break-words text-sm leading-relaxed text-muted-foreground">
+                {paragraphs.join(' ')}
+              </p>
+            )}
+            {isLong && (
               <button
                 type="button"
                 onClick={() => setExpanded((v) => !v)}
@@ -226,7 +234,7 @@ function BookingPageContent() {
   const slug = params.slug as string
   const branchQuery = searchParams.get('branch')
 
-
+  /* ------------------------------- state ------------------------------- */
 
   const [businessId, setBusinessId] = useState('')
   const [resolving, setResolving] = useState(true)
@@ -1004,7 +1012,7 @@ function BookingPageContent() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8 flex items-center justify-center">
         <div className="mx-auto w-full max-w-2xl">
-          <Card className="border border-border shadow-2xl">
+          <Card className="gap-0 py-0 border border-border shadow-2xl">
             <div className="p-5 sm:p-8 md:p-12 text-center">
               <div className="mb-6 sm:mb-8">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5 sm:mb-6">
@@ -1086,7 +1094,7 @@ function BookingPageContent() {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 px-3 py-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-3xl">
         <div className="mb-6 sm:mb-10">
-          <Card className="overflow-hidden border border-border shadow-lg">
+          <Card className="gap-0 py-0 overflow-hidden border border-border shadow-lg">
             <BusinessHeader business={business} branch={selectedBranch} />
           </Card>
 
@@ -1098,7 +1106,7 @@ function BookingPageContent() {
         </div>
 
         {error && (
-          <Card className="border border-destructive/50 bg-destructive/5 mb-6">
+          <Card className="gap-0 py-0 border border-destructive/50 bg-destructive/5 mb-6">
             <div className="p-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
               <p className="text-sm sm:text-base text-foreground break-words">{error}</p>
@@ -1106,7 +1114,7 @@ function BookingPageContent() {
           </Card>
         )}
 
-        <Card className="border border-border shadow-lg">
+        <Card className="gap-0 py-0 border border-border shadow-lg">
           <div className="p-4 sm:p-6 md:p-10">
             {/* Step 1 (multi-branch only): Location */}
             {multi && (
@@ -1571,7 +1579,7 @@ function BookingPageContent() {
           aria-labelledby="verification-title"
           aria-describedby="verification-desc"
         >
-          <Card className="relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-b-none border border-border shadow-2xl sm:rounded-b-xl">
+          <Card className="gap-0 py-0 relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-b-none border border-border shadow-2xl sm:rounded-b-xl">
             <div className="p-5 text-center sm:p-8">
               <button
                 type="button"
