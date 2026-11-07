@@ -13,7 +13,7 @@ import {
     ArrowUpRight,
     CalendarCheck,
 } from 'lucide-react'
-import { businessApi, servicesApi, branchApi, type Business, type Service } from '@/lib/api'
+import { businessApi, servicesApi, type Business, type Service } from '@/lib/api'
 import { OpenStatus } from '@/components/OpenStatus'
 import { HoursTable } from '@/components/HoursTable'
 import { BusinessMap } from '@/components/BusinessMap'
@@ -29,8 +29,9 @@ interface BusinessHour {
 }
 
 type BusinessDetail = Business & {
-    hours?: BusinessHour[]
+    hours?: (BusinessHour & { branchId?: string | null })[]
     services?: (Service & { isActive?: boolean })[]
+    branches?: PublicBranch[]
     latitude?: number | string | null
     longitude?: number | string | null
 }
@@ -45,7 +46,6 @@ interface PublicBranch {
     latitude?: number | string | null
     longitude?: number | string | null
     isMain: boolean
-    hours?: BusinessHour[]
 }
 
 interface PageProps {
@@ -61,16 +61,6 @@ async function getBusiness(id: string): Promise<BusinessDetail | null> {
 async function getServices(businessId: string): Promise<Service[]> {
     const res = await servicesApi.getActiveServices(businessId)
     return Array.isArray(res.data) ? res.data : []
-}
-
-// Active branches for the public page. Never let a branch failure break the business page.
-async function getBranches(businessId: string): Promise<PublicBranch[]> {
-    try {
-        const res = await branchApi.publicList(businessId)
-        return Array.isArray(res.data) ? (res.data as PublicBranch[]) : []
-    } catch {
-        return []
-    }
 }
 
 function getInitials(name: string) {
@@ -161,7 +151,8 @@ export default async function PublicBusinessPage({ params }: PageProps) {
     const business = await getBusiness(id)
     if (!business) notFound()
 
-    const branches = await getBranches(business.id)
+    // Branches and hours both come from getPublicBusinessById
+    const branches = business.branches ?? []
     // A single branch is just the main location already shown on this page.
     const showBranches = branches.length > 1
 
@@ -177,7 +168,17 @@ export default async function PublicBusinessPage({ params }: PageProps) {
     const website = typeof business.website === 'string' ? business.website : undefined
     const rating = typeof business.rating === 'number' && business.rating > 0 ? business.rating : undefined
 
-    const hours = [...(business.hours || [])].sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+    const allHours = business.hours ?? []
+    const byDay = (a: BusinessHour, b: BusinessHour) => a.dayOfWeek - b.dayOfWeek
+    const mainBranch = branches.find((b) => b.isMain)
+
+    // With several branches, the main Hours section shows the main branch's hours
+    // (plus any legacy rows with no branch). Otherwise show everything.
+    const hours = [
+        ...(showBranches
+            ? allHours.filter((h) => !h.branchId || h.branchId === mainBranch?.id)
+            : allHours),
+    ].sort(byDay)
 
     const lat = toCoord(business.latitude, -90, 90)
     const lng = toCoord(business.longitude, -180, 180)
@@ -194,7 +195,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
             lat: bLat,
             lng: bLng,
             hasCoords: bLat !== null && bLng !== null,
-            sortedHours: [...(b.hours ?? [])].sort((x, y) => x.dayOfWeek - y.dayOfWeek),
+            sortedHours: allHours.filter((h) => h.branchId === b.id).sort(byDay),
             directionsHref: getDirectionsHref(name, b.address, b.city, bLat, bLng),
         }
     })
