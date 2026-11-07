@@ -13,10 +13,11 @@ import {
     ArrowUpRight,
     CalendarCheck,
 } from 'lucide-react'
-import { businessApi, servicesApi, type Business, type Service } from '@/lib/api'
+import { businessApi, servicesApi, type Business, type Service, type Branch } from '@/lib/api'
 import { OpenStatus } from '@/components/OpenStatus'
 import { HoursTable } from '@/components/HoursTable'
 import { BusinessMap } from '@/components/BusinessMap'
+import { BranchExplorer } from '@/components/BranchExplorer'
 
 const fraunces = Fraunces({ subsets: ['latin'], weight: ['400', '500', '600'] })
 const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600'] })
@@ -31,21 +32,8 @@ interface BusinessHour {
 type BusinessDetail = Business & {
     hours?: (BusinessHour & { branchId?: string | null })[]
     services?: (Service & { isActive?: boolean })[]
-    branches?: PublicBranch[]
     latitude?: number | string | null
     longitude?: number | string | null
-}
-
-interface PublicBranch {
-    id: string
-    name: string
-    address: string
-    city: string
-    state?: string | null
-    phone?: string | null
-    latitude?: number | string | null
-    longitude?: number | string | null
-    isMain: boolean
 }
 
 interface PageProps {
@@ -152,7 +140,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
     if (!business) notFound()
 
     // Branches and hours both come from getPublicBusinessById
-    const branches = business.branches ?? []
+    const branches: Branch[] = business.branches ?? []
     // A single branch is just the main location already shown on this page.
     const showBranches = branches.length > 1
 
@@ -493,67 +481,22 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                         {showBranches && (
                             <section id="branches" className="scroll-mt-24">
                                 <h2 className={`${fraunces.className} text-xl font-medium text-foreground mb-5`}>Branches</h2>
-                                <div className="space-y-6">
-                                    {branchViews.map((b) => (
-                                        <div key={b.id} className="rounded-xl border border-border p-5 space-y-4">
-                                            <div className="flex flex-wrap items-start justify-between gap-3">
-                                                <div className="min-w-0">
-                                                    <h3 className="font-medium text-foreground">
-                                                        {b.name}
-                                                        {b.isMain && (
-                                                            <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                                                                Main
-                                                            </span>
-                                                        )}
-                                                    </h3>
-                                                    {(b.address || b.city) && (
-                                                        <p className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
-                                                            <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-                                                            {[b.address, b.city].filter(Boolean).join(', ')}
-                                                        </p>
-                                                    )}
-                                                    {b.phone && (
-                                                        <a
-                                                            href={`tel:${b.phone}`}
-                                                            className="mt-1 inline-flex items-center gap-1.5 text-sm text-foreground hover:text-primary transition-colors"
-                                                        >
-                                                            <Phone className="h-4 w-4 text-primary" />
-                                                            {b.phone}
-                                                        </a>
-                                                    )}
-                                                    {b.sortedHours.length > 0 && (
-                                                        <div className="mt-2 text-sm">
-                                                            <OpenStatus hours={b.sortedHours} />
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <Link
-                                                    href={`/book/${business.id}?branch=${b.id}`}
-                                                    className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
-                                                >
-                                                    <CalendarCheck className="h-4 w-4" />
-                                                    Book here
-                                                </Link>
-                                            </div>
-
-                                            {b.hasCoords && <BusinessMap lat={b.lat!} lng={b.lng!} />}
-
-                                            {b.directionsHref && (
-                                                <a
-                                                    href={b.directionsHref}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-                                                >
-                                                    Get directions <ArrowUpRight className="h-3.5 w-3.5" />
-                                                </a>
-                                            )}
-
-                                            {b.sortedHours.length > 0 && <HoursTable hours={b.sortedHours} />}
-                                        </div>
-                                    ))}
-                                </div>
+                                <BranchExplorer
+                                    headingClassName={fraunces.className}
+                                    branches={branchViews.map((b) => ({
+                                        id: b.id,
+                                        name: b.name,
+                                        address: b.address,
+                                        city: b.city,
+                                        phone: b.phone ?? null,
+                                        isMain: b.isMain,
+                                        lat: b.lat,
+                                        lng: b.lng,
+                                        directionsHref: b.directionsHref,
+                                        bookHref: `/book/${business.id}?branch=${b.id}`,
+                                        hours: b.sortedHours,
+                                    }))}
+                                />
                             </section>
                         )}
 
@@ -561,7 +504,11 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                             <section id="location" className="scroll-mt-24">
                                 <h2 className={`${fraunces.className} text-xl font-medium text-foreground mb-5`}>Location</h2>
                                 <div className="space-y-3">
-                                    {hasCoords && <BusinessMap lat={lat!} lng={lng!} />}
+                                    {hasCoords && (
+                                        <div className="relative z-0 overflow-hidden rounded-2xl" style={{ isolation: 'isolate' }}>
+                                            <BusinessMap lat={lat!} lng={lng!} />
+                                        </div>
+                                    )}
                                     <div className="flex items-start justify-between gap-4 rounded-xl border border-border p-4">
                                         <p className="text-sm text-muted-foreground">{[address, city].filter(Boolean).join(', ')}</p>
                                         <a
