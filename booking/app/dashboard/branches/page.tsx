@@ -11,32 +11,53 @@ import { Input } from '@/components/ui/Input'
 import { Label } from '@/components/ui/label'
 import { branchApi, type Branch } from '@/lib/api'
 import { useBranches } from '@/context/branchContext'
+import dynamic from 'next/dynamic'
 
-const EMPTY = { name: '', phone: '', address: '', city: '', state: '' }
+
+const LocationPicker = dynamic(() => import('@/components/LocationPicker'), {
+  ssr: false,
+  loading: () => <div className="h-80 w-full animate-pulse rounded-xl bg-muted" />,
+})
+
 
 export default function BranchesPage() {
   const { branches, limit, loading, refresh } = useBranches()
   const [editing, setEditing] = useState<Branch | null>(null)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState(EMPTY)
+
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const atLimit = limit !== -1 && branches.length >= limit
+  const EMPTY: BranchForm = { name: '', phone: '', address: '', city: '', state: '', latitude: null, longitude: null }
 
   const openNew = () => { setEditing(null); setForm(EMPTY); setShowForm(true); setError(null) }
-  const openEdit = (b: Branch) => {
-    setEditing(b)
-    setForm({ name: b.name, phone: b.phone ?? '', address: b.address, city: b.city, state: b.state ?? '' })
-    setShowForm(true)
-    setError(null)
+  type BranchForm = {
+  name: string; phone: string; address: string; city: string; state: string
+  latitude: number | null; longitude: number | null
   }
+
+const [form, setForm] = useState<BranchForm>(EMPTY)
+
+const openEdit = (b: Branch) => {
+  setEditing(b)
+  setForm({
+    name: b.name, phone: b.phone ?? '', address: b.address, city: b.city, state: b.state ?? '',
+    latitude: b.latitude ?? null, longitude: b.longitude ?? null,
+  })
+  setShowForm(true)
+  setError(null)
+}
 
   const save = async () => {
     if (!form.name || !form.address || !form.city) {
       setError('Name, address and city are required')
       return
     }
+    if ((form.latitude == null) !== (form.longitude == null)) {
+  setError('Pick a location on the map or remove the pin')
+  return
+}
     setSaving(true)
     setError(null)
     const res = editing ? await branchApi.update(editing.id, form) : await branchApi.create(form)
@@ -98,6 +119,16 @@ export default function BranchesPage() {
                 </div>
               ))}
             </div>
+            <div className="md:col-span-2">
+  <Label>Branch Location</Label>
+  <p className="mt-1 mb-3 text-xs text-muted-foreground">
+    Customers use this pin to get directions to this branch.
+  </p>
+  <LocationPicker
+    value={form.latitude != null && form.longitude != null ? { lat: form.latitude, lng: form.longitude } : null}
+    onChange={(p) => setForm({ ...form, latitude: p?.lat ?? null, longitude: p?.lng ?? null })}
+  />
+</div>
             <div className="mt-6 flex gap-2">
               <Button onClick={save} disabled={saving}>
                 {saving ? <><Loader className="w-4 h-4 mr-2 animate-spin" />Saving...</> : 'Save Branch'}
@@ -126,6 +157,9 @@ export default function BranchesPage() {
                 <p className="mt-3 flex items-center gap-2 text-sm text-slate-600">
                   <MapPin className="w-4 h-4 text-slate-400" />{b.address}, {b.city}
                 </p>
+                {b.latitude != null && b.longitude != null && (
+  <p className="mt-1 text-xs text-green-700">Map pin set</p>
+)} 
                 {b.phone && (
                   <p className="mt-1 flex items-center gap-2 text-sm text-slate-600">
                     <Phone className="w-4 h-4 text-slate-400" />{b.phone}
