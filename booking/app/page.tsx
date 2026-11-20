@@ -90,7 +90,7 @@ export default function HomePage() {
               href="/search"
               className="group bg-primary text-primary-foreground px-8 py-3 rounded-lg font-semibold flex items-center gap-2 hover:opacity-90 transition w-fit"
             >
-              Start Booking Today
+              Explore Businesses
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
             </Link>
             <Link

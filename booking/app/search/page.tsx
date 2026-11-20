@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Search, MapPin, Phone, Globe, Loader, AlertCircle, Building2, Briefcase } from 'lucide-react'
 import { businessApi, type Business } from '@/lib/api'
-import { useRoleProtection } from '@/hooks/useRoleProtection'
 import Link from 'next/link'
 
 function getInitials(name: string) {
@@ -22,7 +21,6 @@ function SearchPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { refreshUser } = useAuth()
-  const { loading: authLoading } = useRoleProtection({ requiredRole: 'CUSTOMER' })
   const [query, setQuery] = useState('')
   const [businesses, setBusinesses] = useState<Business[]>([])
   const [filteredBusinesses, setFilteredBusinesses] = useState<Business[]>([])
