@@ -817,9 +817,14 @@ export const businessApi = {
       body: JSON.stringify(data),
     }),
 
-  // Get all businesses
-  getAll: () =>
-    apiCall<Business[]>('/api/businesses'),
+  getAll: (params?: { page?: number; limit?: number; category?: string }) => {
+  const q = new URLSearchParams()
+  if (params?.page) q.set('page', String(params.page))
+  if (params?.limit) q.set('limit', String(params.limit))
+  if (params?.category) q.set('category', params.category)
+  const qs = q.toString()
+  return apiCall<Business[]>(`/api/businesses${qs ? `?${qs}` : ''}`)
+},
 
   // Search businesses
   searchBusinesses: (query: string, limit = 10) =>

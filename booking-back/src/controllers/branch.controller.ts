@@ -11,7 +11,18 @@ async function getOwnedBusiness(req: Request) {
     include: { subscription: { include: { plan: true } }, _count: { select: { branches: true } } },
   })
 }
-
+function parseCoords(lat: unknown, lng: unknown):
+  | { latitude: number | null; longitude: number | null }
+  | { error: string } {
+  const has = (v: unknown) => v !== undefined && v !== null && v !== ''
+  if (has(lat) !== has(lng)) return { error: 'Pick a location on the map or remove the pin' }
+  if (!has(lat)) return { latitude: null, longitude: null }
+  const la = Number(lat), lo = Number(lng)
+  if (!Number.isFinite(la) || !Number.isFinite(lo) || la < -90 || la > 90 || lo < -180 || lo > 180) {
+    return { error: 'Invalid map location' }
+  }
+  return { latitude: la, longitude: lo }
+}
 class BranchController {
 
     async publicList(req: Request, res: Response) {
@@ -33,7 +44,14 @@ class BranchController {
     res.json({
       success: true,
       data: branches,
-      limit: business.subscription?.plan?.maxBranches ?? 1,
+      limit: business.subscription?.plan?.maxBranches ?? 1,select: {
+  id: true, name: true, address: true, city: true, state: true, phone: true,
+  latitude: true, longitude: true, isMain: true,
+  hours: {
+    select: { dayOfWeek: true, openTime: true, closeTime: true, isClosed: true },
+    orderBy: { dayOfWeek: 'asc' },
+  },
+},
     })
   }
 
@@ -52,15 +70,16 @@ class BranchController {
       }
 
       const { name, phone, address, city, state, latitude, longitude } = req.body
-      if (!name || !address || !city) {
-        return res.status(400).json({ success: false, message: 'name, address and city are required' })
-      }
+if (!name || !address || !city) {
+  return res.status(400).json({ success: false, message: 'name, address and city are required' })
+}
+const coords = parseCoords(latitude, longitude)
+if ('error' in coords) return res.status(400).json({ success: false, message: coords.error })
 
-      const slug = await generateBranchSlug(prisma, business.id, name)
-
-      const branch = await prisma.branch.create({
-        data: { businessId: business.id, name, slug, phone, address, city, state, latitude, longitude },
-      })
+const slug = await generateBranchSlug(prisma, business.id, name)
+const branch = await prisma.branch.create({
+  data: { businessId: business.id, name, slug, phone, address, city, state, ...coords },
+})
       res.status(201).json({ success: true, data: branch })
     } catch (e: any) {
       res.status(500).json({ success: false, message: e.message })
@@ -74,12 +93,19 @@ class BranchController {
     const id = req.params.id as string
     const existing = await prisma.branch.findFirst({ where: { id, businessId: business.id } })
     if (!existing) return res.status(404).json({ success: false, message: 'Branch not found' })
+const { name, phone, address, city, state, latitude, longitude, isActive } = req.body
 
-    const { name, phone, address, city, state, latitude, longitude, isActive } = req.body
-    const branch = await prisma.branch.update({
-      where: { id },
-      data: { name, phone, address, city, state, latitude, longitude, isActive },
-    })
+let coords = {}
+if ('latitude' in req.body || 'longitude' in req.body) {
+  const parsed = parseCoords(latitude, longitude)
+  if ('error' in parsed) return res.status(400).json({ success: false, message: parsed.error })
+  coords = parsed
+}
+
+const branch = await prisma.branch.update({
+  where: { id },
+  data: { name, phone, address, city, state, isActive, ...coords },
+})
     res.json({ success: true, data: branch })
   }
 

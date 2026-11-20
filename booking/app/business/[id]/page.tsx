@@ -13,10 +13,11 @@ import {
     ArrowUpRight,
     CalendarCheck,
 } from 'lucide-react'
-import { businessApi, servicesApi, type Business, type Service } from '@/lib/api'
+import { businessApi, servicesApi, type Business, type Service, type Branch } from '@/lib/api'
 import { OpenStatus } from '@/components/OpenStatus'
 import { HoursTable } from '@/components/HoursTable'
 import { BusinessMap } from '@/components/BusinessMap'
+import { BranchExplorer } from '@/components/BranchExplorer'
 
 const fraunces = Fraunces({ subsets: ['latin'], weight: ['400', '500', '600'] })
 const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600'] })
@@ -29,7 +30,7 @@ interface BusinessHour {
 }
 
 type BusinessDetail = Business & {
-    hours?: BusinessHour[]
+    hours?: (BusinessHour & { branchId?: string | null })[]
     services?: (Service & { isActive?: boolean })[]
     latitude?: number | string | null
     longitude?: number | string | null
@@ -60,6 +61,25 @@ function getInitials(name: string) {
 function toCoord(v: unknown, min: number, max: number): number | null {
     const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN
     return Number.isFinite(n) && n >= min && n <= max ? n : null
+}
+
+// Directions link: exact pin when available, otherwise a text search on the address.
+function getDirectionsHref(
+    name: string,
+    address: string,
+    city: string,
+    lat: number | null,
+    lng: number | null
+): string | undefined {
+    if (lat !== null && lng !== null) {
+        return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+    }
+    if (address || city) {
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+            [name, address, city].filter(Boolean).join(', ')
+        )}`
+    }
+    return undefined
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -119,6 +139,11 @@ export default async function PublicBusinessPage({ params }: PageProps) {
     const business = await getBusiness(id)
     if (!business) notFound()
 
+    // Branches and hours both come from getPublicBusinessById
+    const branches: Branch[] = business.branches ?? []
+    // A single branch is just the main location already shown on this page.
+    const showBranches = branches.length > 1
+
     const services = (business.services ?? []).filter((s) => s.isActive !== false)
 
     const name = String(business.name)
@@ -131,17 +156,37 @@ export default async function PublicBusinessPage({ params }: PageProps) {
     const website = typeof business.website === 'string' ? business.website : undefined
     const rating = typeof business.rating === 'number' && business.rating > 0 ? business.rating : undefined
 
-    const hours = [...(business.hours || [])].sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+    const allHours = business.hours ?? []
+    const byDay = (a: BusinessHour, b: BusinessHour) => a.dayOfWeek - b.dayOfWeek
+    const mainBranch = branches.find((b) => b.isMain)
+
+    // With several branches, the main Hours section shows the main branch's hours
+    // (plus any legacy rows with no branch). Otherwise show everything.
+    const hours = [
+        ...(showBranches
+            ? allHours.filter((h) => !h.branchId || h.branchId === mainBranch?.id)
+            : allHours),
+    ].sort(byDay)
 
     const lat = toCoord(business.latitude, -90, 90)
     const lng = toCoord(business.longitude, -180, 180)
     const hasCoords = lat !== null && lng !== null
 
-    const mapsHref = hasCoords
-        ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
-        : address || city
-            ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([name, address, city].filter(Boolean).join(', '))}`
-            : undefined
+    const mapsHref = getDirectionsHref(name, address, city, lat, lng)
+
+    // Branch data with validated coordinates and sorted hours, computed once
+    const branchViews = branches.map((b) => {
+        const bLat = toCoord(b.latitude, -90, 90)
+        const bLng = toCoord(b.longitude, -180, 180)
+        return {
+            ...b,
+            lat: bLat,
+            lng: bLng,
+            hasCoords: bLat !== null && bLng !== null,
+            sortedHours: allHours.filter((h) => h.branchId === b.id).sort(byDay),
+            directionsHref: getDirectionsHref(name, b.address, b.city, bLat, bLng),
+        }
+    })
 
     const jsonLd: Record<string, any> = {
         '@context': 'https://schema.org',
@@ -158,13 +203,29 @@ export default async function PublicBusinessPage({ params }: PageProps) {
         aggregateRating: rating
             ? { '@type': 'AggregateRating', ratingValue: rating, bestRating: 5 }
             : undefined,
+        department: showBranches
+            ? branchViews.map((b) => ({
+                '@type': 'LocalBusiness',
+                name: `${name} – ${b.name}`,
+                telephone: b.phone || undefined,
+                address: {
+                    '@type': 'PostalAddress',
+                    streetAddress: b.address || undefined,
+                    addressLocality: b.city || undefined,
+                },
+                geo: b.hasCoords
+                    ? { '@type': 'GeoCoordinates', latitude: b.lat, longitude: b.lng }
+                    : undefined,
+            }))
+            : undefined,
     }
 
     const tabs = [
         description ? { id: 'overview', label: 'Overview' } : null,
         { id: 'services', label: 'Services' },
-        hours.length > 0 ? { id: 'hours', label: 'Hours' } : null,
-        mapsHref ? { id: 'location', label: 'Location' } : null,
+        !showBranches && hours.length > 0 ? { id: 'hours', label: 'Hours' } : null,
+        showBranches ? { id: 'branches', label: 'Branches' } : null,
+        !showBranches && mapsHref ? { id: 'location', label: 'Location' } : null,
     ].filter(Boolean) as { id: string; label: string }[]
 
     return (
@@ -245,6 +306,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                                             {rating.toFixed(1)}
                                         </span>
                                     )}
+                                    {showBranches && <span>{branches.length} branches</span>}
                                     {hours.length > 0 && <OpenStatus hours={hours} />}
                                 </div>
 
@@ -267,8 +329,8 @@ export default async function PublicBusinessPage({ params }: PageProps) {
 
                         <div className="mt-5 flex flex-wrap gap-2">
                             {business.phone && (
-
-                                <a href={`tel:${business.phone}`}
+                                <a
+                                    href={`tel:${business.phone}`}
                                     className="inline-flex items-center gap-1.5 rounded-lg border border-background/20 px-3 py-1.5 text-sm text-background/80 hover:bg-background/10 hover:text-background transition-colors"
                                 >
                                     <Phone className="h-3.5 w-3.5" />
@@ -276,8 +338,8 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                                 </a>
                             )}
                             {mapsHref && (
-
-                                <a href={mapsHref}
+                                <a
+                                    href={mapsHref}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-1.5 rounded-lg border border-background/20 px-3 py-1.5 text-sm text-background/80 hover:bg-background/10 hover:text-background transition-colors"
@@ -287,8 +349,8 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                                 </a>
                             )}
                             {website && (
-
-                                <a href={website}
+                                <a
+                                    href={website}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-1.5 rounded-lg border border-background/20 px-3 py-1.5 text-sm text-background/80 hover:bg-background/10 hover:text-background transition-colors"
@@ -307,8 +369,8 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                 <div className="sticky top-0 z-30 mt-8 border-b border-border bg-background/95 backdrop-blur-sm">
                     <div className="mx-auto max-w-5xl px-4 md:px-8 flex gap-7 overflow-x-auto">
                         {tabs.map((t) => (
-
-                            <a key={t.id}
+                            <a
+                                key={t.id}
                                 href={`#${t.id}`}
                                 className="whitespace-nowrap py-3.5 text-sm text-muted-foreground hover:text-foreground border-b-2 border-transparent hover:border-primary transition-colors"
                             >
@@ -335,8 +397,8 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                                     {business.phone && (
                                         <div className="flex items-center gap-3">
                                             <Phone className="h-4 w-4 text-primary shrink-0" />
-
-                                            <a href={`tel:${business.phone}`}
+                                            <a
+                                                href={`tel:${business.phone}`}
                                                 className="text-sm text-foreground hover:text-primary transition-colors"
                                             >
                                                 {business.phone}
@@ -346,8 +408,8 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                                     {website && (
                                         <div className="flex items-center gap-3">
                                             <Globe className="h-4 w-4 text-primary shrink-0" />
-
-                                            <a href={website}
+                                            <a
+                                                href={website}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-sm text-foreground hover:text-primary transition-colors truncate"
@@ -405,7 +467,7 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                             )}
                         </section>
 
-                        {hours.length > 0 && (
+                        {!showBranches && hours.length > 0 && (
                             <section id="hours" className="scroll-mt-24">
                                 <h2 className={`${fraunces.className} flex items-center gap-2 text-xl font-medium text-foreground mb-5`}>
                                     <Clock className="h-4 w-4" />
@@ -415,15 +477,42 @@ export default async function PublicBusinessPage({ params }: PageProps) {
                             </section>
                         )}
 
-                        {mapsHref && (
+                        {/* Branches — only when the business has more than one */}
+                        {showBranches && (
+                            <section id="branches" className="scroll-mt-24">
+                                <h2 className={`${fraunces.className} text-xl font-medium text-foreground mb-5`}>Branches</h2>
+                                <BranchExplorer
+                                    headingClassName={fraunces.className}
+                                    branches={branchViews.map((b) => ({
+                                        id: b.id,
+                                        name: b.name,
+                                        address: b.address,
+                                        city: b.city,
+                                        phone: b.phone ?? null,
+                                        isMain: b.isMain,
+                                        lat: b.lat,
+                                        lng: b.lng,
+                                        directionsHref: b.directionsHref,
+                                        bookHref: `/book/${business.id}?branch=${b.id}`,
+                                        hours: b.sortedHours,
+                                    }))}
+                                />
+                            </section>
+                        )}
+
+                        {!showBranches && mapsHref && (
                             <section id="location" className="scroll-mt-24">
                                 <h2 className={`${fraunces.className} text-xl font-medium text-foreground mb-5`}>Location</h2>
                                 <div className="space-y-3">
-                                    {hasCoords && <BusinessMap lat={lat!} lng={lng!} />}
+                                    {hasCoords && (
+                                        <div className="relative z-0 overflow-hidden rounded-2xl" style={{ isolation: 'isolate' }}>
+                                            <BusinessMap lat={lat!} lng={lng!} />
+                                        </div>
+                                    )}
                                     <div className="flex items-start justify-between gap-4 rounded-xl border border-border p-4">
                                         <p className="text-sm text-muted-foreground">{[address, city].filter(Boolean).join(', ')}</p>
-
-                                        <a href={mapsHref}
+                                        <a
+                                            href={mapsHref}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="inline-flex items-center gap-1 flex-shrink-0 text-sm font-medium text-primary hover:underline"
