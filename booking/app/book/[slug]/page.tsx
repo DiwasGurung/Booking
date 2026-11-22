@@ -1,13 +1,13 @@
 'use client'
 
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import { Suspense, useCallback, useEffect, useMemo, useState, useRef, JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState, useRef, type RefObject } from 'react'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/card'
 import {
-  Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, User, Mail, X,
-  ChevronLeft, ChevronRight, Calendar as CalendarIcon, MapPin, Phone, Building2,
+  Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, User, Phone, X, Check, Info,
+  ChevronLeft, ChevronRight, MapPin, Building2, CalendarPlus, type LucideIcon,
 } from 'lucide-react'
 import { servicesApi, bookingsApi, businessApi, staffApi, type Service, type Business, type Staff, type Branch } from '@/lib/api'
 import { useAuth } from '@/context/authContext'
@@ -18,7 +18,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || ''
 // NEXT_PUBLIC_ prefix is required for env vars to exist in client components
 const BUSINESS_TZ = process.env.NEXT_PUBLIC_BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
 
-const VERIFICATION_COUNTDOWN = 10
 const SLOTS_CACHE_TTL_MS = 60_000
 
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -26,6 +25,8 @@ const DAY_LABELS: Record<string, string> = {
   sunday: 'Sunday', monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday',
   thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday',
 }
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 interface DaySchedule {
   start: string
@@ -87,6 +88,21 @@ const formatTimeSlot = (slot: string): string => {
 
 const getDisplayTime = (slot: string): string => (slot ? formatTimeSlot(slot) : 'N/A')
 
+// 1000 -> "Rs. 1,000", 1250.5 -> "Rs. 1,250.5"
+const formatPrice = (value: number): string =>
+  `Rs. ${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+// Scrolls to the first ref that is mounted, after React has rendered the next step
+const scrollToFirst = (...refs: RefObject<HTMLElement | null>[]) => {
+  window.setTimeout(() => {
+    const el = refs.map((r) => r.current).find(Boolean)
+    el?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' })
+  }, 120)
+}
+
 const getNormalizedWorkingHours = (staffData: any): Record<string, DaySchedule> | null => {
   let raw = staffData?.workingHours
   if (!raw) return null
@@ -104,10 +120,75 @@ const getNormalizedWorkingHours = (staffData: any): Record<string, DaySchedule> 
 function Spinner({ size = 8 }: { size?: 8 | 12 }) {
   return (
     <div
+      role="status"
+      aria-label="Loading"
       className={`animate-spin rounded-full border-2 border-primary border-t-transparent ${
         size === 12 ? 'h-12 w-12' : 'h-8 w-8'
       }`}
     />
+  )
+}
+
+// One consistent header for every step: numbered badge that turns into a check when done
+function StepHeader({
+  id, number, icon: Icon, title, done, optional,
+}: {
+  id?: string
+  number: number
+  icon: LucideIcon
+  title: string
+  done?: boolean
+  optional?: boolean
+}) {
+  return (
+    <div className="mb-4 flex items-center gap-3">
+      <span
+        aria-hidden="true"
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+          done
+            ? 'bg-primary text-primary-foreground'
+            : 'border-2 border-primary/40 text-primary'
+        }`}
+      >
+        {done ? <Check className="h-4 w-4" /> : number}
+      </span>
+      <h2 id={id} className="flex items-center gap-2 text-base font-semibold text-foreground">
+        <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+        {title}
+        {optional && <span className="text-xs font-normal text-muted-foreground">(optional)</span>}
+      </h2>
+    </div>
+  )
+}
+
+function Section({
+  sectionRef, labelledBy, children,
+}: {
+  sectionRef?: RefObject<HTMLElement | null>
+  labelledBy?: string
+  children: React.ReactNode
+}) {
+  return (
+    <section
+      ref={sectionRef as RefObject<HTMLElement>}
+      aria-labelledby={labelledBy}
+      className="scroll-mt-4 border-b border-border py-7 first:pt-0 last:border-b-0 last:pb-0"
+    >
+      {children}
+    </section>
+  )
+}
+
+function ErrorAlert({ message, innerRef }: { message: string; innerRef?: RefObject<HTMLDivElement | null> }) {
+  return (
+    <div
+      ref={innerRef as RefObject<HTMLDivElement>}
+      role="alert"
+      className="flex items-start gap-3 rounded-xl border border-destructive/50 bg-destructive/5 p-4"
+    >
+      <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+      <p className="break-words text-sm text-foreground sm:text-base">{message}</p>
+    </div>
   )
 }
 
@@ -123,14 +204,16 @@ function BusinessHeader({ business, branch }: { business: Business | null; branc
   const chip =
     'inline-flex max-w-full items-center gap-1.5 rounded-full bg-secondary/60 px-3 py-1.5 text-xs sm:text-sm text-muted-foreground'
 
-  // Paragraphs for the expanded view; one flowing line of text for the collapsed preview
-  const paragraphs = (business?.description ?? '').split(/\n+/).map((p: string) => p.trim()).filter(Boolean)
+  const paragraphs: string[] = (business?.description ?? '')
+    .split(/\n+/)
+    .map((p: string) => p.trim())
+    .filter(Boolean)
   const isLong = (business?.description?.length ?? 0) > 160 || paragraphs.length > 2
 
   return (
     <>
-      {/* Cover: fixed 3:1 ratio so the whole banner is always visible, never cropped by a fixed height */}
-      <div className="relative w-full overflow-hidden bg-gradient-to-br from-primary/20 to-secondary aspect-[2.2/1] sm:aspect-[3/1]">
+      {/* Cover: fixed ratio so the whole banner is always visible */}
+      <div className="relative aspect-[2.2/1] w-full overflow-hidden bg-gradient-to-br from-primary/20 to-secondary sm:aspect-[3/1]">
         {typeof business?.coverImage === 'string' && business.coverImage && (
           <img
             src={business.coverImage}
@@ -141,7 +224,7 @@ function BusinessHeader({ business, branch }: { business: Business | null; branc
       </div>
 
       <div className="px-5 pb-6 sm:px-8">
-        {/* z-10 + relative keeps the logo ABOVE the cover; without it the cover paints over the logo */}
+        {/* z-10 + relative keeps the logo ABOVE the cover */}
         <div className="relative z-10 -mt-10 flex flex-col gap-3 sm:-mt-12 sm:flex-row sm:items-end sm:gap-5">
           <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-card shadow-md ring-4 ring-card sm:h-24 sm:w-24">
             {typeof business?.logo === 'string' && business.logo ? (
@@ -156,11 +239,11 @@ function BusinessHeader({ business, branch }: { business: Business | null; branc
           <div className="min-w-0 sm:pb-2">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="break-words text-xl font-bold leading-tight text-foreground sm:text-2xl md:text-3xl">
-                {business?.name || 'Book Your Appointment'}
+                {business?.name || 'Book your appointment'}
               </h1>
               {business?.isVerified && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
-                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                   Verified
                 </span>
               )}
@@ -168,29 +251,28 @@ function BusinessHeader({ business, branch }: { business: Business | null; branc
           </div>
         </div>
 
-        {/* Info chips wrap cleanly on any width */}
         <div className="mt-4 flex flex-wrap gap-2">
           {business?.category && (
             <span className={chip}>
-              <Briefcase className="h-3.5 w-3.5 shrink-0" />
+              <Briefcase className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               {business.category}
             </span>
           )}
           {branch && (
             <span className={`${chip} font-medium text-foreground`}>
-              <Building2 className="h-3.5 w-3.5 shrink-0" />
+              <Building2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               {branch.name}
             </span>
           )}
           {phone && (
             <a href={`tel:${phone}`} className={`${chip} hover:text-foreground`}>
-              <Phone className="h-3.5 w-3.5 shrink-0" />
+              <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               {phone}
             </a>
           )}
           {location && (
             <span className={chip}>
-              <MapPin className="h-3.5 w-3.5 shrink-0" />
+              <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               <span className="truncate">{location}</span>
             </span>
           )}
@@ -200,7 +282,7 @@ function BusinessHeader({ business, branch }: { business: Business | null; branc
           <div className="mt-4 max-w-2xl">
             {expanded ? (
               <div className="space-y-2 break-words text-sm leading-relaxed text-muted-foreground">
-                {paragraphs.map((p: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined, i: Key | null | undefined) => (
+                {paragraphs.map((p, i) => (
                   <p key={i}>{p}</p>
                 ))}
               </div>
@@ -213,6 +295,7 @@ function BusinessHeader({ business, branch }: { business: Business | null; branc
               <button
                 type="button"
                 onClick={() => setExpanded((v) => !v)}
+                aria-expanded={expanded}
                 className="mt-1 text-xs font-medium text-primary hover:underline"
               >
                 {expanded ? 'Show less' : 'Read more'}
@@ -252,8 +335,6 @@ function BookingPageContent() {
   const selectedBranch = branches.find((b) => b.id === branchId) ?? null
   // A single-location business has nothing to choose, so it is always "ready"
   const branchReady = !multi || !!branchId
-  // Step numbering shifts by one when the location step is shown
-  const n = (i: number) => i + (multi ? 1 : 0)
 
   // Staff state
   const [staffMembers, setStaffMembers] = useState<Staff[]>([])
@@ -285,7 +366,6 @@ function BookingPageContent() {
 
   // Verification modal state
   const [showVerificationModal, setShowVerificationModal] = useState(false)
-  const [, setCountdown] = useState(VERIFICATION_COUNTDOWN)
   const [verificationCode, setVerificationCode] = useState('')
   const [sendingCode, setSendingCode] = useState(false)
   const [verifyingCode, setVerifyingCode] = useState(false)
@@ -294,6 +374,7 @@ function BookingPageContent() {
 
   // Calendar state
   const [dateCalendarOpen, setDateCalendarOpen] = useState(false)
+  const [dateHint, setDateHint] = useState<string | null>(null) // why a tapped day is unavailable (works on touch)
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date()
     d.setDate(1)
@@ -309,6 +390,16 @@ function BookingPageContent() {
 
   const staffRequestId = useRef(0)
   const staffCache = useRef(new Map<string, Staff[]>())
+
+  // Scroll targets for the guided flow
+  const serviceRef = useRef<HTMLElement>(null)
+  const dateRef = useRef<HTMLElement>(null)
+  const staffRef = useRef<HTMLElement>(null)
+  const timeRef = useRef<HTMLElement>(null)
+  const infoRef = useRef<HTMLElement>(null)
+  const bottomErrorRef = useRef<HTMLDivElement>(null)
+
+  const modalRef = useRef<HTMLDivElement>(null)
 
   /* ------------------------------ derived data ---------------------------- */
 
@@ -343,6 +434,14 @@ function BookingPageContent() {
     selectedService && date ? `${branchId}|${selectedService.id}|${date}|${selectedStaff?.id ?? ''}` : ''
   const slotsLoading = !!slotsKey && (staffLoading || slotsFor !== slotsKey)
 
+  const phoneValid = customerPhone.length === 10
+  const emailValid = EMAIL_RE.test(customerEmail)
+  const nameValid = customerName.trim().length > 0
+  const detailsValid = nameValid && emailValid && phoneValid
+
+  // A booking that exists but has not been phone-verified yet
+  const pendingVerification = !!bookingId && !bookingSuccess && !showVerificationModal
+
   /* ------------------------- date availability logic ---------------------- */
 
   const getDateDisabledInfo = useCallback(
@@ -352,7 +451,7 @@ function BookingPageContent() {
       const dateStr = formatDateStr(d)
       const todayStr = todayInTz()
 
-      if (dateStr < todayStr) return { disabled: true, reason: 'Past date' }
+      if (dateStr < todayStr) return { disabled: true, reason: 'This date has already passed' }
 
       if (closedDates.has(dateStr)) {
         return { disabled: true, reason: closedDates.get(dateStr) || 'Business is closed' }
@@ -390,11 +489,17 @@ function BookingPageContent() {
     const year = calendarMonth.getFullYear()
     const month = calendarMonth.getMonth()
     const daysInMonth = new Date(year, month + 1, 0).getDate()
-    const list: { day: number; dateStr: string; disabled: boolean; reason?: string }[] = []
+    const list: { day: number; dateStr: string; label: string; disabled: boolean; reason?: string }[] = []
     for (let day = 1; day <= daysInMonth; day++) {
       const cellDate = new Date(year, month, day)
       const { disabled, reason } = getDateDisabledInfo(cellDate)
-      list.push({ day, dateStr: formatDateStr(cellDate), disabled, reason })
+      list.push({
+        day,
+        dateStr: formatDateStr(cellDate),
+        label: cellDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+        disabled,
+        reason,
+      })
     }
     return list
   }, [dateCalendarOpen, calendarMonth, getDateDisabledInfo])
@@ -423,6 +528,22 @@ function BookingPageContent() {
     return list.find((b) => b.slug?.toLowerCase() === v || b.id === q)
   }
 
+  // Which steps are on screen decides their numbers, so numbering never skips
+  const showStaffPicker = branchReady && !!selectedService && !!date && staffMembers.length > 1 && !closedReason
+  const showStaffSingle = branchReady && !!selectedService && !!date && staffMembers.length === 1 && !closedReason
+  const showTime = branchReady && !!selectedService && !!date && !closedReason
+  const showDetails = branchReady && !!selectedService && !!date && !!selectedTime
+
+  let stepCounter = 0
+  const stepLocation = multi ? ++stepCounter : 0
+  const stepService = ++stepCounter
+  const stepDate = ++stepCounter
+  const stepStaff = showStaffPicker ? ++stepCounter : 0
+  const stepTime = ++stepCounter
+  const stepInfo = ++stepCounter
+
+  const finalPrice = selectedService ? selectedService.offerPrice || selectedService.price : 0
+
   /* -------------------------------- loaders ------------------------------- */
 
   const loadBusinessData = async () => {
@@ -443,8 +564,8 @@ function BookingPageContent() {
       setBusiness(biz)
       setBusinessId(biz.id)
 
-      // Pick the branch: a single branch is chosen silently; with several, a
-      // valid ?branch= deep link preselects it, otherwise the picker is shown.
+      // A single branch is chosen silently; with several, a valid ?branch=
+      // deep link preselects it, otherwise the picker is shown.
       const list: Branch[] = biz.branches ?? []
       if (list.length === 1) {
         setBranchId(list[0].id)
@@ -472,7 +593,7 @@ function BookingPageContent() {
         setServices(svc)
       }
     } catch (err) {
-      setError('Failed to load business information. Please try again.')
+      setError('We could not load this business. Check your connection and try again.')
     } finally {
       setServicesLoading(false)
       setResolving(false)
@@ -583,13 +704,13 @@ function BookingPageContent() {
         finish(slots)
       } else {
         lastSlotsKey.current = ''
-        setError(response.error || 'Unable to load available slots')
+        setError(response.error || 'We could not load the available times. Try again.')
         finish([])
       }
     } catch (err) {
       if (isStale()) return
       lastSlotsKey.current = ''
-      setError('Failed to load available slots')
+      setError('We could not load the available times. Try again.')
       finish([])
     }
   }
@@ -650,7 +771,7 @@ function BookingPageContent() {
       setDate('')
       setSelectedTime(null)
       setClosedReason(null)
-      setError(reason || 'Please choose a different date for this staff member')
+      setError(reason || 'Choose a different date for this staff member')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStaff])
@@ -660,7 +781,7 @@ function BookingPageContent() {
       const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim()
       setCustomerName(fullName)
       setCustomerEmail(user.email || '')
-      setCustomerPhone(user.phone || '')
+      setCustomerPhone((user.phone || '').replace(/\D/g, '').slice(-10))
     }
   }, [user])
 
@@ -693,33 +814,56 @@ function BookingPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotsKey, staffLoading])
 
+  // Lock page scroll while the modal is open
   useEffect(() => {
     if (!showVerificationModal) return
-
-    setCountdown(VERIFICATION_COUNTDOWN)
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [showVerificationModal])
-
-  useEffect(() => {
-    if (showVerificationModal) {
-      const original = document.body.style.overflow
-      document.body.style.overflow = 'hidden'
-      return () => {
-        document.body.style.overflow = original
-      }
+    const original = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = original
     }
   }, [showVerificationModal])
 
+  // Modal: move focus in, close on Escape, keep Tab inside the dialog
+  useEffect(() => {
+    if (!showVerificationModal) return
+    const previouslyFocused = document.activeElement as HTMLElement | null
+    const focusables = () =>
+      Array.from(
+        modalRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      )
+
+    window.setTimeout(() => modalRef.current?.querySelector<HTMLInputElement>('input')?.focus(), 50)
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setShowVerificationModal(false)
+        return
+      }
+      if (e.key !== 'Tab') return
+      const items = focusables()
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      previouslyFocused?.focus?.()
+    }
+  }, [showVerificationModal])
+
+  // Calendar: close on outside click or Escape
   useEffect(() => {
     if (!dateCalendarOpen) return
     const handleClickOutside = (e: MouseEvent) => {
@@ -727,8 +871,15 @@ function BookingPageContent() {
         setDateCalendarOpen(false)
       }
     }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDateCalendarOpen(false)
+    }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKey)
+    }
   }, [dateCalendarOpen])
 
   useEffect(() => {
@@ -737,6 +888,13 @@ function BookingPageContent() {
       setCalendarMonth(new Date(y, m - 1, 1))
     }
   }, [date])
+
+  // Errors raised next to the confirm button must be visible, not off-screen
+  useEffect(() => {
+    if (error && selectedTime) {
+      bottomErrorRef.current?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' })
+    }
+  }, [error, selectedTime])
 
   /* ------------------------------- handlers ------------------------------- */
 
@@ -753,7 +911,20 @@ function BookingPageContent() {
     setSlotsFor('')
     lastSlotsKey.current = ''
     setClosedReason(null)
+    setDateHint(null)
     setError('')
+  }
+
+  // Back to a clean form after a finished (or abandoned) booking, without a full page reload
+  const startOver = () => {
+    resetSelections()
+    setBookingSuccess(false)
+    setBookingId('')
+    setVerificationCode('')
+    setCodeError(null)
+    setNotes('')
+    slotsCache.current.clear()
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
   }
 
   const chooseBranch = (b: Branch) => {
@@ -761,6 +932,7 @@ function BookingPageContent() {
     setBranchId(b.id)
     resetSelections()
     router.replace(bookPath(business?.slug ?? slug, b), { scroll: false })
+    scrollToFirst(serviceRef)
   }
 
   const clearBranch = () => {
@@ -776,13 +948,16 @@ function BookingPageContent() {
     setDate('')
     setSelectedTime(null)
     setClosedReason(null)
+    setDateHint(null)
     setError('')
+    scrollToFirst(dateRef)
   }
 
   const selectDate = (dateStr: string) => {
     setDate(dateStr)
     setSelectedTime(null)
     setDateCalendarOpen(false)
+    setDateHint(null)
     setError('')
 
     if (closedDates.has(dateStr)) {
@@ -790,6 +965,13 @@ function BookingPageContent() {
     } else {
       setClosedReason(getTodayClosedReason(dateStr))
     }
+    scrollToFirst(staffRef, timeRef)
+  }
+
+  const chooseTime = (slot: string) => {
+    setSelectedTime(slot)
+    setError('')
+    scrollToFirst(infoRef)
   }
 
   const goToPrevMonth = () => {
@@ -829,14 +1011,14 @@ function BookingPageContent() {
       }
 
       if (!res.ok || !data.success) {
-        setCodeError(data.error || 'Failed to send verification code')
+        setCodeError(data.error || 'We could not send the code. Try again.')
         if (typeof data.retryAfterSeconds === 'number') setResendCooldown(data.retryAfterSeconds)
         return false
       }
       setResendCooldown(30)
       return true
     } catch {
-      setCodeError('Failed to send verification code. Please try again.')
+      setCodeError('We could not send the code. Check your connection and try again.')
       return false
     } finally {
       setSendingCode(false)
@@ -851,7 +1033,7 @@ function BookingPageContent() {
   const handleVerifyCode = async () => {
     if (!bookingId) return
     if (!verificationCode || verificationCode.length < 4) {
-      setCodeError('Please enter the verification code')
+      setCodeError('Enter the code we sent to your phone')
       return
     }
     setVerifyingCode(true)
@@ -873,33 +1055,39 @@ function BookingPageContent() {
       if (!res.ok || !data.success) {
         setCodeError(
           typeof data.attemptsRemaining === 'number'
-            ? `${data.error || 'Invalid code'} (${data.attemptsRemaining} attempts remaining)`
-            : data.error || 'Invalid verification code'
+            ? `${data.error || 'That code is not correct'} (${data.attemptsRemaining} attempts left)`
+            : data.error || 'That code is not correct'
         )
         return
       }
       setShowVerificationModal(false)
       setBookingSuccess(true)
     } catch {
-      setCodeError('Failed to verify code. Please try again.')
+      setCodeError('We could not verify the code. Check your connection and try again.')
     } finally {
       setVerifyingCode(false)
     }
   }
 
   const handleConfirmBooking = async () => {
+    // A booking was already created and is waiting for its code: reopen, never duplicate
+    if (bookingId && !bookingSuccess) {
+      setShowVerificationModal(true)
+      return
+    }
+
     if (!selectedService || !date || !selectedTime) {
-      setError('Please select service, date, and time')
+      setError('Choose a service, date, and time')
       return
     }
 
     if (multi && !branchId) {
-      setError('Please choose a location')
+      setError('Choose a location')
       return
     }
 
     if (!isSlotInFuture(date, selectedTime)) {
-      setError('This time slot has passed. Please select a different time.')
+      setError('That time has passed. Choose a different time.')
       setSelectedTime(null)
       return
     }
@@ -909,11 +1097,17 @@ function BookingPageContent() {
       return
     }
 
-    if (!user) {
-      if (!customerName || !customerEmail || !customerPhone) {
-        setError('Please fill in all required fields')
-        return
-      }
+    if (!nameValid) {
+      setError('Enter your full name')
+      return
+    }
+    if (!emailValid) {
+      setError('Enter a valid email address')
+      return
+    }
+    if (!phoneValid) {
+      setError('Enter a 10-digit phone number')
+      return
     }
 
     try {
@@ -966,30 +1160,68 @@ function BookingPageContent() {
         if (requiresVerification) {
           setVerificationCode('')
           setCodeError(null)
-          await sendPhoneVerificationCode(newBookingId)
           setShowVerificationModal(true)
+          await sendPhoneVerificationCode(newBookingId)
         } else {
           setBookingSuccess(true)
         }
       } else {
-        setError((response as any)?.error || payload?.message || 'Failed to create booking')
+        setError((response as any)?.error || payload?.message || 'We could not create your booking. Try again.')
       }
     } catch (err: any) {
-      setError('Failed to book appointment. Please try again.')
+      setError('We could not create your booking. Check your connection and try again.')
     } finally {
       setSubmitting(false)
     }
   }
 
+  // Downloads an .ics file so the appointment can go straight into any calendar app
+  const addToCalendar = () => {
+    if (!selectedService || !date || !selectedTime) return
+    const start = slotToDateTime(date, selectedTime)
+    if (!start.isValid) return
+    const end = start.plus({ minutes: selectedService.duration })
+    const fmt = (dt: DateTime) => dt.toUTC().toFormat("yyyyLLdd'T'HHmmss'Z'")
+    const where = selectedBranch
+      ? [selectedBranch.name, selectedBranch.address, selectedBranch.city].filter(Boolean).join(', ')
+      : [business?.address, business?.city].filter(Boolean).join(', ')
+    const esc = (s: string) => s.replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n')
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Appoint-Nepal//Booking//EN',
+      'BEGIN:VEVENT',
+      `UID:${bookingId || start.toMillis()}@appoint-nepal`,
+      `DTSTAMP:${fmt(DateTime.now())}`,
+      `DTSTART:${fmt(start)}`,
+      `DTEND:${fmt(end)}`,
+      `SUMMARY:${esc(`${selectedService.name} at ${business?.name ?? ''}`.trim())}`,
+      where ? `LOCATION:${esc(where)}` : '',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].filter(Boolean).join('\r\n')
+
+    const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'appointment.ics'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
   /* ------------------------------- rendering ------------------------------ */
+
+  const pageBg = 'min-h-screen bg-gradient-to-br from-background via-background to-secondary/30'
 
   // Full-page spinner ONLY while the business itself is being resolved
   if (resolving || (!businessId && !notFound)) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent mx-auto mb-4" />
-          <p className="text-lg text-muted-foreground">Loading...</p>
+      <div className={`${pageBg} flex items-center justify-center p-4`}>
+        <div className="text-center">
+          <div className="mx-auto mb-4"><Spinner size={12} /></div>
+          <p className="text-lg text-muted-foreground">Loading booking page...</p>
         </div>
       </div>
     )
@@ -997,89 +1229,82 @@ function BookingPageContent() {
 
   if (!slug || notFound) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8">
-        <div className="mx-auto max-w-2xl text-center">
-          <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Business not found</h1>
-          <p className="text-muted-foreground mb-6">This booking link is invalid or the business is inactive</p>
-          <Button onClick={() => router.push('/search')}>Browse Businesses</Button>
+      <div className={`${pageBg} flex items-center justify-center p-4`}>
+        <div className="mx-auto max-w-md text-center">
+          <AlertCircle className="mx-auto mb-4 h-12 w-12 text-destructive" aria-hidden="true" />
+          <h1 className="mb-2 text-2xl font-bold text-foreground sm:text-3xl">Business not found</h1>
+          <p className="mb-6 text-muted-foreground">This booking link is invalid, or the business is no longer active.</p>
+          <Button onClick={() => router.push('/search')}>Browse businesses</Button>
         </div>
       </div>
     )
   }
 
   if (bookingSuccess) {
+    const dateLabel = DateTime.fromISO(`${date}T00:00:00`, { zone: BUSINESS_TZ })
+      .setLocale('en')
+      .toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+
+    const rows: { label: string; value: React.ReactNode }[] = [
+      { label: 'Business', value: business?.name || 'N/A' },
+      ...(selectedBranch && multi
+        ? [{
+            label: 'Location',
+            value: (
+              <>
+                {selectedBranch.name}
+                <span className="block text-xs text-muted-foreground">
+                  {[selectedBranch.address, selectedBranch.city].filter(Boolean).join(', ')}
+                </span>
+              </>
+            ),
+          }]
+        : []),
+      { label: 'Service', value: selectedService?.name || 'N/A' },
+      ...(selectedStaff ? [{ label: 'Staff', value: `${selectedStaff.firstName} ${selectedStaff.lastName}` }] : []),
+      { label: 'Date', value: dateLabel },
+      { label: 'Time', value: getDisplayTime(selectedTime || '') },
+      { label: 'Price', value: formatPrice(finalPrice) },
+    ]
+
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 p-4 md:p-8 flex items-center justify-center">
-        <div className="mx-auto w-full max-w-2xl">
-          <Card className="gap-0 py-0 border border-border shadow-2xl">
-            <div className="p-5 sm:p-8 md:p-12 text-center">
-              <div className="mb-6 sm:mb-8">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5 sm:mb-6">
-                  <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
-                </div>
-                <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">Booking Confirmed!</h1>
-                <p className="text-base sm:text-lg text-muted-foreground">Your appointment has been successfully booked</p>
+      <div className={`${pageBg} flex items-center justify-center p-4 md:p-8`}>
+        <div className="mx-auto w-full max-w-xl">
+          <Card className="gap-0 border border-border py-0 shadow-2xl">
+            <div className="p-5 text-center sm:p-10">
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 sm:h-20 sm:w-20">
+                <CheckCircle2 className="h-10 w-10 text-primary sm:h-12 sm:w-12" aria-hidden="true" />
               </div>
+              <h1 className="mb-2 text-3xl font-bold text-foreground sm:text-4xl">Booking confirmed</h1>
+              <p className="mb-8 text-base text-muted-foreground sm:text-lg">Your appointment is booked. See you soon.</p>
 
-              <div className="bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 rounded-xl p-5 sm:p-8 mb-8 sm:mb-10 text-left">
-                <div className="space-y-4 sm:space-y-5">
-                  <div className="flex items-start justify-between gap-3 sm:justify-start">
-                    <div className="text-sm font-semibold text-foreground min-w-fit">Business:</div>
-                    <div className="text-sm text-foreground text-right sm:text-left">{business?.name || 'N/A'}</div>
+              <dl className="mb-8 divide-y divide-border rounded-xl border border-primary/20 bg-primary/5 px-5 text-left">
+                {rows.map((r) => (
+                  <div key={r.label} className="flex items-start justify-between gap-4 py-3">
+                    <dt className="text-sm font-semibold text-foreground">{r.label}</dt>
+                    <dd className="text-right text-sm text-foreground">{r.value}</dd>
                   </div>
-                  {selectedBranch && multi && (
-                    <div className="flex items-start justify-between gap-3 sm:justify-start">
-                      <div className="text-sm font-semibold text-foreground min-w-fit">Location:</div>
-                      <div className="text-sm text-foreground text-right sm:text-left">
-                        {selectedBranch.name}
-                        <span className="block text-xs text-muted-foreground">
-                          {[selectedBranch.address, selectedBranch.city].filter(Boolean).join(', ')}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-start justify-between gap-3 sm:justify-start">
-                    <div className="text-sm font-semibold text-foreground min-w-fit">Service:</div>
-                    <div className="text-sm text-foreground text-right sm:text-left">{selectedService?.name || 'N/A'}</div>
-                  </div>
-                  {selectedStaff && (
-                    <div className="flex items-start justify-between gap-3 sm:justify-start">
-                      <div className="text-sm font-semibold text-foreground min-w-fit">Staff:</div>
-                      <div className="text-sm text-foreground text-right sm:text-left">{selectedStaff.firstName} {selectedStaff.lastName}</div>
-                    </div>
-                  )}
-                  <div className="h-px bg-border my-1"></div>
-                  <div className="flex items-start justify-between gap-3 sm:justify-start">
-                    <div className="text-sm font-semibold text-foreground min-w-fit">Date:</div>
-                    <div className="text-sm text-foreground text-right sm:text-left">
-                      {DateTime.fromISO(date + 'T00:00:00', { zone: BUSINESS_TZ }).setLocale('en').toLocaleString({
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </div>
-                  </div>
-                  <div className="flex items-start justify-between gap-3 sm:justify-start">
-                    <div className="text-sm font-semibold text-foreground min-w-fit">Time:</div>
-                    <div className="text-sm text-foreground font-medium">{getDisplayTime(selectedTime || '')}</div>
-                  </div>
-                  <div className="h-px bg-border my-1"></div>
-                </div>
-              </div>
+                ))}
+              </dl>
 
-              <div className="space-y-3 mb-8">
-                <Button
-                  onClick={() => (window.location.href = bookPath(business?.slug ?? slug, selectedBranch))}
-                  className="w-full h-12 bg-primary hover:bg-primary/90 font-semibold"
-                >
-                  Book Another Service
+              {bookingId && (
+                <p className="mb-6 break-all text-xs text-muted-foreground">
+                  Booking reference: <code className="font-mono text-foreground">{bookingId}</code>
+                </p>
+              )}
+
+              <div className="mb-8 flex flex-col gap-3 sm:flex-row">
+                <Button onClick={addToCalendar} variant="outline" className="h-12 flex-1 font-semibold">
+                  <CalendarPlus className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Add to calendar
+                </Button>
+                <Button onClick={startOver} className="h-12 flex-1 bg-primary font-semibold hover:bg-primary/90">
+                  Book another service
                 </Button>
               </div>
 
-              <div className="pt-6 border-t border-border">
-                <p className="text-sm text-muted-foreground break-words">
+              <div className="border-t border-border pt-6">
+                <p className="break-words text-sm text-muted-foreground">
                   A confirmation has been sent to <span className="font-semibold text-foreground">{customerEmail}</span>
                 </p>
               </div>
@@ -1091,72 +1316,77 @@ function BookingPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/30 px-3 py-4 sm:p-6 md:p-8">
+    <div className={`${pageBg} px-3 py-4 sm:p-6 md:p-8`}>
       <div className="mx-auto max-w-3xl">
-        <div className="mb-6 sm:mb-10">
-          <Card className="gap-0 py-0 overflow-hidden border border-border shadow-lg">
+        <div className="mb-6 sm:mb-8">
+          <Card className="gap-0 overflow-hidden border border-border py-0 shadow-lg">
             <BusinessHeader business={business} branch={selectedBranch} />
           </Card>
 
           <p className="mt-4 px-2 text-center text-sm text-muted-foreground">
             {multi
-              ? 'Select a location, service, date, staff (optional) and time'
-              : 'Select a service, date, staff (optional) and time'}
+              ? 'Choose a location, service, date, and time to book.'
+              : 'Choose a service, date, and time to book.'}
           </p>
         </div>
 
-        {error && (
-          <Card className="gap-0 py-0 border border-destructive/50 bg-destructive/5 mb-6">
-            <div className="p-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-              <p className="text-sm sm:text-base text-foreground break-words">{error}</p>
-            </div>
-          </Card>
+        {/* Errors that happen before a time is picked show up here; later ones sit by the confirm button */}
+        {error && !selectedTime && (
+          <div className="mb-6">
+            <ErrorAlert message={error} />
+          </div>
         )}
 
-        <Card className="gap-0 py-0 border border-border shadow-lg">
+        {/* A booking was created but its phone code was never entered */}
+        {pendingVerification && (
+          <div role="status" className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <Info className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+              <p className="text-sm">Your booking is saved but not confirmed. Enter the code we sent to {customerPhone} to confirm it.</p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button size="sm" onClick={() => setShowVerificationModal(true)}>Enter code</Button>
+              <Button size="sm" variant="outline" onClick={startOver}>Start over</Button>
+            </div>
+          </div>
+        )}
+
+        <Card className="gap-0 border border-border py-0 shadow-lg">
           <div className="p-4 sm:p-6 md:p-10">
-            {/* Step 1 (multi-branch only): Location */}
+            {/* Location (multi-branch only) */}
             {multi && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-primary" />
-                  1. Choose Location
-                </label>
+              <Section labelledBy="step-location">
+                <StepHeader id="step-location" number={stepLocation} icon={Building2} title="Choose a location" done={!!selectedBranch} />
 
                 {selectedBranch ? (
-                  <div className="p-4 rounded-xl border-2 border-primary bg-primary/5 flex items-center justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3 rounded-xl border-2 border-primary bg-primary/5 p-4">
                     <div className="min-w-0">
-                      <div className="font-semibold text-sm">{selectedBranch.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">
+                      <div className="text-sm font-semibold">{selectedBranch.name}</div>
+                      <div className="truncate text-xs text-muted-foreground">
                         {[selectedBranch.address, selectedBranch.city].filter(Boolean).join(', ')}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={clearBranch}
-                      className="text-xs font-medium text-primary hover:underline flex-shrink-0"
-                    >
+                    <button type="button" onClick={clearBranch} className="shrink-0 text-xs font-medium text-primary hover:underline">
                       Change location
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {branches.map((b) => (
                       <button
                         key={b.id}
                         type="button"
                         onClick={() => chooseBranch(b)}
-                        className="p-4 rounded-xl border-2 text-left transition-all bg-card text-foreground border-border hover:border-primary"
+                        className="rounded-xl border-2 border-border bg-card p-4 text-left text-foreground transition-all hover:border-primary"
                       >
                         <div className="font-semibold">{b.name}</div>
-                        <div className="mt-1 flex items-center gap-1 text-xs opacity-75">
-                          <MapPin className="w-3 h-3 flex-shrink-0" />
+                        <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                          <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
                           <span className="truncate">{[b.address, b.city].filter(Boolean).join(', ')}</span>
                         </div>
                         {b.phone && (
-                          <div className="mt-0.5 flex items-center gap-1 text-xs opacity-75">
-                            <Phone className="w-3 h-3 flex-shrink-0" />
+                          <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3 shrink-0" aria-hidden="true" />
                             {b.phone}
                           </div>
                         )}
@@ -1164,25 +1394,20 @@ function BookingPageContent() {
                     ))}
                   </div>
                 )}
-              </div>
+              </Section>
             )}
 
             {/* Services (after a location is known) */}
             {branchReady && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-primary" />
-                  {n(1)}. Select Service
-                </label>
+              <Section sectionRef={serviceRef} labelledBy="step-service">
+                <StepHeader id="step-service" number={stepService} icon={Briefcase} title="Select a service" done={!!selectedService} />
 
                 {servicesLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Spinner />
-                  </div>
+                  <div className="flex justify-center py-8"><Spinner /></div>
                 ) : services.length === 0 ? (
-                  <div className="bg-secondary/40 border border-border rounded-lg p-6 flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                    No services available
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/40 p-6 text-sm">
+                    <AlertCircle className="h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+                    This business has no services to book yet.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1192,14 +1417,20 @@ function BookingPageContent() {
                         <button
                           key={service.id}
                           type="button"
+                          aria-pressed={selected}
                           onClick={() => chooseService(service)}
-                          className={`flex h-full flex-col items-stretch justify-between gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                          className={`relative flex h-full flex-col items-stretch justify-between gap-3 rounded-xl border-2 p-4 text-left transition-all ${
                             selected
                               ? 'border-primary bg-primary text-primary-foreground shadow-md'
                               : 'border-border bg-card text-foreground hover:border-primary'
                           }`}
                         >
-                          <div>
+                          {selected && (
+                            <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-primary-foreground text-primary">
+                              <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                            </span>
+                          )}
+                          <div className={selected ? 'pr-7' : ''}>
                             <div className="font-semibold leading-snug">{service.name}</div>
                             {service.description && (
                               <div className="mt-1 line-clamp-2 text-sm opacity-75">{service.description}</div>
@@ -1208,19 +1439,19 @@ function BookingPageContent() {
 
                           <div className="flex items-end justify-between gap-3 text-xs">
                             <span className="inline-flex items-center gap-1 opacity-75">
-                              <Clock className="h-3.5 w-3.5" />
-                              {service.duration} mins
+                              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                              {service.duration} min
                             </span>
                             <span className="whitespace-nowrap text-right text-sm font-semibold">
                               {service.offerPrice ? (
                                 <>
                                   <span className="mr-1.5 text-xs font-normal line-through opacity-60">
-                                    Rs.{service.price.toFixed(2)}
+                                    {formatPrice(service.price)}
                                   </span>
-                                  Rs.{service.offerPrice.toFixed(2)}
+                                  {formatPrice(service.offerPrice)}
                                 </>
                               ) : (
-                                `Rs.${service.price.toFixed(2)}`
+                                formatPrice(service.price)
                               )}
                             </span>
                           </div>
@@ -1229,21 +1460,21 @@ function BookingPageContent() {
                     })}
                   </div>
                 )}
-              </div>
+              </Section>
             )}
 
-            {/* Select Date */}
+            {/* Date */}
             {branchReady && selectedService && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  {n(2)}. Select Date
-                </label>
+              <Section sectionRef={dateRef} labelledBy="step-date">
+                <StepHeader id="step-date" number={stepDate} icon={Calendar} title="Select a date" done={!!date && !closedReason} />
+
                 <div className="relative" ref={dateCalendarRef}>
                   <button
                     type="button"
                     onClick={() => setDateCalendarOpen((open) => !open)}
-                    className="w-full h-12 flex items-center justify-between px-3 border border-border rounded-md bg-background text-left text-sm"
+                    aria-haspopup="dialog"
+                    aria-expanded={dateCalendarOpen}
+                    className="flex h-12 w-full items-center justify-between rounded-md border border-border bg-background px-3 text-left text-sm"
                   >
                     <span className={date ? '' : 'text-muted-foreground'}>
                       {date
@@ -1252,111 +1483,126 @@ function BookingPageContent() {
                           })
                         : 'Select a date'}
                     </span>
-                    <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                    <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   </button>
 
                   {dateCalendarOpen && (
-                    <div className="absolute left-0 z-20 mt-2 w-full max-w-sm rounded-xl border border-border bg-card shadow-lg p-3 sm:w-80">
-                      <div className="flex items-center justify-between mb-2">
-                        <button type="button" onClick={goToPrevMonth} className="p-2 rounded hover:bg-muted" aria-label="Previous month">
-                          <ChevronLeft className="w-4 h-4" />
+                    <div
+                      role="dialog"
+                      aria-label="Choose a date"
+                      className="absolute left-0 z-20 mt-2 w-full max-w-sm rounded-xl border border-border bg-card p-3 shadow-lg sm:w-80"
+                    >
+                      <div className="mb-2 flex items-center justify-between">
+                        <button type="button" onClick={goToPrevMonth} className="rounded p-2 hover:bg-muted" aria-label="Previous month">
+                          <ChevronLeft className="h-4 w-4" />
                         </button>
-                        <span className="text-sm font-semibold">
+                        <span className="text-sm font-semibold" aria-live="polite">
                           {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                         </span>
-                        <button type="button" onClick={goToNextMonth} className="p-2 rounded hover:bg-muted" aria-label="Next month">
-                          <ChevronRight className="w-4 h-4" />
+                        <button type="button" onClick={goToNextMonth} className="rounded p-2 hover:bg-muted" aria-label="Next month">
+                          <ChevronRight className="h-4 w-4" />
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-7 gap-1 mb-1">
+                      <div className="mb-1 grid grid-cols-7 gap-1" aria-hidden="true">
                         {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
                           <div key={d} className="text-center text-xs font-medium text-muted-foreground">{d}</div>
                         ))}
                       </div>
 
                       {hoursLoading ? (
-                        <div className="flex justify-center py-10">
-                          <Spinner />
-                        </div>
+                        <div className="flex justify-center py-10"><Spinner /></div>
                       ) : (
                         <div className="grid grid-cols-7 gap-1">
                           {Array.from({ length: calendarStartOffset }).map((_, i) => (
                             <div key={`blank-${i}`} />
                           ))}
-                          {calendarDays.map(({ day, dateStr, disabled, reason }) => (
-                            <button
-                              key={dateStr}
-                              type="button"
-                              disabled={disabled}
-                              title={disabled ? reason : undefined}
-                              onClick={() => !disabled && selectDate(dateStr)}
-                              className={`mx-auto flex aspect-square w-full max-w-10 items-center justify-center rounded-md text-sm transition-colors ${
-                                disabled
-                                  ? 'text-muted-foreground/40 cursor-not-allowed line-through'
-                                  : date === dateStr
-                                  ? 'bg-primary text-primary-foreground font-semibold'
-                                  : 'hover:bg-primary/10 text-foreground'
-                              }`}
-                            >
-                              {day}
-                            </button>
-                          ))}
+                          {calendarDays.map(({ day, dateStr, label, disabled, reason }) => {
+                            const isToday = dateStr === todayInTz()
+                            const isSelected = date === dateStr
+                            return (
+                              <button
+                                key={dateStr}
+                                type="button"
+                                aria-label={disabled && reason ? `${label}, unavailable: ${reason}` : label}
+                                aria-disabled={disabled}
+                                aria-pressed={isSelected}
+                                onClick={() => {
+                                  if (disabled) {
+                                    setDateHint(`${label}: ${reason ?? 'Unavailable'}`)
+                                  } else {
+                                    selectDate(dateStr)
+                                  }
+                                }}
+                                className={`mx-auto flex aspect-square w-full max-w-10 items-center justify-center rounded-md text-sm transition-colors ${
+                                  disabled
+                                    ? 'cursor-not-allowed text-muted-foreground/40 line-through'
+                                    : isSelected
+                                    ? 'bg-primary font-semibold text-primary-foreground'
+                                    : 'text-foreground hover:bg-primary/10'
+                                } ${isToday && !isSelected ? 'ring-1 ring-primary/50' : ''}`}
+                              >
+                                {day}
+                              </button>
+                            )
+                          })}
                         </div>
                       )}
 
-                      <p className="mt-3 text-xs text-muted-foreground border-t pt-2">
-                        Greyed-out days are unavailable: closed dates, business hours, or the selected staff member&apos;s day off.
+                      <p className="mt-3 min-h-[2.5rem] border-t border-border pt-2 text-xs text-muted-foreground" aria-live="polite">
+                        {dateHint ?? 'Crossed-out days are unavailable. Tap one to see why.'}
                       </p>
                     </div>
                   )}
                 </div>
 
                 {closedReason && (
-                  <div className="flex items-center justify-center px-4 py-5 border rounded-md bg-amber-50 border-amber-200 mt-4 text-center">
-                    <AlertCircle className="w-4 h-4 mr-2 text-amber-600 flex-shrink-0" />
-                    <span className="text-sm text-amber-600">{closedReason || 'Business is closed'}</span>
+                  <div role="status" className="mt-4 flex items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-4 py-5 text-center text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    <AlertCircle className="mr-2 h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="text-sm">{closedReason || 'Business is closed'}</span>
                   </div>
                 )}
-              </div>
+              </Section>
             )}
 
-            {/* Staff Selection (optional) */}
-            {branchReady && selectedService && date && staffMembers.length > 1 && !closedReason && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <User className="w-4 h-4 text-primary" />
-                  {n(3)}. Select Staff <span className="text-xs opacity-60">(Optional)</span>
-                </label>
+            {/* Staff (optional, only when there is a choice) */}
+            {showStaffPicker && (
+              <Section sectionRef={staffRef} labelledBy="step-staff">
+                <StepHeader id="step-staff" number={stepStaff} icon={User} title="Select staff" optional done={!!selectedStaff} />
 
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                    {staffMembers.map((staff) => (
-                      <button
-                        key={staff.id}
-                        type="button"
-                        onClick={() => {
-                          if (selectedStaff?.id === staff.id) return
-                          setSelectedStaff(staff)
-                          setSelectedTime(null)
-                        }}
-                        className={`rounded-xl border-2 p-3 text-center transition-all sm:p-4 ${
-                          selectedStaff?.id === staff.id
-                            ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                            : 'bg-card text-foreground border-border hover:border-primary'
-                        }`}
-                      >
-                        <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-2 overflow-hidden">
-                          {staff.avatar ? (
-                            <img src={staff.avatar || '/placeholder.svg'} alt={staff.firstName} className="w-12 h-12 rounded-full object-cover" />
-                          ) : (
-                            <User className="w-6 h-6" />
-                          )}
-                        </div>
-                        <div className="font-semibold text-sm break-words">{staff.firstName} {staff.lastName}</div>
-                        <div className="text-xs opacity-75 mt-1">{staff.role}</div>
-                      </button>
-                    ))}
+                    {staffMembers.map((staff) => {
+                      const selected = selectedStaff?.id === staff.id
+                      return (
+                        <button
+                          key={staff.id}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => {
+                            if (selected) return
+                            setSelectedStaff(staff)
+                            setSelectedTime(null)
+                            scrollToFirst(timeRef)
+                          }}
+                          className={`rounded-xl border-2 p-3 text-center transition-all sm:p-4 ${
+                            selected
+                              ? 'border-primary bg-primary text-primary-foreground shadow-md'
+                              : 'border-border bg-card text-foreground hover:border-primary'
+                          }`}
+                        >
+                          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-secondary/50">
+                            {staff.avatar ? (
+                              <img src={staff.avatar} alt="" className="h-12 w-12 rounded-full object-cover" />
+                            ) : (
+                              <User className="h-6 w-6 text-foreground" aria-hidden="true" />
+                            )}
+                          </div>
+                          <div className="break-words text-sm font-semibold">{staff.firstName} {staff.lastName}</div>
+                          <div className="mt-1 text-xs opacity-75">{staff.role}</div>
+                        </button>
+                      )
+                    })}
                   </div>
 
                   {selectedStaff && (
@@ -1368,69 +1614,66 @@ function BookingPageContent() {
                       }}
                       className="w-full rounded-lg border-2 border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:border-primary hover:text-foreground"
                     >
-                      Clear selection (system will auto-assign any available staff)
+                      Clear selection and assign any available staff
                     </button>
                   )}
                 </div>
-              </div>
+              </Section>
             )}
 
-            {branchReady && selectedService && date && staffMembers.length === 1 && !closedReason && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <User className="w-4 h-4 text-primary" />
-                  Staff
-                </label>
-                <div className="p-4 rounded-xl border-2 border-primary bg-primary/5 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-secondary/50 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            {showStaffSingle && (
+              <Section labelledBy="step-staff-single">
+                <h2 id="step-staff-single" className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <User className="h-4 w-4 text-primary" aria-hidden="true" />
+                  Your staff member
+                </h2>
+                <div className="flex items-center gap-3 rounded-xl border-2 border-primary bg-primary/5 p-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary/50">
                     {staffMembers[0].avatar ? (
-                      <img src={staffMembers[0].avatar} alt={staffMembers[0].firstName} className="w-10 h-10 rounded-full object-cover" />
+                      <img src={staffMembers[0].avatar} alt="" className="h-10 w-10 rounded-full object-cover" />
                     ) : (
-                      <User className="w-5 h-5" />
+                      <User className="h-5 w-5" aria-hidden="true" />
                     )}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-semibold text-sm">{staffMembers[0].firstName} {staffMembers[0].lastName}</div>
-                    <div className="text-xs text-muted-foreground">{staffMembers[0].role} · only staff for this service</div>
+                    <div className="text-sm font-semibold">{staffMembers[0].firstName} {staffMembers[0].lastName}</div>
+                    <div className="text-xs text-muted-foreground">{staffMembers[0].role}, the only staff for this service</div>
                   </div>
                 </div>
-              </div>
+              </Section>
             )}
 
             {/* Time: only this section shows a spinner while slots load */}
-            {branchReady && selectedService && date && !closedReason && (
-              <div className="mb-8">
-                <label className="block text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-primary" />
-                  {n(4)}. Select Time
-                </label>
+            {showTime && (
+              <Section sectionRef={timeRef} labelledBy="step-time">
+                <StepHeader id="step-time" number={stepTime} icon={Clock} title="Select a time" done={!!selectedTime} />
 
                 {slotsLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Spinner />
-                  </div>
+                  <div className="flex justify-center py-8"><Spinner /></div>
                 ) : availableSlots.length === 0 ? (
-                  <div className="bg-secondary/40 border border-border rounded-lg p-4 sm:p-6 flex items-start gap-2 text-sm">
-                    <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0" />
-                    <span>No available slots for this date{selectedStaff ? ` with ${selectedStaff.firstName}` : ''}</span>
+                  <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/40 p-4 text-sm sm:p-6">
+                    <AlertCircle className="h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+                    <span>No times are available on this date{selectedStaff ? ` with ${selectedStaff.firstName}` : ''}. Try another date.</span>
                   </div>
                 ) : (
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {availableSlots.map((slot, idx) => {
                       const isPast = !isSlotInFuture(date, slot)
+                      const selected = selectedTime === slot
                       return (
                         <button
                           key={idx}
                           type="button"
-                          onClick={() => !isPast && setSelectedTime(slot)}
+                          aria-pressed={selected}
+                          onClick={() => !isPast && chooseTime(slot)}
                           disabled={isPast}
                           title={isPast ? 'This time has already passed' : undefined}
                           className={`rounded-lg border-2 px-1 py-2.5 text-xs font-medium transition-all sm:p-3 sm:text-sm ${
                             isPast
-                              ? 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
-                              : selectedTime === slot
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-card text-foreground border-border hover:border-primary'
+                              ? 'cursor-not-allowed border-input bg-muted text-muted-foreground opacity-50'
+                              : selected
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border bg-card text-foreground hover:border-primary'
                           }`}
                         >
                           {formatTimeSlot(slot)}
@@ -1439,132 +1682,161 @@ function BookingPageContent() {
                     })}
                   </div>
                 )}
-              </div>
+              </Section>
             )}
 
-            {/* Customer Info */}
-            {branchReady && selectedService && date && selectedTime && (
-              <div className="mb-8 p-4 sm:p-6 bg-secondary/20 rounded-xl border border-border">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-foreground">{n(5)}. Your Information</h3>
-                  {user && <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Verified</span>}
-                </div>
-                <div className="space-y-3">
+            {/* Customer info */}
+            {showDetails && (
+              <Section sectionRef={infoRef} labelledBy="step-info">
+                <StepHeader id="step-info" number={stepInfo} icon={User} title="Your details" done={detailsValid} />
+
+                <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
-                      Full Name *
-                      {user && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">(verified)</span>}
+                    <label htmlFor="customer-name" className="mb-1 block text-sm font-medium text-foreground">
+                      Full name <span aria-hidden="true">*</span>
                     </label>
                     <Input
+                      id="customer-name"
                       type="text"
-                      placeholder="Full Name *"
+                      autoComplete="name"
+                      placeholder="Your full name"
                       value={customerName}
-                      onChange={user ? undefined : (e) => setCustomerName(e.target.value)}
+                      onChange={(e) => setCustomerName(e.target.value)}
                       disabled={!!user}
-                      className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
+                      required
+                      className={`h-11 ${user ? 'cursor-not-allowed bg-muted text-muted-foreground' : ''}`}
                     />
                   </div>
+
                   <div>
-                    <label className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
-                      Email Address *
-                      {user && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">(verified)</span>}
+                    <label htmlFor="customer-email" className="mb-1 block text-sm font-medium text-foreground">
+                      Email address <span aria-hidden="true">*</span>
                     </label>
                     <Input
+                      id="customer-email"
                       type="email"
-                      placeholder="Email Address *"
+                      autoComplete="email"
+                      placeholder="you@example.com"
                       value={customerEmail}
-                      onChange={user ? undefined : (e) => setCustomerEmail(e.target.value)}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
                       disabled={!!user}
-                      className={`h-11 ${user ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-1 block">Phone Number *</label>
-                    <Input
-                      type="tel"
-                      inputMode="numeric"
-                      placeholder="98XXXXXXXX"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                      maxLength={10}
-                      className="h-11 bg-background border-border text-foreground"
                       required
+                      className={`h-11 ${user ? 'cursor-not-allowed bg-muted text-muted-foreground' : ''}`}
                     />
-                    {customerPhone.length > 0 && customerPhone.length !== 10 && (
-                      <p className="mt-1 text-xs text-destructive">Phone number must be exactly 10 digits.</p>
+                    {!user && customerEmail.length > 0 && !emailValid && (
+                      <p className="mt-1 text-xs text-destructive">Enter a valid email address.</p>
                     )}
                   </div>
-                  <textarea
-                    placeholder="Notes (optional)"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    className="w-full p-3 border-2 border-border rounded-lg text-sm focus:border-primary focus:outline-none bg-background"
-                    rows={3}
-                  />
-                </div>
-              </div>
-            )}
 
-            {/* Summary */}
-            {branchReady && selectedService && date && selectedTime && (
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 sm:p-6 mb-8">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-foreground mb-3">Booking Summary</p>
-                    <div className="space-y-2 text-sm">
+                  <div>
+                    <label htmlFor="customer-phone" className="mb-1 block text-sm font-medium text-foreground">
+                      Phone number <span aria-hidden="true">*</span>
+                    </label>
+                    <div className="flex">
+                      <span className="inline-flex h-11 items-center rounded-l-md border border-r-0 border-border bg-muted px-3 text-sm text-muted-foreground">
+                        +977
+                      </span>
+                      <Input
+                        id="customer-phone"
+                        type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel-national"
+                        placeholder="98XXXXXXXX"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        maxLength={10}
+                        aria-describedby="phone-help"
+                        className="h-11 rounded-l-none border-border bg-background text-foreground"
+                        required
+                      />
+                    </div>
+                    <p id="phone-help" className={`mt-1 text-xs ${customerPhone.length > 0 && !phoneValid ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {customerPhone.length > 0 && !phoneValid
+                        ? 'Phone number must be exactly 10 digits.'
+                        : 'We will text a code to this number to confirm your booking.'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="booking-notes" className="mb-1 block text-sm font-medium text-foreground">
+                      Notes <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                    </label>
+                    <textarea
+                      id="booking-notes"
+                      placeholder="Anything the business should know"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      className="w-full rounded-lg border-2 border-border bg-background p-3 text-sm focus:border-primary focus:outline-none"
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                {/* Summary */}
+                {selectedService && selectedTime && (
+                  <div className="mt-6 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-6">
+                    <p className="mb-3 font-semibold text-foreground">Booking summary</p>
+                    <dl className="space-y-2 text-sm">
                       {multi && selectedBranch && (
                         <div className="flex justify-between gap-4">
-                          <span className="text-muted-foreground">Location:</span>
-                          <span className="font-medium text-right">{selectedBranch.name}</span>
+                          <dt className="text-muted-foreground">Location</dt>
+                          <dd className="text-right font-medium">{selectedBranch.name}</dd>
                         </div>
                       )}
                       <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Service:</span>
-                        <span className="font-medium text-right">{selectedService.name}</span>
+                        <dt className="text-muted-foreground">Service</dt>
+                        <dd className="text-right font-medium">{selectedService.name}</dd>
                       </div>
                       {selectedStaff && (
                         <div className="flex justify-between gap-4">
-                          <span className="text-muted-foreground">Staff:</span>
-                          <span className="font-medium text-right">{selectedStaff.firstName} {selectedStaff.lastName}</span>
+                          <dt className="text-muted-foreground">Staff</dt>
+                          <dd className="text-right font-medium">{selectedStaff.firstName} {selectedStaff.lastName}</dd>
                         </div>
                       )}
                       <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Date:</span>
-                        <span className="font-medium text-right">{new Date(date + 'T00:00:00').toLocaleDateString()}</span>
+                        <dt className="text-muted-foreground">Date</dt>
+                        <dd className="text-right font-medium">
+                          {new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                        </dd>
                       </div>
                       <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Time:</span>
-                        <span className="font-medium text-right">{formatTimeSlot(selectedTime)}</span>
+                        <dt className="text-muted-foreground">Time</dt>
+                        <dd className="text-right font-medium">{formatTimeSlot(selectedTime)}</dd>
                       </div>
                       <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Duration:</span>
-                        <span className="font-medium text-right">{selectedService.duration} min</span>
+                        <dt className="text-muted-foreground">Duration</dt>
+                        <dd className="text-right font-medium">{selectedService.duration} min</dd>
                       </div>
-                      <div className="flex justify-between gap-4 pt-2 border-t border-primary/20">
-                        <span className="text-muted-foreground">Price:</span>
-                        <span className="font-bold text-primary">Rs.{(selectedService.offerPrice || selectedService.price).toFixed(2)}</span>
+                      <div className="flex justify-between gap-4 border-t border-primary/20 pt-2">
+                        <dt className="text-muted-foreground">Price</dt>
+                        <dd className="font-bold text-primary">{formatPrice(finalPrice)}</dd>
                       </div>
-                    </div>
+                    </dl>
+                  </div>
+                )}
+
+                {error && selectedTime && (
+                  <div className="mt-6">
+                    <ErrorAlert message={error} innerRef={bottomErrorRef} />
+                  </div>
+                )}
+
+                {/* Sticky on phones so the total and Confirm are always in reach */}
+                <div className="sticky bottom-0 z-10 -mx-4 mt-6 border-t border-border bg-card/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+                  <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                    <Button onClick={() => { setSelectedTime(null); scrollToFirst(timeRef) }} variant="outline" className="h-12 px-6" disabled={submitting}>
+                      Change time
+                    </Button>
+                    <Button
+                      onClick={handleConfirmBooking}
+                      disabled={submitting || !detailsValid}
+                      className="h-12 flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      {submitting ? 'Booking...' : pendingVerification ? 'Enter verification code' : `Confirm booking · ${formatPrice(finalPrice)}`}
+                    </Button>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Actions */}
-            {branchReady && selectedService && date && selectedTime && (
-              <div className="flex flex-col-reverse gap-3 sm:flex-row">
-                <Button onClick={() => setSelectedTime(null)} variant="outline" className="h-12 px-6" disabled={submitting}>
-                  Clear
-                </Button>
-                <Button
-                  onClick={handleConfirmBooking}
-                  disabled={submitting || !customerName || !customerEmail || !customerPhone}
-                  className="h-12 flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  {submitting ? 'Confirming...' : 'Confirm Booking'}
-                </Button>
-              </div>
+              </Section>
             )}
           </div>
         </Card>
@@ -1574,75 +1846,86 @@ function BookingPageContent() {
       {showVerificationModal && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="verification-title"
-          aria-describedby="verification-desc"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowVerificationModal(false)
+          }}
         >
-          <Card className="gap-0 py-0 relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-b-none border border-border shadow-2xl sm:rounded-b-xl">
-            <div className="p-5 text-center sm:p-8">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowVerificationModal(false)
-                  router.replace(bookPath(business?.slug ?? slug, selectedBranch))
-                }}
-                className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="verification-title"
+            aria-describedby="verification-desc"
+            className="w-full max-w-md"
+          >
+            <Card className="relative max-h-[92vh] w-full gap-0 overflow-y-auto rounded-b-none border border-border py-0 shadow-2xl sm:rounded-b-xl">
+              <div className="p-5 text-center sm:p-8">
+                <button
+                  type="button"
+                  onClick={() => setShowVerificationModal(false)}
+                  className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
 
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 sm:mb-5">
-                <Mail className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
-              </div>
-
-              <h2 id="verification-title" className="text-xl sm:text-2xl font-bold text-foreground mb-2">
-                Verify your Phone Number
-              </h2>
-              <p id="verification-desc" className="text-sm text-muted-foreground mb-1">
-                Your appointment is <span className="font-semibold text-foreground">pending confirmation</span>. We&apos;ve sent a verification code to
-              </p>
-              <p className="text-sm font-semibold text-foreground mb-5 sm:mb-6 break-all">{customerPhone}</p>
-
-              <div className="rounded-lg border border-border bg-secondary/30 p-3 sm:p-4 mb-5 sm:mb-6" aria-live="polite">
-                <div className="space-y-3">
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="Enter verification code"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    disabled={verifyingCode}
-                    className="h-11 text-center text-lg tracking-widest"
-                  />
-                  {codeError && <p className="text-sm text-destructive">{codeError}</p>}
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 sm:mb-5 sm:h-16 sm:w-16">
+                  <Phone className="h-7 w-7 text-primary sm:h-8 sm:w-8" aria-hidden="true" />
                 </div>
-              </div>
 
-              {bookingId && (
-                <p className="text-xs text-muted-foreground mb-5 sm:mb-6 break-all">
-                  Booking reference: <code className="font-mono text-foreground">{bookingId}</code>
+                <h2 id="verification-title" className="mb-2 text-xl font-bold text-foreground sm:text-2xl">
+                  Verify your phone number
+                </h2>
+                <p id="verification-desc" className="mb-1 text-sm text-muted-foreground">
+                  Your appointment is <span className="font-semibold text-foreground">pending confirmation</span>. We sent a verification code to
                 </p>
-              )}
+                <p className="mb-5 break-all text-sm font-semibold text-foreground sm:mb-6">+977 {customerPhone}</p>
 
-              <Button
-                onClick={handleVerifyCode}
-                disabled={verifyingCode || sendingCode}
-                className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
-              >
-                {verifyingCode ? 'Verifying...' : 'Verify & Confirm'}
-              </Button>
-              <button
-                type="button"
-                onClick={handleResendCode}
-                disabled={sendingCode || resendCooldown > 0}
-                className="mt-3 w-full text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
-              >
-                {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : sendingCode ? 'Sending...' : "Didn't get a code? Resend"}
-              </button>
-            </div>
-          </Card>
+                <div className="mb-5 rounded-lg border border-border bg-secondary/30 p-3 sm:mb-6 sm:p-4" aria-live="polite">
+                  <div className="space-y-3">
+                    <label htmlFor="verification-code" className="sr-only">Verification code</label>
+                    <Input
+                      id="verification-code"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      placeholder="Enter verification code"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleVerifyCode()
+                      }}
+                      disabled={verifyingCode}
+                      className="h-11 text-center text-lg tracking-widest"
+                    />
+                    {codeError && <p role="alert" className="text-sm text-destructive">{codeError}</p>}
+                  </div>
+                </div>
+
+                {bookingId && (
+                  <p className="mb-5 break-all text-xs text-muted-foreground sm:mb-6">
+                    Booking reference: <code className="font-mono text-foreground">{bookingId}</code>
+                  </p>
+                )}
+
+                <Button
+                  onClick={handleVerifyCode}
+                  disabled={verifyingCode || sendingCode}
+                  className="h-11 w-full bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  {verifyingCode ? 'Verifying...' : 'Verify and confirm'}
+                </Button>
+                <button
+                  type="button"
+                  onClick={handleResendCode}
+                  disabled={sendingCode || resendCooldown > 0}
+                  className="mt-3 w-full text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+                >
+                  {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : sendingCode ? 'Sending...' : 'Did not get a code? Resend'}
+                </button>
+              </div>
+            </Card>
+          </div>
         </div>
       )}
     </div>
@@ -1651,7 +1934,13 @@ function BookingPageContent() {
 
 export default function BookingPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent" /></div>}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <Spinner size={12} />
+        </div>
+      }
+    >
       <BookingPageContent />
     </Suspense>
   )
