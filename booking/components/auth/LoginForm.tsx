@@ -74,26 +74,18 @@ export const LoginForm = () => {
         return
       }
 
-      // Role-based redirects
-      if (result.user?.role === 'BUSINESS_OWNER') {
-        // Get business ID for business owners
-        const businessId = user?.business?.id
-    
-        if (businessId) {
-          router.push(`/dashboard/${businessId}`)
-        } else {
-          router.push("/dashboard")
-        }
-      } else if (result.user?.role === 'CUSTOMER') {
-        // Customers go to search/bookings page
-        router.push("/search")
-      } else if (result.user?.role === 'ADMIN') {
-        // Admins go to admin dashboard
-        router.push("/admin")
-      } else {
-        // Default fallback
-        router.push("/search")
-      }
+      
+if (result.user?.role === 'BUSINESS_OWNER') {
+  // always go to /dashboard; it resolves the businessId itself
+  router.push('/dashboard')
+} else if (result.user?.role === 'CUSTOMER') {
+  router.push('/search')
+} else if (result.user?.role === 'ADMIN') {
+  router.push('/admin')
+} else {
+  router.push('/search')
+}
+router.refresh()
 
     } catch (error) {
       console.error("[v0] Login error:", error)
