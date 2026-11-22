@@ -542,6 +542,7 @@ model SubscriptionPlan {
   durationDays Int      @default(30)
   currency     String   @default("NPR")
   active       Boolean  @default(true)
+  trialSmsCredits Int @default(0) 
 
   // Pricing for different billing periods (with discounts)
   priceMonthlyNPR    Int // Monthly billing
@@ -592,6 +593,7 @@ model Subscription {
   autoRenew       Boolean   @default(true)
   lastPaymentId   String?
   nextRenewalDate DateTime?
+  trialCreditsGranted Boolean @default(false)
 
   trialEndsAt DateTime?
   isTrialUsed Boolean   @default(false)

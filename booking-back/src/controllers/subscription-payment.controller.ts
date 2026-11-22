@@ -2,7 +2,7 @@
 // Controller for handling subscription payments with eSewa
 
 import { Request, Response } from 'express';
-import  prisma  from '../lib/prisma';
+import prisma from '../lib/prisma';
 import esewaService from '../services/esewa.service';
 import subscriptionService from '../services/subscription.service';
 import { getPriceForPeriod, BillingPeriod } from '../utils/billing';
@@ -18,6 +18,18 @@ const PERIOD_MONTHS: Record<string, number> = {
   ANNUAL: 12,
 };
 
+// eSewa transaction references only allow letters, digits and "-", so billing
+// periods that contain "_" (e.g. HALF_YEARLY) travel as a one-letter code.
+const PERIOD_CODE: Record<string, string> = {
+  MONTHLY: 'M',
+  QUARTERLY: 'Q',
+  HALF_YEARLY: 'H',
+  YEARLY: 'Y',
+};
+const CODE_PERIOD: Record<string, string> = Object.fromEntries(
+  Object.entries(PERIOD_CODE).map(([period, code]) => [code, period])
+);
+
 /**
  * Grants the plan's included SMS credits for a verified subscription payment.
  * Idempotent per payment (unique paymentId on the credit ledger), so it is safe
@@ -31,20 +43,20 @@ async function grantPlanSmsCredits(
   paymentId: string
 ) {
   try {
-    if (!plan.monthlySmsCredits || plan.monthlySmsCredits <= 0) return
+    if (!plan.monthlySmsCredits || plan.monthlySmsCredits <= 0) return;
 
-    const months = PERIOD_MONTHS[String(billingPeriod).toUpperCase()] ?? 1
-    const credits = plan.monthlySmsCredits * months
+    const months = PERIOD_MONTHS[String(billingPeriod).toUpperCase()] ?? 1;
+    const credits = plan.monthlySmsCredits * months;
 
     const result = await SubscriptionSmsService.addCredits(businessId, credits, 'PLAN_GRANT', {
       description: `${plan.displayName} plan: ${credits} SMS credits (${months} month${months > 1 ? 's' : ''})`,
       paymentId,
-    })
+    });
     console.log('[SubscriptionPayment] Plan SMS credits', result.granted ? 'granted' : 'already granted', {
       businessId, credits, balance: result.balance,
-    })
+    });
   } catch (err) {
-    console.error('[SubscriptionPayment] Failed to grant plan SMS credits:', err)
+    console.error('[SubscriptionPayment] Failed to grant plan SMS credits:', err);
   }
 }
 
@@ -73,6 +85,10 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
 
     if (!businessId || !planId) {
       return res.status(400).json({ error: 'Business ID and Plan ID are required' });
+    }
+
+    if (!Object.values(BillingPeriod).includes(billingPeriod as BillingPeriod)) {
+      return res.status(400).json({ error: 'Invalid billing period' });
     }
 
     // Get the subscription plan
@@ -115,7 +131,8 @@ export const initiateEsewaPayment = async (req: Request, res: Response) => {
     // Do not mutate an existing subscription before payment verification. The
     // target plan and billing period travel in the provider reference instead.
     // This keeps the current entitlement active if payment is cancelled/failed.
-    const transactionUuid = `SUB-${subscription.id}-${planId}-${billingPeriod}-${Date.now()}`.replace(/[^A-Za-z0-9-]/g, '');
+    const periodCode = PERIOD_CODE[billingPeriod] ?? 'M';
+    const transactionUuid = `SUB-${subscription.id}-${planId}-${periodCode}-${Date.now()}`.replace(/[^A-Za-z0-9-]/g, '');
 
     // Generate eSewa payment form data
     const esewaResponse = await esewaService.initiatePayment({
@@ -186,7 +203,7 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
       transactionCode: transaction_code,
     });
 
-    // Reference format: SUB-{subscriptionId}-{targetPlanId}-{billingPeriod}-{timestamp}
+    // Reference format: SUB-{subscriptionId}-{targetPlanId}-{periodCode}-{timestamp}
     const transactionPrefix = 'SUB-';
     const referenceParts = transaction_uuid.startsWith(transactionPrefix)
       ? transaction_uuid.slice(transactionPrefix.length).split('-')
@@ -194,7 +211,11 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
     if (referenceParts.length < 4) {
       return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Invalid transaction reference`);
     }
-    const [subscriptionId, targetPlanId, targetBillingPeriod] = referenceParts;
+    const [subscriptionId, targetPlanId, periodCode] = referenceParts;
+    // Map the one-letter code back; falls back to the raw value so references
+    // created before this change (full period names) keep working.
+    const targetBillingPeriod = CODE_PERIOD[periodCode] ?? periodCode;
+
     const subscription = await prisma.subscription.findUnique({
       where: { id: subscriptionId },
       include: { plan: true },
@@ -205,11 +226,6 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
     }
     if (!Object.values(BillingPeriod).includes(targetBillingPeriod as BillingPeriod)) {
       return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Invalid billing period`);
-    }
-
-    if (!subscription) {
-      console.error('[SubscriptionPayment] Subscription not found for transaction:', transaction_uuid);
-      return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Subscription not found`);
     }
 
     // Verify with eSewa server (server-to-server verification)
@@ -243,15 +259,21 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
     const existingPayment = await prisma.payment.findUnique({ where: { transactionId: transaction_uuid } });
     if (existingPayment) {
       if (existingPayment.subscriptionId) {
-  const existingSubscription = await prisma.subscription.findUnique({ where: { id: existingPayment.subscriptionId } });
-  if (existingSubscription && (existingSubscription.status !== 'ACTIVE' || !existingSubscription.startDate || !existingSubscription.endDate)) {
-    await subscriptionService.activateSubscription(existingPayment.subscriptionId, {
-      paymentId: existingPayment.id,
-      durationDays: subscription.plan.durationDays || 30,
-    });
-    await grantPlanSmsCredits(subscription.businessId, targetPlan, targetBillingPeriod, existingPayment.id);
-  }
-}
+        const existingSubscription = await prisma.subscription.findUnique({
+          where: { id: existingPayment.subscriptionId },
+        });
+        if (
+          existingSubscription &&
+          (existingSubscription.status !== 'ACTIVE' || !existingSubscription.startDate || !existingSubscription.endDate)
+        ) {
+          await subscriptionService.activateSubscription(existingPayment.subscriptionId, {
+            paymentId: existingPayment.id,
+            durationDays: subscription.plan.durationDays || 30,
+          });
+        }
+        // Idempotent per payment: recovers a grant that failed on the first callback.
+        await grantPlanSmsCredits(subscription.businessId, targetPlan, targetBillingPeriod, existingPayment.id);
+      }
       return res.redirect(`${FRONTEND_URL}/subscription?status=success&message=Payment already processed`);
     }
 
@@ -268,20 +290,18 @@ export const handleEsewaSuccess = async (req: Request, res: Response) => {
       },
     });
 
-
-
     if (payment.subscriptionId) {
-  await subscriptionService.changePlanAndActivate({
-    subscriptionId: payment.subscriptionId,
-    targetPlanId: targetPlan.id,
-    paymentId: payment.id,
-    billingPeriod: targetBillingPeriod as BillingPeriod,
-  });
-  
-  await grantPlanSmsCredits(payment.businessId, targetPlan, targetBillingPeriod, payment.id);
+      await subscriptionService.changePlanAndActivate({
+        subscriptionId: payment.subscriptionId,
+        targetPlanId: targetPlan.id,
+        paymentId: payment.id,
+        billingPeriod: targetBillingPeriod as BillingPeriod,
+      });
 
-  console.log('[SubscriptionPayment] Subscription plan changed and activated:', payment.subscriptionId);
-}
+      await grantPlanSmsCredits(payment.businessId, targetPlan, targetBillingPeriod, payment.id);
+
+      console.log('[SubscriptionPayment] Subscription plan changed and activated:', payment.subscriptionId);
+    }
 
     return res.redirect(`${FRONTEND_URL}/subscription?status=success&message=Payment successful`);
   } catch (error: any) {
@@ -315,7 +335,7 @@ export const handleEsewaFailure = async (req: Request, res: Response) => {
 export const getSubscriptionUsage = async (req: Request, res: Response) => {
   try {
     const { businessId } = req.params;
-    
+
     // Ensure businessId is a string
     const id = typeof businessId === 'string' ? businessId : Array.isArray(businessId) ? businessId[0] : businessId as string;
 
@@ -358,7 +378,7 @@ export const getSubscriptionUsage = async (req: Request, res: Response) => {
         status: subscription.status,
         planName: plan.displayName,
         expiresAt: subscription.endDate || subscription.trialEndsAt,
-        daysRemaining: subscription.endDate 
+        daysRemaining: subscription.endDate
           ? Math.max(0, Math.ceil((subscription.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
           : subscription.trialEndsAt
           ? Math.max(0, Math.ceil((subscription.trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
@@ -396,7 +416,7 @@ export const getSubscriptionUsage = async (req: Request, res: Response) => {
 export const checkSubscriptionLimit = async (req: Request, res: Response) => {
   try {
     const { businessId, action } = req.params;
-    
+
     // Ensure businessId is a string
     const id = typeof businessId === 'string' ? businessId : Array.isArray(businessId) ? businessId[0] : businessId as string;
 
@@ -411,7 +431,7 @@ export const checkSubscriptionLimit = async (req: Request, res: Response) => {
 
     // Check if subscription is valid
     const now = new Date();
-    const isValid = 
+    const isValid =
       (subscription.status === 'TRIAL' && subscription.trialEndsAt && subscription.trialEndsAt > now) ||
       (subscription.status === 'ACTIVE' && subscription.endDate && subscription.endDate > now);
 
@@ -468,7 +488,6 @@ export const checkSubscriptionLimit = async (req: Request, res: Response) => {
         allowed = true;
         break;
 
-
       case 'view-reports':
         allowed = plan.allowReports;
         reason = allowed ? '' : 'Reports not available in your plan';
@@ -506,5 +525,3 @@ export const getSubscriptionPlans = async (req: Request, res: Response) => {
     return res.status(500).json({ error: error.message || 'Failed to get plans' });
   }
 };
-
-

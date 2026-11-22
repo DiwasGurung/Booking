@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const prisma_1 = __importDefault(require("../lib/prisma"));
+const subscription_sms_service_1 = __importDefault(require("./subscription-sms.service"));
 class SubscriptionService {
     /**
      * Create subscription with 1 month free trial
@@ -57,6 +58,16 @@ class SubscriptionService {
                     business: true,
                 },
             });
+            // Free trial SMS credits (once per subscription; never blocks trial creation)
+            try {
+                const grant = await subscription_sms_service_1.default.grantTrialCredits(subscription.id);
+                if (grant.granted) {
+                    console.log(`[v0] Granted ${grant.credits} trial SMS credits to business ${data.businessId}`);
+                }
+            }
+            catch (err) {
+                console.error('[v0] Failed to grant trial SMS credits:', err);
+            }
             const actualTrialDays = Math.floor((subscription.endDate.getTime() - subscription.startDate.getTime()) / (1000 * 60 * 60 * 24));
             console.log(`[v0] Subscription created - Trial: ${actualTrialDays} days, ends: ${subscription.endDate}, trialEndsAt: ${subscription.trialEndsAt}`);
             return subscription;

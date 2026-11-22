@@ -21,15 +21,12 @@ class SeedController {
         }
     }
     /**
-     * Seed subscription plans (admin only)
+     * Seed subscription plans (admin only).
+     * Upserts by unique plan name, so existing plan IDs (and the subscriptions
+     * and payment references that point at them) are never deleted or changed.
      */
     async seedPlans(req, res) {
         try {
-            // Delete existing plans and recreate with new limits
-            const existingPlans = await prisma_1.default.subscriptionPlan.findMany();
-            if (existingPlans.length > 0) {
-                await prisma_1.default.subscriptionPlan.deleteMany();
-            }
             const plans = [
                 {
                     name: 'starter',
@@ -50,13 +47,16 @@ class SeedController {
                         'Online booking',
                         'Email support',
                         '30-day booking history',
+                        '10 free SMS credits with your free trial',
+                        '10 free SMS credits every month with your paid plan',
                     ],
                     // Limits
                     maxAppointmentsPerMonth: 200,
                     maxStaff: 1,
                     maxServices: 5,
                     maxCustomers: -1,
-                    monthlySmsCredits: 0,
+                    monthlySmsCredits: 10, // No SMS credits included in paid plan
+                    trialSmsCredits: 10, // One-time free credits when the trial starts
                     // Features
                     allowEmailNotifications: true,
                     allowSmsNotifications: true,
@@ -79,20 +79,23 @@ class SeedController {
                     priceSemiAnnualNPR: 4794, // 6 months @ 20% discount
                     priceAnnualNPR: 8991, // 12 months @ 25% discount
                     features: [
-                        "Unlimited bookings",
-                        "Staff management (up to 5 staff)",
-                        "Email notifications & reminders for booking date",
-                        "Online booking",
-                        "Booking analytics and reports",
-                        "PDF export of filtered bookings",
-                        "Priority email support",
+                        'Unlimited bookings',
+                        'Staff management (up to 5 staff)',
+                        'Email notifications & reminders for booking date',
+                        'Online booking',
+                        'Booking analytics and reports',
+                        'PDF export of filtered bookings',
+                        '100 SMS credits included per month',
+                        '50 free SMS credits with your free trial',
+                        'Priority email support',
                     ],
                     // Limits
                     maxAppointmentsPerMonth: -1, // Unlimited
                     maxStaff: 5,
                     maxServices: -1, // Unlimited
                     maxCustomers: -1, // Unlimited
-                    monthlySmsCredits: 0, // No SMS credits included
+                    monthlySmsCredits: 100, // Granted on every verified payment (x months paid)
+                    trialSmsCredits: 50, // One-time free credits when the trial starts
                     // Features
                     allowEmailNotifications: true,
                     allowSmsNotifications: true,
@@ -115,21 +118,23 @@ class SeedController {
                     priceSemiAnnualNPR: 11994, // 6 months @ 20% discount
                     priceAnnualNPR: 22491, // 12 months @ 25% discount
                     features: [
-                        "Everything in Professional",
-                        "Unlimited staff",
-                        "Advanced booking analytics",
-                        "Staff performance analytics",
-                        "Custom analytics and history",
-                        "Priority email support",
-                        "SMS credits included (200/month)",
-                        "PDF export of filtered bookings",
+                        'Everything in Professional',
+                        'Unlimited staff',
+                        'Advanced booking analytics',
+                        'Staff performance analytics',
+                        'Custom analytics and history',
+                        'Priority email support',
+                        'SMS credits included (200/month)',
+                        '100 free SMS credits with your free trial',
+                        'PDF export of filtered bookings',
                     ],
                     // Limits
                     maxAppointmentsPerMonth: -1, // Unlimited
                     maxStaff: -1, // Unlimited
-                    maxServices: -1,
-                    maxCustomers: -1,
-                    monthlySmsCredits: 200,
+                    maxServices: -1, // Unlimited
+                    maxCustomers: -1, // Unlimited
+                    monthlySmsCredits: 200, // Granted on every verified payment (x months paid)
+                    trialSmsCredits: 100, // One-time free credits when the trial starts
                     // Features
                     allowEmailNotifications: true,
                     allowSmsNotifications: true,
@@ -140,10 +145,12 @@ class SeedController {
                     active: true,
                 },
             ];
-            const createdPlans = await Promise.all(plans.map((plan) => prisma_1.default.subscriptionPlan.create({
-                data: plan,
+            const createdPlans = await Promise.all(plans.map((plan) => prisma_1.default.subscriptionPlan.upsert({
+                where: { name: plan.name },
+                update: plan,
+                create: plan,
             })));
-            console.log('[v0] Successfully created', createdPlans.length, 'subscription plans with limits');
+            console.log('[v0] Successfully seeded', createdPlans.length, 'subscription plans with limits');
             res.json({
                 message: 'Subscription plans seeded successfully',
                 plans: createdPlans,
