@@ -1,5 +1,6 @@
 import prisma from '../lib/prisma'
 import type { Subscription, Prisma, SubscriptionStatus, SubscriptionPlan, Business } from '@prisma/client'
+import SubscriptionSmsService from './subscription-sms.service'
 
 // Type definitions for service methods
 type SubscriptionWithRelations = Subscription & {
@@ -144,6 +145,17 @@ class SubscriptionService {
           business: true,
         },
       })
+
+      // Free trial SMS credits (once per subscription; never blocks trial creation)
+      try {
+        const grant = await SubscriptionSmsService.grantTrialCredits(subscription.id)
+        if (grant.granted) {
+          console.log(`[v0] Granted ${grant.credits} trial SMS credits to business ${data.businessId}`)
+        }
+      } catch (err) {
+        console.error('[v0] Failed to grant trial SMS credits:', err)
+      }
+
 
       const actualTrialDays = Math.floor((subscription.endDate!.getTime() - subscription.startDate!.getTime()) / (1000 * 60 * 60 * 24))
       console.log(`[v0] Subscription created - Trial: ${actualTrialDays} days, ends: ${subscription.endDate}, trialEndsAt: ${subscription.trialEndsAt}`)

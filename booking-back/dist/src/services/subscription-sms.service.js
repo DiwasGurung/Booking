@@ -134,6 +134,46 @@ class SubscriptionSmsService {
             take: 50,
         });
     }
+    /**
+  * Grants the plan's free trial credits exactly once per subscription.
+  * The updateMany "claim" is race-safe: only one caller can flip
+  * trialCreditsGranted from false to true, and everything runs in one
+  * transaction so a failure rolls the claim back too.
+  */
+    async grantTrialCredits(subscriptionId) {
+        return prisma_1.default.$transaction(async (tx) => {
+            const sub = await tx.subscription.findUnique({
+                where: { id: subscriptionId },
+                include: { plan: true },
+            });
+            if (!sub || sub.status !== 'TRIAL')
+                return { granted: false };
+            const credits = sub.plan.trialSmsCredits;
+            if (!credits || credits <= 0)
+                return { granted: false };
+            const claim = await tx.subscription.updateMany({
+                where: { id: subscriptionId, trialCreditsGranted: false },
+                data: { trialCreditsGranted: true },
+            });
+            if (claim.count === 0)
+                return { granted: false };
+            const { smsCredits } = await tx.business.update({
+                where: { id: sub.businessId },
+                data: { smsCredits: { increment: credits } },
+                select: { smsCredits: true },
+            });
+            await tx.smsCreditTransaction.create({
+                data: {
+                    businessId: sub.businessId,
+                    type: 'BONUS',
+                    amount: credits,
+                    balanceAfter: smsCredits,
+                    description: `${sub.plan.displayName} free trial: ${credits} SMS credits`,
+                },
+            });
+            return { granted: true, credits, balance: smsCredits };
+        });
+    }
     /** Aggregate send/fail counts, scoped to one business, optionally date-bounded. */
     async getStatistics(businessId, startDate, endDate) {
         const where = { businessId };

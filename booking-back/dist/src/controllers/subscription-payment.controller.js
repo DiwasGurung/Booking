@@ -20,6 +20,15 @@ const PERIOD_MONTHS = {
     YEARLY: 12,
     ANNUAL: 12,
 };
+// eSewa transaction references only allow letters, digits and "-", so billing
+// periods that contain "_" (e.g. HALF_YEARLY) travel as a one-letter code.
+const PERIOD_CODE = {
+    MONTHLY: 'M',
+    QUARTERLY: 'Q',
+    HALF_YEARLY: 'H',
+    YEARLY: 'Y',
+};
+const CODE_PERIOD = Object.fromEntries(Object.entries(PERIOD_CODE).map(([period, code]) => [code, period]));
 /**
  * Grants the plan's included SMS credits for a verified subscription payment.
  * Idempotent per payment (unique paymentId on the credit ledger), so it is safe
@@ -63,6 +72,9 @@ const initiateEsewaPayment = async (req, res) => {
         if (!businessId || !planId) {
             return res.status(400).json({ error: 'Business ID and Plan ID are required' });
         }
+        if (!Object.values(billing_1.BillingPeriod).includes(billingPeriod)) {
+            return res.status(400).json({ error: 'Invalid billing period' });
+        }
         // Get the subscription plan
         const plan = await prisma_1.default.subscriptionPlan.findUnique({
             where: { id: planId },
@@ -94,7 +106,8 @@ const initiateEsewaPayment = async (req, res) => {
         // Do not mutate an existing subscription before payment verification. The
         // target plan and billing period travel in the provider reference instead.
         // This keeps the current entitlement active if payment is cancelled/failed.
-        const transactionUuid = `SUB-${subscription.id}-${planId}-${billingPeriod}-${Date.now()}`.replace(/[^A-Za-z0-9-]/g, '');
+        const periodCode = PERIOD_CODE[billingPeriod] ?? 'M';
+        const transactionUuid = `SUB-${subscription.id}-${planId}-${periodCode}-${Date.now()}`.replace(/[^A-Za-z0-9-]/g, '');
         // Generate eSewa payment form data
         const esewaResponse = await esewa_service_1.default.initiatePayment({
             amount: priceNPR,
@@ -155,7 +168,7 @@ const handleEsewaSuccess = async (req, res) => {
             totalAmount: parsedTotalAmount,
             transactionCode: transaction_code,
         });
-        // Reference format: SUB-{subscriptionId}-{targetPlanId}-{billingPeriod}-{timestamp}
+        // Reference format: SUB-{subscriptionId}-{targetPlanId}-{periodCode}-{timestamp}
         const transactionPrefix = 'SUB-';
         const referenceParts = transaction_uuid.startsWith(transactionPrefix)
             ? transaction_uuid.slice(transactionPrefix.length).split('-')
@@ -163,7 +176,10 @@ const handleEsewaSuccess = async (req, res) => {
         if (referenceParts.length < 4) {
             return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Invalid transaction reference`);
         }
-        const [subscriptionId, targetPlanId, targetBillingPeriod] = referenceParts;
+        const [subscriptionId, targetPlanId, periodCode] = referenceParts;
+        // Map the one-letter code back; falls back to the raw value so references
+        // created before this change (full period names) keep working.
+        const targetBillingPeriod = CODE_PERIOD[periodCode] ?? periodCode;
         const subscription = await prisma_1.default.subscription.findUnique({
             where: { id: subscriptionId },
             include: { plan: true },
@@ -174,10 +190,6 @@ const handleEsewaSuccess = async (req, res) => {
         }
         if (!Object.values(billing_1.BillingPeriod).includes(targetBillingPeriod)) {
             return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Invalid billing period`);
-        }
-        if (!subscription) {
-            console.error('[SubscriptionPayment] Subscription not found for transaction:', transaction_uuid);
-            return res.redirect(`${FRONTEND_URL}/subscription?status=error&message=Subscription not found`);
         }
         // Verify with eSewa server (server-to-server verification)
         const verification = await esewa_service_1.default.verifyPayment(transaction_uuid, parsedTotalAmount);
@@ -202,14 +214,18 @@ const handleEsewaSuccess = async (req, res) => {
         const existingPayment = await prisma_1.default.payment.findUnique({ where: { transactionId: transaction_uuid } });
         if (existingPayment) {
             if (existingPayment.subscriptionId) {
-                const existingSubscription = await prisma_1.default.subscription.findUnique({ where: { id: existingPayment.subscriptionId } });
-                if (existingSubscription && (existingSubscription.status !== 'ACTIVE' || !existingSubscription.startDate || !existingSubscription.endDate)) {
+                const existingSubscription = await prisma_1.default.subscription.findUnique({
+                    where: { id: existingPayment.subscriptionId },
+                });
+                if (existingSubscription &&
+                    (existingSubscription.status !== 'ACTIVE' || !existingSubscription.startDate || !existingSubscription.endDate)) {
                     await subscription_service_1.default.activateSubscription(existingPayment.subscriptionId, {
                         paymentId: existingPayment.id,
                         durationDays: subscription.plan.durationDays || 30,
                     });
-                    await grantPlanSmsCredits(subscription.businessId, targetPlan, targetBillingPeriod, existingPayment.id);
                 }
+                // Idempotent per payment: recovers a grant that failed on the first callback.
+                await grantPlanSmsCredits(subscription.businessId, targetPlan, targetBillingPeriod, existingPayment.id);
             }
             return res.redirect(`${FRONTEND_URL}/subscription?status=success&message=Payment already processed`);
         }
