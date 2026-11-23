@@ -938,19 +938,20 @@ export default function StaffBookPage() {
         })
       }
 
-      const isUserVerified =
-        createdBooking?.user?.isPhoneVerified ?? createdBooking?.customer?.isPhoneVerified ?? false
+      const requiresVerification =
+  createdBooking?.isPhoneVerified === false ||
+  createdBooking?.status === 'UNVERIFIED'
 
-      if (createdBooking?.id) setBookingId(createdBooking.id)
+if (createdBooking?.id) setBookingId(createdBooking.id)
 
-      if (!isUserVerified && createdBooking?.id) {
-        setVerificationCode('')
-        setCodeError(null)
-        setShowVerificationModal(true)
-        await sendPhoneVerificationCode(createdBooking.id)
-      } else {
-        setBookingSuccess(true)
-      }
+if (requiresVerification && createdBooking?.id) {
+  setVerificationCode('')
+  setCodeError(null)
+  setShowVerificationModal(true)
+  await sendPhoneVerificationCode(createdBooking.id)
+} else {
+  setBookingSuccess(true)
+}
     } catch (err: any) {
       setError(
         err?.name === 'AbortError'
