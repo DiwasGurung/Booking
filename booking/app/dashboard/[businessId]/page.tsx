@@ -19,6 +19,7 @@ import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 import { useBranches } from '@/context/branchContext'
 import { Input } from '@/components/ui/Input'
 import { DashboardCharts, ChartBooking } from '@/components/DashboardCharts'
+import { DateTime } from 'luxon'
 
 interface BusinessStats {
   totalBookings: number
@@ -63,6 +64,46 @@ function withTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
       (e) => { clearTimeout(timer); reject(e) }
     )
   })
+}
+
+const BUSINESS_TZ = process.env.NEXT_PUBLIC_BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
+const CHART_DAYS = 90
+const CHART_PAGE_SIZE = 100
+const CHART_MAX_PAGES = 30
+
+// Loads every booking from the last CHART_DAYS days (business time zone).
+// Pages through the API instead of trusting a single page, because page 1 of
+// 500 is not "the last 90 days": it's whichever 500 rows the API returns first.
+async function fetchChartBookings(
+  businessId: string,
+  branchParam: string | undefined,
+  isStale: () => boolean
+): Promise<ChartBooking[]> {
+  const since = DateTime.now().setZone(BUSINESS_TZ).minus({ days: CHART_DAYS }).startOf('day')
+  const byId = new Map<string, any>()
+
+  for (let page = 1; page <= CHART_MAX_PAGES; page++) {
+    const res: any = await withTimeout(
+      bookingsApi.getBusinessBookings(
+        businessId, page, CHART_PAGE_SIZE,
+        undefined, undefined, undefined, undefined, branchParam
+      )
+    )
+    if (isStale()) return []
+
+    const d = res?.data
+    const list: any[] = Array.isArray(d) ? d : d?.bookings || d?.data || []
+
+    const before = byId.size
+    list.forEach((b) => byId.set(b.id, b))
+    // Empty page, or a page with nothing new (API capped/ignored `page`): we're done
+    if (list.length === 0 || byId.size === before) break
+  }
+
+  return Array.from(byId.values()).filter((b) => {
+    const start = DateTime.fromISO(b.startTime).setZone(BUSINESS_TZ)
+    return start.isValid && start >= since
+  }) as ChartBooking[]
 }
 
 export default function BusinessDashboardPage() {
@@ -128,9 +169,7 @@ export default function BusinessDashboardPage() {
       const [statsRes, bookingsRes, paymentsRes, hoursRes, businessRes, chartRes] = await Promise.allSettled([
         // branchParam is undefined for "All branches", so no filter is sent
         withTimeout((businessApi.getStats as any)(businessId, branchParam)),
-        withTimeout(
-          bookingsApi.getBusinessBookings(businessId, 1, 5, undefined, undefined, undefined, undefined, branchParam)
-        ),
+        fetchChartBookings(businessId, branchParam, () => requestId !== requestIdRef.current),
         withTimeout(paymentApi.getBusinessPayments(businessId, 1, 5)),
         withTimeout(businessHoursApi.getBusinessHours(businessId)),
         withTimeout(businessApi.getBusinessById(businessId)),
@@ -180,14 +219,11 @@ export default function BusinessDashboardPage() {
         }
       }
 
-      // Chart data
       if (chartRes.status === 'fulfilled') {
-        const d = (chartRes.value as any)?.data
-        const list = Array.isArray(d) ? d : d?.bookings || d?.data || []
-        setChartBookings(list)
-      } else {
-        setChartBookings([])
-      }
+     setChartBookings(chartRes.value as ChartBooking[])
+   } else {
+     setChartBookings([])
+   }
 
       // Only show the error banner if the core data failed
       if (statsRes.status === 'rejected' && bookingsRes.status === 'rejected') {

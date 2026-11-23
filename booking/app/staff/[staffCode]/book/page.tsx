@@ -1,32 +1,36 @@
 'use client'
 
-import { AlertCircle, Loader, MailIcon, Phone, ChevronLeft, ChevronRight, Calendar as CalendarIcon, MapPin } from 'lucide-react'
-import { useEffect, useState, useRef, JSX } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import {
+  Calendar, Clock, CheckCircle2, AlertCircle, Briefcase, User, Phone, X, Check, Info,
+  ChevronLeft, ChevronRight, MapPin, Mail, CalendarPlus, type LucideIcon,
+} from 'lucide-react'
+import { DateTime } from 'luxon'
+import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/Input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { getCurrentUser } from '@/lib/auth'
-import { DateTime } from 'luxon'
+import type { Staff } from '@/lib/api'
 
-import { Staff } from '@/lib/api'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+
+// NEXT_PUBLIC_ prefix is required for env vars to exist in client components
+const BUSINESS_TZ = process.env.NEXT_PUBLIC_BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
+
+const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+const DAY_LABELS: Record<string, string> = {
+  sunday: 'Sunday', monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday',
+  thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday',
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const INACTIVE_REDIRECT_SECONDS = 5
 
 interface TimeSlot {
   time: string
   isAvailable: boolean
-}
-
-interface FormData {
-  customerName: string
-  email: string
-  phone: string
-  serviceId: string
-  date: string
-  time: string
-  notes: string
 }
 
 interface DaySchedule {
@@ -35,9 +39,217 @@ interface DaySchedule {
   isWorking: boolean
 }
 
+/* ----------------------------- pure helpers ----------------------------- */
 
-// How long the customer must read the verification notice before continuing
-const VERIFY_COUNTDOWN_SECONDS = 10
+function getInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return '?'
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
+  return (words[0][0] + words[1][0]).toUpperCase()
+}
+
+// "Now" in the business time zone (NOT the device zone, NOT UTC)
+const nowInTz = () => DateTime.now().setZone(BUSINESS_TZ)
+const todayInTz = () => nowInTz().toISODate() as string
+
+const formatDateStr = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+const slotToDateTime = (dateStr: string, slot: string): DateTime =>
+  DateTime.fromISO(`${dateStr}T${slot}`, { zone: BUSINESS_TZ })
+
+const isSlotInFuture = (dateStr: string, slot: string): boolean => {
+  if (dateStr !== todayInTz()) return true
+  const dt = slotToDateTime(dateStr, slot)
+  if (!dt.isValid) return true
+  return dt > nowInTz()
+}
+
+const formatTimeSlot = (slot: string): string => {
+  const [h, m] = slot.split(':').map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return slot
+  const period = h >= 12 ? 'PM' : 'AM'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${period}`
+}
+
+// 1000 -> "Rs. 1,000", 1250.5 -> "Rs. 1,250.5"
+const formatPrice = (value: number): string =>
+  `Rs. ${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+// Scrolls to the first ref that is mounted, after React has rendered the next step
+const scrollToFirst = (...refs: RefObject<HTMLElement | null>[]) => {
+  window.setTimeout(() => {
+    const el = refs.map((r) => r.current).find(Boolean)
+    el?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' })
+  }, 120)
+}
+
+const getNormalizedWorkingHours = (staffData: any): Record<string, DaySchedule> | null => {
+  let raw = staffData?.workingHours
+  if (!raw) return null
+  if (typeof raw === 'string') {
+    try { raw = JSON.parse(raw) } catch { return null }
+  }
+  if (typeof raw !== 'object') return null
+  const normalized: Record<string, DaySchedule> = {}
+  Object.keys(raw).forEach((key) => { normalized[key.toLowerCase()] = raw[key] })
+  return normalized
+}
+
+// 30-minute slots from open (inclusive) to close (exclusive), as "HH:mm"
+const generateTimeSlots = (open: string, close: string): string[] => {
+  const [oh, om] = open.split(':').map(Number)
+  const [ch, cm] = close.split(':').map(Number)
+  const slots: string[] = []
+  for (let mins = oh * 60 + om; mins < ch * 60 + cm; mins += 30) {
+    slots.push(`${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`)
+  }
+  return slots
+}
+
+/* ------------------------------ components ------------------------------ */
+
+function Spinner({ size = 8 }: { size?: 8 | 12 }) {
+  return (
+    <div
+      role="status"
+      aria-label="Loading"
+      className={`animate-spin rounded-full border-2 border-primary border-t-transparent ${
+        size === 12 ? 'h-12 w-12' : 'h-8 w-8'
+      }`}
+    />
+  )
+}
+
+// One consistent header for every step: numbered badge that turns into a check when done
+function StepHeader({
+  id, number, icon: Icon, title, done,
+}: {
+  id?: string
+  number: number
+  icon: LucideIcon
+  title: string
+  done?: boolean
+}) {
+  return (
+    <div className="mb-4 flex items-center gap-3">
+      <span
+        aria-hidden="true"
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+          done ? 'bg-primary text-primary-foreground' : 'border-2 border-primary/40 text-primary'
+        }`}
+      >
+        {done ? <Check className="h-4 w-4" /> : number}
+      </span>
+      <h2 id={id} className="flex items-center gap-2 text-base font-semibold text-foreground">
+        <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+        {title}
+      </h2>
+    </div>
+  )
+}
+
+function Section({
+  sectionRef, labelledBy, children,
+}: {
+  sectionRef?: RefObject<HTMLElement | null>
+  labelledBy?: string
+  children: React.ReactNode
+}) {
+  return (
+    <section
+      ref={sectionRef as RefObject<HTMLElement>}
+      aria-labelledby={labelledBy}
+      className="scroll-mt-4 border-b border-border py-7 first:pt-0 last:border-b-0 last:pb-0"
+    >
+      {children}
+    </section>
+  )
+}
+
+function ErrorAlert({ message, innerRef }: { message: string; innerRef?: RefObject<HTMLDivElement | null> }) {
+  return (
+    <div
+      ref={innerRef as RefObject<HTMLDivElement>}
+      role="alert"
+      className="flex items-start gap-3 rounded-xl border border-destructive/50 bg-destructive/5 p-4"
+    >
+      <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+      <p className="break-words text-sm text-foreground sm:text-base">{message}</p>
+    </div>
+  )
+}
+
+function StaffHeader({ staff }: { staff: any }) {
+  const fullName = `${staff.firstName ?? ''} ${staff.lastName ?? ''}`.trim()
+  const branch = staff.branch
+  const showBranchName = branch?.name && branch.name !== staff.businessName
+
+  const chip =
+    'inline-flex max-w-full items-center gap-1.5 rounded-full bg-secondary/60 px-3 py-1.5 text-xs sm:text-sm text-muted-foreground'
+
+  return (
+    <>
+      {/* Cover: same fixed-ratio banner as the business page */}
+      <div className="relative aspect-[2.2/1] w-full overflow-hidden bg-gradient-to-br from-primary/20 to-secondary sm:aspect-[3/1]" />
+
+      <div className="px-5 pb-6 sm:px-8">
+        {/* z-10 + relative keeps the avatar ABOVE the cover */}
+        <div className="relative z-10 -mt-10 flex flex-col gap-3 sm:-mt-12 sm:flex-row sm:items-end sm:gap-5">
+          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-card shadow-md ring-4 ring-card sm:h-24 sm:w-24">
+            {typeof staff.avatar === 'string' && staff.avatar ? (
+              <img src={staff.avatar} alt={fullName} className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-primary/10">
+                <span className="text-xl font-semibold text-primary">{getInitials(fullName)}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="min-w-0 sm:pb-2">
+            <h1 className="break-words text-xl font-bold leading-tight text-foreground sm:text-2xl md:text-3xl">
+              {fullName || 'Book your appointment'}
+            </h1>
+            {(staff.role || staff.businessName) && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {[staff.role, staff.businessName].filter(Boolean).join(' at ')}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {staff.email && (
+            <a href={`mailto:${staff.email}`} className={`${chip} hover:text-foreground`}>
+              <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="truncate">{staff.email}</span>
+            </a>
+          )}
+          {staff.phone && (
+            <a href={`tel:${staff.phone}`} className={`${chip} hover:text-foreground`}>
+              <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              {staff.phone}
+            </a>
+          )}
+          {branch?.address && (
+            <span className={chip}>
+              <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span className="truncate">
+                {showBranchName ? `${branch.name}, ` : ''}
+                {branch.address}
+              </span>
+            </span>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+/* -------------------------------- page --------------------------------- */
 
 export default function StaffBookPage() {
   const params = useParams()
@@ -45,32 +257,52 @@ export default function StaffBookPage() {
   const { toast } = useToast()
   const staffCode = params.staffCode as string
 
+  /* ------------------------------- state ------------------------------- */
+
   const [staff, setStaff] = useState<Staff | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [loadingSlots, setLoadingSlots] = useState(false)
-  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([])
-  const [staffTimeOff, setStaffTimeOff] = useState<Set<string>>(new Set())
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [validationErrors, setValidationErrors] = useState<Set<string>>(new Set())
-  const [closedReason, setClosedReason] = useState<string | null>(null)
-  const [closedDates, setClosedDates] = useState<Map<string, string>>(new Map())
-  const [businessHours, setBusinessHours] = useState<any[]>([])
-  const [countdown, setCountdown] = useState(VERIFY_COUNTDOWN_SECONDS)
-  const [inactiveNoticeOpen, setInactiveNoticeOpen] = useState(false)
-  const [inactiveCountdown, setInactiveCountdown] = useState(5)
-  const [formData, setFormData] = useState<FormData>({
-    customerName: '',
-    email: '',
-    phone: '',
-    serviceId: '',
-    date: '',
-    time: '',
-    notes: '',
-  })
 
+  const [serviceId, setServiceId] = useState('')
+  const [date, setDate] = useState('')
+  const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([])
+  // The date the currently shown slots belong to. While it differs from the
+  // chosen date we show the small spinner instead of stale/empty slots.
+  const [slotsFor, setSlotsFor] = useState('')
+  const [closedReason, setClosedReason] = useState<string | null>(null)
+
+  const [customerName, setCustomerName] = useState('')
+  const [customerEmail, setCustomerEmail] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [notes, setNotes] = useState('')
+
+  const [businessHours, setBusinessHours] = useState<any[]>([])
+  const [closedDates, setClosedDates] = useState<Map<string, string>>(new Map())
+  const [staffTimeOff, setStaffTimeOff] = useState<Set<string>>(new Set())
+  const [hoursLoading, setHoursLoading] = useState(true)
+
+  const [submitting, setSubmitting] = useState(false)
+  const [bookingSuccess, setBookingSuccess] = useState(false)
+  const [bookingId, setBookingId] = useState('')
+  const [error, setError] = useState('')
+
+  // Inactive staff notice
+  const [inactiveNoticeOpen, setInactiveNoticeOpen] = useState(false)
+  const [inactiveCountdown, setInactiveCountdown] = useState(INACTIVE_REDIRECT_SECONDS)
+
+  // Verification modal state
+  const [showVerificationModal, setShowVerificationModal] = useState(false)
+  const [verificationCode, setVerificationCode] = useState('')
+  const [sendingCode, setSendingCode] = useState(false)
+  const [verifyingCode, setVerifyingCode] = useState(false)
+  const [codeError, setCodeError] = useState<string | null>(null)
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  // Calendar state
   const [dateCalendarOpen, setDateCalendarOpen] = useState(false)
+  const [dateHint, setDateHint] = useState<string | null>(null) // why a tapped day is unavailable (works on touch)
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const d = new Date()
     d.setDate(1)
@@ -78,54 +310,311 @@ export default function StaffBookPage() {
   })
   const dateCalendarRef = useRef<HTMLDivElement>(null)
 
-  // Close the calendar when clicking outside it
-  useEffect(() => {
-    if (!dateCalendarOpen) return
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dateCalendarRef.current && !dateCalendarRef.current.contains(e.target as Node)) {
-        setDateCalendarOpen(false)
+  /* ------------------------------- refs -------------------------------- */
+
+  const slotsRequestId = useRef(0)
+  const dateRef = useRef<HTMLElement>(null)
+  const timeRef = useRef<HTMLElement>(null)
+  const infoRef = useRef<HTMLElement>(null)
+  const bottomErrorRef = useRef<HTMLDivElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  /* ------------------------------ derived data --------------------------- */
+
+  const staffServices: any[] = useMemo(() => (staff as any)?.services ?? [], [staff])
+  const selectedService = useMemo(
+    () => staffServices.find((ss: any) => ss.serviceId === serviceId)?.service ?? null,
+    [staffServices, serviceId]
+  )
+  const finalPrice = selectedService ? selectedService.offerPrice || selectedService.price : 0
+
+  const hoursByDay = useMemo(() => {
+    const map = new Map<number, any>()
+    businessHours.forEach((bh: any) => map.set(bh.dayOfWeek, bh))
+    return map
+  }, [businessHours])
+
+  // Parsed once per staff member instead of once per calendar cell
+  const staffSchedule = useMemo(() => getNormalizedWorkingHours(staff), [staff])
+
+  const slotsLoading = !!date && slotsFor !== date
+
+  const phoneValid = customerPhone.length === 10
+  const emailValid = EMAIL_RE.test(customerEmail)
+  const nameValid = customerName.trim().length > 0
+  const detailsValid = nameValid && emailValid && phoneValid
+
+  // A booking that exists but has not been phone-verified yet
+  const pendingVerification = !!bookingId && !bookingSuccess && !showVerificationModal
+
+  const showDate = !!selectedService
+  const showTime = !!selectedService && !!date && !closedReason
+  const showDetails = !!selectedService && !!date && !!selectedTime
+
+  /* ------------------------- date availability logic ---------------------- */
+
+  const getDateDisabledInfo = useCallback(
+    (d: Date): { disabled: boolean; reason?: string } => {
+      if (hoursLoading) return { disabled: true, reason: 'Loading business hours' }
+
+      const dateStr = formatDateStr(d)
+      const todayStr = todayInTz()
+
+      if (dateStr < todayStr) return { disabled: true, reason: 'This date has already passed' }
+
+      if (staffTimeOff.has(dateStr)) return { disabled: true, reason: 'Staff is on time off' }
+
+      if (closedDates.has(dateStr)) {
+        return { disabled: true, reason: closedDates.get(dateStr) || 'Business is closed' }
+      }
+
+      const adjustedDayOfWeek = d.getDay() === 0 ? 6 : d.getDay() - 1
+      const dayHours = hoursByDay.get(adjustedDayOfWeek)
+      if (!dayHours || dayHours.isClosed) {
+        return { disabled: true, reason: 'Business is closed on this day' }
+      }
+
+      if (dateStr === todayStr && dayHours.closeTime) {
+        const closing = DateTime.fromISO(`${dateStr}T${dayHours.closeTime}`, { zone: BUSINESS_TZ })
+        if (closing.isValid && nowInTz() > closing) {
+          return { disabled: true, reason: 'Business is closed for today' }
+        }
+      }
+
+      const dayName = DAY_KEYS[d.getDay()]
+      const daySchedule = staffSchedule?.[dayName]
+      if (daySchedule && daySchedule.isWorking === false) {
+        return { disabled: true, reason: `${staff?.firstName || 'Staff'} does not work on ${DAY_LABELS[dayName]}s` }
+      }
+
+      return { disabled: false }
+    },
+    [hoursLoading, staffTimeOff, closedDates, hoursByDay, staffSchedule, staff?.firstName]
+  )
+
+  // Calendar grid is computed once per relevant change, not on every render
+  const calendarDays = useMemo(() => {
+    if (!dateCalendarOpen) return []
+    const year = calendarMonth.getFullYear()
+    const month = calendarMonth.getMonth()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const list: { day: number; dateStr: string; label: string; disabled: boolean; reason?: string }[] = []
+    for (let day = 1; day <= daysInMonth; day++) {
+      const cellDate = new Date(year, month, day)
+      const { disabled, reason } = getDateDisabledInfo(cellDate)
+      list.push({
+        day,
+        dateStr: formatDateStr(cellDate),
+        label: cellDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+        disabled,
+        reason,
+      })
+    }
+    return list
+  }, [dateCalendarOpen, calendarMonth, getDateDisabledInfo])
+
+  const calendarStartOffset = useMemo(
+    () => new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1).getDay(),
+    [calendarMonth]
+  )
+
+  /* -------------------------------- loaders ------------------------------ */
+
+  const loadAvailableSlots = async (selectedDate: string) => {
+    if (!staff) return
+    const reqId = ++slotsRequestId.current
+    const isStale = () => reqId !== slotsRequestId.current
+    const finish = (slots: TimeSlot[], reason: string | null) => {
+      if (isStale()) return
+      setAvailableSlots(slots)
+      setClosedReason(reason)
+      setSlotsFor(selectedDate)
+    }
+
+    // Cheap local checks first: no network needed
+    if (staffTimeOff.has(selectedDate)) {
+      finish([], 'Staff member is on time off for this date')
+      return
+    }
+
+    if (closedDates.has(selectedDate)) {
+      finish([], closedDates.get(selectedDate) || 'Business is closed')
+      return
+    }
+
+    const dt = DateTime.fromISO(selectedDate, { zone: BUSINESS_TZ })
+    const dayName = DAY_KEYS[dt.weekday % 7]
+    const staffDaySchedule = staffSchedule?.[dayName]
+
+    if (staffDaySchedule && staffDaySchedule.isWorking === false) {
+      finish([], `${staff.firstName} does not work on ${DAY_LABELS[dayName]}s`)
+      return
+    }
+
+    const dayHours = hoursByDay.get(dt.weekday - 1)
+    if (!dayHours || dayHours.isClosed) {
+      finish([], dayHours ? 'Business is closed on this day' : 'Business hours not found')
+      return
+    }
+
+    // Intersect business hours with the staff member's own hours for the day
+    let effectiveOpen: string = String(dayHours.openTime).slice(0, 5)
+    let effectiveClose: string = String(dayHours.closeTime).slice(0, 5)
+    if (staffDaySchedule?.isWorking) {
+      const sStart = String(staffDaySchedule.start).slice(0, 5)
+      const sEnd = String(staffDaySchedule.end).slice(0, 5)
+      if (sStart > effectiveOpen) effectiveOpen = sStart
+      if (sEnd < effectiveClose) effectiveClose = sEnd
+    }
+
+    if (effectiveOpen >= effectiveClose) {
+      finish([], `${staff.firstName} has no overlapping hours with the business on this day`)
+      return
+    }
+
+    if (selectedDate === todayInTz()) {
+      const closing = DateTime.fromISO(`${selectedDate}T${effectiveClose}`, { zone: BUSINESS_TZ })
+      if (closing.isValid && nowInTz() > closing) {
+        finish([], 'Business is closed for today')
+        return
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [dateCalendarOpen])
 
-  const [isPhoneVerificationModalOpen, setIsPhoneVerificationModalOpen] = useState(false)
-  const [verificationCode, setVerificationCode] = useState('')
-  const [phoneToVerify, setPhoneToVerify] = useState<string | null>(null)
-  const [pendingBookingId, setPendingBookingId] = useState<string | null>(null)
-  const [sendingCode, setSendingCode] = useState(false)
-  const [verifyingCode, setVerifyingCode] = useState(false)
-  const [codeError, setCodeError] = useState<string | null>(null)
-  const [resendCooldown, setResendCooldown] = useState(0)
+    // Times already booked for this staff member on that date
+    const bookedTimes = new Set<string>()
+    try {
+      const res = await fetch(`${API_URL}/api/staff/code/${staff.staffCode}/bookings/date?date=${selectedDate}`)
+      if (isStale()) return
+      if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+        const data = await res.json()
+        const bookings = Array.isArray(data) ? data : data.bookings ?? []
+        bookings.forEach((booking: any) => {
+          if (!booking.startTime || !booking.endTime) return
+          const end = DateTime.fromISO(booking.endTime).setZone(BUSINESS_TZ)
+          let cur = DateTime.fromISO(booking.startTime).setZone(BUSINESS_TZ)
+          // Block every 30-minute slot for the whole service duration
+          while (cur < end) {
+            bookedTimes.add(cur.toFormat('HH:mm'))
+            cur = cur.plus({ minutes: 30 })
+          }
+        })
+      }
+    } catch {
+      if (isStale()) return
+    }
 
-  // Resend cooldown ticker
+    const slots = generateTimeSlots(effectiveOpen, effectiveClose).map((time) => ({
+      time,
+      isAvailable: !bookedTimes.has(time) && isSlotInFuture(selectedDate, time),
+    }))
+    finish(slots, null)
+  }
+
+  /* -------------------------------- effects ------------------------------ */
+
+  // Staff info, current user, business hours and closed dates
   useEffect(() => {
-    if (resendCooldown <= 0) return
-    const timer = setInterval(() => setResendCooldown((v) => (v <= 1 ? 0 : v - 1)), 1000)
-    return () => clearInterval(timer)
-  }, [resendCooldown])
+    let cancelled = false
+    ;(async () => {
+      try {
+        const user = await getCurrentUser()
+        if (cancelled) return
+        setCurrentUser(user)
 
-  // Lock scroll while the phone modal is open
+        const response = await fetch(`${API_URL}/api/staff/code/${staffCode}`)
+        if (!response.ok) {
+          setLoadError(response.status === 404 ? 'Staff member not found' : 'Failed to load staff information')
+          return
+        }
+        const data = await response.json()
+        if (cancelled) return
+        setStaff(data)
+
+        if (data.isActive === false) {
+          setInactiveCountdown(INACTIVE_REDIRECT_SECONDS)
+          setInactiveNoticeOpen(true)
+          return
+        }
+
+        // Only one service means nothing to choose
+        if (data.services?.length === 1) setServiceId(data.services[0].serviceId)
+
+        const q = data.branchId ? `?branchId=${data.branchId}` : ''
+        try {
+          const [hours, closed] = await Promise.all([
+            fetch(`${API_URL}/api/business-hours/business/${data.businessId}${q}`).then((r) => (r.ok ? r.json() : null)),
+            fetch(`${API_URL}/api/business-hours/${data.businessId}/closed-dates${q}`).then((r) => (r.ok ? r.json() : null)),
+          ])
+          if (cancelled) return
+          if (hours) setBusinessHours(Array.isArray(hours) ? hours : hours.data ?? [])
+          const map = new Map<string, string>()
+          if (closed?.success && closed.data) {
+            closed.data.forEach((cd: any) => {
+              map.set(new Date(cd.date).toISOString().split('T')[0], cd.reason || 'Business is closed')
+            })
+          }
+          setClosedDates(map)
+        } catch {
+          // keep whatever we had; calendar will show unavailable days
+        }
+      } catch (err: any) {
+        if (!cancelled) setLoadError(err.message || 'An error occurred')
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+          setHoursLoading(false)
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [staffCode])
+
+  // Pre-fill details for signed-in users
   useEffect(() => {
-    if (!isPhoneVerificationModalOpen) return
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = previous }
-  }, [isPhoneVerificationModalOpen])
+    if (!currentUser) return
+    setCustomerName(currentUser.name || '')
+    setCustomerEmail(currentUser.email || '')
+    setCustomerPhone((currentUser.phone || '').replace(/\D/g, '').slice(-10))
+  }, [currentUser])
 
+  // Staff time off for the month on screen, so the calendar can grey those days out
+  useEffect(() => {
+    if (!staff?.id) return
+    let cancelled = false
+    const month = formatDateStr(calendarMonth).substring(0, 7)
+    ;(async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/staff/${staff.id}/time-off?month=${month}`)
+        if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) return
+        const data = await res.json()
+        if (cancelled || !Array.isArray(data)) return
+        setStaffTimeOff((prev) => {
+          const next = new Set(prev)
+          data.forEach((to: any) => next.add(String(to.date).split('T')[0]))
+          return next
+        })
+      } catch {
+        // time off is a nicety for the calendar; slot loading still checks again
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [staff?.id, calendarMonth])
 
+  // Load slots whenever the chosen date (or the data it depends on) changes
+  useEffect(() => {
+    if (!date || !staff || hoursLoading) return
+    loadAvailableSlots(date)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, staff, hoursLoading, staffTimeOff, closedDates, businessHours])
+
+  // Inactive notice: count down, then send the customer to the business page
   useEffect(() => {
     if (!inactiveNoticeOpen) return
-    const timer = window.setInterval(() => {
-      setInactiveCountdown((value) => {
-        if (value <= 1) {
-          window.clearInterval(timer)
-          return 0
-        }
-        return value - 1
-      })
-    }, 1000)
+    const timer = window.setInterval(() => setInactiveCountdown((v) => (v <= 1 ? 0 : v - 1)), 1000)
     return () => window.clearInterval(timer)
   }, [inactiveNoticeOpen])
 
@@ -135,296 +624,145 @@ export default function StaffBookPage() {
     }
   }, [inactiveCountdown, inactiveNoticeOpen, router, staff?.businessId])
 
-  // Fetch staff info and check user authentication
   useEffect(() => {
-    const fetchStaffInfo = async () => {
-      try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
+    if (resendCooldown <= 0) return
+    const timer = setInterval(() => setResendCooldown((v) => (v <= 1 ? 0 : v - 1)), 1000)
+    return () => clearInterval(timer)
+  }, [resendCooldown])
 
-        // Check if user is authenticated
-        const user = await getCurrentUser()
-        setCurrentUser(user)
-
-
-        const response = await fetch(`${API_URL}/api/staff/code/${staffCode}`)
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            setError('Staff member not found')
-          } else {
-            setError('Failed to load staff information')
-          }
-          return
-        }
-
-        const data = await response.json()
-        setStaff(data)
-
-        if (data.isActive === false) {
-          setInactiveCountdown(5)
-          setInactiveNoticeOpen(true)
-          return
-        }
-        // Set the first service's serviceId (from the join table)
-        if (data.services && data.services.length > 0) {
-          setFormData((prev) => ({ ...prev, serviceId: data.services[0].serviceId }))
-        }
-        const branchQuery = data.branchId ? `?branchId=${data.branchId}` : ''
-
-
-        // Pre-fill customer info if user is authenticated
-        if (user) {
-          setFormData((prev) => ({
-            ...prev,
-            customerName: user.name || '',
-            email: user.email || '',
-            phone: user.phone || '',
-          }))
-        }
-
-        // Fetch business hours and closed dates for the business
-        try {
-          // Fetch business hours
-const hoursRes = await fetch(`${API_URL}/api/business-hours/business/${data.businessId}${branchQuery}`)
-
-          if (hoursRes.ok) {
-            const hoursData = await hoursRes.json()
-            setBusinessHours(hoursData)
-          }
-
-          // Fetch closed dates
-const closedDatesRes = await fetch(`${API_URL}/api/business-hours/${data.businessId}/closed-dates${branchQuery}`)
-          if (closedDatesRes.ok) {
-            const closedDatesData = await closedDatesRes.json()
-            const closedDatesMap = new Map<string, string>()
-            if (closedDatesData.success && closedDatesData.data) {
-              closedDatesData.data.forEach((cd: any) => {
-                const dateStr = new Date(cd.date).toISOString().split('T')[0]
-                closedDatesMap.set(dateStr, cd.reason || 'Business is closed')
-              })
-            }
-            setClosedDates(closedDatesMap)
-          }
-        } catch (err) {
-        }
-      } catch (err: any) {
-        setError(err.message || 'An error occurred')
-      } finally {
-        setLoading(false)
-      }
+  // Lock page scroll while the modal is open
+  useEffect(() => {
+    if (!showVerificationModal) return
+    const original = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = original
     }
+  }, [showVerificationModal])
 
-    fetchStaffInfo()
-  }, [staffCode])
-
-
-  const sendPhoneVerificationCode = async (bookingId: string) => {
-  setSendingCode(true)
-  setCodeError(null)
-  try {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-    const res = await fetch(`${API_URL}/api/public-verification/bookings/${bookingId}/send-phone-verification`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ purpose: 'PHONE_VERIFICATION' }),
-    })
-    const data = await res.json()
-
-    if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
-      setIsPhoneVerificationModalOpen(false)
-      toast({
-        title: 'Booking Confirmed!',
-        description: 'This phone number is already verified — your appointment is confirmed.',
-      })
-      setTimeout(() => router.push('/'), 1500)
-      return true
-    }
-
-    if (!res.ok || !data.success) {
-      setCodeError(data.error || 'Failed to send verification code')
-      if (typeof data.retryAfterSeconds === 'number') setResendCooldown(data.retryAfterSeconds)
-      return false
-    }
-    setResendCooldown(30)
-    return true
-  } catch {
-    setCodeError('Failed to send verification code. Please try again.')
-    return false
-  } finally {
-    setSendingCode(false)
-  }
-}
-
-  const handleResendCode = async () => {
-    if (!pendingBookingId || resendCooldown > 0) return
-    await sendPhoneVerificationCode(pendingBookingId)
-  }
-
-  const handleVerifyPhoneCode = async () => {
-  if (!pendingBookingId) return
-  if (!verificationCode || verificationCode.length < 4) {
-    setCodeError('Please enter the verification code')
-    return
-  }
-  setVerifyingCode(true)
-  setCodeError(null)
-  try {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-    const res = await fetch(`${API_URL}/api/public-verification/bookings/${pendingBookingId}/verify-phone`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: verificationCode, purpose: 'PHONE_VERIFICATION' }),
-    })
-    const data = await res.json()
-
-    if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
-      setIsPhoneVerificationModalOpen(false)
-      setVerificationCode('')
-      toast({
-        title: 'Booking Confirmed!',
-        description: 'This phone number is already verified — your appointment is confirmed.',
-      })
-      setTimeout(() => router.push('/'), 1500)
-      return
-    }
-
-    if (!res.ok || !data.success) {
-      setCodeError(
-        typeof data.attemptsRemaining === 'number'
-          ? `${data.error || 'Invalid code'} (${data.attemptsRemaining} attempts remaining)`
-          : data.error || 'Invalid verification code'
+  // Modal: move focus in, close on Escape, keep Tab inside the dialog
+  useEffect(() => {
+    if (!showVerificationModal) return
+    const previouslyFocused = document.activeElement as HTMLElement | null
+    const focusables = () =>
+      Array.from(
+        modalRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+        ) ?? []
       )
-      return
-    }
 
-    setIsPhoneVerificationModalOpen(false)
-    setVerificationCode('')
-    toast({
-      title: 'Booking Confirmed!',
-      description: 'Your phone number has been verified and your appointment is confirmed.',
-    })
-    setTimeout(() => router.push('/'), 1500)
-  } catch {
-    setCodeError('Failed to verify code. Please try again.')
-  } finally {
-    setVerifyingCode(false)
-  }
-}
-  // Generate time slots (30-minute intervals)
-  const generateTimeSlots = (openingTime: string, closingTime: string): TimeSlot[] => {
-    const slots: TimeSlot[] = []
-    const [openHour, openMin] = openingTime.split(':').map(Number)
-    const [closeHour, closeMin] = closingTime.split(':').map(Number)
+    window.setTimeout(() => modalRef.current?.querySelector<HTMLInputElement>('input')?.focus(), 50)
 
-    let currentHour = openHour
-    let currentMin = openMin
-
-    while (currentHour < closeHour || (currentHour === closeHour && currentMin < closeMin)) {
-      const timeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMin).padStart(2, '0')}`
-      slots.push({
-        time: timeStr,
-        isAvailable: true,
-      })
-
-      currentMin += 30
-      if (currentMin >= 60) {
-        currentMin = 0
-        currentHour += 1
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setShowVerificationModal(false)
+        return
+      }
+      if (e.key !== 'Tab') return
+      const items = focusables()
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
       }
     }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      previouslyFocused?.focus?.()
+    }
+  }, [showVerificationModal])
 
-    return slots
+  // Calendar: close on outside click or Escape
+  useEffect(() => {
+    if (!dateCalendarOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dateCalendarRef.current && !dateCalendarRef.current.contains(e.target as Node)) {
+        setDateCalendarOpen(false)
+      }
+    }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDateCalendarOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [dateCalendarOpen])
+
+  useEffect(() => {
+    if (date) {
+      const [y, m] = date.split('-').map(Number)
+      setCalendarMonth(new Date(y, m - 1, 1))
+    }
+  }, [date])
+
+  // Errors raised next to the confirm button must be visible, not off-screen
+  useEffect(() => {
+    if (error && selectedTime) {
+      bottomErrorRef.current?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'center' })
+    }
+  }, [error, selectedTime])
+
+  /* ------------------------------- handlers ------------------------------ */
+
+  // Back to a clean form after a finished (or abandoned) booking, without a full page reload
+  const startOver = () => {
+    setServiceId(staffServices.length === 1 ? staffServices[0].serviceId : '')
+    setDate('')
+    setSelectedTime(null)
+    setAvailableSlots([])
+    setSlotsFor('')
+    setClosedReason(null)
+    setDateHint(null)
+    setError('')
+    setBookingSuccess(false)
+    setBookingId('')
+    setVerificationCode('')
+    setCodeError(null)
+    setNotes('')
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' })
   }
 
-  const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-  const DAY_LABELS: Record<string, string> = {
-    sunday: 'Sunday',
-    monday: 'Monday',
-    tuesday: 'Tuesday',
-    wednesday: 'Wednesday',
-    thursday: 'Thursday',
-    friday: 'Friday',
-    saturday: 'Saturday',
+  const chooseService = (id: string) => {
+    if (id === serviceId) return
+    setServiceId(id)
+    setDate('')
+    setSelectedTime(null)
+    setClosedReason(null)
+    setDateHint(null)
+    setError('')
+    scrollToFirst(dateRef)
   }
 
-  // Builds the weekday from the local year/month/day parts of a "YYYY-MM-DD"
-  // string instead of `new Date(dateStr).getDay()`. Parsing a plain date
-  // string with `new Date()` treats it as UTC midnight, but `.getDay()` reads
-  // it back in the browser's local timezone — for anyone west of UTC that
-  // silently shifts the weekday by one day. Building the Date from local
-  // parts avoids that shift entirely.
-  const getDayKeyFromDateString = (dateStr: string): string => {
-    const [year, month, day] = dateStr.split('-').map(Number)
-    return DAY_KEYS[new Date(year, month - 1, day).getDay()]
-  }
-  const getNormalizedWorkingHours = (staffData: any): Record<string, DaySchedule> | null => {
-    let raw = staffData?.workingHours
-    if (!raw) return null
-    if (typeof raw === 'string') {
-      try { raw = JSON.parse(raw) } catch { return null }
-    }
-    if (typeof raw !== 'object') return null
-    const normalized: Record<string, DaySchedule> = {}
-    Object.keys(raw).forEach((key) => { normalized[key.toLowerCase()] = raw[key] })
-    return normalized
-  }
-
-  const formatDateStr = (d: Date): string =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
-  // Single source of truth for "can this date be booked" — used by both the
-  // calendar grid (to grey days out) and can be reused anywhere else that
-  // needs the same rule. Checks, in order: past dates, staff recurring
-  // time-off, business closed-dates, the staff's own weekly schedule, and
-  // the business's own weekly schedule.
-  const getDateDisabledInfo = (d: Date): { disabled: boolean; reason?: string } => {
-    const dateStr = formatDateStr(d)
-
-    const startOfToday = new Date()
-    startOfToday.setHours(0, 0, 0, 0)
-    if (d < startOfToday) {
-      return { disabled: true, reason: 'Past date' }
-    }
-
-    if (staffTimeOff.has(dateStr)) {
-      return { disabled: true, reason: 'Staff is on time off' }
-    }
-
-    if (closedDates.has(dateStr)) {
-      return { disabled: true, reason: closedDates.get(dateStr) || 'Business is closed' }
-    }
-
-    const dayName = DAY_KEYS[d.getDay()]
-    const staffWorkingHours = getNormalizedWorkingHours(staff)
-    const daySchedule = staffWorkingHours?.[dayName]
-    if (daySchedule && daySchedule.isWorking === false) {
-      return { disabled: true, reason: `${staff?.firstName || 'Staff'} does not work on ${DAY_LABELS[dayName]}s` }
-    }
-
-    const adjustedDayOfWeek = d.getDay() === 0 ? 6 : d.getDay() - 1
-    const dayHours = businessHours.find((bh: any) => bh.dayOfWeek === adjustedDayOfWeek)
-    if (dayHours && dayHours.isClosed) {
-      return { disabled: true, reason: 'Business is closed on this day' }
-    }
-
-    return { disabled: false }
-  }
-
-  // Applies a chosen, already-validated date the same way handleInputChange
-  // did for the date field: sets it, resets the picked time, and loads slots.
   const selectDate = (dateStr: string) => {
-    setFormData((prev) => ({ ...prev, date: dateStr, time: '' }))
+    setDate(dateStr)
+    setSelectedTime(null)
+    setClosedReason(null)
     setDateCalendarOpen(false)
-    if (formData.serviceId) {
-      loadAvailableSlots(dateStr, formData.serviceId)
-    }
+    setDateHint(null)
+    setError('')
+    scrollToFirst(timeRef)
+  }
+
+  const chooseTime = (slot: string) => {
+    setSelectedTime(slot)
+    setError('')
+    scrollToFirst(infoRef)
   }
 
   const goToPrevMonth = () => {
     setCalendarMonth((prev) => {
       const next = new Date(prev)
       next.setMonth(next.getMonth() - 1)
-      // Don't navigate before the current month
       const startOfThisMonth = new Date()
       startOfThisMonth.setDate(1)
       startOfThisMonth.setHours(0, 0, 0, 0)
@@ -440,841 +778,840 @@ const closedDatesRes = await fetch(`${API_URL}/api/business-hours/${data.busines
     })
   }
 
-  useEffect(() => {
-  if (formData.date) {
-    const [y, m] = formData.date.split('-').map(Number)
-    setCalendarMonth(new Date(y, m - 1, 1))
-  }
-}, [formData.date])
-
-  // Fetch availability data when date changes
-  const loadAvailableSlots = async (selectedDate: string, selectedServiceId: string) => {
-    if (!staff || !selectedDate) return
-
+  const sendPhoneVerificationCode = async (id: string) => {
+    setSendingCode(true)
+    setCodeError(null)
     try {
-      setLoadingSlots(true)
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
-
-      // Fetch time-off data for this month
-      try {
-        const timeOffRes = await fetch(`${API_URL}/api/staff/${staff.id}/time-off?month=${selectedDate.substring(0, 7)}`)
-        if (timeOffRes.ok) {
-          const contentType = timeOffRes.headers.get('content-type')
-          if (contentType?.includes('application/json')) {
-            const timeOffData = await timeOffRes.json()
-            const timeOffSet: Set<string> = new Set(timeOffData.map((to: any) => to.date.split('T')[0]))
-            setStaffTimeOff(timeOffSet)
-
-            // Check if date is a time-off day
-            if (timeOffSet.has(selectedDate)) {
-              setAvailableSlots([])
-              setClosedReason('Staff member is on time off for this date')
-              setLoadingSlots(false)
-              return
-            }
-          }
-        }
-      } catch (err) {
-        console.error('[v0] Error fetching time-off:', err)
-      }
-
-      // NEW: check the staff member's own recurring weekly schedule.
-      // This is the actual fix for the day-off bug — it runs where slots are
-      // generated, not just at the date-input's onChange, so it applies
-      // regardless of how `date` got set.
-      const dayName = getDayKeyFromDateString(selectedDate)
-      const staffDaySchedule = (staff as any)?.workingHours?.[dayName]
-
-      if (staffDaySchedule && staffDaySchedule.isWorking === false) {
-        setAvailableSlots([])
-        setClosedReason(`${staff.firstName} does not work on ${DAY_LABELS[dayName]}s`)
-        setLoadingSlots(false)
-        return
-      }
-
-      // Fetch bookings for this staff member on the selected date
-      let bookedTimes: Set<string> = new Set()
-      try {
-        const bookingsRes = await fetch(`${API_URL}/api/staff/code/${staff.staffCode}/bookings/date?date=${selectedDate}`)
-        if (bookingsRes.ok) {
-          const contentType = bookingsRes.headers.get('content-type')
-          if (contentType?.includes('application/json')) {
-            const data = await bookingsRes.json()
-            const bookings = Array.isArray(data) ? data : data.bookings ? data.bookings : []
-
-            // Extract booked times from the date-filtered bookings
-            // Block all time slots during the entire service duration
-            bookings.forEach((booking: any) => {
-              if (booking.startTime && booking.endTime) {
-                const startDate = new Date(booking.startTime)
-                const endDate = new Date(booking.endTime)
-
-                // Generate all 30-minute slots between start and end time
-                let currentTime = new Date(startDate)
-                while (currentTime < endDate) {
-                  const hours = String(currentTime.getHours()).padStart(2, '0')
-                  const minutes = String(currentTime.getMinutes()).padStart(2, '0')
-                  const timeStr = `${hours}:${minutes}`
-                  bookedTimes.add(timeStr)
-                  currentTime.setMinutes(currentTime.getMinutes() + 30)
-                }
-              }
-            })
-          }
-        }
-      } catch (err) {
-        console.error('[v0] Error fetching bookings:', err)
-      }
-
-      // Generate available slots from business hours, 30-min intervals
-      const selectedDateObj = new Date(selectedDate)
-      const dayOfWeek = selectedDateObj.getDay()
-      const now = new Date()
-      const isToday = selectedDateObj.toISOString().split('T')[0] === now.toISOString().split('T')[0]
-
-      // Check if date is in closed dates from database
-      if (closedDates.has(selectedDate)) {
-        setAvailableSlots([])
-        setClosedReason(closedDates.get(selectedDate) || 'Business is closed')
-        setLoadingSlots(false)
-        return
-      }
-
-      // Get business hours for this day of week from database
-      // Note: dayOfWeek from Date is 0-6 (Sun-Sat), but our business hours uses 0-6 (Mon-Sun)
-      // So we need to adjust: 0 (Sun) -> 6, 1 (Mon) -> 0, ..., 6 (Sat) -> 5
-      const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-      const dayHours = businessHours.find((bh: any) => bh.dayOfWeek === adjustedDayOfWeek)
-
-      if (!dayHours || dayHours.isClosed) {
-        setAvailableSlots([])
-        setClosedReason(dayHours ? 'Business is closed on this day' : 'Business hours not found')
-        setLoadingSlots(false)
-        return
-      }
-
-      // NEW: intersect business hours with the staff's own hours for that day
-      // (if they have a schedule set), so a staff member who starts later or
-      // finishes earlier than the business doesn't show slots they're not
-      // actually working.
-      let effectiveOpen = dayHours.openTime
-      let effectiveClose = dayHours.closeTime
-      if (staffDaySchedule?.isWorking) {
-        effectiveOpen = staffDaySchedule.start > effectiveOpen ? staffDaySchedule.start : effectiveOpen
-        effectiveClose = staffDaySchedule.end < effectiveClose ? staffDaySchedule.end : effectiveClose
-      }
-
-      if (effectiveOpen >= effectiveClose) {
-        setAvailableSlots([])
-        setClosedReason(`${staff.firstName} has no overlapping hours with the business on this day`)
-        setLoadingSlots(false)
-        return
-      }
-
-      // Parse closing time to check if business is closed for today
-      if (isToday) {
-        const [closingHour, closingMin] = effectiveClose.split(':').map(Number)
-        const closingDateTime = new Date(selectedDateObj)
-        closingDateTime.setHours(closingHour, closingMin, 0, 0)
-
-        if (now > closingDateTime) {
-          setAvailableSlots([])
-          setClosedReason('Business is closed for today')
-          setLoadingSlots(false)
-          return
-        }
-      }
-
-      // Clear closed reason if business is open
-      setClosedReason(null)
-
-      const allSlots = generateTimeSlots(effectiveOpen, effectiveClose)
-
-      // Filter slots: remove past times for today and booked times
-      const availableSlotsList = allSlots.map((slot) => {
-        let isAvailable = !bookedTimes.has(slot.time)
-
-        // For today, filter out past times
-        if (isToday && isAvailable) {
-          const [slotHour, slotMin] = slot.time.split(':').map(Number)
-          const slotDateTime = new Date(selectedDateObj)
-          slotDateTime.setHours(slotHour, slotMin, 0, 0)
-
-          if (now > slotDateTime) {
-            isAvailable = false
-          }
-        }
-
-        return {
-          ...slot,
-          isAvailable,
-        }
+      const res = await fetch(`${API_URL}/api/public-verification/bookings/${id}/send-phone-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purpose: 'PHONE_VERIFICATION' }),
       })
+      const data = await res.json()
 
-      setAvailableSlots(availableSlotsList)
-      setLoadingSlots(false)
-    } catch (err) {
-      setAvailableSlots([])
+      if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
+        setShowVerificationModal(false)
+        setBookingSuccess(true)
+        return true
+      }
+
+      if (!res.ok || !data.success) {
+        setCodeError(data.error || 'We could not send the code. Try again.')
+        if (typeof data.retryAfterSeconds === 'number') setResendCooldown(data.retryAfterSeconds)
+        return false
+      }
+      setResendCooldown(30)
+      return true
+    } catch {
+      setCodeError('We could not send the code. Check your connection and try again.')
+      return false
     } finally {
-      setLoadingSlots(false)
+      setSendingCode(false)
     }
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-  const { name, value } = e.target
-  setFormData((prev) => ({ ...prev, [name]: value }))
-
-  if (name === 'serviceId' && formData.date) {
-    loadAvailableSlots(formData.date, value)
+  const handleResendCode = async () => {
+    if (!bookingId || resendCooldown > 0) return
+    await sendPhoneVerificationCode(bookingId)
   }
-}
 
-
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    // Validate required fields
-    const errors = new Set<string>()
-    const missingFields: string[] = []
-
-    // For public users: validate name, email, phone
-    // For authenticated users: skip these (come from backend)
-    if (!currentUser) {
-      if (!formData.customerName) {
-        errors.add('customerName')
-        missingFields.push('Name')
-      }
-      if (!formData.email) {
-        errors.add('email')
-        missingFields.push('Email')
-      }
-      if (!formData.phone) {
-        errors.add('phone')
-        missingFields.push('Phone')
-      }
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (formData.email && !emailRegex.test(formData.email)) {
-        errors.add('email')
-        missingFields.push('Valid email')
-      }
-
-      // Validate phone format (basic validation - at least 10 digits)
-      const phoneRegex = /^\d{10,}$/
-      if (formData.phone && !phoneRegex.test(formData.phone.replace(/\D/g, ''))) {
-        errors.add('phone')
-        missingFields.push('Valid phone number')
-      }
+  const handleVerifyCode = async () => {
+    if (!bookingId) return
+    if (!verificationCode || verificationCode.length < 4) {
+      setCodeError('Enter the code we sent to your phone')
+      return
     }
-
-    // Always validate service, date, time
-    if (!formData.serviceId) {
-      errors.add('serviceId')
-      missingFields.push('Service')
-    }
-    if (!formData.date) {
-      errors.add('date')
-      missingFields.push('Date')
-    }
-    if (!formData.time) {
-      errors.add('time')
-      missingFields.push('Time')
-    }
-
-    if (errors.size > 0) {
-      setValidationErrors(errors)
-      toast({
-        title: 'Missing or Invalid Fields',
-        description: `Please fill in: ${missingFields.join(', ')}`,
-        variant: 'destructive',
+    setVerifyingCode(true)
+    setCodeError(null)
+    try {
+      const res = await fetch(`${API_URL}/api/public-verification/bookings/${bookingId}/verify-phone`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: verificationCode, purpose: 'PHONE_VERIFICATION' }),
       })
+      const data = await res.json()
+
+      if (data.alreadyVerified === true || (data.error && /already verified/i.test(data.error))) {
+        setShowVerificationModal(false)
+        setVerificationCode('')
+        setBookingSuccess(true)
+        return
+      }
+
+      if (!res.ok || !data.success) {
+        setCodeError(
+          typeof data.attemptsRemaining === 'number'
+            ? `${data.error || 'That code is not correct'} (${data.attemptsRemaining} attempts left)`
+            : data.error || 'That code is not correct'
+        )
+        return
+      }
+      setShowVerificationModal(false)
+      setVerificationCode('')
+      setBookingSuccess(true)
+    } catch {
+      setCodeError('We could not verify the code. Check your connection and try again.')
+    } finally {
+      setVerifyingCode(false)
+    }
+  }
+
+  const handleConfirmBooking = async () => {
+    // A booking was already created and is waiting for its code: reopen, never duplicate
+    if (bookingId && !bookingSuccess) {
+      setShowVerificationModal(true)
       return
     }
 
-    setValidationErrors(new Set())
+    if (!staff || !selectedService || !date || !selectedTime) {
+      setError('Choose a service, date, and time')
+      return
+    }
+
+    if (!isSlotInFuture(date, selectedTime)) {
+      setError('That time has passed. Choose a different time.')
+      setSelectedTime(null)
+      return
+    }
+
+    if (!currentUser) {
+      if (!nameValid) return setError('Enter your full name')
+      if (!emailValid) return setError('Enter a valid email address')
+      if (!phoneValid) return setError('Enter a 10-digit phone number')
+    }
 
     try {
       setSubmitting(true)
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'
 
-      // Define BUSINESS_TZ before creating DateTime objects
-      const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
+      const startDateTime = slotToDateTime(date, selectedTime)
+      const startTimeISO = startDateTime.toISO()
+      const endTimeISO = startDateTime.plus({ minutes: selectedService.duration || 60 }).toISO()
 
-      // Get service duration
-      const selectedStaffService = staff?.services?.find((ss: any) => ss.serviceId === formData.serviceId)
-
-      if (!selectedStaffService) {
-        // Handle error: service not found
-        toast({ title: 'Service not found', variant: 'destructive' })
-        return
+      const bookingPayload: any = {
+        businessId: staff.businessId,
+        branchId: staff.branchId ?? undefined,
+        staffId: staff.id,
+        serviceId,
+        startTime: startTimeISO,
+        endTime: endTimeISO,
+        notes,
       }
 
-      // Create timezone-aware start DateTime
-      const startDateTime = DateTime.fromISO(`${formData.date}T${formData.time}`, { zone: BUSINESS_TZ })
-      const startTimeISO = startDateTime.toISO() // ISO string with timezone info
-
-      // Calculate end DateTime by adding service duration
-      const durationMinutes = selectedStaffService.service?.duration || 60
-      const endDateTime = startDateTime.plus({ minutes: durationMinutes })
-      const endTimeISO = endDateTime.toISO() // ISO string with timezone info
-
-      // Use public booking endpoint for guests, authenticated booking for logged-in users
-      const endpoint = currentUser ? '/api/booking' : '/api/booking/public'
-      // handleSubmit: bookingPayload
-const bookingPayload: any = {
-  businessId: staff?.businessId,
-  branchId: staff?.branchId ?? undefined,
-  staffId: staff?.id,
-  serviceId: formData.serviceId,
-  startTime: startTimeISO,
-  endTime: endTimeISO,
-  notes: formData.notes,
-}
-
-      // Add business ID and customer details only for public bookings
+      // Customer details only for public bookings; signed-in users come from the backend
       if (!currentUser) {
-        bookingPayload.businessId = staff?.businessId
-        bookingPayload.customerName = formData.customerName
-        bookingPayload.customerEmail = formData.email
-        bookingPayload.customerPhone = formData.phone
+        bookingPayload.customerName = customerName
+        bookingPayload.customerEmail = customerEmail
+        bookingPayload.customerPhone = customerPhone
       }
 
-      const bookingRes = await fetch(`${API_URL}${endpoint}`, {
+      const endpoint = currentUser ? '/api/booking' : '/api/booking/public'
+      const res = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: currentUser ? 'include' : 'omit', // Include credentials only for authenticated users
+        credentials: currentUser ? 'include' : 'omit',
         body: JSON.stringify(bookingPayload),
       })
 
-      if (bookingRes.ok) {
-        const bookingData = await bookingRes.json()
-
-        // Create appointment details message
-        const serviceName =
-          staff?.services?.find((s: any) => s.serviceId === formData.serviceId)?.service?.name || 'Service'
-        const appointmentDetails = `${serviceName} on ${formData.date} at ${formData.time}`
-
-        const createdBooking = bookingData.booking || bookingData
-        const isUserVerified =
-          createdBooking?.user?.isPhoneVerified ??
-          createdBooking?.customer?.isPhoneVerified ??
-          false
-
-        if (!isUserVerified && createdBooking?.id) {
-          setPendingBookingId(createdBooking.id)
-          setPhoneToVerify(createdBooking?.customerPhone || formData.phone)
-          setVerificationCode('')
-          setCodeError(null)
-
-          const sent = await sendPhoneVerificationCode(createdBooking.id)
-          setIsPhoneVerificationModalOpen(true)
-
-          if (sent) {
-            toast({
-              title: 'One more step: verify your phone',
-              description: `Your appointment (${appointmentDetails}) is pending until you enter the code we just texted you.`,
-            })
-          }
-          return
-        }
-
-        if (bookingData.warnings && bookingData.warnings.length > 0) {
-          toast({
-            title: 'Booking Created with Warnings',
-            description: bookingData.warnings.join('\n') || bookingData.message,
-            variant: 'default',
-          })
-        } else {
-          toast({
-            title: 'Booking Confirmed!',
-            description: `Your appointment for ${appointmentDetails} has been scheduled successfully`,
-          })
-        }
-
-        // Redirect verified customers after a short delay
-        setTimeout(() => {
-          if (currentUser && currentUser.role === 'CUSTOMER') {
-            // Redirect authenticated users to dashboard
-            router.push('/search')
-          } else if (currentUser && currentUser.role === 'BUSINESS_OWNER') {
-            // Redirect business owners to their dashboard
-            router.push('/')
-          } else {
-            // Redirect guests back to staff page
-            router.push('/')
-          }
-        }, 2000)
-      } else {
-        let error
+      if (!res.ok) {
+        let err: any
         try {
-          error = await bookingRes.json()
-        } catch (parseErr) {
-          error = { message: 'Failed to parse error response' }
+          err = await res.json()
+        } catch {
+          err = { message: 'Failed to parse error response' }
         }
 
-        let errorTitle = 'Booking Failed'
-        let errorMessage = error.message || 'Failed to create booking'
+        let message = err.message || 'We could not create your booking. Try again.'
+        if (res.status === 401) message = 'Your session has expired. Log in again to complete your booking.'
+        else if (res.status === 400) message = err.reason ? `${err.message} (email validation failed)` : err.message || 'Check the details and try again.'
+        else if (res.status === 429) message = err.message || 'Booking limit reached. Upgrade your subscription to continue.'
+        setError(message)
+        return
+      }
 
-        if (bookingRes.status === 401) {
-          errorTitle = 'Session Expired'
-          errorMessage = 'Your session has expired. Please log in again to complete your booking.'
-        } else if (bookingRes.status === 400) {
-          // For email validation errors, show both message and reason
-          if (error.reason) {
-            errorTitle = 'Invalid Email Address'
-            errorMessage = `${error.message}\n• Issue: Email validation`
-          } else {
-            errorMessage = error.message || 'Please fill in all required fields correctly'
-          }
-        } else if (bookingRes.status === 429) {
-          errorTitle = 'Booking Limit Reached'
-          errorMessage = error.message || 'Booking limit reached. Please upgrade your subscription.'
-        }
+      const bookingData = await res.json()
+      const createdBooking = bookingData.booking || bookingData
+      setError('')
 
+      if (bookingData.warnings?.length > 0) {
         toast({
-          title: errorTitle,
-          description: errorMessage,
-          variant: 'destructive',
+          title: 'Booking created with warnings',
+          description: bookingData.warnings.join('\n') || bookingData.message,
         })
+      }
 
-        setSubmitting(false)
+      const isUserVerified =
+        createdBooking?.user?.isPhoneVerified ?? createdBooking?.customer?.isPhoneVerified ?? false
+
+      if (createdBooking?.id) setBookingId(createdBooking.id)
+
+      if (!isUserVerified && createdBooking?.id) {
+        setVerificationCode('')
+        setCodeError(null)
+        setShowVerificationModal(true)
+        await sendPhoneVerificationCode(createdBooking.id)
+      } else {
+        setBookingSuccess(true)
       }
     } catch (err: any) {
-      let errorMessage = err.message || 'An error occurred while booking'
-      if (err.name === 'AbortError') {
-        errorMessage = 'Booking request timed out. Please check your connection and try again.'
-      }
-      toast({
-        title: 'Error',
-        description: errorMessage,
-        variant: 'destructive',
-      })
-      setSubmitting(false)
+      setError(
+        err?.name === 'AbortError'
+          ? 'The request timed out. Check your connection and try again.'
+          : 'We could not create your booking. Check your connection and try again.'
+      )
     } finally {
       setSubmitting(false)
     }
   }
 
+  // Downloads an .ics file so the appointment can go straight into any calendar app
+  const addToCalendar = () => {
+    if (!selectedService || !date || !selectedTime) return
+    const start = slotToDateTime(date, selectedTime)
+    if (!start.isValid) return
+    const end = start.plus({ minutes: selectedService.duration || 60 })
+    const fmt = (dt: DateTime) => dt.toUTC().toFormat("yyyyLLdd'T'HHmmss'Z'")
+    const branch = (staff as any)?.branch
+    const where = branch ? [branch.name, branch.address].filter(Boolean).join(', ') : ''
+    const esc = (s: string) => s.replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n')
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Appoint-Nepal//Booking//EN',
+      'BEGIN:VEVENT',
+      `UID:${bookingId || start.toMillis()}@appoint-nepal`,
+      `DTSTAMP:${fmt(DateTime.now())}`,
+      `DTSTART:${fmt(start)}`,
+      `DTEND:${fmt(end)}`,
+      `SUMMARY:${esc(`${selectedService.name} with ${staff?.firstName ?? ''} ${staff?.lastName ?? ''}`.trim())}`,
+      where ? `LOCATION:${esc(where)}` : '',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].filter(Boolean).join('\r\n')
+
+    const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'appointment.ics'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  /* ------------------------------- rendering ----------------------------- */
+
+  const pageBg = 'min-h-screen bg-gradient-to-br from-background via-background to-secondary/30'
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl">
-          <CardContent className="py-12 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            </div>
-            <p className="text-muted-foreground">Loading staff information...</p>
-          </CardContent>
-        </Card>
+      <div className={`${pageBg} flex items-center justify-center p-4`}>
+        <div className="text-center">
+          <div className="mx-auto mb-4"><Spinner size={12} /></div>
+          <p className="text-lg text-muted-foreground">Loading booking page...</p>
+        </div>
       </div>
     )
   }
 
-  if (error || !staff) {
+  if (loadError || !staff) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
-        <Card className="w-full max-w-2xl border-destructive">
-          <CardContent className="py-12">
-            <div className="flex items-center gap-3 text-destructive mb-4">
-              <AlertCircle className="w-6 h-6" />
-              <p className="font-semibold">{error || 'Staff member not found'}</p>
-            </div>
-            <p className="text-sm text-muted-foreground">Please check the booking link and try again.</p>
-          </CardContent>
-        </Card>
+      <div className={`${pageBg} flex items-center justify-center p-4`}>
+        <div className="mx-auto max-w-md text-center">
+          <AlertCircle className="mx-auto mb-4 h-12 w-12 text-destructive" aria-hidden="true" />
+          <h1 className="mb-2 text-2xl font-bold text-foreground sm:text-3xl">{loadError || 'Staff member not found'}</h1>
+          <p className="text-muted-foreground">Check the booking link and try again.</p>
+        </div>
       </div>
     )
   }
+
+  const staffAny = staff as any
+  const staffName = `${staff.firstName ?? ''} ${staff.lastName ?? ''}`.trim()
+
+  const inactiveModal = inactiveNoticeOpen && (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="inactive-staff-title"
+    >
+      <Card className="w-full max-w-md gap-0 border border-border shadow-2xl">
+        <CardHeader>
+          <CardTitle id="inactive-staff-title">Staff member unavailable</CardTitle>
+          <CardDescription>
+            {staffName} is inactive and cannot accept bookings. We will take you to the business booking page.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md bg-muted px-4 py-3 text-center text-sm text-muted-foreground" aria-live="polite">
+            Redirecting in <span className="font-semibold text-foreground">{inactiveCountdown}</span> seconds...
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+
+  if (inactiveNoticeOpen) {
+    return <div className={pageBg}>{inactiveModal}</div>
+  }
+
+  if (bookingSuccess) {
+    const dateLabel = DateTime.fromISO(`${date}T00:00:00`, { zone: BUSINESS_TZ })
+      .setLocale('en')
+      .toLocaleString({ weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+
+    const rows: { label: string; value: React.ReactNode }[] = [
+      ...(staffAny.businessName ? [{ label: 'Business', value: staffAny.businessName }] : []),
+      ...(staffAny.branch?.address
+        ? [{
+            label: 'Location',
+            value: (
+              <>
+                {staffAny.branch.name}
+                <span className="block text-xs text-muted-foreground">{staffAny.branch.address}</span>
+              </>
+            ),
+          }]
+        : []),
+      { label: 'Service', value: selectedService?.name || 'N/A' },
+      { label: 'Staff', value: staffName },
+      { label: 'Date', value: dateLabel },
+      { label: 'Time', value: selectedTime ? formatTimeSlot(selectedTime) : 'N/A' },
+      { label: 'Price', value: formatPrice(finalPrice) },
+    ]
+
+    return (
+      <div className={`${pageBg} flex items-center justify-center p-4 md:p-8`}>
+        <div className="mx-auto w-full max-w-xl">
+          <Card className="gap-0 border border-border py-0 shadow-2xl">
+            <div className="p-5 text-center sm:p-10">
+              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 sm:h-20 sm:w-20">
+                <CheckCircle2 className="h-10 w-10 text-primary sm:h-12 sm:w-12" aria-hidden="true" />
+              </div>
+              <h1 className="mb-2 text-3xl font-bold text-foreground sm:text-4xl">Booking confirmed</h1>
+              <p className="mb-8 text-base text-muted-foreground sm:text-lg">Your appointment is booked. See you soon.</p>
+
+              <dl className="mb-8 divide-y divide-border rounded-xl border border-primary/20 bg-primary/5 px-5 text-left">
+                {rows.map((r) => (
+                  <div key={r.label} className="flex items-start justify-between gap-4 py-3">
+                    <dt className="text-sm font-semibold text-foreground">{r.label}</dt>
+                    <dd className="text-right text-sm text-foreground">{r.value}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              {bookingId && (
+                <p className="mb-6 break-all text-xs text-muted-foreground">
+                  Booking reference: <code className="font-mono text-foreground">{bookingId}</code>
+                </p>
+              )}
+
+              <div className="mb-8 flex flex-col gap-3 sm:flex-row">
+                <Button onClick={addToCalendar} variant="outline" className="h-12 flex-1 font-semibold">
+                  <CalendarPlus className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Add to calendar
+                </Button>
+                <Button onClick={startOver} className="h-12 flex-1 bg-primary font-semibold hover:bg-primary/90">
+                  Book another service
+                </Button>
+              </div>
+
+              <div className="border-t border-border pt-6">
+                <p className="break-words text-sm text-muted-foreground">
+                  A confirmation has been sent to <span className="font-semibold text-foreground">{customerEmail}</span>
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  let stepCounter = 0
+  const stepService = ++stepCounter
+  const stepDate = ++stepCounter
+  const stepTime = ++stepCounter
+  const stepInfo = ++stepCounter
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Staff Header */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="text-2xl">Book an Appointment</CardTitle>
-            <CardDescription>
-              Schedule an appointment with {staff.firstName} {staff.lastName} at your convenience
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <MailIcon className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm">{staff.email}</span>
-              </div>
-              {staff.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">{staff.phone}</span>
+    <div className={`${pageBg} px-3 py-4 sm:p-6 md:p-8`}>
+      <div className="mx-auto max-w-3xl">
+        <div className="mb-6 sm:mb-8">
+          <Card className="gap-0 overflow-hidden border border-border py-0 shadow-lg">
+            <StaffHeader staff={staff} />
+          </Card>
+
+          <p className="mt-4 px-2 text-center text-sm text-muted-foreground">
+            Choose a service, date, and time to book with {staff.firstName}.
+          </p>
+        </div>
+
+        {/* Errors that happen before a time is picked show up here; later ones sit by the confirm button */}
+        {error && !selectedTime && (
+          <div className="mb-6">
+            <ErrorAlert message={error} />
+          </div>
+        )}
+
+        {/* A booking was created but its phone code was never entered */}
+        {pendingVerification && (
+          <div role="status" className="mb-6 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <Info className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+              <p className="text-sm">Your booking is saved but not confirmed. Enter the code we sent to {customerPhone} to confirm it.</p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button size="sm" onClick={() => setShowVerificationModal(true)}>Enter code</Button>
+              <Button size="sm" variant="outline" onClick={startOver}>Start over</Button>
+            </div>
+          </div>
+        )}
+
+        <Card className="gap-0 border border-border py-0 shadow-lg">
+          <div className="p-4 sm:p-6 md:p-10">
+            {/* Service */}
+            <Section labelledBy="step-service">
+              <StepHeader id="step-service" number={stepService} icon={Briefcase} title="Select a service" done={!!selectedService} />
+
+              {staffServices.length === 0 ? (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary/40 p-6 text-sm">
+                  <AlertCircle className="h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+                  {staff.firstName} has no services to book yet.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {staffServices.map((ss: any) => {
+                    const svc = ss.service
+                    if (!svc) return null
+                    const selected = serviceId === ss.serviceId
+                    return (
+                      <button
+                        key={ss.serviceId}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => chooseService(ss.serviceId)}
+                        className={`relative flex h-full flex-col items-stretch justify-between gap-3 rounded-xl border-2 p-4 text-left transition-all ${
+                          selected
+                            ? 'border-primary bg-primary text-primary-foreground shadow-md'
+                            : 'border-border bg-card text-foreground hover:border-primary'
+                        }`}
+                      >
+                        {selected && (
+                          <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-primary-foreground text-primary">
+                            <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                          </span>
+                        )}
+                        <div className={selected ? 'pr-7' : ''}>
+                          <div className="font-semibold leading-snug">{svc.name}</div>
+                          {svc.description && (
+                            <div className="mt-1 line-clamp-2 text-sm opacity-75">{svc.description}</div>
+                          )}
+                        </div>
+
+                        <div className="flex items-end justify-between gap-3 text-xs">
+                          <span className="inline-flex items-center gap-1 opacity-75">
+                            <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                            {svc.duration} min
+                          </span>
+                          <span className="whitespace-nowrap text-right text-sm font-semibold">
+                            {svc.offerPrice ? (
+                              <>
+                                <span className="mr-1.5 text-xs font-normal line-through opacity-60">
+                                  {formatPrice(svc.price)}
+                                </span>
+                                {formatPrice(svc.offerPrice)}
+                              </>
+                            ) : (
+                              formatPrice(svc.price)
+                            )}
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
-              {(staff as any).branch?.address && (
-  <div className="flex items-center gap-2">
-    <MapPin className="w-4 h-4 text-muted-foreground" />
-    <span className="text-sm">
-      {(staff as any).branch.name !== staff.businessName ? `${(staff as any).branch.name} · ` : ''}
-      {(staff as any).branch.address}
-    </span>
-  </div>
-)}
-            </div>
-          </CardContent>
-        </Card>
+            </Section>
 
-        {/* Booking Form */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Book Your Appointment</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Your Information */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-sm">Your Information</h3>
+            {/* Date */}
+            {showDate && (
+              <Section sectionRef={dateRef} labelledBy="step-date">
+                <StepHeader id="step-date" number={stepDate} icon={Calendar} title="Select a date" done={!!date && !closedReason} />
 
-                <div>
-                  <Label htmlFor="customerName" className={validationErrors.has('customerName') ? 'text-red-600' : ''}>
-                    Name * {currentUser && <span className="text-xs text-primary">(verified)</span>}
-                  </Label>
-                  <Input
-                    id="customerName"
-                    name="customerName"
-                    type="text"
-                    placeholder="Your full name"
-                    value={formData.customerName}
-                    onChange={handleInputChange}
-                    disabled={submitting || !!currentUser}
-                    className={`${validationErrors.has('customerName') ? 'border-red-500 focus:border-red-500' : ''} ${currentUser ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="email" className={validationErrors.has('email') ? 'text-red-600' : ''}>
-                    Email * {currentUser && <span className="text-xs text-primary">(verified)</span>}
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="Your email address"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    disabled={submitting || !!currentUser}
-                    className={`${validationErrors.has('email') ? 'border-red-500 focus:border-red-500' : ''} ${currentUser ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}`}
-                    required
-                  />
-                  {validationErrors.has('email') && (
-                    <p className="text-xs text-red-600 mt-1">Please enter a valid email address</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="phone" className={validationErrors.has('phone') ? 'text-red-600' : ''}>
-                    Phone *
-                  </Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    placeholder="Your phone number"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    disabled={submitting}
-                    className={`${validationErrors.has('phone') ? 'border-red-500 focus:border-red-500' : ''}`}
-                    required
-                  />
-                  {validationErrors.has('phone') && (
-                    <p className="text-xs text-red-600 mt-1">Please enter a valid phone number (at least 10 digits)</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Service Selection */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-sm">Service Selection</h3>
-
-                <div>
-                  <Label htmlFor="serviceId">Service *</Label>
-                  <select
-                    id="serviceId"
-                    name="serviceId"
-                    value={formData.serviceId}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                <div className="relative" ref={dateCalendarRef}>
+                  <button
+                    type="button"
+                    onClick={() => setDateCalendarOpen((open) => !open)}
+                    aria-haspopup="dialog"
+                    aria-expanded={dateCalendarOpen}
+                    className="flex h-12 w-full items-center justify-between rounded-md border border-border bg-background px-3 text-left text-sm"
                   >
-                    <option value="">Select a service</option>
-                    {staff.services?.map((staffService: any) => {
-                      const svc = staffService.service
-                      if (!svc) return null
+                    <span className={date ? '' : 'text-muted-foreground'}>
+                      {date
+                        ? new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
+                            weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+                          })
+                        : 'Select a date'}
+                    </span>
+                    <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  </button>
+
+                  {dateCalendarOpen && (
+                    <div
+                      role="dialog"
+                      aria-label="Choose a date"
+                      className="absolute left-0 z-20 mt-2 w-full max-w-sm rounded-xl border border-border bg-card p-3 shadow-lg sm:w-80"
+                    >
+                      <div className="mb-2 flex items-center justify-between">
+                        <button type="button" onClick={goToPrevMonth} className="rounded p-2 hover:bg-muted" aria-label="Previous month">
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <span className="text-sm font-semibold" aria-live="polite">
+                          {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+                        </span>
+                        <button type="button" onClick={goToNextMonth} className="rounded p-2 hover:bg-muted" aria-label="Next month">
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="mb-1 grid grid-cols-7 gap-1" aria-hidden="true">
+                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+                          <div key={d} className="text-center text-xs font-medium text-muted-foreground">{d}</div>
+                        ))}
+                      </div>
+
+                      {hoursLoading ? (
+                        <div className="flex justify-center py-10"><Spinner /></div>
+                      ) : (
+                        <div className="grid grid-cols-7 gap-1">
+                          {Array.from({ length: calendarStartOffset }).map((_, i) => (
+                            <div key={`blank-${i}`} />
+                          ))}
+                          {calendarDays.map(({ day, dateStr, label, disabled, reason }) => {
+                            const isToday = dateStr === todayInTz()
+                            const isSelected = date === dateStr
+                            return (
+                              <button
+                                key={dateStr}
+                                type="button"
+                                aria-label={disabled && reason ? `${label}, unavailable: ${reason}` : label}
+                                aria-disabled={disabled}
+                                aria-pressed={isSelected}
+                                onClick={() => {
+                                  if (disabled) {
+                                    setDateHint(`${label}: ${reason ?? 'Unavailable'}`)
+                                  } else {
+                                    selectDate(dateStr)
+                                  }
+                                }}
+                                className={`mx-auto flex aspect-square w-full max-w-10 items-center justify-center rounded-md text-sm transition-colors ${
+                                  disabled
+                                    ? 'cursor-not-allowed text-muted-foreground/40 line-through'
+                                    : isSelected
+                                    ? 'bg-primary font-semibold text-primary-foreground'
+                                    : 'text-foreground hover:bg-primary/10'
+                                } ${isToday && !isSelected ? 'ring-1 ring-primary/50' : ''}`}
+                              >
+                                {day}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      <p className="mt-3 min-h-[2.5rem] border-t border-border pt-2 text-xs text-muted-foreground" aria-live="polite">
+                        {dateHint ?? 'Crossed-out days are unavailable. Tap one to see why.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {closedReason && !slotsLoading && (
+                  <div role="status" className="mt-4 flex items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-4 py-5 text-center text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    <AlertCircle className="mr-2 h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="text-sm">{closedReason}</span>
+                  </div>
+                )}
+              </Section>
+            )}
+
+            {/* Time: only this section shows a spinner while slots load */}
+            {showTime && (
+              <Section sectionRef={timeRef} labelledBy="step-time">
+                <StepHeader id="step-time" number={stepTime} icon={Clock} title="Select a time" done={!!selectedTime} />
+
+                {slotsLoading ? (
+                  <div className="flex justify-center py-8"><Spinner /></div>
+                ) : availableSlots.every((s) => !s.isAvailable) ? (
+                  <div className="flex items-start gap-2 rounded-lg border border-border bg-secondary/40 p-4 text-sm sm:p-6">
+                    <AlertCircle className="h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+                    <span>No times are available on this date with {staff.firstName}. Try another date.</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {availableSlots.map((slot) => {
+                      const selected = selectedTime === slot.time && slot.isAvailable
                       return (
-                        <option key={staffService.serviceId} value={staffService.serviceId}>
-                          {svc.name} - Rs. {svc.price} ({svc.duration} min)
-                        </option>
+                        <button
+                          key={slot.time}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => slot.isAvailable && chooseTime(slot.time)}
+                          disabled={!slot.isAvailable}
+                          title={!slot.isAvailable ? 'This time is not available' : undefined}
+                          className={`rounded-lg border-2 px-1 py-2.5 text-xs font-medium transition-all sm:p-3 sm:text-sm ${
+                            !slot.isAvailable
+                              ? 'cursor-not-allowed border-input bg-muted text-muted-foreground opacity-50'
+                              : selected
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-border bg-card text-foreground hover:border-primary'
+                          }`}
+                        >
+                          {formatTimeSlot(slot.time)}
+                        </button>
                       )
                     })}
-                  </select>
-                </div>
-              </div>
+                  </div>
+                )}
+              </Section>
+            )}
 
-              {/* Date & Time */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-sm">Appointment Date & Time</h3>
+            {/* Customer info */}
+            {showDetails && selectedService && selectedTime && (
+              <Section sectionRef={infoRef} labelledBy="step-info">
+                <StepHeader id="step-info" number={stepInfo} icon={User} title="Your details" done={detailsValid} />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="relative" ref={dateCalendarRef}>
-                    <Label htmlFor="date" className={validationErrors.has('date') ? 'text-red-600' : ''}>
-                      Date *
-                    </Label>
-                    <button
-                      type="button"
-                      id="date"
-                      onClick={() => setDateCalendarOpen((open) => !open)}
-                      className={`w-full flex items-center justify-between px-3 py-2 border rounded-md bg-background text-left text-sm ${validationErrors.has('date') ? 'border-red-500' : 'border-input'
-                        }`}
-                    >
-                      <span className={formData.date ? '' : 'text-muted-foreground'}>
-                        {formData.date
-                          ? new Date(formData.date + 'T00:00:00').toLocaleDateString(undefined, {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })
-                          : 'Select a date'}
-                      </span>
-                      <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-                    </button>
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="customer-name" className="mb-1 block text-sm font-medium text-foreground">
+                      Full name <span aria-hidden="true">*</span>
+                    </label>
+                    <Input
+                      id="customer-name"
+                      type="text"
+                      autoComplete="name"
+                      placeholder="Your full name"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      disabled={!!currentUser}
+                      required
+                      className={`h-11 ${currentUser ? 'cursor-not-allowed bg-muted text-muted-foreground' : ''}`}
+                    />
+                  </div>
 
-                    {dateCalendarOpen && (
-                      <div className="absolute z-20 mt-2 w-72 rounded-lg border border-border bg-card shadow-lg p-3">
-                        {/* Month navigation */}
-                        <div className="flex items-center justify-between mb-2">
-                          <button type="button" onClick={goToPrevMonth} className="p-1 rounded hover:bg-muted">
-                            <ChevronLeft className="w-4 h-4" />
-                          </button>
-                          <span className="text-sm font-semibold">
-                            {calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-                          </span>
-                          <button type="button" onClick={goToNextMonth} className="p-1 rounded hover:bg-muted">
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        {/* Weekday header */}
-                        <div className="grid grid-cols-7 gap-1 mb-1">
-                          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-                            <div key={d} className="text-center text-xs font-medium text-muted-foreground">
-                              {d}
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Day grid */}
-                        <div className="grid grid-cols-7 gap-1">
-                          {(() => {
-                            const year = calendarMonth.getFullYear()
-                            const month = calendarMonth.getMonth()
-                            const firstDayOfMonth = new Date(year, month, 1)
-                            const startOffset = firstDayOfMonth.getDay() // 0=Sun
-                            const daysInMonth = new Date(year, month + 1, 0).getDate()
-
-                            const cells: JSX.Element[] = []
-
-                            for (let i = 0; i < startOffset; i++) {
-                              cells.push(<div key={`blank-${i}`} />)
-                            }
-
-                            for (let day = 1; day <= daysInMonth; day++) {
-                              const cellDate = new Date(year, month, day)
-                              const dateStr = formatDateStr(cellDate)
-                              const { disabled, reason } = getDateDisabledInfo(cellDate)
-                              const isSelected = formData.date === dateStr
-
-                              cells.push(
-                                <button
-                                  key={dateStr}
-                                  type="button"
-                                  disabled={disabled}
-                                  title={disabled ? reason : undefined}
-                                  onClick={() => !disabled && selectDate(dateStr)}
-                                  className={`h-8 w-8 mx-auto flex items-center justify-center rounded-md text-sm transition-colors ${disabled
-                                      ? 'text-muted-foreground/40 cursor-not-allowed line-through'
-                                      : isSelected
-                                        ? 'bg-primary text-primary-foreground font-semibold'
-                                        : 'hover:bg-primary/10 text-foreground'
-                                    }`}
-                                >
-                                  {day}
-                                </button>
-                              )
-                            }
-
-                            return cells
-                          })()}
-                        </div>
-
-                        {/* Legend */}
-                        <p className="mt-3 text-xs text-muted-foreground border-t pt-2">
-                          Greyed-out days are unavailable — staff time off, a day the staff or business doesn't work, or already past.
-                        </p>
-                      </div>
+                  <div>
+                    <label htmlFor="customer-email" className="mb-1 block text-sm font-medium text-foreground">
+                      Email address <span aria-hidden="true">*</span>
+                    </label>
+                    <Input
+                      id="customer-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      disabled={!!currentUser}
+                      required
+                      className={`h-11 ${currentUser ? 'cursor-not-allowed bg-muted text-muted-foreground' : ''}`}
+                    />
+                    {!currentUser && customerEmail.length > 0 && !emailValid && (
+                      <p className="mt-1 text-xs text-destructive">Enter a valid email address.</p>
                     )}
                   </div>
 
                   <div>
-                    <Label htmlFor="time">Time *</Label>
-                    {loadingSlots ? (
-                      <div className="flex items-center justify-center py-6 border border-input rounded-md bg-muted">
-                        <Loader className="w-4 h-4 animate-spin mr-2" />
-                        <span className="text-sm text-muted-foreground">Loading available times...</span>
-                      </div>
-                    ) : staffTimeOff.has(formData.date) ? (
-                      <div className="flex items-center justify-center py-6 border border-input rounded-md bg-amber-50 border-amber-200">
-                        <AlertCircle className="w-4 h-4 mr-2 text-amber-600" />
-                        <span className="text-sm text-amber-600">Staff unavailable on this date</span>
-                      </div>
-                    ) : availableSlots.length > 0 ? (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {availableSlots.map((slot) => (
-                          <button
-                            key={slot.time}
-                            type="button"
-                            onClick={() => setFormData((prev) => ({ ...prev, time: slot.time }))}
-                            disabled={!slot.isAvailable}
-                            className={`w-20 px-3 py-2 text-sm rounded-md border transition-all text-center ${formData.time === slot.time && slot.isAvailable
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : slot.isAvailable
-                                ? 'border-input hover:border-primary hover:bg-primary/10'
-                                : 'border-input bg-muted text-muted-foreground cursor-not-allowed opacity-50'
-                              }`}
-                          >
-                            {slot.time}
-                          </button>
-                        ))}
-                      </div>
-                    ) : formData.date ? (
-                      <div className="flex items-center justify-center py-6 border border-input rounded-md bg-red-50 border-red-200">
-                        <AlertCircle className="w-4 h-4 mr-2 text-red-600" />
-                        <span className="text-sm text-red-600">{closedReason || 'No available times on this date'}</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center py-6 border border-input rounded-md bg-muted">
-                        <span className="text-sm text-muted-foreground">Select a date to see available times</span>
-                      </div>
-                    )}
+                    <label htmlFor="customer-phone" className="mb-1 block text-sm font-medium text-foreground">
+                      Phone number <span aria-hidden="true">*</span>
+                    </label>
+                    <div className="flex">
+                      <span className="inline-flex h-11 items-center rounded-l-md border border-r-0 border-border bg-muted px-3 text-sm text-muted-foreground">
+                        +977
+                      </span>
+                      <Input
+                        id="customer-phone"
+                        type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel-national"
+                        placeholder="98XXXXXXXX"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        maxLength={10}
+                        aria-describedby="phone-help"
+                        className="h-11 rounded-l-none border-border bg-background text-foreground"
+                        required
+                      />
+                    </div>
+                    <p id="phone-help" className={`mt-1 text-xs ${customerPhone.length > 0 && !phoneValid ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {customerPhone.length > 0 && !phoneValid
+                        ? 'Phone number must be exactly 10 digits.'
+                        : 'We will text a code to this number to confirm your booking.'}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="booking-notes" className="mb-1 block text-sm font-medium text-foreground">
+                      Notes <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                    </label>
+                    <textarea
+                      id="booking-notes"
+                      placeholder="Anything the staff member should know"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      className="w-full rounded-lg border-2 border-border bg-background p-3 text-sm focus:border-primary focus:outline-none"
+                      rows={3}
+                    />
                   </div>
                 </div>
-              </div>
 
-              {/* Notes */}
-              <div>
-                <Label htmlFor="notes">Additional Notes</Label>
-                <Textarea
-                  id="notes"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleInputChange}
-                  placeholder="Any special requests or information..."
-                  rows={4}
-                />
-              </div>
+                {/* Summary */}
+                <div className="mt-6 rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-6">
+                  <p className="mb-3 font-semibold text-foreground">Booking summary</p>
+                  <dl className="space-y-2 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">Service</dt>
+                      <dd className="text-right font-medium">{selectedService.name}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">Staff</dt>
+                      <dd className="text-right font-medium">{staffName}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">Date</dt>
+                      <dd className="text-right font-medium">
+                        {new Date(date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">Time</dt>
+                      <dd className="text-right font-medium">{formatTimeSlot(selectedTime)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">Duration</dt>
+                      <dd className="text-right font-medium">{selectedService.duration} min</dd>
+                    </div>
+                    <div className="flex justify-between gap-4 border-t border-primary/20 pt-2">
+                      <dt className="text-muted-foreground">Price</dt>
+                      <dd className="font-bold text-primary">{formatPrice(finalPrice)}</dd>
+                    </div>
+                  </dl>
+                </div>
 
-              {/* Submit Button */}
-              <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting ? 'Booking...' : 'Book Appointment'}
-              </Button>
-            </form>
-          </CardContent>
+                {error && (
+                  <div className="mt-6">
+                    <ErrorAlert message={error} innerRef={bottomErrorRef} />
+                  </div>
+                )}
+
+                {/* Sticky on phones so the total and Confirm are always in reach */}
+                <div className="sticky bottom-0 z-10 -mx-4 mt-6 border-t border-border bg-card/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+                  <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                    <Button
+                      onClick={() => { setSelectedTime(null); scrollToFirst(timeRef) }}
+                      variant="outline"
+                      className="h-12 px-6"
+                      disabled={submitting || !!bookingId}
+                    >
+                      Change time
+                    </Button>
+                    <Button
+                      onClick={handleConfirmBooking}
+                      disabled={submitting || !detailsValid}
+                      className="h-12 flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                    >
+                      {submitting ? 'Booking...' : pendingVerification ? 'Enter verification code' : `Confirm booking · ${formatPrice(finalPrice)}`}
+                    </Button>
+                  </div>
+                </div>
+              </Section>
+            )}
+          </div>
         </Card>
       </div>
-      {inactiveNoticeOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="inactive-staff-title">
-          <Card className="w-full max-w-md shadow-xl">
-            <CardHeader>
-              <CardTitle id="inactive-staff-title">Staff member unavailable</CardTitle>
-              <CardDescription>
-                This staff member is currently inactive and cannot accept bookings. You will be redirected to the business booking page.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md bg-muted px-4 py-3 text-center text-sm text-muted-foreground">
-                Redirecting in <span className="font-semibold text-foreground">{inactiveCountdown}</span> seconds...
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
-
-      {isPhoneVerificationModalOpen && (
+      {/* Phone verification modal */}
+      {showVerificationModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="phone-verify-title"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-foreground/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowVerificationModal(false)
+          }}
         >
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl">
-            <div className="bg-primary px-6 py-7 text-primary-foreground">
-              <div className="flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-foreground/15 ring-1 ring-primary-foreground/20">
-                  <Phone className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-primary-foreground/75">Booking security</p>
-                  <h2 id="phone-verify-title" className="mt-1 text-xl font-semibold tracking-tight">Verify your phone</h2>
+          <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="verification-title"
+            aria-describedby="verification-desc"
+            className="w-full max-w-md"
+          >
+            <Card className="relative max-h-[92vh] w-full gap-0 overflow-y-auto rounded-b-none border border-border py-0 shadow-2xl sm:rounded-b-xl">
+              <div className="p-5 text-center sm:p-8">
+                <button
+                  type="button"
+                  onClick={() => setShowVerificationModal(false)}
+                  className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 sm:mb-5 sm:h-16 sm:w-16">
+                  <Phone className="h-7 w-7 text-primary sm:h-8 sm:w-8" aria-hidden="true" />
                 </div>
-              </div>
-            </div>
 
-            <div className="space-y-5 p-6">
-              <div className="rounded-xl border border-border bg-muted/50 px-4 py-3">
-                <p className="text-sm leading-6 text-muted-foreground">
-                  Enter the 6-digit code sent to
+                <h2 id="verification-title" className="mb-2 text-xl font-bold text-foreground sm:text-2xl">
+                  Verify your phone number
+                </h2>
+                <p id="verification-desc" className="mb-1 text-sm text-muted-foreground">
+                  Your appointment is <span className="font-semibold text-foreground">pending confirmation</span>. We sent a verification code to
                 </p>
-                <p className="mt-1 font-semibold text-foreground">{phoneToVerify || 'your phone number'}</p>
+                <p className="mb-5 break-all text-sm font-semibold text-foreground sm:mb-6">+977 {customerPhone}</p>
+
+                <div className="mb-5 rounded-lg border border-border bg-secondary/30 p-3 sm:mb-6 sm:p-4" aria-live="polite">
+                  <div className="space-y-3">
+                    <label htmlFor="verification-code" className="sr-only">Verification code</label>
+                    <Input
+                      id="verification-code"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      placeholder="Enter verification code"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleVerifyCode()
+                      }}
+                      disabled={verifyingCode}
+                      className="h-11 text-center text-lg tracking-widest"
+                    />
+                    {codeError && <p role="alert" className="text-sm text-destructive">{codeError}</p>}
+                  </div>
+                </div>
+
+                {bookingId && (
+                  <p className="mb-5 break-all text-xs text-muted-foreground sm:mb-6">
+                    Booking reference: <code className="font-mono text-foreground">{bookingId}</code>
+                  </p>
+                )}
+
+                <Button
+                  onClick={handleVerifyCode}
+                  disabled={verifyingCode || sendingCode}
+                  className="h-11 w-full bg-primary font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  {verifyingCode ? 'Verifying...' : 'Verify and confirm'}
+                </Button>
+                <button
+                  type="button"
+                  onClick={handleResendCode}
+                  disabled={sendingCode || resendCooldown > 0}
+                  className="mt-3 w-full text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+                >
+                  {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : sendingCode ? 'Sending...' : 'Did not get a code? Resend'}
+                </button>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="verificationCode">Verification code</Label>
-                <Input
-                  id="verificationCode"
-                  name="verificationCode"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="000000"
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  disabled={verifyingCode}
-                  className="h-12 text-center text-xl font-semibold tracking-[0.45em]"
-                  aria-describedby={codeError ? 'verification-error' : undefined}
-                />
-                {codeError && <p id="verification-error" className="text-sm text-destructive" role="alert">{codeError}</p>}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleVerifyPhoneCode}
-                disabled={verifyingCode || sendingCode}
-                className="w-full rounded-lg bg-primary px-4 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {verifyingCode ? 'Verifying...' : 'Verify & Confirm Booking'}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleResendCode}
-                disabled={sendingCode || resendCooldown > 0}
-                className="w-full text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : sendingCode ? 'Sending...' : "Didn't get a code? Resend"}
-              </button>
-            </div>
+            </Card>
           </div>
         </div>
       )}
