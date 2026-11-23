@@ -1,6 +1,5 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { ToasterProvider } from "@/components/providers/toast-provider"
@@ -9,11 +8,15 @@ import { Footer } from "@/components/footer"
 import { AuthProvider } from "@/context/authContext"
 import LayoutClient from "@/components/LayoutClient"
 import { GoogleAuthProvider } from "@/components/GoogleAuthProvider"
+import localFont from "next/font/local"
+
+const inter = localFont({
+  src: "../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
+  display: "swap",
+  variable: "--font-inter",
+})
 
 
-
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 const siteUrl = "https://appointnepal.com"
 
@@ -82,7 +85,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body suppressHydrationWarning>
+      <body className={inter.className} suppressHydrationWarning>
 
         <AuthProvider>
           <GoogleAuthProvider>
