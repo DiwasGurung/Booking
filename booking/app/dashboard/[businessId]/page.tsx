@@ -165,19 +165,41 @@ export default function BusinessDashboardPage() {
       setLoading(true)
       setError(null)
 
-      // allSettled: one slow/failed call no longer blocks the whole dashboard
-      const [statsRes, bookingsRes, paymentsRes, hoursRes, businessRes, chartRes] = await Promise.allSettled([
-        // branchParam is undefined for "All branches", so no filter is sent
-        withTimeout((businessApi.getStats as any)(businessId, branchParam)),
-        fetchChartBookings(businessId, branchParam, () => requestId !== requestIdRef.current),
-        withTimeout(paymentApi.getBusinessPayments(businessId, 1, 5)),
-        withTimeout(businessHoursApi.getBusinessHours(businessId)),
-        withTimeout(businessApi.getBusinessById(businessId)),
-        // Larger page used only to build the charts (last 90 days max)
-        withTimeout(
-          bookingsApi.getBusinessBookings(businessId, 1, 500, undefined, undefined, undefined, undefined, branchParam)
-        ),
-      ])
+      const [
+  statsRes,
+  bookingsRes,
+  paymentsRes,
+  hoursRes,
+  businessRes,
+  chartRes,
+] = await Promise.allSettled([
+  withTimeout((businessApi.getStats as any)(businessId, branchParam)),
+
+  withTimeout(
+    bookingsApi.getBusinessBookings(
+      businessId,
+      1,
+      5,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      branchParam
+    )
+  ),
+
+  withTimeout(paymentApi.getBusinessPayments(businessId, 1, 5)),
+
+  withTimeout(businessHoursApi.getBusinessHours(businessId)),
+
+  withTimeout(businessApi.getBusinessById(businessId)),
+
+  fetchChartBookings(
+    businessId,
+    branchParam,
+    () => requestId !== requestIdRef.current
+  ),
+])
 
       // A newer request has started; discard this result
       if (requestId !== requestIdRef.current) return
