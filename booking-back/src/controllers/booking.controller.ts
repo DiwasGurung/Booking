@@ -63,7 +63,7 @@ async function notifyOwnerOfConfirmedBooking(
 
     const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu'
     const dt = DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ }).setLocale('en')
-    const ownerPhone = business.user?.phone || business.phone
+    const ownerPhone = business.phone || business.user?.phone
 
     if ( ownerPhone&& (await hasSmsCredits(businessId))) {
       const result = await SparrowSMSService.sendOwnerNotification(businessId, ownerPhone, {

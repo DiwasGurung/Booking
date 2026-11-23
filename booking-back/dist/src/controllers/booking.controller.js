@@ -43,7 +43,7 @@ async function notifyOwnerOfConfirmedBooking(businessId, booking, serviceName) {
             : undefined;
         const BUSINESS_TZ = process.env.BUSINESS_TIME_ZONE || 'Asia/Kathmandu';
         const dt = luxon_1.DateTime.fromJSDate(booking.startTime, { zone: BUSINESS_TZ }).setLocale('en');
-        const ownerPhone = business.user?.phone || business.phone;
+        const ownerPhone = business.phone || business.user?.phone;
         if (ownerPhone && (await hasSmsCredits(businessId))) {
             const result = await sparrow_sms_service_1.default.sendOwnerNotification(businessId, ownerPhone, {
                 customerName: booking.customerName,
