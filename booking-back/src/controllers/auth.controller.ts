@@ -6,6 +6,43 @@ import { generateToken, generateCookie } from '../utils/auth'
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
 
+/**
+ * One serializer for every endpoint that returns a user, so login and
+ * /auth/me can never drift apart. Returns BOTH shapes the frontend may read:
+ *   user.businessId      (flat)
+ *   user.business.id     (nested)
+ */
+const toUserDto = (u: any) => ({
+  id: u.id,
+  firstName: u.firstName,
+  lastName: u.lastName,
+  email: u.email,
+  phone: u.phone,
+  role: u.role,
+  googleId: u.googleId,
+  authProvider: u.authProvider,
+  businessId: u.business?.id ?? null,
+  business: u.business ? { id: u.business.id } : null,
+})
+
+interface GoogleProfile {
+  sub: string
+  email: string
+  email_verified: boolean
+  given_name?: string
+  family_name?: string
+  name?: string
+}
+
+// getTokenInfo() often has no `sub` and no name, so read the profile from Google directly
+async function fetchGoogleProfile(accessToken: string): Promise<GoogleProfile> {
+  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) throw new Error('Could not read Google profile')
+  return res.json() as Promise<GoogleProfile>
+}
+
 export const authController = {
   // Google OAuth login/signup
   async googleOAuth(req: AuthRequest, res: Response) {
@@ -16,70 +53,60 @@ export const authController = {
         return res.status(400).json({ error: 'Access token is required' })
       }
 
-
-      // Verify the Google access token
+      // 1. Make sure the token was issued for THIS app (not another Google client)
       const tokenInfo = await googleClient.getTokenInfo(access_token)
-      
-      if (!tokenInfo.email) {
+      if (process.env.GOOGLE_CLIENT_ID && tokenInfo.aud !== process.env.GOOGLE_CLIENT_ID) {
+        return res.status(401).json({ error: 'Google token was not issued for this application' })
+      }
+
+      // 2. Read the real profile (gives a stable `sub` and the real name)
+      const profile = await fetchGoogleProfile(access_token)
+
+      if (!profile.email || !profile.sub) {
         return res.status(400).json({ error: 'Invalid Google token or email not found' })
       }
 
-      const { email, email_verified } = tokenInfo
-      
-      // Note: getTokenInfo doesn't return googleId (sub), so we use email as identifier
-      const googleId = tokenInfo.sub || email
+      // 3. Never link or create accounts from an unverified Google email
+      if (!profile.email_verified) {
+        return res.status(403).json({ error: 'Google email is not verified' })
+      }
 
+      const email = profile.email.toLowerCase()
+      const googleId = profile.sub
 
-      // Check if user exists by Google ID
       let user = await userService.findByGoogleId(googleId)
 
       if (!user) {
-        // Check if user exists by email
         const existingUser = await userService.findByEmail(email)
 
         if (existingUser) {
-          // Link Google to existing user
+          // Link Google to existing user (also replaces an old email-as-googleId value with the real sub)
           user = await userService.linkGoogleToUser(existingUser.id, googleId)
         } else {
-          // Create new user - extract name from email if not available
-          const nameParts = email.split('@')[0].split('.')
+          const nameFromEmail = email.split('@')[0].split('.')
           user = await userService.createUser({
-            firstName: nameParts[0] || 'User',
-            lastName: nameParts[1] || '',
+            firstName: profile.given_name || nameFromEmail[0] || 'User',
+            lastName: profile.family_name || nameFromEmail[1] || '',
             email,
             googleId,
             role: 'CUSTOMER',
             authProvider: 'GOOGLE',
+            isEmailVerified: true,
           })
         }
-      } else {
       }
 
-      // Generate JWT token
       const token = generateToken(user.id)
-
-      // Set cookie
       res.cookie('authToken', token, generateCookie(token))
 
-      // Return user data and token
       res.json({
         success: true,
         token,
-        user: {
-          id: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-          googleId: user.googleId,
-          authProvider: user.authProvider,
-          businessId: user.business?.id,
-        },
+        user: toUserDto(user),
       })
     } catch (error: any) {
       console.error('[Google OAuth Error]', error.message)
-      res.status(400).json({ error: error.message || 'Google authentication failed' })
+      res.status(400).json({ error: 'Google authentication failed' })
     }
   },
 
@@ -97,17 +124,7 @@ export const authController = {
         return res.status(404).json({ error: 'User not found' })
       }
 
-      res.json({
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        googleId: user.googleId,
-        authProvider: user.authProvider,
-        businessId: user.business?.id,
-      })
+      res.json(toUserDto(user))
     } catch (error: any) {
       console.error('[Get Current User Error]', error.message)
       res.status(500).json({ error: 'Failed to get user' })
