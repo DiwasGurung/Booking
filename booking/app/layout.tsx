@@ -10,6 +10,13 @@ import LayoutClient from "@/components/LayoutClient"
 import { GoogleAuthProvider } from "@/components/GoogleAuthProvider"
 import localFont from "next/font/local"
 
+
+const fraunces = localFont({
+  src: '../node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2',
+  display: 'swap',
+  variable: '--font-fraunces',
+})
+
 const inter = localFont({
   src: "../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2",
   display: "swap",
@@ -85,7 +92,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={`${inter.className} ${fraunces.className}`} suppressHydrationWarning>
 
         <AuthProvider>
           <GoogleAuthProvider>
