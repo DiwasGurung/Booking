@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/Button'
@@ -18,6 +18,7 @@ import { useBusinessId } from '@/hooks/useBusinessId'
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus'
 import { useBranches } from '@/context/branchContext'
 import { Input } from '@/components/ui/Input'
+import { DashboardCharts, ChartBooking } from '@/components/DashboardCharts'
 
 interface BusinessStats {
   totalBookings: number
@@ -53,9 +54,24 @@ interface Payment {
   createdAt: string
 }
 
+// Prevents the spinner from hanging forever if an API call never resolves
+function withTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Request timed out')), ms)
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v) },
+      (e) => { clearTimeout(timer); reject(e) }
+    )
+  })
+}
+
 export default function BusinessDashboardPage() {
   const router = useRouter()
-  const { businessId, loading: businessLoading } = useBusinessId()
+  const {
+    businessId,
+    loading: businessLoading,
+    error: businessError,
+  } = useBusinessId()
   const { subscriptionStatus, loading: subscriptionLoading } = useSubscriptionStatus()
   const { branches, hasMultipleBranches, branchParam, selectedBranchId } = useBranches()
 
@@ -67,6 +83,10 @@ export default function BusinessDashboardPage() {
   const [hoursConfigured, setHoursConfigured] = useState<boolean | null>(null)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [slug, setSlug] = useState<string | null>(null)
+  const [chartBookings, setChartBookings] = useState<ChartBooking[]>([])
+
+  // Ignore responses from outdated requests (e.g. fast branch switching)
+  const requestIdRef = useRef(0)
 
   useEffect(() => {
     if (!subscriptionLoading && subscriptionStatus) {
@@ -76,57 +96,114 @@ export default function BusinessDashboardPage() {
     }
   }, [subscriptionStatus, subscriptionLoading, router])
 
-  // Reload whenever the branch switcher changes
+  // Load data once the businessId is resolved; reload when the branch switcher changes
   useEffect(() => {
-    if (businessId) loadDashboardData()
+    if (businessLoading) return // still resolving, keep spinner
+
+    if (!businessId) {
+      // Resolved with no id: stop the spinner instead of hanging forever
+      setLoading(false)
+      setError(
+        businessError === 'NO_BUSINESS'
+          ? 'No business found for this account.'
+          : 'Could not load your business. Please try again.'
+      )
+      return
+    }
+
+    loadDashboardData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [businessId, branchParam])
+  }, [businessId, businessLoading, branchParam])
 
   async function loadDashboardData() {
     if (!businessId) return
+
+    const requestId = ++requestIdRef.current
 
     try {
       setLoading(true)
       setError(null)
 
-      const [statsResponse, bookingsResponse, paymentsResponse, hoursResponse, businessResponse] = await Promise.all([
+      // allSettled: one slow/failed call no longer blocks the whole dashboard
+      const [statsRes, bookingsRes, paymentsRes, hoursRes, businessRes, chartRes] = await Promise.allSettled([
         // branchParam is undefined for "All branches", so no filter is sent
-        (businessApi.getStats as any)(businessId, branchParam),
-        bookingsApi.getBusinessBookings(businessId, 1, 5, undefined, undefined, undefined, undefined, branchParam),
-        paymentApi.getBusinessPayments(businessId, 1, 5),
-        businessHoursApi.getBusinessHours(businessId).catch(() => null),
-        businessApi.getBusinessById(businessId).catch(() => null),
+        withTimeout((businessApi.getStats as any)(businessId, branchParam)),
+        withTimeout(
+          bookingsApi.getBusinessBookings(businessId, 1, 5, undefined, undefined, undefined, undefined, branchParam)
+        ),
+        withTimeout(paymentApi.getBusinessPayments(businessId, 1, 5)),
+        withTimeout(businessHoursApi.getBusinessHours(businessId)),
+        withTimeout(businessApi.getBusinessById(businessId)),
+        // Larger page used only to build the charts (last 90 days max)
+        withTimeout(
+          bookingsApi.getBusinessBookings(businessId, 1, 500, undefined, undefined, undefined, undefined, branchParam)
+        ),
       ])
 
-      setSlug(businessResponse?.data?.slug ?? null)
+      // A newer request has started; discard this result
+      if (requestId !== requestIdRef.current) return
 
-      const hours = hoursResponse?.data
-      setHoursConfigured(Array.isArray(hours) && hours.some((h: any) => !h.isClosed))
-
-      if (statsResponse.data && typeof statsResponse.data === 'object') {
-        setStats(statsResponse.data as BusinessStats)
+      // Business slug
+      if (businessRes.status === 'fulfilled') {
+        setSlug((businessRes.value as any)?.data?.slug ?? null)
       }
 
-      if (bookingsResponse.data) {
-        const bookings = Array.isArray(bookingsResponse.data)
-          ? bookingsResponse.data
-          : (bookingsResponse.data as any).bookings || (bookingsResponse.data as any).data || []
-        setRecentBookings(bookings)
+      // Business hours
+      if (hoursRes.status === 'fulfilled') {
+        const hours = (hoursRes.value as any)?.data
+        setHoursConfigured(Array.isArray(hours) && hours.some((h: any) => !h.isClosed))
+      } else {
+        setHoursConfigured(null) // unknown: don't show the banner on failure
       }
 
-      if (paymentsResponse.data) {
-        const payments = Array.isArray(paymentsResponse.data)
-          ? paymentsResponse.data
-          : (paymentsResponse.data as any).payments || (paymentsResponse.data as any).data || []
-        setRecentPayments(payments)
+      // Stats
+      if (statsRes.status === 'fulfilled') {
+        const data = (statsRes.value as any)?.data
+        if (data && typeof data === 'object') setStats(data as BusinessStats)
       }
-    } catch (error) {
-      setError('Failed to load dashboard data. Please try again.')
+
+      // Bookings
+      if (bookingsRes.status === 'fulfilled') {
+        const d = (bookingsRes.value as any)?.data
+        if (d) {
+          const bookings = Array.isArray(d) ? d : d.bookings || d.data || []
+          setRecentBookings(bookings)
+        }
+      }
+
+      // Payments
+      if (paymentsRes.status === 'fulfilled') {
+        const d = (paymentsRes.value as any)?.data
+        if (d) {
+          const payments = Array.isArray(d) ? d : d.payments || d.data || []
+          setRecentPayments(payments)
+        }
+      }
+
+      // Chart data
+      if (chartRes.status === 'fulfilled') {
+        const d = (chartRes.value as any)?.data
+        const list = Array.isArray(d) ? d : d?.bookings || d?.data || []
+        setChartBookings(list)
+      } else {
+        setChartBookings([])
+      }
+
+      // Only show the error banner if the core data failed
+      if (statsRes.status === 'rejected' && bookingsRes.status === 'rejected') {
+        setError('Failed to load dashboard data. Please try again.')
+      }
+    } catch {
+      if (requestId === requestIdRef.current) {
+        setError('Failed to load dashboard data. Please try again.')
+      }
     } finally {
-      setLoading(false)
+      // Always clear the spinner for the latest request
+      if (requestId === requestIdRef.current) {
+        setLoading(false)
+      }
     }
   }
-
 
   const statCards = [
     {
@@ -146,13 +223,13 @@ export default function BusinessDashboardPage() {
       href: '/dashboard/bookings',
     },
     {
-  title: 'Total Revenue',
-  value: `Rs.${Number(stats?.totalRevenue ?? 0).toFixed(2)}`,
-  icon: TrendingUp,
-  color: 'text-purple-600',
-  bg: 'bg-purple-50',
-  href: '/dashboard',
-},
+      title: 'Total Revenue',
+      value: `Rs.${Number(stats?.totalRevenue ?? 0).toFixed(2)}`,
+      icon: TrendingUp,
+      color: 'text-purple-600',
+      bg: 'bg-purple-50',
+      href: '/dashboard',
+    },
   ]
 
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
@@ -165,14 +242,20 @@ export default function BusinessDashboardPage() {
         .map((b) => ({ id: b.id, name: b.name, url: `${bookingUrl}?branch=${b.slug ?? b.id}` }))
     : []
 
-  const copy = (key: string, text: string) => {
-    navigator.clipboard.writeText(text)
-    setCopiedKey(key)
-    setTimeout(() => setCopiedKey(null), 2000)
+  const copy = async (key: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedKey(key)
+      setTimeout(() => setCopiedKey(null), 2000)
+    } catch {
+      // Clipboard can be blocked (non-HTTPS, permissions); fail silently
+    }
   }
 
   const selectedBranchName =
     selectedBranchId !== 'ALL' ? branches.find((b) => b.id === selectedBranchId)?.name : null
+
+  const conversionRate = Number(stats?.conversionRate ?? 0)
 
   const CopyButton = ({ id, text }: { id: string; text: string }) => (
     <Button
@@ -248,9 +331,11 @@ export default function BusinessDashboardPage() {
                 <p className="font-medium text-red-900 text-sm md:text-base break-words">{error}</p>
                 <p className="text-xs md:text-sm text-red-700">Please refresh the page or contact support</p>
               </div>
-              <Button size="sm" variant="outline" onClick={loadDashboardData} className="w-full sm:w-auto flex-shrink-0">
-                Retry
-              </Button>
+              {businessId && (
+                <Button size="sm" variant="outline" onClick={loadDashboardData} className="w-full sm:w-auto flex-shrink-0">
+                  Retry
+                </Button>
+              )}
             </div>
           )}
 
@@ -315,14 +400,14 @@ export default function BusinessDashboardPage() {
             </div>
           )}
 
-          {loading ? (
+          {loading || businessLoading ? (
             <div className="flex items-center justify-center py-12 md:py-16">
               <div className="text-center">
                 <Loader className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
                 <p className="text-slate-600 text-sm md:text-base">Loading dashboard...</p>
               </div>
             </div>
-          ) : (
+          ) : !businessId ? null : (
             <>
               {/* Stats Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
@@ -356,17 +441,17 @@ export default function BusinessDashboardPage() {
                         <p className="text-xs md:text-sm text-slate-500">Booking success rate</p>
                       </div>
                       <Badge className="bg-blue-600 text-white text-sm md:text-lg px-3 py-1 flex-shrink-0">
-                        {stats.conversionRate.toFixed(1)}%
+                        {conversionRate.toFixed(1)}%
                       </Badge>
                     </div>
                     <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
                       <div
                         className="bg-gradient-to-r from-blue-600 to-blue-400 h-full transition-all duration-300"
-                        style={{ width: `${Math.min(stats.conversionRate, 100)}%` }}
+                        style={{ width: `${Math.min(conversionRate, 100)}%` }}
                       />
                     </div>
                     <p className="text-xs text-slate-500 mt-3">
-                      {Math.round((stats.completedBookings / Math.max(stats.totalBookings, 1)) * 100)}% of bookings completed successfully
+                      {Math.round(((stats.completedBookings ?? 0) / Math.max(stats.totalBookings ?? 0, 1)) * 100)}% of bookings completed successfully
                     </p>
                   </Card>
                 )}
@@ -408,6 +493,9 @@ export default function BusinessDashboardPage() {
                   </Card>
                 )}
               </div>
+
+              {/* Analytics */}
+              <DashboardCharts bookings={chartBookings} />
 
               {/* Recent Bookings */}
               <div className="grid grid-cols-1 gap-3 md:gap-8">

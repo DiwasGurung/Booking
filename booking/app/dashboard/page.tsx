@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Loader, ArrowRight, Building2 } from 'lucide-react'
+import { Loader, ArrowRight, Building2, AlertCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card } from '@/components/ui/card'
@@ -9,64 +9,87 @@ import { Button } from '@/components/ui/Button'
 import { useBusinessId } from '@/hooks/useBusinessId'
 import { AuthWrapper } from '@/components/AuthWrapper'
 
-/**
- * Dashboard root page - redirects to /dashboard/[businessId]
- * This is a simple redirect page that gets the user's business ID
- * and redirects them to their specific business dashboard
- */
-export default function DashboardPage() {
-  const router = useRouter()
-  const { businessId, loading: fetchingBusinessId, error: businessIdError } = useBusinessId()
+function Spinner() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <Loader className="w-8 h-8 animate-spin text-primary" />
+    </div>
+  )
+}
 
-  // Redirect to business-specific dashboard once businessId is available
+/**
+ * Rendered INSIDE AuthWrapper so useBusinessId only runs once auth is resolved.
+ */
+function DashboardRedirect() {
+  const router = useRouter()
+  const { businessId, loading, error, refetch } = useBusinessId()
+
   useEffect(() => {
-    if (businessId && !fetchingBusinessId) {
+    if (!loading && businessId) {
       router.replace(`/dashboard/${businessId}`)
     }
-  }, [businessId, fetchingBusinessId, router])
+  }, [businessId, loading, router])
 
-  // Show loading while checking auth and fetching businessId
-  if (fetchingBusinessId) {
+  // Loading, or redirect in progress
+  if (loading || businessId) return <Spinner />
+
+  // Only a genuine "no business" result shows the setup card
+  if (error === 'NO_BUSINESS') {
     return (
-      <AuthWrapper mode="business-only">
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <Loader className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      </AuthWrapper>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md border border-border shadow-lg p-8">
+          <div className="text-center">
+            <Building2 className="w-16 h-16 mx-auto text-primary mb-4 opacity-80" />
+            <h1 className="text-2xl font-bold text-foreground mb-2">Welcome to Appoint-Nepal!</h1>
+            <p className="text-muted-foreground mb-6">
+              To access your dashboard, you first need to set up your business profile.
+            </p>
+            <Link href="/business/setup" className="block">
+              <Button className="w-full" size="lg">
+                Set Up Business Profile
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      </div>
     )
   }
 
-  // Show setup message if no business found
-  if (businessIdError) {
-    return (
-      <AuthWrapper mode="business-only">
-        <div className="min-h-screen bg-background flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border border-border shadow-lg p-8">
-            <div className="text-center">
-              <Building2 className="w-16 h-16 mx-auto text-primary mb-4 opacity-80" />
-              <h1 className="text-2xl font-bold text-foreground mb-2">Welcome to Appoint-Nepal!</h1>
-              <p className="text-muted-foreground mb-6">
-                To access your dashboard, you first need to set up your business profile.
-              </p>
-              <Link href="/business/setup" className="block">
-                <Button className="w-full" size="lg">
-                  Set Up Business Profile
-                  <ArrowRight className="w-4 h-4 ml-2" />
+  // Network failure / not authenticated: offer retry instead of setup
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-md border border-border shadow-lg p-8">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 mx-auto text-red-500 mb-4" />
+          <h1 className="text-xl font-bold text-foreground mb-2">Couldn&apos;t load your account</h1>
+          <p className="text-muted-foreground mb-6">
+            {error === 'UNAUTHENTICATED'
+              ? 'Your session could not be verified. Please try again or log in again.'
+              : 'Something went wrong while loading your business. Please try again.'}
+          </p>
+          <div className="flex flex-col gap-2">
+            <Button className="w-full" onClick={refetch}>
+              Retry
+            </Button>
+            {error === 'UNAUTHENTICATED' && (
+              <Link href="/login" className="block">
+                <Button variant="outline" className="w-full">
+                  Go to Login
                 </Button>
               </Link>
-            </div>
-          </Card>
+            )}
+          </div>
         </div>
-      </AuthWrapper>
-    )
-  }
+      </Card>
+    </div>
+  )
+}
 
-  // If we reach here, redirecting via useEffect
+export default function DashboardPage() {
   return (
     <AuthWrapper mode="business-only">
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <DashboardRedirect />
     </AuthWrapper>
   )
 }
