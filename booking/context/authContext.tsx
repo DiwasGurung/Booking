@@ -39,7 +39,7 @@ interface AuthContextType {
   loading: boolean
   logout: () => Promise<void>
   isAuthenticated: boolean
-  /** Re-reads the session. Await it BEFORE navigating after a login. */
+  /** Silently re-reads the session. Await it BEFORE navigating after a login. */
   refreshUser: (token?: string) => Promise<User | null>
   setToken: (token: string) => void
   token: string | null
@@ -141,7 +141,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const refreshUser = useCallback(
     async (authToken?: string): Promise<User | null> => {
       if (authToken) setToken(authToken)
-      setLoading(true)
       return checkAuth(authToken)
     },
     [checkAuth, setToken]
