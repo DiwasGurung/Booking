@@ -19,12 +19,13 @@ import {
   updateBookingStatus,
   updateStaffAvatar
 } from "../controllers/staff.controller"
+import { staffAuth } from "../middleware/staff-auth.middleware"
 
 const router = Router()
 
 
 // staff.routes.ts
-router.patch("/:id/avatar", auth, updateStaffAvatar) // use your staff-auth middleware that sets req.staffId
+router.patch("/:id/avatar", staffAuth, updateStaffAvatar) // use your staff-auth middleware that sets req.staffId
 
 /**
  * @route POST /api/staff
