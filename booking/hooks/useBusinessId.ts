@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/authContext'
 
 export type BusinessIdError = 'UNAUTHENTICATED' | 'NO_BUSINESS' | null
@@ -10,42 +11,64 @@ interface BusinessIdState {
   error: BusinessIdError
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
+
 /**
- * Resolves the current user's businessId from the auth context.
+ * Resolves the current user's businessId.
  *
- * The state is DERIVED from the auth context instead of copied into local
- * state with useEffect. That removes the extra render where loading was
- * false and businessId was still null.
+ * 1. Use the id already in the auth context when present.
+ * 2. Right after login the context user comes from the login response, which
+ *    may not include `business`. In that case ask /auth/me once (that is the
+ *    data a page reload would have loaded) and stay in `loading` until it answers.
  *
- * Fix for the setup-screen flash: while the auth context is still loading,
- * `user` is null. The old hook treated that as "not authenticated" and
- * stopped loading. Now we stay in `loading` until auth has finished.
- *
- * ADAPT: this assumes useAuth() exposes a loading flag named `loading`.
- * If yours is called `isLoading` / `authLoading` / `initializing`, rename it below.
+ * ADAPT:
+ *  - `loading` below assumes useAuth() exposes `loading`; rename if yours differs.
+ *  - The fetch assumes cookie auth. If you send a Bearer token instead, add the
+ *    Authorization header, or replace the fetch with your API client call.
  */
 export const useBusinessId = (): BusinessIdState => {
   const { user, loading: authLoading } = useAuth() as {
-    user: { business?: { id?: string }; businessId?: string } | null
+    user: { id?: string; business?: { id?: string }; businessId?: string } | null
     loading?: boolean
   }
 
-  // Auth still resolving: do not decide anything yet
-  if (authLoading) {
-    return { businessId: null, loading: true, error: null }
-  }
+  const contextId = user?.business?.id ?? user?.businessId ?? null
+  const userId = user?.id
 
-  // Auth finished and there is no user
-  if (!user) {
-    return { businessId: null, loading: false, error: 'UNAUTHENTICATED' }
-  }
+  const [fallback, setFallback] = useState<{ done: boolean; id: string | null }>({
+    done: false,
+    id: null,
+  })
 
-  // Support both shapes: user.business.id (context) and user.businessId (/auth/me)
-  const id = user.business?.id ?? user.businessId ?? null
+  useEffect(() => {
+    if (authLoading || !user || contextId) return
 
-  if (!id) {
-    return { businessId: null, loading: false, error: 'NO_BUSINESS' }
-  }
+    let cancelled = false
+    setFallback({ done: false, id: null })
 
-  return { businessId: id, loading: false, error: null }
+    fetch(`${API_URL}/auth/me`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled) return
+        setFallback({ done: true, id: data?.businessId ?? data?.business?.id ?? null })
+      })
+      .catch(() => {
+        if (!cancelled) setFallback({ done: true, id: null })
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, userId, contextId])
+
+  if (authLoading) return { businessId: null, loading: true, error: null }
+  if (!user) return { businessId: null, loading: false, error: 'UNAUTHENTICATED' }
+  if (contextId) return { businessId: contextId, loading: false, error: null }
+
+  // Logged in, no id in context: wait for the /auth/me answer
+  if (!fallback.done) return { businessId: null, loading: true, error: null }
+  if (fallback.id) return { businessId: fallback.id, loading: false, error: null }
+
+  return { businessId: null, loading: false, error: 'NO_BUSINESS' }
 }
