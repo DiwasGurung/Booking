@@ -1,8 +1,16 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useState } from "react"
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
+const TOKEN_KEY = "authToken"
 
 export interface User {
   isVerified: boolean
@@ -18,11 +26,12 @@ export interface User {
   role: "CUSTOMER" | "BUSINESS_OWNER"
   googleId?: string
   authProvider?: "EMAIL" | "GOOGLE"
-  isEmailVerified:boolean
+  isEmailVerified: boolean
+  businessId?: string | null
   business?: {
     id: string
     name?: string
-  }
+  } | null
 }
 
 interface AuthContextType {
@@ -30,127 +39,160 @@ interface AuthContextType {
   loading: boolean
   logout: () => Promise<void>
   isAuthenticated: boolean
-  refreshUser: (token?: string) => Promise<void>
+  /** Re-reads the session. Await it BEFORE navigating after a login. */
+  refreshUser: (token?: string) => Promise<User | null>
   setToken: (token: string) => void
   token: string | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const readStoredToken = (): string | null => {
+  if (typeof window === "undefined") return null
+  try {
+    return localStorage.getItem(TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [token, setTokenState] = useState<string | null>(null)
 
-  const setToken = (newToken: string) => {
+  // Refs always hold the latest values, so callbacks never read stale state
+  const tokenRef = useRef<string | null>(null)
+  const requestIdRef = useRef(0)
+
+  const setToken = useCallback((newToken: string) => {
+    tokenRef.current = newToken
     setTokenState(newToken)
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("authToken", newToken)
-      } catch (e) {
-        // Failed to persist token to localStorage
-      }
-    }
-  }
-
-  const checkAuth = async (authToken?: string) => {
     try {
-
-      // Use provided token, in-memory token, or persisted token
-      const storedToken =
-        typeof window !== "undefined" ? localStorage.getItem("authToken") : null
-      const bearerToken = authToken || token || storedToken
-
-      // Check if user is authenticated by calling the API
-      // httpOnly cookie is automatically sent with credentials: 'include'
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
-
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      }
-
-      // If we have a token, send it in Authorization header
-      if (bearerToken) {
-        headers["Authorization"] = `Bearer ${bearerToken}`
-      }
-
-      const response = await fetch(`${API_URL}/api/users/me`, {
-        credentials: "include",
-        headers,
-        signal: controller.signal,
-      })
-
-      clearTimeout(timeoutId)
-
-      if (response.ok) {
-        const userData = await response.json()
-        setUser(userData.user)
-      } else if (response.status === 401) {
-        setUser(null)
-      } else if (response.status === 403) {
-        setUser(null)
-      } else {
-        setUser(null)
-      }
-    } catch (error: any) {
-      clearTimeout((error as any).timeoutId)
-      setUser(null)
-    } finally {
-      setLoading(false)
+      localStorage.setItem(TOKEN_KEY, newToken)
+    } catch {
+      // storage unavailable (private mode etc.); the cookie still works
     }
-  }
-
-  const refreshUser = async (authToken?: string) => {
-    setLoading(true)
-    await checkAuth(authToken)
-  }
-
-  // Initial auth check - hydrate token from localStorage first
-  useEffect(() => {
-    const storedToken =
-      typeof window !== "undefined" ? localStorage.getItem("authToken") : null
-    if (storedToken) {
-      setTokenState(storedToken)
-    }
-    checkAuth(storedToken || undefined)
   }, [])
 
-  // Listen for auth changes (e.g., after Google sign-in or register)
+  const clearToken = useCallback(() => {
+    tokenRef.current = null
+    setTokenState(null)
+    try {
+      localStorage.removeItem(TOKEN_KEY)
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const checkAuth = useCallback(
+    async (authToken?: string): Promise<User | null> => {
+      // Only the most recent call is allowed to change state
+      const requestId = ++requestIdRef.current
+
+      const bearer = authToken || tokenRef.current || readStoredToken()
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 8000)
+
+      let result: User | null = null
+      let rejected = false // true only when the server says "not authenticated"
+
+      try {
+        const headers: Record<string, string> = { "Content-Type": "application/json" }
+        if (bearer) headers["Authorization"] = `Bearer ${bearer}`
+
+        const response = await fetch(`${API_URL}/api/users/me`, {
+          credentials: "include", // httpOnly cookie
+          headers,
+          signal: controller.signal,
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          // Support both { user: {...} } and a flat user object
+          result = data?.user ?? (data?.id ? data : null)
+        } else if (response.status === 401 || response.status === 403) {
+          rejected = true
+        }
+        // Other statuses (5xx): keep the current user, do not log out
+      } catch {
+        // Network error / timeout: keep the current user, do not log out
+      } finally {
+        clearTimeout(timeoutId)
+      }
+
+      // A newer request has started: ignore this (possibly stale) result
+      if (requestId !== requestIdRef.current) return result
+
+      if (result) {
+        setUser(result)
+      } else if (rejected) {
+        setUser(null)
+        clearToken() // drop an expired / invalid token
+      }
+
+      setLoading(false)
+      return result
+    },
+    [clearToken]
+  )
+
+  const refreshUser = useCallback(
+    async (authToken?: string): Promise<User | null> => {
+      if (authToken) setToken(authToken)
+      setLoading(true)
+      return checkAuth(authToken)
+    },
+    [checkAuth, setToken]
+  )
+
+  // Initial auth check: hydrate the token from localStorage first
+  useEffect(() => {
+    const stored = readStoredToken()
+    if (stored) {
+      tokenRef.current = stored
+      setTokenState(stored)
+    }
+    checkAuth(stored || undefined)
+  }, [checkAuth])
+
+  // Listen for auth changes (custom event in this tab, storage event from other tabs)
   useEffect(() => {
     const handleAuthChange = () => {
       setLoading(true)
       checkAuth()
     }
 
-    // Listen for storage changes (cross-tab/window communication)
-    window.addEventListener("storage", handleAuthChange)
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === TOKEN_KEY || e.key === null) handleAuthChange()
+    }
 
-    // Listen for custom auth event
+    window.addEventListener("storage", handleStorage)
     window.addEventListener("authStateChanged", handleAuthChange)
 
     return () => {
-      window.removeEventListener("storage", handleAuthChange)
+      window.removeEventListener("storage", handleStorage)
       window.removeEventListener("authStateChanged", handleAuthChange)
     }
-  }, [])
+  }, [checkAuth])
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
+    requestIdRef.current++ // invalidate any in-flight check
     try {
       await fetch(`${API_URL}/api/users/logout`, {
         method: "POST",
         credentials: "include",
       })
-    } catch (error) {
+    } catch {
+      // ignore: we clear local state regardless
     } finally {
       setUser(null)
-      setTokenState(null)
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("authToken")
-      }
-      // httpOnly cookie is cleared by backend on logout
+      clearToken()
+      setLoading(false)
+      // httpOnly cookie is cleared by the backend on logout
     }
-  }
+  }, [clearToken])
 
   return (
     <AuthContext.Provider
@@ -168,4 +210,3 @@ export const useAuth = () => {
   }
   return context
 }
-
