@@ -63,9 +63,6 @@ export const LoginForm = () => {
       // Refresh the auth context to get the latest user data via cookies
       await refreshUser()
 
-      // Small delay to ensure context updates before navigation
-      await new Promise(resolve => setTimeout(resolve, 500))
-
 
 
       // If returnTo is specified (e.g., from home page "Setup Business" button), use it

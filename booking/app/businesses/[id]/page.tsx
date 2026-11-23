@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import {
   Card,
   CardContent,
@@ -23,7 +23,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Copy, Check } from "lucide-react"
-
+import { usersApi, businessApi, servicesApi, businessHoursApi } from "@/lib/api"
 
 interface Business {
   id: string
@@ -77,9 +77,7 @@ const days = [
 ]
 
 export default function BusinessPage() {
-  const params = useParams()
   const router = useRouter()
-  const businessId = params.id as string
 
   const [user, setUser] = useState<{ id: string } | null>(null)
   const [business, setBusiness] = useState<Business | null>(null)
@@ -108,28 +106,21 @@ export default function BusinessPage() {
   // Booking URL
   const [copied, setCopied] = useState(false)
   const bookingUrl =
-  typeof window !== "undefined" && business
-    ? `${window.location.origin}/book/${business.slug ?? business.id}`
-    : ""
+    typeof window !== "undefined" && business
+      ? `${window.location.origin}/book/${business.slug ?? business.id}`
+      : ""
 
   // Fetch logged-in user from cookie
   useEffect(() => {
     async function fetchUser() {
-      try {
-        const res = await fetch("http://localhost:5001/api/users/me", {
-          credentials: "include",
-        })
+      const res = await usersApi.getCurrentUser()
+      const u = (res.data as any)?.user ?? res.data
 
-        if (!res.ok) {
-          router.push("/login")
-          return
-        }
-
-        const data = await res.json()
-        setUser(data.user || data) 
-      } catch (err) {
+      if (!res.success || !u?.id) {
         router.push("/login")
+        return
       }
+      setUser({ id: u.id })
     }
 
     fetchUser()
@@ -139,6 +130,7 @@ export default function BusinessPage() {
   useEffect(() => {
     if (!user) return
     fetchBusiness()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   useEffect(() => {
@@ -146,37 +138,29 @@ export default function BusinessPage() {
       fetchServices()
       fetchHours()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [business?.id])
 
   async function fetchBusiness() {
-    const res = await fetch(
-      `http://localhost:5001/api/businesses/user/${user?.id}`,
-      { credentials: "include" }
-    )
-    if (!res.ok) return
-    const data = await res.json()
-    setBusiness(data)
-    setLoading(false)
+    if (!user) return
+    const res = await businessApi.getByUserId(user.id)
+
+    if (res.success && res.data) {
+      setBusiness(res.data as unknown as Business)
+    }
+    setLoading(false) // always stop the spinner, even on failure
   }
 
   async function fetchServices() {
     if (!business?.id) return
-    const res = await fetch(
-      `http://localhost:5001/api/services/business/${business.id}`,
-      { credentials: "include" }
-    )
-    const data = await res.json()
-    setServices(data)
+    const res = await servicesApi.getBusinessServices(business.id)
+    setServices(Array.isArray(res.data) ? (res.data as unknown as Service[]) : [])
   }
 
   async function fetchHours() {
     if (!business?.id) return
-    const res = await fetch(
-      `http://localhost:5001/api/business-hours/business/${business.id}`,
-      { credentials: "include" }
-    )
-    const data = await res.json()
-    setHours(data)
+    const res = await businessHoursApi.getBusinessHours(business.id)
+    setHours(Array.isArray(res.data) ? (res.data as unknown as BusinessHours[]) : [])
   }
 
   function handleEditClick(service: Service) {
@@ -218,20 +202,13 @@ export default function BusinessPage() {
       serviceData.offerPrice = Number(offerPrice)
     }
 
-    if (editingServiceId) {
-      await fetch(`http://localhost:5001/api/services/${editingServiceId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(serviceData),
-      })
-    } else {
-      await fetch("http://localhost:5001/api/services", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(serviceData),
-      })
+    const res = editingServiceId
+      ? await servicesApi.update(editingServiceId, serviceData)
+      : await servicesApi.create(serviceData)
+
+    if (!res.success) {
+      console.error("Failed to save service:", res.error)
+      return // keep the form filled so nothing is lost
     }
 
     resetServiceForm()
@@ -241,20 +218,15 @@ export default function BusinessPage() {
   async function createHours(e: React.FormEvent) {
     e.preventDefault()
 
-    await fetch("http://localhost:5001/api/business-hours", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        businessId: business?.id,
-        dayOfWeek: Number(dayOfWeek),
-        openTime,
-        closeTime,
-        isClosed,
-      }),
+    const res = await businessHoursApi.setBusinessHours({
+      businessId: business?.id,
+      dayOfWeek: Number(dayOfWeek),
+      openTime,
+      closeTime,
+      isClosed,
     })
 
-    fetchHours()
+    if (res.success) fetchHours()
   }
 
   const copyToClipboard = () => {
@@ -316,7 +288,6 @@ export default function BusinessPage() {
             </Button>
           </CardContent>
         </Card>
-
 
         {/* SERVICES + FORM */}
         <div className="grid gap-6 lg:grid-cols-3">
@@ -416,17 +387,31 @@ export default function BusinessPage() {
                       </p>
                     </div>
 
-                    {service.offerPrice ? (<> <div className="flex items-center gap-2"> 
-                      <Badge variant="destructive" className="text-xs"> Save {Math.round(((service.price - service.offerPrice) / service.price) * 100)}% </Badge>
-                       <Badge variant="secondary" className="text-base line-through text-muted-foreground"> ${service.price.toFixed(2)} </Badge> </div> 
-                       <Badge variant="secondary" className="text-base bg-green-600"> ${service.offerPrice.toFixed(2)} </Badge> </>) : (<Badge variant="secondary" className="text-base"> ${service.price.toFixed(2)} </Badge>)}
+                    {service.offerPrice ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="destructive" className="text-xs">
+                            Save {Math.round(((service.price - service.offerPrice) / service.price) * 100)}%
+                          </Badge>
+                          <Badge variant="secondary" className="text-base line-through text-muted-foreground">
+                            ${service.price.toFixed(2)}
+                          </Badge>
+                        </div>
+                        <Badge variant="secondary" className="text-base bg-green-600">
+                          ${service.offerPrice.toFixed(2)}
+                        </Badge>
+                      </>
+                    ) : (
+                      <Badge variant="secondary" className="text-base">
+                        ${service.price.toFixed(2)}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               ))}
 
             </CardContent>
           </Card>
-
 
           {/* Business Hours */}
           <Card>
