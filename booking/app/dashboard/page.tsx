@@ -22,7 +22,7 @@ function Spinner() {
  */
 function DashboardRedirect() {
   const router = useRouter()
-  const { businessId, loading, error, refetch } = useBusinessId()
+  const { businessId, loading, error } = useBusinessId()
 
   useEffect(() => {
     if (!loading && businessId) {
@@ -69,7 +69,7 @@ function DashboardRedirect() {
               : 'Something went wrong while loading your business. Please try again.'}
           </p>
           <div className="flex flex-col gap-2">
-            <Button className="w-full" onClick={refetch}>
+            <Button className="w-full" onClick={() => window.location.reload()}>
               Retry
             </Button>
             {error === 'UNAUTHENTICATED' && (

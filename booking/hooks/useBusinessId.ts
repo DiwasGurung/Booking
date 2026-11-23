@@ -1,98 +1,51 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useAuth } from '@/context/authContext'
 
-export type BusinessIdError = 'UNAUTHENTICATED' | 'NO_BUSINESS' | 'FETCH_FAILED' | null
+export type BusinessIdError = 'UNAUTHENTICATED' | 'NO_BUSINESS' | null
 
-interface State {
+interface BusinessIdState {
   businessId: string | null
   loading: boolean
   error: BusinessIdError
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? ''
-const MAX_ATTEMPTS = 3
-const RETRY_DELAY_MS = 400
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
 /**
- * Resolves the current user's businessId.
+ * Resolves the current user's businessId from the auth context.
  *
- * Key behaviours:
- *  - `loading` starts as TRUE, so there is never a render with
- *    loading=false + businessId=null before the first fetch finishes
- *    (that was what flashed the "Set up business" card).
- *  - Only a real "user has no business" result yields NO_BUSINESS.
- *    Network errors / 401 right after login are retried and reported
- *    as FETCH_FAILED, never as "no business".
- *  - Cancels on unmount so a stale response can't overwrite state.
+ * The state is DERIVED from the auth context instead of copied into local
+ * state with useEffect. That removes the extra render where loading was
+ * false and businessId was still null.
  *
- * ADAPT: replace the fetch below with your own API client call if you
- * have one (e.g. authApi.getCurrentUser()). It must return an object
- * with an optional `businessId`.
+ * Fix for the setup-screen flash: while the auth context is still loading,
+ * `user` is null. The old hook treated that as "not authenticated" and
+ * stopped loading. Now we stay in `loading` until auth has finished.
+ *
+ * ADAPT: this assumes useAuth() exposes a loading flag named `loading`.
+ * If yours is called `isLoading` / `authLoading` / `initializing`, rename it below.
  */
-export function useBusinessId(): State & { refetch: () => void } {
-  const [state, setState] = useState<State>({
-    businessId: null,
-    loading: true,
-    error: null,
-  })
-  const [nonce, setNonce] = useState(0)
+export const useBusinessId = (): BusinessIdState => {
+  const { user, loading: authLoading } = useAuth() as {
+    user: { business?: { id?: string }; businessId?: string } | null
+    loading?: boolean
+  }
 
-  useEffect(() => {
-    let cancelled = false
+  // Auth still resolving: do not decide anything yet
+  if (authLoading) {
+    return { businessId: null, loading: true, error: null }
+  }
 
-    async function resolve() {
-      setState((s) => ({ ...s, loading: true, error: null }))
+  // Auth finished and there is no user
+  if (!user) {
+    return { businessId: null, loading: false, error: 'UNAUTHENTICATED' }
+  }
 
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        try {
-          const res = await fetch(`${API_URL}/auth/me`, {
-            credentials: 'include', // send the authToken cookie
-            headers: { 'Content-Type': 'application/json' },
-          })
+  // Support both shapes: user.business.id (context) and user.businessId (/auth/me)
+  const id = user.business?.id ?? user.businessId ?? null
 
-          if (cancelled) return
+  if (!id) {
+    return { businessId: null, loading: false, error: 'NO_BUSINESS' }
+  }
 
-          if (res.status === 401) {
-            // Cookie may not be attached yet right after login: retry first
-            if (attempt < MAX_ATTEMPTS) {
-              await sleep(RETRY_DELAY_MS * attempt)
-              continue
-            }
-            setState({ businessId: null, loading: false, error: 'UNAUTHENTICATED' })
-            return
-          }
-
-          if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-          const user = await res.json()
-          if (cancelled) return
-
-          if (user?.businessId) {
-            setState({ businessId: user.businessId, loading: false, error: null })
-          } else {
-            // Authenticated, request succeeded, and user truly has no business
-            setState({ businessId: null, loading: false, error: 'NO_BUSINESS' })
-          }
-          return
-        } catch {
-          if (cancelled) return
-          if (attempt < MAX_ATTEMPTS) {
-            await sleep(RETRY_DELAY_MS * attempt)
-            continue
-          }
-          setState({ businessId: null, loading: false, error: 'FETCH_FAILED' })
-        }
-      }
-    }
-
-    resolve()
-    return () => {
-      cancelled = true
-    }
-  }, [nonce])
-
-  return { ...state, refetch: () => setNonce((n) => n + 1) }
+  return { businessId: id, loading: false, error: null }
 }
