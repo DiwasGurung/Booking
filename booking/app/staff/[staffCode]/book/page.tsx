@@ -182,74 +182,73 @@ function ErrorAlert({ message, innerRef }: { message: string; innerRef?: RefObje
     </div>
   )
 }
-
 function StaffHeader({ staff }: { staff: any }) {
+  const [imgFailed, setImgFailed] = useState(false)
+
   const fullName = `${staff.firstName ?? ''} ${staff.lastName ?? ''}`.trim()
   const branch = staff.branch
   const showBranchName = branch?.name && branch.name !== staff.businessName
+  const hasAvatar = typeof staff.avatar === 'string' && staff.avatar && !imgFailed
 
   const chip =
-    'inline-flex max-w-full items-center gap-1.5 rounded-full bg-secondary/60 px-3 py-1.5 text-xs sm:text-sm text-muted-foreground'
+    'inline-flex max-w-full items-center gap-1.5 rounded-full bg-secondary/60 px-3 py-1.5 text-xs text-muted-foreground sm:text-sm'
 
   return (
-    <>
-      {/* Cover: same fixed-ratio banner as the business page */}
-      <div className="relative aspect-[2.2/1] w-full overflow-hidden bg-gradient-to-br from-primary/20 to-secondary sm:aspect-[3/1]" />
-
-      <div className="px-5 pb-6 sm:px-8">
-        {/* z-10 + relative keeps the avatar ABOVE the cover */}
-        <div className="relative z-10 -mt-10 flex flex-col gap-3 sm:-mt-12 sm:flex-row sm:items-end sm:gap-5">
-          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-card shadow-md ring-4 ring-card sm:h-24 sm:w-24">
-            {typeof staff.avatar === 'string' && staff.avatar ? (
-              <img src={staff.avatar} alt={fullName} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-primary/10">
-                <span className="text-xl font-semibold text-primary">{getInitials(fullName)}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="min-w-0 sm:pb-2">
-            <h1 className="break-words text-xl font-bold leading-tight text-foreground sm:text-2xl md:text-3xl">
-              {fullName || 'Book your appointment'}
-            </h1>
-            {(staff.role || staff.businessName) && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {[staff.role, staff.businessName].filter(Boolean).join(' at ')}
-              </p>
-            )}
-          </div>
+    <div className="bg-gradient-to-b from-primary/5 to-transparent px-5 py-8 sm:px-8 sm:py-10">
+      <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
+        <div className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-card shadow-md ring-4 ring-card sm:h-28 sm:w-28">
+          {hasAvatar ? (
+            <img
+              src={staff.avatar}
+              alt={fullName}
+              onError={() => setImgFailed(true)}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-primary/10">
+              <span className="text-2xl font-semibold text-primary">{getInitials(fullName)}</span>
+            </div>
+          )}
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {staff.email && (
-            <a href={`mailto:${staff.email}`} className={`${chip} hover:text-foreground`}>
-              <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span className="truncate">{staff.email}</span>
-            </a>
+        <div className="min-w-0 flex-1">
+          <h1 className="break-words text-2xl font-bold leading-tight text-foreground md:text-3xl">
+            {fullName || 'Book your appointment'}
+          </h1>
+          {(staff.role || staff.businessName) && (
+            <p className="mt-1 text-sm text-muted-foreground sm:text-base">
+              {[staff.role, staff.businessName].filter(Boolean).join(' at ')}
+            </p>
           )}
-          {staff.phone && (
-            <a href={`tel:${staff.phone}`} className={`${chip} hover:text-foreground`}>
-              <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              {staff.phone}
-            </a>
-          )}
-          {branch?.address && (
-            <span className={chip}>
-              <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              <span className="truncate">
-                {showBranchName ? `${branch.name}, ` : ''}
-                {branch.address}
+
+          <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
+            {staff.email && (
+              <a href={`mailto:${staff.email}`} className={`${chip} hover:text-foreground`}>
+                <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">{staff.email}</span>
+              </a>
+            )}
+            {staff.phone && (
+              <a href={`tel:${staff.phone}`} className={`${chip} hover:text-foreground`}>
+                <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                {staff.phone}
+              </a>
+            )}
+            {branch?.address && (
+              <span className={chip}>
+                <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">
+                  {showBranchName ? `${branch.name}, ` : ''}
+                  {branch.address}
+                </span>
               </span>
-            </span>
-          )}
+            )}
+          </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
-
-/* -------------------------------- page --------------------------------- */
 
 export default function StaffBookPage() {
   const params = useParams()
