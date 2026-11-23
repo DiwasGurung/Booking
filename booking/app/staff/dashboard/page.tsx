@@ -11,13 +11,14 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { StaffSidebar } from '@/components/StaffSidebar'
+import { AvatarUploader } from '@/components/AvatarUploader' // NEW
 
 interface Staff {
   id: string
   email: string
   firstName: string
   lastName: string
-  avatar?: string
+  avatar?: string | null // CHANGED
   role: string
   businessId: string
   staffCode: string
@@ -334,8 +335,21 @@ export default function StaffDashboard() {
         <Card id="profile" className="mb-8 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
           <CardHeader>
             <CardTitle>Your Profile</CardTitle>
+            <CardDescription>This photo appears on your public booking page.</CardDescription> {/* NEW */}
           </CardHeader>
           <CardContent>
+            {/* NEW: photo uploader */}
+            <div className="mb-6 border-b border-primary/10 pb-6">
+              <AvatarUploader
+                staffId={staff.id}
+                name={`${staff.firstName} ${staff.lastName}`}
+                avatar={staff.avatar}
+                onChange={(avatar) =>
+                  setStaff((s) => (s ? { ...s, avatar } : s))
+                }
+              />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
