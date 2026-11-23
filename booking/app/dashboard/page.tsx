@@ -44,7 +44,7 @@ function DashboardRedirect() {
             <p className="text-muted-foreground mb-6">
               To access your dashboard, you first need to set up your business profile.
             </p>
-            <Link href="/business/setup" className="block">
+            <Link href="/business/setup-business" className="block">
               <Button className="w-full" size="lg">
                 Set Up Business Profile
                 <ArrowRight className="w-4 h-4 ml-2" />
