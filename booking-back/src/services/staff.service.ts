@@ -2,6 +2,7 @@ import  prisma  from "../lib/prisma"
 import { staffVerificationService } from "./staff-verification.service"
 import  SubscriptionService  from "./subscription.service"
 import { resolveBranchId, getBranchDisplay } from "../lib/branch" 
+import { normalizeDataUrlImage } from "../utils/image"
 
 export interface WorkingHours {
   [day: string]: {
@@ -192,6 +193,10 @@ if (branchId) {
   const existing = await prisma.staff.findUnique({ where: { id }, select: { businessId: true } })
   if (!existing) throw new Error("Staff not found")
   resolvedBranchId = await resolveBranchId(existing.businessId, branchId)
+}
+// staff.service.ts, inside updateStaff, before prisma.staff.update
+if (typeof staffData.avatar === "string" && staffData.avatar.startsWith("data:")) {
+  staffData.avatar = await normalizeDataUrlImage(staffData.avatar, "avatar")
 }
 
 await prisma.staff.update({

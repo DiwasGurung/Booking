@@ -3,11 +3,51 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getStaffBookingsByDate = exports.addTimeOff = exports.getTimeOff = exports.getStaffAuthenticatedBookings = exports.getStaffBookings = exports.updateBookingStatus = exports.getStaffByCode = exports.getStaffStats = exports.getStaffAvailability = exports.toggleStaffStatus = exports.deleteStaff = exports.updateStaff = exports.getStaffPerformance = exports.getStaffForService = exports.getBusinessStaff = exports.getStaffById = exports.createStaff = void 0;
+exports.getStaffBookingsByDate = exports.addTimeOff = exports.getTimeOff = exports.getStaffAuthenticatedBookings = exports.getStaffBookings = exports.updateBookingStatus = exports.getStaffByCode = exports.getStaffStats = exports.getStaffAvailability = exports.toggleStaffStatus = exports.deleteStaff = exports.updateStaff = exports.getStaffPerformance = exports.getStaffForService = exports.getBusinessStaff = exports.getStaffById = exports.createStaff = exports.updateStaffAvatar = void 0;
 const staff_service_1 = __importDefault(require("../services/staff.service"));
 const index_1 = require("../validators/index");
 const subscription_service_1 = __importDefault(require("../services/subscription.service"));
 const prisma_1 = __importDefault(require("../lib/prisma"));
+// staff.controller.ts
+const image_1 = require("../utils/image");
+/**
+ * Staff member updates (or removes) their own profile photo
+ */
+const updateStaffAvatar = async (req, res) => {
+    try {
+        const id = req.params.id;
+        if (!req.staffId || req.staffId !== id) {
+            return res.status(403).json({ error: "You can only change your own photo" });
+        }
+        const { avatar } = req.body;
+        let value;
+        if (avatar === null) {
+            value = null; // remove photo
+        }
+        else if (typeof avatar === "string") {
+            try {
+                value = await (0, image_1.normalizeDataUrlImage)(avatar, "avatar");
+            }
+            catch (e) {
+                return res.status(400).json({ error: e.message || "Invalid image" });
+            }
+        }
+        else {
+            return res.status(400).json({ error: "avatar must be an image data URL or null" });
+        }
+        const updated = await prisma_1.default.staff.update({
+            where: { id },
+            data: { avatar: value },
+            select: { id: true, avatar: true },
+        });
+        res.json({ success: true, avatar: updated.avatar });
+    }
+    catch (error) {
+        console.error("[Staff Controller] Update avatar error:", error.message);
+        res.status(500).json({ error: "Failed to update photo" });
+    }
+};
+exports.updateStaffAvatar = updateStaffAvatar;
 /**
  * Create a new staff member
  */

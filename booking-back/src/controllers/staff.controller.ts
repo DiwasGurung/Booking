@@ -3,6 +3,46 @@ import staffService from "../services/staff.service"
 import { CreateStaffSchema, StaffParamsSchema, BusinessIdParamsSchema, parseAndValidate, UpdateStaffSchema } from "../validators/index"
 import SubscriptionService from "../services/subscription.service"
 import  prisma  from "../lib/prisma"
+// staff.controller.ts
+import { normalizeDataUrlImage } from "../utils/image"
+
+/**
+ * Staff member updates (or removes) their own profile photo
+ */
+export const updateStaffAvatar = async (req: any, res: Response) => {
+  try {
+    const id = req.params.id as string
+    if (!req.staffId || req.staffId !== id) {
+      return res.status(403).json({ error: "You can only change your own photo" })
+    }
+
+    const { avatar } = req.body
+    let value: string | null
+
+    if (avatar === null) {
+      value = null // remove photo
+    } else if (typeof avatar === "string") {
+      try {
+        value = await normalizeDataUrlImage(avatar, "avatar")
+      } catch (e: any) {
+        return res.status(400).json({ error: e.message || "Invalid image" })
+      }
+    } else {
+      return res.status(400).json({ error: "avatar must be an image data URL or null" })
+    }
+
+    const updated = await prisma.staff.update({
+      where: { id },
+      data: { avatar: value },
+      select: { id: true, avatar: true },
+    })
+
+    res.json({ success: true, avatar: updated.avatar })
+  } catch (error: any) {
+    console.error("[Staff Controller] Update avatar error:", error.message)
+    res.status(500).json({ error: "Failed to update photo" })
+  }
+}
 
 interface AuthRequest extends Request {
   user?: { id: string }

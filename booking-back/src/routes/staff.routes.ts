@@ -16,10 +16,15 @@ import {
   getTimeOff,
   getStaffBookingsByDate,
   getStaffPerformance,
-  updateBookingStatus
+  updateBookingStatus,
+  updateStaffAvatar
 } from "../controllers/staff.controller"
 
 const router = Router()
+
+
+// staff.routes.ts
+router.patch("/:id/avatar", auth, updateStaffAvatar) // use your staff-auth middleware that sets req.staffId
 
 /**
  * @route POST /api/staff

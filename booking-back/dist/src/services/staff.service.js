@@ -8,6 +8,7 @@ const prisma_1 = __importDefault(require("../lib/prisma"));
 const staff_verification_service_1 = require("./staff-verification.service");
 const subscription_service_1 = __importDefault(require("./subscription.service"));
 const branch_1 = require("../lib/branch");
+const image_1 = require("../utils/image");
 class StaffService {
     /**
      * Create a new staff member
@@ -134,6 +135,10 @@ class StaffService {
             if (!existing)
                 throw new Error("Staff not found");
             resolvedBranchId = await (0, branch_1.resolveBranchId)(existing.businessId, branchId);
+        }
+        // staff.service.ts, inside updateStaff, before prisma.staff.update
+        if (typeof staffData.avatar === "string" && staffData.avatar.startsWith("data:")) {
+            staffData.avatar = await (0, image_1.normalizeDataUrlImage)(staffData.avatar, "avatar");
         }
         await prisma_1.default.staff.update({
             where: { id },

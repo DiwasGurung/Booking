@@ -12,6 +12,7 @@ interface StaffSidebarProps {
     lastName: string
     email: string
     role: string
+    avatar?: string | null
   }
   staffCode: string
   onLogout: () => void
@@ -20,10 +21,16 @@ interface StaffSidebarProps {
 export function StaffSidebar({ staff, staffCode, onLogout }: StaffSidebarProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const [imgFailed, setImgFailed] = useState(false)
 
   useEffect(() => {
     setOpen(false)
   }, [pathname])
+
+  // A new photo should get a fresh chance to load
+  useEffect(() => {
+    setImgFailed(false)
+  }, [staff.avatar])
 
   const items = [
     { label: 'Dashboard', href: '/staff/dashboard', icon: LayoutDashboard },
@@ -40,6 +47,8 @@ export function StaffSidebar({ staff, staffCode, onLogout }: StaffSidebarProps) 
     // Dashboard is exact-match only; nested staff pages must not activate it.
     return path === '/staff/dashboard' ? pathname === path : pathname === path || pathname.startsWith(`${path}/`)
   }
+
+  const hasPhoto = !!staff.avatar && !imgFailed
 
   return (
     <>
@@ -98,8 +107,20 @@ export function StaffSidebar({ staff, staffCode, onLogout }: StaffSidebarProps) 
 
         <div className="border-t border-border p-4">
           <div className="mb-3 flex items-center gap-3 rounded-xl bg-muted/60 p-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
-              {staff.firstName.charAt(0)}{staff.lastName.charAt(0)}
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/15 text-sm font-semibold text-primary">
+              {hasPhoto ? (
+                <img
+                  src={staff.avatar!}
+                  alt=""
+                  onError={() => setImgFailed(true)}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <>
+                  {staff.firstName.charAt(0)}
+                  {staff.lastName.charAt(0)}
+                </>
+              )}
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{staff.firstName} {staff.lastName}</p>

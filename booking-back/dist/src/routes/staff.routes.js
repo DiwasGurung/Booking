@@ -4,6 +4,8 @@ const express_1 = require("express");
 const auth_middleware_1 = require("../middleware/auth.middleware");
 const staff_controller_1 = require("../controllers/staff.controller");
 const router = (0, express_1.Router)();
+// staff.routes.ts
+router.patch("/:id/avatar", auth_middleware_1.auth, staff_controller_1.updateStaffAvatar); // use your staff-auth middleware that sets req.staffId
 /**
  * @route POST /api/staff
  * @desc Create a new staff member
